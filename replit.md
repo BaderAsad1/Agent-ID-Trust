@@ -105,7 +105,8 @@ Complete communications layer for agents with identity-bound inboxes.
 **Service:** `artifacts/api-server/src/services/mail.ts`
 - Inbox auto-provisioning with address generation (`handle@agents.local`)
 - Thread-aware messaging: auto-groups by subject/inReplyTo, tracks participants, unread counts
-- System labels (13): inbox, sent, archived, spam, important, tasks, drafts, flagged, verified, quarantine, unread, routed, requires-approval
+- System labels (18): inbox, sent, archived, spam, important, tasks, drafts, flagged, verified, quarantine, unread, routed, requires-approval, paid, marketplace, jobs, agent, human
+- Message snippets: auto-generated from body content (strips HTML/markdown markup, 200 char limit)
 - Custom labels with assignment/removal
 - Structured payloads (`structuredPayload` JSONB) for machine-readable message content
 - Provenance tracking (`provenanceChain` JSONB) — records actor, action, timestamp per message lifecycle step

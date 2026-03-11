@@ -135,6 +135,7 @@ export const agentMessagesTable = pgTable(
     recipientAddress: varchar("recipient_address", { length: 255 }),
     subject: varchar("subject", { length: 500 }),
     body: text("body").notNull(),
+    snippet: varchar("snippet", { length: 300 }),
     bodyFormat: varchar("body_format", { length: 20 }).default("text").notNull(),
     structuredPayload: jsonb("structured_payload").$type<Record<string, unknown>>(),
     isRead: boolean("is_read").default(false).notNull(),

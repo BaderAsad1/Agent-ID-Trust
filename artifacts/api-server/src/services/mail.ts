@@ -28,6 +28,20 @@ import { enqueueWebhookDelivery, isWebhookQueueAvailable } from "../workers/webh
 
 const MAIL_BASE_DOMAIN = process.env.MAIL_BASE_DOMAIN || "agents.local";
 
+function generateSnippet(body: string, bodyFormat: string, maxLen = 200): string {
+  let text = body;
+  if (bodyFormat === "html") {
+    text = text.replace(/<[^>]+>/g, " ").replace(/&[a-z]+;/gi, " ");
+  } else if (bodyFormat === "markdown") {
+    text = text.replace(/[#*_~`>\[\]()!|]/g, "");
+  }
+  text = text.replace(/\s+/g, " ").trim();
+  if (text.length > maxLen) {
+    text = text.slice(0, maxLen - 3) + "...";
+  }
+  return text;
+}
+
 const SYSTEM_LABELS = [
   "inbox", "sent", "archived", "spam", "important", "tasks",
   "drafts", "flagged", "verified", "quarantine",
@@ -300,6 +314,7 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
       recipientAddress: input.recipientAddress || (input.direction === "inbound" ? inbox.address : undefined),
       subject: input.subject || thread.subject,
       body: input.body,
+      snippet: generateSnippet(input.body, input.bodyFormat || "text"),
       bodyFormat: input.bodyFormat || "text",
       structuredPayload: input.structuredPayload,
       isRead: input.direction === "outbound",
@@ -737,28 +752,67 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
     }
     case "forward": {
       const targetAddress = action.params?.to as string;
-      if (!targetAddress) break;
-      const targetInbox = await db.query.agentInboxesTable.findFirst({
-        where: eq(agentInboxesTable.address, targetAddress),
-      });
-      if (targetInbox) {
-        await sendMessage({
-          agentId: targetInbox.agentId,
-          direction: "inbound",
-          senderType: message.senderType as "agent" | "user" | "system" | "external",
-          senderAgentId: message.senderAgentId || undefined,
-          senderUserId: message.senderUserId || undefined,
-          senderAddress: message.senderAddress || undefined,
-          subject: message.subject ? `Fwd: ${message.subject}` : undefined,
-          body: message.body,
-          bodyFormat: message.bodyFormat,
-          metadata: { forwardedFrom: message.id, originalInbox: message.inboxId },
-        });
+      const targetEndpoint = action.params?.endpoint as string;
+      if (!targetAddress && !targetEndpoint) break;
+
+      let delivered = false;
+
+      if (targetEndpoint) {
+        try {
+          const forwardPayload = {
+            messageId: message.id,
+            threadId: message.threadId,
+            subject: message.subject,
+            body: message.body,
+            bodyFormat: message.bodyFormat,
+            senderAddress: message.senderAddress,
+            senderType: message.senderType,
+            priority: message.priority,
+            structuredPayload: message.structuredPayload,
+            forwardedFrom: message.inboxId,
+            timestamp: new Date().toISOString(),
+          };
+          const resp = await fetch(targetEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(forwardPayload),
+            signal: AbortSignal.timeout(10000),
+          });
+          delivered = resp.ok;
+        } catch {
+          delivered = false;
+        }
       }
+
+      if (targetAddress) {
+        const targetInbox = await db.query.agentInboxesTable.findFirst({
+          where: eq(agentInboxesTable.address, targetAddress),
+        });
+        if (targetInbox) {
+          await sendMessage({
+            agentId: targetInbox.agentId,
+            direction: "inbound",
+            senderType: message.senderType as "agent" | "user" | "system" | "external",
+            senderAgentId: message.senderAgentId || undefined,
+            senderUserId: message.senderUserId || undefined,
+            senderAddress: message.senderAddress || undefined,
+            subject: message.subject ? `Fwd: ${message.subject}` : undefined,
+            body: message.body,
+            bodyFormat: message.bodyFormat,
+            metadata: { forwardedFrom: message.id, originalInbox: message.inboxId },
+          });
+          delivered = true;
+        }
+      }
+
       await db.insert(messageEventsTable).values({
         messageId: message.id,
         eventType: "message.forwarded",
-        payload: { to: targetAddress, targetInboxFound: !!targetInbox },
+        payload: {
+          to: targetAddress || null,
+          endpoint: targetEndpoint || null,
+          delivered,
+        },
       });
       break;
     }
