@@ -1,5 +1,6 @@
 import app from "./app";
 import { startDomainWorker, closeDomainWorker } from "./workers/domain-provisioning";
+import { initWebhookDeliveryWorker, closeWebhookWorker } from "./workers/webhook-delivery";
 import { closeRedis } from "./lib/redis";
 import { expireJobs } from "./services/jobs";
 
@@ -18,6 +19,7 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 startDomainWorker();
+initWebhookDeliveryWorker();
 
 const JOB_EXPIRY_INTERVAL_MS = 60 * 1000;
 let jobExpiryTimer: ReturnType<typeof setInterval> | null = null;
@@ -46,6 +48,7 @@ async function gracefulShutdown(signal: string) {
   if (jobExpiryTimer) clearInterval(jobExpiryTimer);
   server.close();
   await closeDomainWorker();
+  await closeWebhookWorker();
   await closeRedis();
   process.exit(0);
 }

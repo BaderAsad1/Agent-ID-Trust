@@ -81,7 +81,15 @@ export async function createAgent(input: CreateAgentInput): Promise<Agent> {
     throw new Error("HANDLE_CONFLICT");
   }
 
-  return result[0];
+  const agent = result[0];
+
+  try {
+    const { provisionInboxForAgent } = await import("./mail");
+    await provisionInboxForAgent(agent.id);
+  } catch {
+  }
+
+  return agent;
 }
 
 export async function getAgentById(agentId: string): Promise<Agent | null> {

@@ -38,7 +38,8 @@ export class InternalTransportProvider implements TransportProvider {
   }
 
   canDeliver(address: string): boolean {
-    return address.endsWith("@agents.local");
+    const baseDomain = process.env.MAIL_BASE_DOMAIN || "agents.local";
+    return address.endsWith(`@${baseDomain}`);
   }
 }
 

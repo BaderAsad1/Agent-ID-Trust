@@ -105,7 +105,7 @@ Complete communications layer for agents with identity-bound inboxes.
 **Service:** `artifacts/api-server/src/services/mail.ts`
 - Inbox auto-provisioning with address generation (`handle@agents.local`)
 - Thread-aware messaging: auto-groups by subject/inReplyTo, tracks participants, unread counts
-- System labels (10): inbox, sent, archived, spam, important, tasks, drafts, flagged, verified, quarantine
+- System labels (13): inbox, sent, archived, spam, important, tasks, drafts, flagged, verified, quarantine, unread, routed, requires-approval
 - Custom labels with assignment/removal
 - Structured payloads (`structuredPayload` JSONB) for machine-readable message content
 - Provenance tracking (`provenanceChain` JSONB) — records actor, action, timestamp per message lifecycle step
@@ -115,8 +115,10 @@ Complete communications layer for agents with identity-bound inboxes.
 - Message→task conversion with bidirectional linkage (`convertedTaskId` on message, `originatingMessageId` on task)
 - Thread reply helper (`replyToThread`) — auto-resolves last inbound message, sets proper subject
 - Message reject/approve lifecycle — reject sends bounce notification, approve removes quarantine label
-- Webhook delivery with exponential backoff retry (3 attempts, 0/1s/3s delays)
+- Webhook delivery: BullMQ worker-backed queue when Redis available, in-process fallback with exponential backoff retry (3 attempts)
 - Webhook HMAC signing (`X-Webhook-Signature: sha256=...`, `X-Webhook-Timestamp`)
+- Inbox auto-provisioned on agent creation (`provisionInboxForAgent`)
+- Configurable base domain via `MAIL_BASE_DOMAIN` env var (default: `agents.local`)
 
 **Transport:** `artifacts/api-server/src/services/mail-transport.ts`
 - Provider adapter interface with `canDeliver()` / `send()` methods

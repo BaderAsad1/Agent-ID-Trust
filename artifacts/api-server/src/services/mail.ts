@@ -24,8 +24,15 @@ import {
   type ProvenanceEntry,
 } from "@workspace/db/schema";
 import { signWebhookPayload, deliverOutbound, recordOutboundDeliveryResult } from "./mail-transport";
+import { enqueueWebhookDelivery, isWebhookQueueAvailable } from "../workers/webhook-delivery";
 
-const SYSTEM_LABELS = ["inbox", "sent", "archived", "spam", "important", "tasks", "drafts", "flagged", "verified", "quarantine"];
+const MAIL_BASE_DOMAIN = process.env.MAIL_BASE_DOMAIN || "agents.local";
+
+const SYSTEM_LABELS = [
+  "inbox", "sent", "archived", "spam", "important", "tasks",
+  "drafts", "flagged", "verified", "quarantine",
+  "unread", "routed", "requires-approval",
+];
 
 export async function ensureSystemLabels(agentId: string): Promise<void> {
   for (const name of SYSTEM_LABELS) {
@@ -47,7 +54,7 @@ export async function getOrCreateInbox(agentId: string): Promise<AgentInbox> {
     columns: { handle: true },
   });
 
-  const address = agent ? `${agent.handle}@agents.local` : `${agentId}@agents.local`;
+  const address = agent ? `${agent.handle}@${MAIL_BASE_DOMAIN}` : `${agentId}@${MAIL_BASE_DOMAIN}`;
 
   const [inbox] = await db
     .insert(agentInboxesTable)
@@ -68,6 +75,12 @@ export async function getOrCreateInbox(agentId: string): Promise<AgentInbox> {
     return found;
   }
 
+  await ensureSystemLabels(agentId);
+  return inbox;
+}
+
+export async function provisionInboxForAgent(agentId: string): Promise<AgentInbox> {
+  const inbox = await getOrCreateInbox(agentId);
   await ensureSystemLabels(agentId);
   return inbox;
 }
@@ -959,93 +972,115 @@ async function emitWebhookEvent(
     ),
   });
 
-  const MAX_RETRIES = 3;
-  const RETRY_DELAYS = [0, 1000, 3000];
+  const useQueue = isWebhookQueueAvailable();
 
   for (const wh of webhooks) {
     const events = (wh.events as string[]) || [];
     if (events.length > 0 && !events.includes(eventType)) continue;
 
-    const timestamp = new Date().toISOString();
-    const webhookPayload = { event: eventType, payload, timestamp };
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-
-    if (wh.secret) {
-      const signature = signWebhookPayload(webhookPayload as unknown as Record<string, unknown>, wh.secret);
-      headers["X-Webhook-Signature"] = `sha256=${signature}`;
-      headers["X-Webhook-Timestamp"] = timestamp;
-    }
-
-    let delivered = false;
-    let lastError: string | undefined;
-    let lastStatusCode: number | undefined;
-
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      if (attempt > 0) {
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt]));
-      }
-
-      try {
-        const response = await fetch(wh.url, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(webhookPayload),
-          signal: AbortSignal.timeout(10000),
-        });
-
-        lastStatusCode = response.status;
-
-        if (response.ok) {
-          delivered = true;
-          await db
-            .update(inboxWebhooksTable)
-            .set({
-              lastDeliveredAt: new Date(),
-              failureCount: 0,
-              updatedAt: new Date(),
-            })
-            .where(eq(inboxWebhooksTable.id, wh.id));
-
-          await db.insert(messageEventsTable).values({
-            messageId: payload.messageId as string,
-            eventType: "webhook.delivered",
-            payload: {
-              webhookId: wh.id,
-              url: wh.url,
-              statusCode: response.status,
-              attempt: attempt + 1,
-            },
-          });
-          break;
-        }
-
-        lastError = `HTTP ${response.status}`;
-      } catch (err) {
-        lastError = err instanceof Error ? err.message : "Unknown error";
-      }
-    }
-
-    if (!delivered) {
-      await db
-        .update(inboxWebhooksTable)
-        .set({
-          failureCount: sql`${inboxWebhooksTable.failureCount} + 1`,
-          updatedAt: new Date(),
-        })
-        .where(eq(inboxWebhooksTable.id, wh.id));
-
-      await db.insert(messageEventsTable).values({
+    if (useQueue) {
+      await enqueueWebhookDelivery({
+        webhookId: wh.id,
+        webhookUrl: wh.url,
+        webhookSecret: wh.secret,
+        eventType,
+        payload,
         messageId: payload.messageId as string,
-        eventType: "webhook.failed",
-        payload: {
-          webhookId: wh.id,
-          url: wh.url,
-          error: lastError,
-          statusCode: lastStatusCode,
-          totalAttempts: MAX_RETRIES,
-        },
       });
+      continue;
     }
+
+    await deliverWebhookInProcess(wh, eventType, payload);
+  }
+}
+
+async function deliverWebhookInProcess(
+  wh: InboxWebhook,
+  eventType: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAYS = [0, 1000, 3000];
+
+  const timestamp = new Date().toISOString();
+  const webhookPayload = { event: eventType, payload, timestamp };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+  if (wh.secret) {
+    const signature = signWebhookPayload(webhookPayload as unknown as Record<string, unknown>, wh.secret);
+    headers["X-Webhook-Signature"] = `sha256=${signature}`;
+    headers["X-Webhook-Timestamp"] = timestamp;
+  }
+
+  let delivered = false;
+  let lastError: string | undefined;
+  let lastStatusCode: number | undefined;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt]));
+    }
+
+    try {
+      const response = await fetch(wh.url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(webhookPayload),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      lastStatusCode = response.status;
+
+      if (response.ok) {
+        delivered = true;
+        await db
+          .update(inboxWebhooksTable)
+          .set({
+            lastDeliveredAt: new Date(),
+            failureCount: 0,
+            updatedAt: new Date(),
+          })
+          .where(eq(inboxWebhooksTable.id, wh.id));
+
+        await db.insert(messageEventsTable).values({
+          messageId: payload.messageId as string,
+          eventType: "webhook.delivered",
+          payload: {
+            webhookId: wh.id,
+            url: wh.url,
+            statusCode: response.status,
+            attempt: attempt + 1,
+          },
+        });
+        break;
+      }
+
+      lastError = `HTTP ${response.status}`;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Unknown error";
+    }
+  }
+
+  if (!delivered) {
+    await db
+      .update(inboxWebhooksTable)
+      .set({
+        failureCount: sql`${inboxWebhooksTable.failureCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(inboxWebhooksTable.id, wh.id));
+
+    await db.insert(messageEventsTable).values({
+      messageId: payload.messageId as string,
+      eventType: "webhook.failed",
+      payload: {
+        webhookId: wh.id,
+        url: wh.url,
+        error: lastError,
+        statusCode: lastStatusCode,
+        totalAttempts: MAX_RETRIES,
+      },
+    });
   }
 }
 
