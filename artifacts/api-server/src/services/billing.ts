@@ -231,21 +231,6 @@ export async function createCheckoutSession(
   const priceAmount = prices[billingInterval];
   if (!priceAmount) return { url: null, error: "INVALID_INTERVAL" };
 
-  const existingSub = await getActiveUserSubscription(userId);
-  if (existingSub && existingSub.providerSubscriptionId) {
-    try {
-      await stripe.subscriptions.cancel(existingSub.providerSubscriptionId, {
-        prorate: true,
-      });
-    } catch {
-    }
-
-    await db
-      .update(subscriptionsTable)
-      .set({ status: "cancelled", updatedAt: new Date() })
-      .where(eq(subscriptionsTable.id, existingSub.id));
-  }
-
   const user = await db.query.usersTable.findFirst({
     where: eq(usersTable.id, userId),
     columns: { id: true, stripeCustomerId: true, email: true, displayName: true },
@@ -448,6 +433,15 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
     .limit(1);
 
   if (existingSub.length > 0) {
+    const oldSubId = existingSub[0].providerSubscriptionId;
+    if (oldSubId && oldSubId !== subscriptionId) {
+      try {
+        const stripe = getStripe();
+        await stripe.subscriptions.cancel(oldSubId, { prorate: true });
+      } catch {
+      }
+    }
+
     await db
       .update(subscriptionsTable)
       .set({
@@ -601,33 +595,36 @@ export async function handleSubscriptionDeleted(subscription: Stripe.Subscriptio
     .where(eq(subscriptionsTable.providerSubscriptionId, subscriptionId))
     .returning();
 
-  if (sub?.userId) {
+  if (!sub?.userId) return;
+
+  const currentActiveSub = await getActiveUserSubscription(sub.userId);
+  if (currentActiveSub) return;
+
+  await db
+    .update(usersTable)
+    .set({ plan: "free", updatedAt: new Date() })
+    .where(eq(usersTable.id, sub.userId));
+
+  await db
+    .update(agentSubscriptionsTable)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(
+      and(
+        eq(agentSubscriptionsTable.userId, sub.userId),
+        eq(agentSubscriptionsTable.status, "active"),
+      ),
+    );
+
+  const agentSubs = await db
+    .select({ agentId: agentSubscriptionsTable.agentId })
+    .from(agentSubscriptionsTable)
+    .where(eq(agentSubscriptionsTable.userId, sub.userId));
+
+  for (const agentSub of agentSubs) {
     await db
-      .update(usersTable)
-      .set({ plan: "free", updatedAt: new Date() })
-      .where(eq(usersTable.id, sub.userId));
-
-    await db
-      .update(agentSubscriptionsTable)
-      .set({ status: "cancelled", updatedAt: new Date() })
-      .where(
-        and(
-          eq(agentSubscriptionsTable.userId, sub.userId),
-          eq(agentSubscriptionsTable.status, "active"),
-        ),
-      );
-
-    const agentSubs = await db
-      .select({ agentId: agentSubscriptionsTable.agentId })
-      .from(agentSubscriptionsTable)
-      .where(eq(agentSubscriptionsTable.userId, sub.userId));
-
-    for (const agentSub of agentSubs) {
-      await db
-        .update(agentsTable)
-        .set({ status: "inactive", isPublic: false, updatedAt: new Date() })
-        .where(eq(agentsTable.id, agentSub.agentId));
-    }
+      .update(agentsTable)
+      .set({ status: "inactive", isPublic: false, updatedAt: new Date() })
+      .where(eq(agentsTable.id, agentSub.agentId));
   }
 }
 
