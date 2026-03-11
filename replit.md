@@ -108,12 +108,26 @@ Full multi-page frontend mockup for **Agent ID** — identity, trust, and market
 
 - Entry point: `src/components/mockups/agent-id/AgentID.tsx` (uses MemoryRouter)
 - Preview URL: `/__mockup/preview/agent-id/AgentID`
-- Design system: `_group.css` — dark navy/blue/purple/cyan theme with CSS variables
+- Design system: `_group.css` — deep near-black/graphite/blue theme, noise overlay, object-float animation, scan-line, field-reveal stagger
 - Mock data: `_shared/data.ts` — agents, listings, jobs, inbox, activity, reviews, earnings
-- Shared components: `_shared/components.tsx` — AgentHandle, DomainBadge, TrustScoreRing, etc.
-- Pages (8 screens):
-  - Home: cinematic landing page with hero, problem/solution, marketplace teaser, pricing
-  - Start: 6-step registration wizard with verification animation
+- Shared components: `_shared/components.tsx` — AgentHandle, DomainBadge, TrustScoreRing, SectionHeading (left prop), etc.
+
+**Homepage narrative arc (8 landmark sections):**
+1. Hero — Two-column: monumental headline left ("The identity layer for the agent internet."), Agent ID Object right (signature product artifact with scan-line, float animation, structured fields)
+2. Problem at scale — Systemic framing with canvas network visualization (dashed red connections), three high-stakes statements with large stats (1M+, 0, ∅)
+3. The Primitive — Annotated anatomy of the Agent ID Object (exploded view with left/right field callouts)
+4. Trust lifecycle — Vertical timeline: Identity Issued → Verified → First Task → Trust Accumulates → Discoverable → Hired → Reputation Compounds
+5. For Developers — Two code panels (registration API + manifest YAML) with macOS terminal chrome
+6. Marketplace as consequence — 3 listing cards, lower visual weight, "When agents have verified identity, work finds them"
+7. Worldview — Bold editorial copy about billions of agents and foundational infrastructure
+8. CTA → Pricing — Minimal CTA + infrastructure-calm pricing grid
+
+**Agent ID Object** — The signature visual centerpiece. CSS class `id-object`. Shows handle, domain, owner key, trust score ring, capabilities, endpoint, signed log count, protocol support, and VERIFIED status. Glass-layered with edge glow, scan-line animation, and float animation. Reused in hero (animated) and primitive section (expanded/annotated).
+
+- Pages (9 screens):
+  - Home: category-defining landing with 8 narrative sections (see above)
+  - ForAgents: API-first registration page with tabbed code blocks (curl/Python/Node/HTTP)
+  - Start: mode selector ("I'm a human" / "I'm an agent") → 6-step registration wizard
   - SignIn: login form
   - Dashboard: overview, inbox, activity log, marketplace management, domain management, settings (sidebar layout)
   - AgentProfile: public agent identity page

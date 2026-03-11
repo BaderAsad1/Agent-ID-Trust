@@ -1,0 +1,465 @@
+You are a world-class creative director, product designer, motion designer, front-end architect, and taste-level reviewer.
+
+Your job is to completely redesign the Agent ID marketing website so it feels like a category-defining, game-changing company.
+
+IMPORTANT CONTEXT
+
+The current site is polished, but it feels like a strong AI startup landing page, not the homepage of a future-defining infrastructure company.
+
+Right now it feels:
+- too much like a standard dark SaaS site
+- too marketplace-first
+- too card-driven
+- too small in emotional scale
+- too familiar in structure
+- too generic in “AI startup” visual language
+
+It does NOT yet feel like:
+- the identity layer for the agent internet
+- a foundational new primitive
+- an inevitable platform for a world with billions of agents
+- a product with historic importance
+
+This redesign must fix that.
+
+DESIGN GOAL
+
+Create a site experience that feels like:
+- ai.com level conviction and simplicity
+- the very best high-end Framer templates in motion, polish, and layout quality
+- Stripe-level infrastructure clarity
+- Apple-level confidence
+- Linear-level precision
+- a premium, cinematic, unforgettable launch site
+
+The result must feel:
+- monumental
+- elegant
+- inevitable
+- intelligent
+- premium
+- minimal but not empty
+- futuristic but not cheesy
+- highly designed without looking overdesigned
+
+Do NOT create a generic AI startup website.
+Do NOT make it look like a crypto site.
+Do NOT create slop.
+Do NOT rely on repetitive cards and standard sections.
+Do NOT make it feel like a template.
+
+The site must feel custom, ownable, and elite.
+
+CORE POSITIONING
+
+Agent ID is the identity, trust, and routing layer for AI agents.
+
+This is the core thesis:
+As AI agents proliferate, they will need identity, ownership proof, capabilities, endpoints, trust, and portable reputation.
+
+The site must make visitors instantly feel:
+“Of course agents need IDs.”
+“This is the missing primitive.”
+“This becomes foundational infrastructure.”
+
+PRIMARY MISTAKE TO FIX
+
+The site currently over-emphasizes the marketplace.
+That makes the company feel smaller.
+
+The marketplace is only ONE consequence of the identity layer.
+
+The homepage hierarchy should emphasize:
+1. identity
+2. verification
+3. trust
+4. routing
+5. reputation
+6. interoperability
+7. then marketplace as a downstream benefit
+
+The site must feel like a foundational layer first, and a marketplace second.
+
+BIG IDEA FOR THE REDESIGN
+
+Build the homepage around a single unforgettable visual and conceptual centerpiece:
+
+THE AGENT ID OBJECT
+
+This must be the signature product object of the site.
+
+It should feel like a hybrid of:
+- passport
+- verified credential
+- public identity object
+- network node
+- signed certificate
+- API-native identity artifact
+
+This object should be visually stunning, interactive, cinematic, and premium.
+
+It should communicate:
+- verified handle
+- ownership proof
+- trust score
+- capability manifest
+- active endpoint
+- signed logs
+- reputation
+- protocol compatibility
+
+This object should become the emotional and visual center of the site.
+
+Instead of just showing “UI cards,” create a living product artifact that feels like a new internet-native object.
+
+OVERALL CREATIVE DIRECTION
+
+Design language should feel like:
+- deep black / graphite / midnight
+- refined electric blue accents
+- restrained glow
+- cinematic depth
+- premium contrast
+- subtle topology / signal / graph motifs
+- beautiful, large typography
+- sparse but powerful color usage
+- futuristic precision
+- trust and signal, not decoration
+
+Avoid:
+- neon overload
+- random particles for no reason
+- cliché AI blobs
+- generic terminal gimmicks
+- overused SaaS card stacks
+- too many tiny boxes everywhere
+
+The site should be cleaner, larger in feeling, and more iconic.
+
+SITE EXPERIENCE PRINCIPLES
+
+1. Fewer but stronger sections
+Use landmark sections, not repetitive modules.
+
+2. Every section must feel intentional
+No filler.
+No generic feature-grid padding.
+
+3. Motion must tell the story
+Motion should communicate:
+- issuance
+- verification
+- trust propagation
+- capability reveal
+- endpoint activation
+- signed activity
+- network connection
+
+4. Typography must carry weight
+Large, commanding hero typography.
+Beautiful hierarchy.
+Expensive spacing.
+Confident copy.
+
+5. The product should feel historically important
+The site should not just “sell features.”
+It should reveal a new primitive.
+
+REQUIRED HOMEPAGE NARRATIVE
+
+The homepage should follow this story:
+
+SECTION 1 — HERO
+This is the most important part.
+
+Requirements:
+- large, unforgettable headline
+- premium, sharp supporting copy
+- immediate clarity
+- one primary CTA
+- one secondary CTA
+- central animated Agent ID object
+- subtle but real feeling of a living system
+- minimal clutter
+- massive visual confidence
+
+The hero must feel close to ai.com in confidence:
+simple, bold, unmistakable.
+
+Do NOT make the hero feel like “just another startup.”
+Do NOT rely on a little terminal box and two buttons.
+The centerpiece must dominate.
+
+Possible headline directions:
+- Every agent needs an identity.
+- The identity layer for the agent internet.
+- Verified identity and trust for autonomous systems.
+- Before agents can work, they need an ID.
+- Agents can act. Now they can prove who they are.
+
+Subheadline must explain clearly:
+Agent ID gives AI agents verified identity, ownership proof, capabilities, endpoints, signed logs, and portable trust.
+
+SECTION 2 — THE PROBLEM AT INTERNET SCALE
+Current site says “Agents are real. Their identities are not.”
+Keep the spirit, but elevate the execution.
+
+This section should feel systemic and high stakes.
+
+Show that:
+- agents are being deployed everywhere
+- identity is missing
+- trust is fragmented
+- endpoints are spoofable
+- reputation does not carry
+- interoperability is incomplete without a trust layer
+
+This should feel like a structural internet problem, not 3 little SaaS pain points.
+
+Use larger visual storytelling.
+Possibly an abstract network/world/system graphic rather than basic feature cards.
+
+SECTION 3 — INTRODUCING THE AGENT ID PRIMITIVE
+This is where the site reveals the new object.
+
+Show the Agent ID artifact in expanded/exploded form and break down the core fields:
+- unique handle
+- owner verification
+- capability manifest
+- scopes and permissions
+- task endpoint
+- signed logs
+- reputation state
+- protocol support
+- public profile
+
+This section should feel like unveiling the anatomy of a new internet-native object.
+
+SECTION 4 — HOW TRUST COMPOUNDS
+Show how Agent ID enables:
+- verification
+- routing
+- reputation
+- discoverability
+- interoperability
+- monetization
+- hiring
+- reliable machine-to-machine interaction
+
+This should feel like a network layer coming alive.
+Motion can show identity propagating through apps, frameworks, agents, protocols, and marketplaces.
+
+SECTION 5 — FOR DEVELOPERS
+Must feel elite, not boring docs.
+
+Show:
+- API snippets
+- manifest example
+- endpoint schema
+- task submission flow
+- verification flow
+- public profile fetch
+
+Make it beautiful enough for a landing page, but useful enough that serious builders trust it.
+
+This should feel like:
+“easy to use, but built for the future.”
+
+SECTION 6 — MARKETPLACE AS A CONSEQUENCE, NOT THE CORE
+The marketplace can still appear, but move it lower.
+Frame it as:
+“what becomes possible when agents have identity and trust.”
+
+Do NOT let the whole site feel like Upwork for agents.
+That makes the company feel far smaller than it is.
+
+SECTION 7 — FUTURE OF THE AGENT INTERNET
+A bold, worldview-driven section.
+
+This should elevate the concept:
+- billions of agents
+- trust becoming mandatory
+- identity as an internet primitive
+- Agent ID as the foundation for this future
+
+Make this feel big, calm, and inevitable.
+
+SECTION 8 — CTA
+Refined, minimal, strong.
+Should feel premium and high-conviction, not salesy.
+
+PRICING
+Pricing should remain, but with lower emotional priority than the current version.
+
+Make pricing feel:
+- clean
+- infrastructure-like
+- calm
+- premium
+- credible
+
+Do not let pricing flatten the ambition of the site.
+
+MOVE IT LOWER.
+Present it elegantly.
+
+DESIGN SYSTEM DIRECTION
+
+Color palette:
+- deep near-black base
+- graphite surfaces
+- muted silver text
+- refined electric blue accent
+- optional small secondary accent for trust/verified states
+- minimal purple if used, only where it truly enhances premium feel
+
+Typography:
+- large and confident
+- impeccable spacing
+- modern and premium
+- highly legible
+- support a technical/mono accent for identity strings, manifests, and code
+
+Surfaces:
+- subtle glass or translucent layering only when justified
+- premium edge highlights
+- restrained glow
+- depth without visual clutter
+
+Buttons:
+- stronger, cleaner, more iconic
+- less generic SaaS
+- premium hover states
+- strong focus states
+
+Cards:
+- use fewer of them
+- make them more custom and meaningful
+- break repetitive same-size card layouts
+- prioritize composition over convenience
+
+MOTION DIRECTION
+
+This is critical.
+
+Use motion like the best Framer sites:
+- smooth
+- cinematic
+- expensive-feeling
+- restrained
+- purposeful
+
+Motion should express product meaning:
+- identity issuance sequence
+- verification lock-in
+- trust score activation
+- capability manifest unfolding
+- signal routing across the network
+- signed logs chaining into place
+- profile becoming discoverable across systems
+
+Do NOT add random floating movement.
+Do NOT create meaningless parallax overload.
+Do NOT sacrifice performance.
+
+Motion should feel like product logic turned into visual choreography.
+
+AGENT / LLM READABILITY REQUIREMENT
+
+Very important:
+The site must be premium and highly designed, but also clean and machine-readable.
+
+That means:
+- semantic structure
+- clear headings
+- real text, not image-only communication
+- concise factual summaries under expressive headlines
+- structured API examples
+- clean content hierarchy
+- no critical message hidden only in animation
+- visually rich but still parsable by LLMs and agents
+
+This is part of the brand.
+The site should be readable by both humans and machines.
+
+TECHNICAL IMPLEMENTATION GOALS
+
+Build a production-quality marketing site with:
+- Next.js
+- TypeScript
+- Tailwind
+- Framer Motion or GSAP where appropriate
+- responsive design
+- excellent performance
+- polished mobile behavior
+- accessibility support
+- reduced motion support
+
+Do not create a design that only works in screenshots.
+It must actually be buildable and performant.
+
+WHAT TO REMOVE OR REDUCE FROM THE CURRENT VERSION
+
+Reduce or remove:
+- over-reliance on standard feature cards
+- marketplace-first framing
+- generic terminal gimmick
+- repetitive section rhythm
+- too much “SaaS pricing grid” energy
+- small-feeling layouts
+- decorative particles that do not support meaning
+- anything that feels like a premium template instead of an original category-defining site
+
+WHAT TO INCREASE
+
+Increase:
+- visual ownership
+- hero dominance
+- product object storytelling
+- system-level consequence
+- identity/trust visual motifs
+- motion quality
+- conceptual scale
+- worldview copy
+- compositional boldness
+- landmark sections
+- premium spacing and typography
+
+DELIVERABLES
+
+You must do the following:
+
+1. Audit the current landing page and identify what makes it feel too small and too generic.
+2. Propose a fully reimagined homepage structure.
+3. Rewrite the copy at a much higher level.
+4. Design and implement a stunning hero with a living Agent ID object.
+5. Rebalance the narrative so Agent ID feels like foundational infrastructure, not just a marketplace.
+6. Upgrade the visual language so it feels truly ownable.
+7. Make the motion feel elite and product-driven.
+8. Preserve clarity and usability.
+9. Ensure it feels like a site for a potentially trillion-dollar company.
+
+OUTPUT FORMAT
+
+First provide:
+A. concise critique of the existing design
+B. new homepage information architecture
+C. visual direction
+D. motion direction
+E. rewritten copy direction
+
+Then implement the redesign.
+
+QUALITY BAR
+
+The end result should feel like:
+- ai.com level confidence
+- one of the best modern Framer showcase sites
+- a launch site people remember
+- a company introducing a new internet primitive
+
+It should make a serious founder, investor, or developer feel:
+“This is not a feature.
+This is a layer.”
+
+Now think carefully, push past generic design instincts, and redesign the site accordingly.

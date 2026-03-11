@@ -98,11 +98,11 @@ export function Identicon({ handle, size = 40 }: { handle: string; size?: number
   );
 }
 
-export function SectionHeading({ children, sub }: { children: React.ReactNode; sub?: string }) {
+export function SectionHeading({ children, sub, left = false }: { children: React.ReactNode; sub?: string; left?: boolean }) {
   return (
-    <div className="text-center mb-12">
+    <div className={`${left ? '' : 'text-center'} mb-12`}>
       <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{children}</h2>
-      {sub && <p className="text-lg max-w-2xl mx-auto" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
+      {sub && <p className={`text-lg ${left ? '' : 'max-w-2xl mx-auto'}`} style={{ color: 'var(--text-muted)' }}>{sub}</p>}
     </div>
   );
 }
