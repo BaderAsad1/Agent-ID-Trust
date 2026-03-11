@@ -528,8 +528,8 @@ router.get("/agents/:agentId/search", requireAuth, async (req, res, next) => {
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
     const {
-      q, direction, senderType, isRead, labelId, labelName,
-      afterDate, beforeDate, minTrustScore, hasConvertedTask,
+      q, direction, senderType, isRead, senderVerified, labelId, labelName,
+      afterDate, beforeDate, minTrustScore, hasConvertedTask, convertedTaskId,
       threadId, priority, limit, offset,
     } = req.query;
 
@@ -539,12 +539,14 @@ router.get("/agents/:agentId/search", requireAuth, async (req, res, next) => {
       direction: direction as string | undefined,
       senderType: senderType as string | undefined,
       isRead: isRead !== undefined ? isRead === "true" : undefined,
+      senderVerified: senderVerified !== undefined ? senderVerified === "true" : undefined,
       labelId: labelId as string | undefined,
       labelName: labelName as string | undefined,
       afterDate: afterDate as string | undefined,
       beforeDate: beforeDate as string | undefined,
       minTrustScore: minTrustScore ? Number(minTrustScore) : undefined,
       hasConvertedTask: hasConvertedTask !== undefined ? hasConvertedTask === "true" : undefined,
+      convertedTaskId: convertedTaskId as string | undefined,
       threadId: threadId as string | undefined,
       priority: priority as string | undefined,
       limit: limit ? Number(limit) : undefined,

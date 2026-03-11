@@ -32,6 +32,7 @@ const SYSTEM_LABELS = [
   "inbox", "sent", "archived", "spam", "important", "tasks",
   "drafts", "flagged", "verified", "quarantine",
   "unread", "routed", "requires-approval",
+  "paid", "marketplace", "jobs", "agent", "human",
 ];
 
 export async function ensureSystemLabels(agentId: string): Promise<void> {
@@ -185,6 +186,16 @@ export async function updateThreadStatus(
     .set({ status, updatedAt: new Date() })
     .where(eq(agentThreadsTable.id, threadId))
     .returning();
+
+  if (updated) {
+    await emitWebhookEvent(updated.inboxId, "thread.updated", {
+      threadId,
+      status,
+      messageCount: updated.messageCount,
+      subject: updated.subject,
+    });
+  }
+
   return updated ?? null;
 }
 
@@ -594,6 +605,24 @@ async function applyRoutingRules(
     for (const action of rule.actions) {
       await executeAction(message, action);
     }
+
+    const routedLabel = await db.query.messageLabelsTable.findFirst({
+      where: and(
+        eq(messageLabelsTable.agentId, message.agentId),
+        eq(messageLabelsTable.name, "routed"),
+      ),
+    });
+    if (routedLabel) {
+      await assignLabel(message.id, routedLabel.id, message.agentId);
+    }
+
+    await emitWebhookEvent(message.inboxId, "message.routed", {
+      messageId: message.id,
+      threadId: message.threadId,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      actions: rule.actions.map((a) => a.type),
+    });
   }
 }
 
@@ -832,6 +861,15 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
       if (quarantineLabel) {
         await assignLabel(message.id, quarantineLabel.id, message.agentId);
       }
+      const reqApprovalLabel = await db.query.messageLabelsTable.findFirst({
+        where: and(
+          eq(messageLabelsTable.agentId, message.agentId),
+          eq(messageLabelsTable.name, "requires-approval"),
+        ),
+      });
+      if (reqApprovalLabel) {
+        await assignLabel(message.id, reqApprovalLabel.id, message.agentId);
+      }
       await db.insert(messageEventsTable).values({
         messageId: message.id,
         eventType: "message.verification_required",
@@ -916,6 +954,13 @@ export async function convertMessageToTask(
   if (taskLabel) {
     await assignLabel(messageId, taskLabel.id, agentId);
   }
+
+  await emitWebhookEvent(message.inboxId, "message.converted_to_task", {
+    messageId,
+    taskId: task.id,
+    threadId: message.threadId,
+    subject: message.subject,
+  });
 
   return { taskId: task.id };
 }
@@ -1147,12 +1192,14 @@ export interface SearchFilters {
   direction?: string;
   senderType?: string;
   isRead?: boolean;
+  senderVerified?: boolean;
   labelId?: string;
   labelName?: string;
   afterDate?: string;
   beforeDate?: string;
   minTrustScore?: number;
   hasConvertedTask?: boolean;
+  convertedTaskId?: string;
   threadId?: string;
   priority?: string;
   limit?: number;
@@ -1197,6 +1244,12 @@ export async function searchMessages(filters: SearchFilters): Promise<{
   }
   if (filters.priority) {
     conditions.push(eq(agentMessagesTable.priority, filters.priority));
+  }
+  if (filters.senderVerified !== undefined) {
+    conditions.push(eq(agentMessagesTable.senderVerified, filters.senderVerified));
+  }
+  if (filters.convertedTaskId) {
+    conditions.push(eq(agentMessagesTable.convertedTaskId, filters.convertedTaskId));
   }
   if (filters.hasConvertedTask === true) {
     conditions.push(sql`${agentMessagesTable.convertedTaskId} is not null`);
@@ -1396,14 +1449,14 @@ export async function approveMessage(
     .where(eq(agentMessagesTable.id, messageId))
     .returning();
 
-  const quarantineLabel = await db.query.messageLabelsTable.findFirst({
+  const labelsToRemove = await db.query.messageLabelsTable.findMany({
     where: and(
       eq(messageLabelsTable.agentId, agentId),
-      eq(messageLabelsTable.name, "quarantine"),
+      inArray(messageLabelsTable.name, ["quarantine", "requires-approval"]),
     ),
   });
-  if (quarantineLabel) {
-    await removeLabel(messageId, quarantineLabel.id, agentId);
+  for (const label of labelsToRemove) {
+    await removeLabel(messageId, label.id, agentId);
   }
 
   await db.insert(messageEventsTable).values({
