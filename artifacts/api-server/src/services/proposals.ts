@@ -137,96 +137,111 @@ export async function updateProposalStatus(
     return { success: false, error: `INVALID_STATUS:${proposal.status}` };
   }
 
-  const [updated] = await db
-    .update(jobProposalsTable)
-    .set({ status: newStatus, updatedAt: new Date() })
-    .where(eq(jobProposalsTable.id, proposalId))
-    .returning();
-
   if (newStatus === "accepted") {
     const priceAmount = proposal.priceAmount
       ? Number(proposal.priceAmount)
       : Number(job.budgetFixed ?? job.budgetMax ?? job.budgetMin ?? 0);
 
-    let linkedTaskId: string | undefined;
-    let linkedOrderId: string | undefined;
-
-    const activeListing = await db.query.marketplaceListingsTable.findFirst({
-      where: and(
-        eq(marketplaceListingsTable.agentId, proposal.agentId),
-        eq(marketplaceListingsTable.status, "active"),
-      ),
-    });
-
-    if (activeListing) {
-      const { platformFee, sellerPayout } = calculatePlatformFee(priceAmount);
-      const agent = await db.query.agentsTable.findFirst({
-        where: eq(agentsTable.id, proposal.agentId),
-      });
-
-      const [order] = await db
-        .insert(marketplaceOrdersTable)
-        .values({
-          listingId: activeListing.id,
-          buyerUserId: posterUserId,
-          sellerUserId: agent!.userId,
-          agentId: proposal.agentId,
-          taskDescription: `Job: ${job.title} — ${proposal.approach ?? ""}`,
-          priceAmount: priceAmount.toFixed(2),
-          platformFee: platformFee.toFixed(2),
-          sellerPayout: sellerPayout.toFixed(2),
-          status: "pending",
-          paymentProvider: "stripe",
-        })
+    const result = await db.transaction(async (tx) => {
+      const [accepted] = await tx
+        .update(jobProposalsTable)
+        .set({ status: "accepted", updatedAt: new Date() })
+        .where(eq(jobProposalsTable.id, proposalId))
         .returning();
 
-      linkedOrderId = order.id;
+      let linkedTaskId: string | undefined;
+      let linkedOrderId: string | undefined;
 
-      const task = await submitTask({
-        recipientAgentId: proposal.agentId,
-        senderUserId: posterUserId,
-        taskType: "job_board_order",
-        payload: {
-          jobId: job.id,
-          jobTitle: job.title,
-          proposalId: proposal.id,
-          orderId: order.id,
-          approach: proposal.approach,
-          priceAmount: priceAmount.toFixed(2),
-          deliveryHours: proposal.deliveryHours ?? job.deadlineHours,
-        },
-        relatedOrderId: order.id,
+      const activeListing = await tx.query.marketplaceListingsTable.findFirst({
+        where: and(
+          eq(marketplaceListingsTable.agentId, proposal.agentId),
+          eq(marketplaceListingsTable.status, "active"),
+        ),
       });
 
-      linkedTaskId = task.id;
-    } else {
-      const task = await submitTask({
-        recipientAgentId: proposal.agentId,
-        senderUserId: posterUserId,
-        taskType: "job_board_order",
-        payload: {
-          jobId: job.id,
-          jobTitle: job.title,
-          proposalId: proposal.id,
-          approach: proposal.approach,
-          priceAmount: priceAmount.toFixed(2),
-          deliveryHours: proposal.deliveryHours ?? job.deadlineHours,
-        },
-      });
+      if (activeListing) {
+        const { platformFee, sellerPayout } = calculatePlatformFee(priceAmount);
+        const agent = await tx.query.agentsTable.findFirst({
+          where: eq(agentsTable.id, proposal.agentId),
+        });
 
-      linkedTaskId = task.id;
-    }
+        const [order] = await tx
+          .insert(marketplaceOrdersTable)
+          .values({
+            listingId: activeListing.id,
+            buyerUserId: posterUserId,
+            sellerUserId: agent!.userId,
+            agentId: proposal.agentId,
+            taskDescription: `Job: ${job.title} — ${proposal.approach ?? ""}`,
+            priceAmount: priceAmount.toFixed(2),
+            platformFee: platformFee.toFixed(2),
+            sellerPayout: sellerPayout.toFixed(2),
+            status: "pending",
+            paymentProvider: "stripe",
+          })
+          .returning();
 
-    await db
-      .update(jobPostsTable)
-      .set({
-        status: "filled",
-        acceptedProposalId: proposal.id,
-        linkedTaskId,
-        linkedOrderId,
-        updatedAt: new Date(),
-      })
-      .where(eq(jobPostsTable.id, jobId));
+        linkedOrderId = order.id;
+
+        const task = await submitTask({
+          recipientAgentId: proposal.agentId,
+          senderUserId: posterUserId,
+          taskType: "job_board_order",
+          payload: {
+            jobId: job.id,
+            jobTitle: job.title,
+            proposalId: proposal.id,
+            orderId: order.id,
+            approach: proposal.approach,
+            priceAmount: priceAmount.toFixed(2),
+            deliveryHours: proposal.deliveryHours ?? job.deadlineHours,
+          },
+          relatedOrderId: order.id,
+        });
+
+        linkedTaskId = task.id;
+      } else {
+        const task = await submitTask({
+          recipientAgentId: proposal.agentId,
+          senderUserId: posterUserId,
+          taskType: "job_board_order",
+          payload: {
+            jobId: job.id,
+            jobTitle: job.title,
+            proposalId: proposal.id,
+            approach: proposal.approach,
+            priceAmount: priceAmount.toFixed(2),
+            deliveryHours: proposal.deliveryHours ?? job.deadlineHours,
+          },
+        });
+
+        linkedTaskId = task.id;
+      }
+
+      await tx
+        .update(jobPostsTable)
+        .set({
+          status: "filled",
+          acceptedProposalId: proposal.id,
+          linkedTaskId,
+          linkedOrderId,
+          updatedAt: new Date(),
+        })
+        .where(eq(jobPostsTable.id, jobId));
+
+      await tx
+        .update(jobProposalsTable)
+        .set({ status: "rejected", updatedAt: new Date() })
+        .where(
+          and(
+            eq(jobProposalsTable.jobId, jobId),
+            eq(jobProposalsTable.status, "pending"),
+            sql`${jobProposalsTable.id} != ${proposalId}`,
+          ),
+        );
+
+      return { proposal: accepted, linkedTaskId, linkedOrderId };
+    });
 
     await logActivity({
       agentId: proposal.agentId,
@@ -235,32 +250,30 @@ export async function updateProposalStatus(
         proposalId: proposal.id,
         jobId: job.id,
         jobTitle: job.title,
-        linkedTaskId,
-        linkedOrderId,
+        linkedTaskId: result.linkedTaskId,
+        linkedOrderId: result.linkedOrderId,
         priceAmount: priceAmount.toFixed(2),
       },
     });
 
-    await db
-      .update(jobProposalsTable)
-      .set({ status: "rejected", updatedAt: new Date() })
-      .where(
-        and(
-          eq(jobProposalsTable.jobId, jobId),
-          eq(jobProposalsTable.status, "pending"),
-        ),
-      );
-  } else {
-    await logActivity({
-      agentId: proposal.agentId,
-      eventType: "agent.proposal_rejected",
-      payload: {
-        proposalId: proposal.id,
-        jobId: job.id,
-        jobTitle: job.title,
-      },
-    });
+    return { success: true, proposal: result.proposal };
   }
+
+  const [updated] = await db
+    .update(jobProposalsTable)
+    .set({ status: "rejected", updatedAt: new Date() })
+    .where(eq(jobProposalsTable.id, proposalId))
+    .returning();
+
+  await logActivity({
+    agentId: proposal.agentId,
+    eventType: "agent.proposal_rejected",
+    payload: {
+      proposalId: proposal.id,
+      jobId: job.id,
+      jobTitle: job.title,
+    },
+  });
 
   return { success: true, proposal: updated };
 }
