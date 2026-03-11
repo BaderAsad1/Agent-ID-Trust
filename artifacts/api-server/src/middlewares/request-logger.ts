@@ -1,22 +1,26 @@
-import type { Request, Response, NextFunction } from "express";
+import pino from "pino";
+import pinoHttp from "pino-http";
 
-export function requestLogger(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  const start = Date.now();
+export const logger = pino({
+  level: process.env.LOG_LEVEL || "info",
+  transport:
+    process.env.NODE_ENV !== "production"
+      ? { target: "pino/file", options: { destination: 1 } }
+      : undefined,
+});
 
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    const level = res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "info";
-    const log = `${level.toUpperCase()} ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`;
-    if (level === "error") {
-      console.error(log);
-    } else {
-      console.log(log);
-    }
-  });
-
-  next();
-}
+export const requestLogger = pinoHttp({
+  logger,
+  autoLogging: true,
+  customLogLevel(_req, res, err) {
+    if (err || (res.statusCode && res.statusCode >= 500)) return "error";
+    if (res.statusCode && res.statusCode >= 400) return "warn";
+    return "info";
+  },
+  customSuccessMessage(req, res) {
+    return `${req.method} ${req.url} ${res.statusCode}`;
+  },
+  customErrorMessage(req, _res, err) {
+    return `${req.method} ${req.url} ${err.message}`;
+  },
+});
