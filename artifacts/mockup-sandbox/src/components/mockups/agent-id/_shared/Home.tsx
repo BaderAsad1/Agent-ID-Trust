@@ -30,7 +30,6 @@ function AgentIDObject({ expanded = false, className = '' }: { expanded?: boolea
       <div className="id-object-inner">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <div className="id-object-chip" />
             <Identicon handle="research-agent" size={34} />
             <div>
               <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Research Agent</div>
