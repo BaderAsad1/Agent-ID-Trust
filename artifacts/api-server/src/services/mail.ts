@@ -292,6 +292,11 @@ export async function updateThreadStatus(
   return updated ?? null;
 }
 
+function normalizeSubject(subject: string | null | undefined): string | null {
+  if (!subject) return null;
+  return subject.replace(/^(re|fwd|fw)\s*:\s*/gi, "").trim() || null;
+}
+
 async function findOrCreateThread(
   inboxId: string,
   agentId: string,
@@ -317,11 +322,12 @@ async function findOrCreateThread(
     }
   }
 
-  if (subject) {
+  const normalized = normalizeSubject(subject);
+  if (normalized) {
     const existingThread = await db.query.agentThreadsTable.findFirst({
       where: and(
         eq(agentThreadsTable.inboxId, inboxId),
-        eq(agentThreadsTable.subject, subject),
+        eq(agentThreadsTable.subject, normalized),
         eq(agentThreadsTable.status, "open"),
       ),
       orderBy: [desc(agentThreadsTable.lastMessageAt)],
@@ -334,7 +340,7 @@ async function findOrCreateThread(
     .values({
       inboxId,
       agentId,
-      subject: subject || "(no subject)",
+      subject: normalized || subject || "(no subject)",
       status: "open",
     })
     .returning();
@@ -474,6 +480,12 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
         .update(agentMessagesTable)
         .set({ deliveryStatus: "failed", updatedAt: new Date() })
         .where(eq(agentMessagesTable.id, message.id));
+
+      await db.insert(messageEventsTable).values({
+        messageId: message.id,
+        eventType: "message.delivery_failed",
+        payload: { direction: input.direction },
+      });
     }
   }
 
@@ -570,6 +582,12 @@ export async function markMessageRead(
 
   if (msg.isRead === isRead) return msg;
 
+  await db.insert(messageEventsTable).values({
+    messageId,
+    eventType: isRead ? "message.read" : "message.unread",
+    payload: {},
+  });
+
   const [updated] = await db
     .update(agentMessagesTable)
     .set({ isRead, updatedAt: new Date() })
@@ -650,6 +668,13 @@ export async function assignLabel(messageId: string, labelId: string, agentId: s
     .insert(messageLabelAssignmentsTable)
     .values({ messageId, labelId })
     .onConflictDoNothing();
+
+  await db.insert(messageEventsTable).values({
+    messageId,
+    eventType: "label.assigned",
+    payload: { labelId, labelName: label.name },
+  });
+
   return true;
 }
 
@@ -665,6 +690,13 @@ export async function removeLabel(messageId: string, labelId: string, agentId: s
       eq(messageLabelAssignmentsTable.labelId, labelId),
     ),
   );
+
+  await db.insert(messageEventsTable).values({
+    messageId,
+    eventType: "label.removed",
+    payload: { labelId, labelName: label.name },
+  });
+
   return true;
 }
 

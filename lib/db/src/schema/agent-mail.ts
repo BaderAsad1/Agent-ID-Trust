@@ -147,7 +147,7 @@ export const agentMessagesTable = pgTable(
     provenanceChain: jsonb("provenance_chain").$type<ProvenanceEntry[]>(),
     priority: varchar("priority", { length: 20 }).default("normal").notNull(),
     originatingTaskId: uuid("originating_task_id").references(() => tasksTable.id),
-    convertedTaskId: uuid("converted_task_id"),
+    convertedTaskId: uuid("converted_task_id").references(() => tasksTable.id),
     inReplyToId: uuid("in_reply_to_id"),
     externalMessageId: varchar("external_message_id", { length: 500 }),
     metadata: jsonb("metadata"),
