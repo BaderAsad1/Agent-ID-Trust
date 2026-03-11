@@ -127,7 +127,7 @@ export function Start() {
       await api.agents.verify.complete(createdAgentId, { proof: 'mock-proof-data' });
       setVerified(true);
     } catch {
-      setVerified(true);
+      setError('Verification failed. You can skip and verify later from the dashboard.');
     } finally {
       setVerifying(false);
     }

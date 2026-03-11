@@ -25,33 +25,35 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+function getInitialUserId(): string | null {
+  const existing = getCurrentUserId();
+  if (existing) return existing;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const autoLogin = params.get('auto_login');
+    if (autoLogin) {
+      setCurrentUserId(autoLogin);
+      return autoLogin;
+    }
+  } catch {}
+  return null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [userId, setUserId] = useState<string | null>(() => {
-    const existing = getCurrentUserId();
-    if (existing) return existing;
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const autoLogin = params.get('auto_login');
-      if (autoLogin) {
-        setCurrentUserId(autoLogin);
-        return autoLogin;
-      }
-    } catch {}
-    return null;
-  });
+  const [userId, setUserId] = useState<string | null>(getInitialUserId);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const login = useCallback((id: string) => {
-    setCurrentUserId(id);
-    setUserId(id);
-  }, []);
 
   const logout = useCallback(() => {
     setCurrentUserId(null);
     setUserId(null);
     setAgents([]);
+  }, []);
+
+  const login = useCallback((id: string) => {
+    setCurrentUserId(id);
+    setUserId(id);
   }, []);
 
   const refreshAgents = useCallback(async () => {
@@ -70,9 +72,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (userId) {
-      refreshAgents();
-    }
+    if (!userId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await api.auth.me();
+        if (!cancelled) {
+          refreshAgents();
+        }
+      } catch {
+        if (!cancelled) {
+          setCurrentUserId(null);
+          setUserId(null);
+          setAgents([]);
+          setError('Session expired. Please sign in again.');
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [userId, refreshAgents]);
 
   return (
