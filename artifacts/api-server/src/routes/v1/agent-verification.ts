@@ -10,7 +10,7 @@ import { recomputeAndStore } from "../../services/trust-score";
 const router = Router();
 
 const initiateSchema = z.object({
-  method: z.enum(["key_challenge", "github", "wallet", "manual"]).default("key_challenge"),
+  method: z.enum(["key_challenge"]).default("key_challenge"),
 });
 
 const completeSchema = z.object({

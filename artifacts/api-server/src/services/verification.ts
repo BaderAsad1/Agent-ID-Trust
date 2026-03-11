@@ -143,6 +143,7 @@ export async function getAuthMetadata(agentId: string) {
       id: true,
       kid: true,
       keyType: true,
+      publicKey: true,
       use: true,
       createdAt: true,
     },
@@ -158,6 +159,7 @@ export async function getAuthMetadata(agentId: string) {
     keys: keys.map((k) => ({
       kid: k.kid,
       keyType: k.keyType,
+      publicKey: k.publicKey,
       use: k.use,
       createdAt: k.createdAt,
     })),
