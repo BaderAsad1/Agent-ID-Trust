@@ -13,6 +13,7 @@ import {
 } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
+import { requirePlanFeature } from "../../services/billing";
 
 const router = Router();
 
@@ -128,6 +129,14 @@ router.put("/:agentId", requireAuth, async (req, res, next) => {
 
     if (Object.keys(parsed.data).length === 0) {
       throw new AppError(400, "VALIDATION_ERROR", "No fields to update");
+    }
+
+    if (parsed.data.isPublic === true) {
+      const eligibility = await requirePlanFeature(req.userId!, "canListOnMarketplace");
+      if (!eligibility.allowed) {
+        throw new AppError(403, "PLAN_REQUIRED",
+          `Marketplace listing requires the ${eligibility.requiredPlan} plan or higher. Current plan: ${eligibility.currentPlan}`);
+      }
     }
 
     const updated = await updateAgent(agentId, req.userId!, parsed.data);

@@ -5,13 +5,12 @@ type PlanFeature = "canListOnMarketplace" | "canUsePremiumRouting" | "canUseAdva
 
 export function requirePlan(feature: PlanFeature) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    const userId = (req as any).userId as string | undefined;
-    if (!userId) {
+    if (!req.userId) {
       res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
       return;
     }
 
-    const result = await requirePlanFeature(userId, feature);
+    const result = await requirePlanFeature(req.userId, feature);
     if (!result.allowed) {
       res.status(403).json({
         error: `This feature requires the ${result.requiredPlan} plan or higher`,
