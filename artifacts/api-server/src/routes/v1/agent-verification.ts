@@ -1,0 +1,104 @@
+import { Router } from "express";
+import { z } from "zod/v4";
+import { requireAuth } from "../../middlewares/replit-auth";
+import { AppError } from "../../middlewares/error-handler";
+import { getAgentById } from "../../services/agents";
+import { initiateVerification, verifyChallenge } from "../../services/verification";
+import { logActivity } from "../../services/activity-logger";
+import { recomputeAndStore } from "../../services/trust-score";
+
+const router = Router();
+
+const initiateSchema = z.object({
+  method: z.enum(["key_challenge", "github", "wallet", "manual"]).default("key_challenge"),
+});
+
+const completeSchema = z.object({
+  challenge: z.string().min(1),
+  signature: z.string().min(1),
+  kid: z.string().min(1),
+});
+
+router.post("/:agentId/verify/initiate", requireAuth, async (req, res, next) => {
+  try {
+    const agent = await getAgentById(req.params.agentId as string);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (agent.userId !== req.userId) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+    if (agent.verificationStatus === "verified") {
+      throw new AppError(400, "ALREADY_VERIFIED", "Agent is already verified");
+    }
+
+    const parsed = initiateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+
+    const challenge = await initiateVerification(agent.id, parsed.data.method);
+
+    res.json({
+      agentId: agent.id,
+      challenge: challenge.challenge,
+      method: challenge.method,
+      expiresAt: challenge.expiresAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/:agentId/verify/complete", requireAuth, async (req, res, next) => {
+  try {
+    const agent = await getAgentById(req.params.agentId as string);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (agent.userId !== req.userId) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+
+    const parsed = completeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+
+    const { challenge, signature, kid } = parsed.data;
+    const result = await verifyChallenge(agent.id, challenge, signature, kid);
+
+    if (!result.success) {
+      await logActivity({
+        agentId: agent.id,
+        eventType: "agent.verification_failed",
+        payload: { error: result.error },
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+      throw new AppError(400, "VERIFICATION_FAILED", result.error!);
+    }
+
+    await logActivity({
+      agentId: agent.id,
+      eventType: "agent.verified",
+      payload: { method: "key_challenge" },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    const trust = await recomputeAndStore(agent.id);
+
+    res.json({
+      verified: true,
+      agentId: agent.id,
+      handle: agent.handle,
+      trustScore: trust.trustScore,
+      trustTier: trust.trustTier,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;

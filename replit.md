@@ -67,8 +67,27 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `DELETE /api/v1/users/me/api-keys/:keyId` — revoke API key
   - `GET /api/v1/users/me/identities` — list linked identities
   - `POST /api/v1/users/me/identities/link` — link external identity (github/google/wallet)
+  - `POST /api/v1/agents` — create agent (handle reservation, ownership)
+  - `GET /api/v1/agents` — list user's agents
+  - `GET /api/v1/agents/:agentId` — get agent (ownership enforced)
+  - `PUT /api/v1/agents/:agentId` — update agent
+  - `DELETE /api/v1/agents/:agentId` — delete agent
+  - `GET /api/v1/handles/check?handle=` — handle availability check
+  - `GET /api/v1/p/:handle` — public agent profile (public agents only)
+  - `POST /api/v1/agents/:agentId/verify/initiate` — start verification challenge
+  - `POST /api/v1/agents/:agentId/verify/complete` — complete verification with signed challenge
+  - `POST /api/v1/programmatic/agents/register` — programmatic agent registration (creates agent + key + challenge)
+  - `POST /api/v1/programmatic/agents/verify` — verify programmatic agent (Ed25519 signature)
+  - `POST /api/v1/programmatic/agents/:agentId/rotate-key` — rotate agent key
+  - `GET /api/v1/programmatic/agents/:agentId/auth-metadata` — agent auth metadata + active keys
 - Middlewares: `src/middlewares/` — replit-auth (header-based auth + user upsert), api-key-auth (Bearer token), security-headers, request-logger, error-handler (AppError class with { error, code, details? })
-- Services: `src/services/api-keys.ts` — hash-based API key creation, verification, revocation
+- Services:
+  - `src/services/api-keys.ts` — hash-based API key creation, verification, revocation
+  - `src/services/agents.ts` — agent CRUD, handle validation/reservation, ownership enforcement, public profile projection
+  - `src/services/activity-logger.ts` — HMAC-signed event logging for agent lifecycle events
+  - `src/services/trust-score.ts` — composite trust score (0-100) from verification/longevity/activity/reputation/profile completeness, trust tier assignment, reputation events
+  - `src/services/verification.ts` — challenge generation/expiry, Ed25519 signature verification, auth metadata
+  - `src/services/agent-keys.ts` — agent-scoped key CRUD (kid generation), rotation support
 - Depends on: `@workspace/db`, `@workspace/api-zod`, `zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
