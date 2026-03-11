@@ -212,9 +212,12 @@ router.post("/agents/:agentId/messages", requireAuth, async (req, res, next) => 
       subject: z.string().optional(),
       body: z.string().min(1),
       bodyFormat: z.enum(["text", "html", "markdown"]).optional(),
+      structuredPayload: z.record(z.string(), z.unknown()).optional(),
       inReplyToId: z.string().uuid().optional(),
       senderTrustScore: z.number().int().min(0).max(100).optional(),
-      metadata: z.record(z.unknown()).optional(),
+      senderVerified: z.boolean().optional(),
+      priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
     });
     const body = schema.parse(req.body);
 
@@ -454,6 +457,70 @@ router.delete("/agents/:agentId/webhooks/:webhookId", requireAuth, async (req, r
   }
 });
 
+router.post("/agents/:agentId/threads/:threadId/reply", requireAuth, async (req, res, next) => {
+  try {
+    const { agentId, threadId } = req.params;
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const schema = z.object({
+      body: z.string().min(1),
+      bodyFormat: z.enum(["text", "html", "markdown"]).optional(),
+      structuredPayload: z.record(z.string(), z.unknown()).optional(),
+      recipientAddress: z.string().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    });
+    const body = schema.parse(req.body);
+
+    const message = await mailService.replyToThread(agentId, threadId, body.body, {
+      bodyFormat: body.bodyFormat,
+      structuredPayload: body.structuredPayload,
+      recipientAddress: body.recipientAddress,
+      metadata: body.metadata,
+    });
+    if (!message) throw new AppError(404, "NOT_FOUND", "Thread not found or not owned by this agent");
+
+    res.status(201).json({ message });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/agents/:agentId/messages/:messageId/reject", requireAuth, async (req, res, next) => {
+  try {
+    const { agentId, messageId } = req.params;
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const schema = z.object({
+      reason: z.string().optional(),
+    });
+    const { reason } = schema.parse(req.body);
+
+    const rejected = await mailService.rejectMessage(messageId, agentId, reason);
+    if (!rejected) throw new AppError(404, "NOT_FOUND", "Message not found or not owned by this agent");
+
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/agents/:agentId/messages/:messageId/approve", requireAuth, async (req, res, next) => {
+  try {
+    const { agentId, messageId } = req.params;
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const message = await mailService.approveMessage(messageId, agentId);
+    if (!message) throw new AppError(404, "NOT_FOUND", "Message not found or not owned by this agent");
+
+    res.json({ message });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/agents/:agentId/search", requireAuth, async (req, res, next) => {
   try {
     const { agentId } = req.params;
@@ -503,10 +570,12 @@ router.post("/ingest", async (req, res, next) => {
       subject: z.string().optional(),
       body: z.string().min(1),
       bodyFormat: z.enum(["text", "html", "markdown"]).optional(),
+      structuredPayload: z.record(z.string(), z.unknown()).optional(),
       externalMessageId: z.string().optional(),
       senderTrustScore: z.number().int().min(0).max(100).optional(),
+      senderVerified: z.boolean().optional(),
       priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
-      metadata: z.record(z.unknown()).optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
     });
 
     const body = schema.parse(req.body);

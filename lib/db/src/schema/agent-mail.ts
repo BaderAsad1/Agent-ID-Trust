@@ -53,6 +53,14 @@ export const agentInboxesTable = pgTable(
   ],
 );
 
+export interface ProvenanceEntry {
+  timestamp: string;
+  action: string;
+  actor: string;
+  actorType: "agent" | "user" | "system" | "external";
+  details?: Record<string, unknown>;
+}
+
 export interface RoutingRule {
   id: string;
   name: string;
@@ -63,13 +71,13 @@ export interface RoutingRule {
 }
 
 export interface RoutingCondition {
-  field: "sender_type" | "sender_trust" | "subject" | "label" | "direction";
+  field: "sender_type" | "sender_trust" | "subject" | "label" | "direction" | "sender_verified" | "priority" | "sender_address" | "body";
   operator: "eq" | "neq" | "gt" | "lt" | "gte" | "lte" | "contains" | "matches";
-  value: string | number;
+  value: string | number | boolean;
 }
 
 export interface RoutingAction {
-  type: "label" | "archive" | "forward" | "auto_reply" | "convert_task" | "webhook" | "drop";
+  type: "label" | "archive" | "forward" | "auto_reply" | "convert_task" | "webhook" | "drop" | "reject" | "require_verification" | "quarantine";
   params?: Record<string, unknown>;
 }
 
@@ -128,11 +136,14 @@ export const agentMessagesTable = pgTable(
     subject: varchar("subject", { length: 500 }),
     body: text("body").notNull(),
     bodyFormat: varchar("body_format", { length: 20 }).default("text").notNull(),
+    structuredPayload: jsonb("structured_payload").$type<Record<string, unknown>>(),
     isRead: boolean("is_read").default(false).notNull(),
     deliveryStatus: messageDeliveryStatusEnum("delivery_status")
       .default("queued")
       .notNull(),
     senderTrustScore: integer("sender_trust_score"),
+    senderVerified: boolean("sender_verified").default(false).notNull(),
+    provenanceChain: jsonb("provenance_chain").$type<ProvenanceEntry[]>(),
     priority: varchar("priority", { length: 20 }).default("normal").notNull(),
     originatingTaskId: uuid("originating_task_id").references(() => tasksTable.id),
     convertedTaskId: uuid("converted_task_id"),

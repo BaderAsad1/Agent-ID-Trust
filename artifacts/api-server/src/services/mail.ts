@@ -21,10 +21,11 @@ import {
   type RoutingRule,
   type RoutingCondition,
   type RoutingAction,
+  type ProvenanceEntry,
 } from "@workspace/db/schema";
 import { signWebhookPayload, deliverOutbound, recordOutboundDeliveryResult } from "./mail-transport";
 
-const SYSTEM_LABELS = ["inbox", "sent", "archived", "spam", "important", "tasks"];
+const SYSTEM_LABELS = ["inbox", "sent", "archived", "spam", "important", "tasks", "drafts", "flagged", "verified", "quarantine"];
 
 export async function ensureSystemLabels(agentId: string): Promise<void> {
   for (const name of SYSTEM_LABELS) {
@@ -235,8 +236,11 @@ export interface SendMessageInput {
   subject?: string;
   body: string;
   bodyFormat?: string;
+  structuredPayload?: Record<string, unknown>;
   inReplyToId?: string;
   senderTrustScore?: number;
+  senderVerified?: boolean;
+  priority?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -249,6 +253,14 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
     input.subject,
     input.inReplyToId,
   );
+
+  const initialProvenance: ProvenanceEntry[] = [{
+    timestamp: new Date().toISOString(),
+    action: input.direction === "inbound" ? "received" : "sent",
+    actor: input.senderAddress || input.senderAgentId || input.senderUserId || "unknown",
+    actorType: input.senderType as ProvenanceEntry["actorType"],
+    details: { inboxId: inbox.id, threadId: thread.id },
+  }];
 
   const [message] = await db
     .insert(agentMessagesTable)
@@ -265,9 +277,13 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
       subject: input.subject || thread.subject,
       body: input.body,
       bodyFormat: input.bodyFormat || "text",
+      structuredPayload: input.structuredPayload,
       isRead: input.direction === "outbound",
       deliveryStatus: "delivered",
       senderTrustScore: input.senderTrustScore,
+      senderVerified: input.senderVerified ?? false,
+      provenanceChain: initialProvenance,
+      priority: input.priority || "normal",
       inReplyToId: input.inReplyToId,
       metadata: input.metadata,
     })
@@ -557,8 +573,10 @@ async function applyRoutingRules(
   const sorted = [...rules].filter((r) => r.enabled).sort((a, b) => a.priority - b.priority);
 
   for (const rule of sorted) {
-    const matches = rule.conditions.every((cond) => evaluateCondition(message, cond));
-    if (!matches) continue;
+    const results = await Promise.all(
+      rule.conditions.map((cond) => evaluateCondition(message, cond)),
+    );
+    if (!results.every(Boolean)) continue;
 
     for (const action of rule.actions) {
       await executeAction(message, action);
@@ -566,8 +584,24 @@ async function applyRoutingRules(
   }
 }
 
-function evaluateCondition(message: AgentMessage, cond: RoutingCondition): boolean {
-  let value: string | number | null | undefined;
+async function evaluateCondition(message: AgentMessage, cond: RoutingCondition): Promise<boolean> {
+  if (cond.field === "label") {
+    const labels = await getMessageLabels(message.id);
+    const labelNames = labels.map((l) => l.name.toLowerCase());
+    const target = String(cond.value).toLowerCase();
+    switch (cond.operator) {
+      case "eq":
+        return labelNames.includes(target);
+      case "neq":
+        return !labelNames.includes(target);
+      case "contains":
+        return labelNames.some((n) => n.includes(target));
+      default:
+        return false;
+    }
+  }
+
+  let value: string | number | boolean | null | undefined;
 
   switch (cond.field) {
     case "sender_type":
@@ -582,14 +616,29 @@ function evaluateCondition(message: AgentMessage, cond: RoutingCondition): boole
     case "direction":
       value = message.direction;
       break;
-    case "label":
-      value = undefined;
+    case "sender_verified":
+      value = message.senderVerified;
+      break;
+    case "priority":
+      value = message.priority;
+      break;
+    case "sender_address":
+      value = message.senderAddress;
+      break;
+    case "body":
+      value = message.body;
       break;
     default:
       return false;
   }
 
   if (value === null || value === undefined) return false;
+
+  if (typeof value === "boolean") {
+    return cond.operator === "eq"
+      ? value === (cond.value === true || cond.value === "true")
+      : value !== (cond.value === true || cond.value === "true");
+  }
 
   switch (cond.operator) {
     case "eq":
@@ -729,6 +778,71 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
       });
       break;
     }
+    case "reject": {
+      await db
+        .update(agentMessagesTable)
+        .set({ deliveryStatus: "bounced", updatedAt: new Date() })
+        .where(eq(agentMessagesTable.id, message.id));
+      const inbox = await db.query.agentInboxesTable.findFirst({
+        where: eq(agentInboxesTable.id, message.inboxId),
+      });
+      if (inbox && message.senderAddress) {
+        await sendMessage({
+          agentId: message.agentId,
+          direction: "outbound",
+          senderType: "system",
+          senderAddress: inbox.address,
+          recipientAddress: message.senderAddress,
+          subject: `Rejected: ${message.subject || "(no subject)"}`,
+          body: (action.params?.reason as string) || "Your message was rejected by the recipient's routing policy.",
+          inReplyToId: message.id,
+        });
+      }
+      await db.insert(messageEventsTable).values({
+        messageId: message.id,
+        eventType: "message.rejected",
+        payload: { reason: action.params?.reason || "routing_policy" },
+      });
+      break;
+    }
+    case "require_verification": {
+      await db
+        .update(agentMessagesTable)
+        .set({ deliveryStatus: "queued", updatedAt: new Date() })
+        .where(eq(agentMessagesTable.id, message.id));
+      const quarantineLabel = await db.query.messageLabelsTable.findFirst({
+        where: and(
+          eq(messageLabelsTable.agentId, message.agentId),
+          eq(messageLabelsTable.name, "quarantine"),
+        ),
+      });
+      if (quarantineLabel) {
+        await assignLabel(message.id, quarantineLabel.id, message.agentId);
+      }
+      await db.insert(messageEventsTable).values({
+        messageId: message.id,
+        eventType: "message.verification_required",
+        payload: { reason: action.params?.reason || "unverified_sender" },
+      });
+      break;
+    }
+    case "quarantine": {
+      const qLabel = await db.query.messageLabelsTable.findFirst({
+        where: and(
+          eq(messageLabelsTable.agentId, message.agentId),
+          eq(messageLabelsTable.name, "quarantine"),
+        ),
+      });
+      if (qLabel) {
+        await assignLabel(message.id, qLabel.id, message.agentId);
+      }
+      await db.insert(messageEventsTable).values({
+        messageId: message.id,
+        eventType: "message.quarantined",
+        payload: { reason: action.params?.reason || "routing_rule" },
+      });
+      break;
+    }
     default:
       break;
   }
@@ -845,6 +959,9 @@ async function emitWebhookEvent(
     ),
   });
 
+  const MAX_RETRIES = 3;
+  const RETRY_DELAYS = [0, 1000, 3000];
+
   for (const wh of webhooks) {
     const events = (wh.events as string[]) || [];
     if (events.length > 0 && !events.includes(eventType)) continue;
@@ -859,34 +976,56 @@ async function emitWebhookEvent(
       headers["X-Webhook-Timestamp"] = timestamp;
     }
 
-    try {
-      const response = await fetch(wh.url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(webhookPayload),
-        signal: AbortSignal.timeout(10000),
-      });
+    let delivered = false;
+    let lastError: string | undefined;
+    let lastStatusCode: number | undefined;
 
-      await db
-        .update(inboxWebhooksTable)
-        .set({
-          lastDeliveredAt: new Date(),
-          failureCount: response.ok ? 0 : sql`${inboxWebhooksTable.failureCount} + 1`,
-          updatedAt: new Date(),
-        })
-        .where(eq(inboxWebhooksTable.id, wh.id));
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt]));
+      }
 
-      await db.insert(messageEventsTable).values({
-        messageId: payload.messageId as string,
-        eventType: response.ok ? "webhook.delivered" : "webhook.failed",
-        payload: {
-          webhookId: wh.id,
-          url: wh.url,
-          statusCode: response.status,
-          attempt: 1,
-        },
-      });
-    } catch (err) {
+      try {
+        const response = await fetch(wh.url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(webhookPayload),
+          signal: AbortSignal.timeout(10000),
+        });
+
+        lastStatusCode = response.status;
+
+        if (response.ok) {
+          delivered = true;
+          await db
+            .update(inboxWebhooksTable)
+            .set({
+              lastDeliveredAt: new Date(),
+              failureCount: 0,
+              updatedAt: new Date(),
+            })
+            .where(eq(inboxWebhooksTable.id, wh.id));
+
+          await db.insert(messageEventsTable).values({
+            messageId: payload.messageId as string,
+            eventType: "webhook.delivered",
+            payload: {
+              webhookId: wh.id,
+              url: wh.url,
+              statusCode: response.status,
+              attempt: attempt + 1,
+            },
+          });
+          break;
+        }
+
+        lastError = `HTTP ${response.status}`;
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : "Unknown error";
+      }
+    }
+
+    if (!delivered) {
       await db
         .update(inboxWebhooksTable)
         .set({
@@ -901,8 +1040,9 @@ async function emitWebhookEvent(
         payload: {
           webhookId: wh.id,
           url: wh.url,
-          error: err instanceof Error ? err.message : "Unknown error",
-          attempt: 1,
+          error: lastError,
+          statusCode: lastStatusCode,
+          totalAttempts: MAX_RETRIES,
         },
       });
     }
@@ -1020,6 +1160,9 @@ export async function searchMessages(filters: SearchFilters): Promise<{
   if (filters.threadId) {
     conditions.push(eq(agentMessagesTable.threadId, filters.threadId));
   }
+  if (filters.priority) {
+    conditions.push(eq(agentMessagesTable.priority, filters.priority));
+  }
   if (filters.hasConvertedTask === true) {
     conditions.push(sql`${agentMessagesTable.convertedTaskId} is not null`);
   } else if (filters.hasConvertedTask === false) {
@@ -1076,8 +1219,10 @@ export async function ingestExternalMessage(input: {
   subject?: string;
   body: string;
   bodyFormat?: string;
+  structuredPayload?: Record<string, unknown>;
   externalMessageId?: string;
   senderTrustScore?: number;
+  senderVerified?: boolean;
   priority?: string;
   metadata?: Record<string, unknown>;
 }): Promise<{ message: AgentMessage; inbox: AgentInbox } | null> {
@@ -1098,12 +1243,11 @@ export async function ingestExternalMessage(input: {
     subject: input.subject,
     body: input.body,
     bodyFormat: input.bodyFormat,
+    structuredPayload: input.structuredPayload,
     senderTrustScore: input.senderTrustScore,
-    metadata: {
-      ...input.metadata,
-      externalMessageId: input.externalMessageId,
-      priority: input.priority,
-    },
+    senderVerified: input.senderVerified,
+    priority: input.priority,
+    metadata: input.metadata,
   });
 
   if (input.externalMessageId) {
@@ -1121,6 +1265,119 @@ export async function ingestExternalMessage(input: {
   );
 
   return { message, inbox };
+}
+
+export async function replyToThread(
+  agentId: string,
+  threadId: string,
+  body: string,
+  opts?: {
+    bodyFormat?: string;
+    structuredPayload?: Record<string, unknown>;
+    recipientAddress?: string;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<AgentMessage | null> {
+  const thread = await getThread(threadId);
+  if (!thread || thread.agentId !== agentId) return null;
+
+  const inbox = await getInboxByAgent(agentId);
+  if (!inbox) return null;
+
+  const lastInbound = await db.query.agentMessagesTable.findFirst({
+    where: and(
+      eq(agentMessagesTable.threadId, threadId),
+      eq(agentMessagesTable.direction, "inbound"),
+    ),
+    orderBy: [desc(agentMessagesTable.createdAt)],
+  });
+
+  return sendMessage({
+    agentId,
+    direction: "outbound",
+    senderType: "agent",
+    senderAgentId: agentId,
+    senderAddress: inbox.address,
+    recipientAddress: opts?.recipientAddress || lastInbound?.senderAddress || undefined,
+    subject: thread.subject ? `Re: ${thread.subject.replace(/^Re:\s*/i, "")}` : undefined,
+    body,
+    bodyFormat: opts?.bodyFormat,
+    structuredPayload: opts?.structuredPayload,
+    inReplyToId: lastInbound?.id,
+    metadata: opts?.metadata,
+  });
+}
+
+export async function rejectMessage(
+  messageId: string,
+  agentId: string,
+  reason?: string,
+): Promise<boolean> {
+  const message = await getMessage(messageId);
+  if (!message || message.agentId !== agentId) return false;
+
+  await db
+    .update(agentMessagesTable)
+    .set({ deliveryStatus: "bounced", updatedAt: new Date() })
+    .where(eq(agentMessagesTable.id, messageId));
+
+  const inbox = await getInboxByAgent(agentId);
+  if (inbox && message.senderAddress) {
+    await sendMessage({
+      agentId,
+      direction: "outbound",
+      senderType: "system",
+      senderAddress: inbox.address,
+      recipientAddress: message.senderAddress,
+      subject: `Rejected: ${message.subject || "(no subject)"}`,
+      body: reason || "Your message was rejected.",
+      inReplyToId: messageId,
+    });
+  }
+
+  await db.insert(messageEventsTable).values({
+    messageId,
+    eventType: "message.rejected",
+    payload: { reason: reason || "manual_rejection", rejectedBy: agentId },
+  });
+
+  return true;
+}
+
+export async function approveMessage(
+  messageId: string,
+  agentId: string,
+): Promise<AgentMessage | null> {
+  const message = await getMessage(messageId);
+  if (!message || message.agentId !== agentId) return null;
+
+  const [updated] = await db
+    .update(agentMessagesTable)
+    .set({
+      deliveryStatus: "delivered",
+      senderVerified: true,
+      updatedAt: new Date(),
+    })
+    .where(eq(agentMessagesTable.id, messageId))
+    .returning();
+
+  const quarantineLabel = await db.query.messageLabelsTable.findFirst({
+    where: and(
+      eq(messageLabelsTable.agentId, agentId),
+      eq(messageLabelsTable.name, "quarantine"),
+    ),
+  });
+  if (quarantineLabel) {
+    await removeLabel(messageId, quarantineLabel.id, agentId);
+  }
+
+  await db.insert(messageEventsTable).values({
+    messageId,
+    eventType: "message.approved",
+    payload: { approvedBy: agentId },
+  });
+
+  return updated ?? null;
 }
 
 export async function verifyAgentOwnership(

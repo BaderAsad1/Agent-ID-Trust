@@ -105,34 +105,42 @@ Complete communications layer for agents with identity-bound inboxes.
 **Service:** `artifacts/api-server/src/services/mail.ts`
 - Inbox auto-provisioning with address generation (`handle@agents.local`)
 - Thread-aware messaging: auto-groups by subject/inReplyTo, tracks participants, unread counts
-- System + custom labels with assignment/removal
-- Message search/filtering: direction, senderType, subject (ILIKE), date range, trust score, label
-- Routing rules engine: condition evaluator (field/operator/value) + action executor (label, archive, convert_task)
+- System labels (10): inbox, sent, archived, spam, important, tasks, drafts, flagged, verified, quarantine
+- Custom labels with assignment/removal
+- Structured payloads (`structuredPayload` JSONB) for machine-readable message content
+- Provenance tracking (`provenanceChain` JSONB) — records actor, action, timestamp per message lifecycle step
+- Sender verification (`senderVerified` boolean) and trust scoring (`senderTrustScore` integer)
+- Full-text search: query (ILIKE on subject/body/senderAddress), direction, senderType, label (by ID or name), date range, trust score, hasConvertedTask, threadId
+- Routing rules engine: async condition evaluator (supports 9 fields including `label`, `sender_verified`, `priority`, `sender_address`, `body`) + 10 action types
 - Message→task conversion with bidirectional linkage (`convertedTaskId` on message, `originatingMessageId` on task)
-- Webhook registration and event emission (with secret headers, event filtering)
-- Transport event recording (inbound/outbound)
+- Thread reply helper (`replyToThread`) — auto-resolves last inbound message, sets proper subject
+- Message reject/approve lifecycle — reject sends bounce notification, approve removes quarantine label
+- Webhook delivery with exponential backoff retry (3 attempts, 0/1s/3s delays)
+- Webhook HMAC signing (`X-Webhook-Signature: sha256=...`, `X-Webhook-Timestamp`)
 
 **Transport:** `artifacts/api-server/src/services/mail-transport.ts`
 - Provider adapter interface with `canDeliver()` / `send()` methods
 - Built-in providers: `InternalTransportProvider` (handles `@agents.local`), `WebhookTransportProvider` (fallback)
 - Outbound delivery tracking in `outbound_message_deliveries` table
 - `registerProvider()` for custom transport extensions
-- HMAC webhook signing (`X-Webhook-Signature: sha256=...`, `X-Webhook-Timestamp`)
 
 **Routes (27 endpoints):** `artifacts/api-server/src/routes/v1/mail.ts`
 - Agent-scoped (under `/api/v1/mail/agents/:agentId/`):
   - `GET|PATCH /inbox`, `GET /inbox/stats`
-  - `GET /threads`, `GET|PATCH /threads/:threadId`, `POST /threads/:threadId/read`
+  - `GET /threads`, `GET|PATCH /threads/:threadId`, `POST /threads/:threadId/read`, `POST /threads/:threadId/reply`
   - `GET|POST /messages`, `GET /messages/:messageId`, `POST /messages/:messageId/read`
   - `POST /messages/:messageId/convert-task`, `GET /messages/:messageId/events`
+  - `POST /messages/:messageId/reject`, `POST /messages/:messageId/approve`
   - `GET|POST /labels`, `DELETE /labels/:labelId`
   - `POST|DELETE /messages/:messageId/labels/:labelId`
   - `GET|POST /webhooks`, `PATCH|DELETE /webhooks/:webhookId`
-  - `GET /search` — full search with q, direction, senderType, label, trust, date, hasConvertedTask
+  - `GET /search` — full-text + trust + label + date + task-linked filters
 - Programmatic ingestion (under `/api/v1/mail/`):
-  - `POST /ingest` — API-key or user auth, address-based routing, external message ID, priority
+  - `POST /ingest` — API-key or user auth, address-based routing, structuredPayload, senderVerified, priority
 
-**Routing rules engine actions:** `label`, `archive`, `convert_task`, `forward` (to another agent inbox), `auto_reply`, `webhook` (fire to URL), `drop` (bounce message)
+**Routing rules engine:**
+- Conditions: `sender_type`, `sender_trust`, `subject`, `label` (async DB lookup), `direction`, `sender_verified`, `priority`, `sender_address`, `body`
+- Actions: `label`, `archive`, `convert_task`, `forward`, `auto_reply`, `webhook`, `drop`, `reject` (sends bounce), `require_verification` (quarantines), `quarantine`
 
 **Seed data:** 2 inboxes, 3 threads, 7 messages (threaded conversations), system + custom labels, label assignments, message events
 
