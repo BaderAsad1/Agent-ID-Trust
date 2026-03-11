@@ -153,9 +153,12 @@ export async function activateAgent(
     return { success: true, subscription: existingSub };
   }
 
-  const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
+  const periodStart = userSub?.currentPeriodStart ?? new Date();
+  const periodEnd = userSub?.currentPeriodEnd ?? (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d;
+  })();
 
   const [sub] = await db
     .insert(agentSubscriptionsTable)
@@ -165,8 +168,9 @@ export async function activateAgent(
       plan: userPlan as PlanType,
       status: "active",
       provider: "stripe",
-      billingInterval: "monthly",
-      currentPeriodStart: now,
+      providerSubscriptionId: userSub?.providerSubscriptionId ?? null,
+      billingInterval: userSub?.billingInterval ?? "monthly",
+      currentPeriodStart: periodStart,
       currentPeriodEnd: periodEnd,
     })
     .returning();
@@ -348,6 +352,28 @@ export async function finalizeWebhookEvent(
     );
 }
 
+export async function requirePlanFeature(
+  userId: string,
+  feature: "canListOnMarketplace" | "canUsePremiumRouting" | "canUseAdvancedAuth" | "canUseTeamFeatures",
+): Promise<{ allowed: boolean; currentPlan: string; requiredPlan: string }> {
+  const userSub = await getActiveUserSubscription(userId);
+  const plan = userSub?.plan ?? "free";
+  const limits = getPlanLimits(plan);
+
+  const featurePlanMap: Record<string, string> = {
+    canListOnMarketplace: "starter",
+    canUsePremiumRouting: "pro",
+    canUseAdvancedAuth: "pro",
+    canUseTeamFeatures: "team",
+  };
+
+  return {
+    allowed: limits[feature],
+    currentPlan: plan,
+    requiredPlan: featurePlanMap[feature],
+  };
+}
+
 function computePeriodDates(billingInterval: string): { start: Date; end: Date } {
   const start = new Date();
   const end = new Date(start);
@@ -447,15 +473,22 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
     })
     .where(eq(subscriptionsTable.providerSubscriptionId, subscriptionId));
 
-  await db
-    .update(agentSubscriptionsTable)
-    .set({
-      status: "active",
-      currentPeriodStart: period.start,
-      currentPeriodEnd: period.end,
-      updatedAt: new Date(),
-    })
-    .where(eq(agentSubscriptionsTable.providerSubscriptionId, subscriptionId));
+  if (existingSub[0]?.userId) {
+    await db
+      .update(agentSubscriptionsTable)
+      .set({
+        status: "active",
+        currentPeriodStart: period.start,
+        currentPeriodEnd: period.end,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(agentSubscriptionsTable.userId, existingSub[0].userId),
+          eq(agentSubscriptionsTable.providerSubscriptionId, subscriptionId),
+        ),
+      );
+  }
 }
 
 export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
@@ -463,15 +496,23 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const subscriptionId = typeof rawSubId === "string" ? rawSubId : rawSubId?.id ?? null;
   if (!subscriptionId) return;
 
-  await db
+  const [sub] = await db
     .update(subscriptionsTable)
     .set({ status: "past_due", updatedAt: new Date() })
-    .where(eq(subscriptionsTable.providerSubscriptionId, subscriptionId));
+    .where(eq(subscriptionsTable.providerSubscriptionId, subscriptionId))
+    .returning();
 
-  await db
-    .update(agentSubscriptionsTable)
-    .set({ status: "past_due", updatedAt: new Date() })
-    .where(eq(agentSubscriptionsTable.providerSubscriptionId, subscriptionId));
+  if (sub?.userId) {
+    await db
+      .update(agentSubscriptionsTable)
+      .set({ status: "past_due", updatedAt: new Date() })
+      .where(
+        and(
+          eq(agentSubscriptionsTable.userId, sub.userId),
+          eq(agentSubscriptionsTable.providerSubscriptionId, subscriptionId),
+        ),
+      );
+  }
 }
 
 export async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
