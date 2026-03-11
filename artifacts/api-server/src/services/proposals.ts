@@ -121,6 +121,9 @@ export async function updateProposalStatus(
   });
 
   if (!job) return { success: false, error: "JOB_NOT_FOUND" };
+  if (job.status !== "open") {
+    return { success: false, error: `JOB_NOT_OPEN:${job.status}` };
+  }
 
   const proposal = await db.query.jobProposalsTable.findFirst({
     where: and(

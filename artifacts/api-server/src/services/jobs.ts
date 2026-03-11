@@ -189,6 +189,18 @@ export async function updateJobStatus(
     .where(eq(jobPostsTable.id, jobId))
     .returning();
 
+  if (newStatus === "closed" || newStatus === "expired") {
+    await db
+      .update(jobProposalsTable)
+      .set({ status: "rejected", updatedAt: new Date() })
+      .where(
+        and(
+          eq(jobProposalsTable.jobId, jobId),
+          eq(jobProposalsTable.status, "pending"),
+        ),
+      );
+  }
+
   await logJobEvent(posterUserId, "job.status_changed", {
     jobId,
     title: existing.title,
