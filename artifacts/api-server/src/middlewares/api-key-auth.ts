@@ -36,6 +36,8 @@ export async function apiKeyAuth(
       return;
     }
 
+    req.apiKey = apiKey;
+
     if (apiKey.ownerType === "user") {
       const user = await db.query.usersTable.findFirst({
         where: eq(usersTable.id, apiKey.ownerId),
@@ -46,7 +48,6 @@ export async function apiKeyAuth(
       }
     }
 
-    (req as any).apiKey = apiKey;
     next();
   } catch (err) {
     next(err);
