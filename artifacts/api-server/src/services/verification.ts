@@ -42,23 +42,19 @@ export async function verifyChallenge(
     return { success: false, error: "No active key found with the provided kid for this agent" };
   }
 
-  const [consumed] = await db
-    .update(agentVerificationChallengesTable)
-    .set({ usedAt: new Date() })
-    .where(
-      and(
-        eq(agentVerificationChallengesTable.agentId, agentId),
-        eq(agentVerificationChallengesTable.challenge, challengeToken),
-        isNull(agentVerificationChallengesTable.usedAt),
-      ),
-    )
-    .returning();
+  const challenge = await db.query.agentVerificationChallengesTable.findFirst({
+    where: and(
+      eq(agentVerificationChallengesTable.agentId, agentId),
+      eq(agentVerificationChallengesTable.challenge, challengeToken),
+      isNull(agentVerificationChallengesTable.usedAt),
+    ),
+  });
 
-  if (!consumed) {
-    return { success: false, error: "Challenge not found, already used, or expired" };
+  if (!challenge) {
+    return { success: false, error: "Challenge not found or already used" };
   }
 
-  if (new Date() > consumed.expiresAt) {
+  if (new Date() > challenge.expiresAt) {
     return { success: false, error: "Challenge has expired" };
   }
 
@@ -81,6 +77,21 @@ export async function verifyChallenge(
     }
   } catch {
     return { success: false, error: "Invalid key or signature format" };
+  }
+
+  const [consumed] = await db
+    .update(agentVerificationChallengesTable)
+    .set({ usedAt: new Date() })
+    .where(
+      and(
+        eq(agentVerificationChallengesTable.id, challenge.id),
+        isNull(agentVerificationChallengesTable.usedAt),
+      ),
+    )
+    .returning();
+
+  if (!consumed) {
+    return { success: false, error: "Challenge was consumed by a concurrent request" };
   }
 
   await db
