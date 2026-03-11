@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3 } from 'lucide-react';
-import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating } from './components';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search } from 'lucide-react';
+import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from './components';
 import { agents, inboxItems, activityLog, marketplaceListings, earnings, jobs } from './data';
 import { Sidebar, MobileSidebar } from './Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -99,53 +99,83 @@ function Overview() {
 }
 
 function TaskInbox() {
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 800); return () => clearTimeout(t); }, []);
+
+  const filtered = filter === 'all' ? inboxItems : inboxItems.filter(i => i.status === filter);
+
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Task Inbox</h1>
-      <div className="space-y-3">
-        {inboxItems.map(item => (
-          <GlassCard key={item.id} hover className="!p-4">
-            <div className="flex items-start gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{item.title}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full`} style={{
-                    background: item.status === 'pending' ? 'rgba(59,130,246,0.1)' : item.status === 'in_progress' ? 'rgba(245,158,11,0.1)' : item.status === 'completed' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                    color: item.status === 'pending' ? 'var(--accent)' : item.status === 'in_progress' ? 'var(--warning)' : item.status === 'completed' ? 'var(--success)' : 'var(--danger)',
-                  }}>{item.status.replace('_', ' ')}</span>
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: item.type === 'hire' ? 'rgba(139,92,246,0.1)' : 'rgba(59,130,246,0.05)', color: item.type === 'hire' ? 'var(--marketplace)' : 'var(--text-dim)' }}>{item.type}</span>
-                </div>
-                <p className="text-sm truncate" style={{ color: 'var(--text-muted)' }}>{item.description}</p>
-                <div className="flex items-center gap-3 mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>
-                  <span>from {item.from}</span>
-                  <span>{item.receivedAt}</span>
-                  {item.budget && <span>${item.budget}</span>}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Task Inbox</h1>
+        <div className="flex gap-2">
+          {(['all', 'pending', 'in_progress', 'completed'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)} className="text-xs px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: filter === f ? 'rgba(59,130,246,0.1)' : 'transparent', color: filter === f ? 'var(--accent)' : 'var(--text-dim)', border: 'none' }}>{f.replace('_', ' ')}</button>
+          ))}
+        </div>
+      </div>
+      {loading ? (
+        <div className="space-y-3">
+          <ListSkeleton rows={5} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={<Inbox className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No tasks here" description={filter === 'all' ? 'Your inbox is empty. Tasks will appear here when agents or clients send work.' : `No ${filter.replace('_', ' ')} tasks right now.`} />
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(item => (
+            <GlassCard key={item.id} hover className="!p-4">
+              <div className="flex items-start gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{item.title}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full`} style={{
+                      background: item.status === 'pending' ? 'rgba(59,130,246,0.1)' : item.status === 'in_progress' ? 'rgba(245,158,11,0.1)' : item.status === 'completed' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                      color: item.status === 'pending' ? 'var(--accent)' : item.status === 'in_progress' ? 'var(--warning)' : item.status === 'completed' ? 'var(--success)' : 'var(--danger)',
+                    }}>{item.status.replace('_', ' ')}</span>
+                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: item.type === 'hire' ? 'rgba(139,92,246,0.1)' : 'rgba(59,130,246,0.05)', color: item.type === 'hire' ? 'var(--marketplace)' : 'var(--text-dim)' }}>{item.type}</span>
+                  </div>
+                  <p className="text-sm truncate" style={{ color: 'var(--text-muted)' }}>{item.description}</p>
+                  <div className="flex items-center gap-3 mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>
+                    <span>from {item.from}</span>
+                    <span>{item.receivedAt}</span>
+                    {item.budget && <span>${item.budget}</span>}
+                  </div>
                 </div>
               </div>
-            </div>
-          </GlassCard>
-        ))}
-      </div>
+            </GlassCard>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function ActivityLogPage() {
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Activity Log</h1>
-      <GlassCard>
-        <div className="space-y-2">
-          {activityLog.map(evt => (
-            <div key={evt.id} className="flex items-center gap-3 text-sm py-2 border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-              <span className="text-xs font-mono w-16 flex-shrink-0" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>{evt.hash}</span>
-              <EventTypeIcon type={evt.type} />
-              <span className="flex-1 truncate" style={{ color: 'var(--text-muted)' }}>{evt.details}</span>
-              <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-dim)' }}>{evt.timestamp}</span>
-            </div>
-          ))}
-        </div>
-      </GlassCard>
+      {loading ? (
+        <ListSkeleton rows={8} />
+      ) : activityLog.length === 0 ? (
+        <EmptyState icon={<Activity className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No activity yet" description="Activity events will appear here as your agents receive tasks and complete work." />
+      ) : (
+        <GlassCard>
+          <div className="space-y-2">
+            {activityLog.map(evt => (
+              <div key={evt.id} className="flex items-center gap-3 text-sm py-2 border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
+                <span className="text-xs font-mono w-16 flex-shrink-0" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>{evt.hash}</span>
+                <EventTypeIcon type={evt.type} />
+                <span className="flex-1 truncate" style={{ color: 'var(--text-muted)' }}>{evt.details}</span>
+                <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-dim)' }}>{evt.timestamp}</span>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
     </div>
   );
 }

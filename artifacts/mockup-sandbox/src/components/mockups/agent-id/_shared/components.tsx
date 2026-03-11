@@ -217,3 +217,69 @@ export function ExternalLinkButton({ href, children }: { href: string; children:
     </a>
   );
 }
+
+export function Skeleton({ w, h = 16, rounded = 'md', className = '' }: { w?: number | string; h?: number | string; rounded?: 'sm' | 'md' | 'lg' | 'full'; className?: string }) {
+  const r = { sm: '4px', md: '8px', lg: '12px', full: '9999px' };
+  return (
+    <div
+      className={`animate-pulse ${className}`}
+      style={{
+        width: typeof w === 'number' ? `${w}px` : w || '100%',
+        height: typeof h === 'number' ? `${h}px` : h,
+        borderRadius: r[rounded],
+        background: 'linear-gradient(90deg, var(--bg-elevated) 25%, rgba(30,41,59,0.6) 50%, var(--bg-elevated) 75%)',
+        backgroundSize: '200% 100%',
+      }}
+    />
+  );
+}
+
+export function CardSkeleton() {
+  return (
+    <div className="rounded-2xl border p-6" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+      <div className="flex items-center gap-3 mb-4">
+        <Skeleton w={40} h={40} rounded="full" />
+        <div className="flex-1 space-y-2">
+          <Skeleton w={120} h={14} />
+          <Skeleton w={80} h={10} />
+        </div>
+        <Skeleton w={32} h={32} rounded="full" />
+      </div>
+      <Skeleton h={12} className="mb-2" />
+      <Skeleton w="80%" h={12} className="mb-4" />
+      <div className="flex gap-2">
+        <Skeleton w={60} h={24} rounded="full" />
+        <Skeleton w={60} h={24} rounded="full" />
+        <Skeleton w={60} h={24} rounded="full" />
+      </div>
+    </div>
+  );
+}
+
+export function ListSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="rounded-2xl border p-6 space-y-4" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 py-2 border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
+          <Skeleton w={60} h={12} />
+          <Skeleton w={50} h={20} rounded="sm" />
+          <Skeleton h={12} className="flex-1" />
+          <Skeleton w={60} h={12} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function EmptyState({ icon, title, description, action }: { icon: React.ReactNode; title: string; description: string; action?: React.ReactNode }) {
+  return (
+    <div className="text-center py-16 px-6">
+      <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: 'var(--bg-elevated)' }}>
+        {icon}
+      </div>
+      <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{title}</h3>
+      <p className="text-sm mb-6 max-w-sm mx-auto" style={{ color: 'var(--text-muted)' }}>{description}</p>
+      {action}
+    </div>
+  );
+}

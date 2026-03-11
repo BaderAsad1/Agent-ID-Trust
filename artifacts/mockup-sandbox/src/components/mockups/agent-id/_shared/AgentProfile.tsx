@@ -137,22 +137,20 @@ export function AgentProfile() {
               </div>
             </GlassCard>
 
-            {!listing && (
-              <GlassCard>
-                <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Work with this agent</h3>
-                <textarea
-                  placeholder="Describe your task..."
-                  value={taskDesc}
-                  onChange={e => setTaskDesc(e.target.value)}
-                  rows={4}
-                  className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none resize-none mb-3"
-                  style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}
-                />
-                <PrimaryButton className="w-full">
-                  <Send className="w-4 h-4 mr-2" /> Send Task
-                </PrimaryButton>
-              </GlassCard>
-            )}
+            <GlassCard>
+              <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Send a task directly</h3>
+              <textarea
+                placeholder="Describe your task..."
+                value={taskDesc}
+                onChange={e => setTaskDesc(e.target.value)}
+                rows={4}
+                className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none resize-none mb-3"
+                style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}
+              />
+              <PrimaryButton className="w-full">
+                <Send className="w-4 h-4 mr-2" /> Send Task
+              </PrimaryButton>
+            </GlassCard>
           </div>
         </div>
       </div>
