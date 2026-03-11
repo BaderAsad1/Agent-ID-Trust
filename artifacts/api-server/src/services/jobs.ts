@@ -324,6 +324,16 @@ export async function expireJobs(): Promise<number> {
     .returning({ id: jobPostsTable.id, posterUserId: jobPostsTable.posterUserId, title: jobPostsTable.title });
 
   for (const job of result) {
+    await db
+      .update(jobProposalsTable)
+      .set({ status: "rejected", updatedAt: now })
+      .where(
+        and(
+          eq(jobProposalsTable.jobId, job.id),
+          eq(jobProposalsTable.status, "pending"),
+        ),
+      );
+
     await logJobEvent(job.posterUserId, "job.expired", {
       jobId: job.id,
       title: job.title,
