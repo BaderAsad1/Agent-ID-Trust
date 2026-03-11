@@ -503,6 +503,11 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   if (existingSub[0]?.userId) {
     await db
+      .update(usersTable)
+      .set({ plan: existingSub[0].plan, updatedAt: new Date() })
+      .where(eq(usersTable.id, existingSub[0].userId));
+
+    await db
       .update(agentSubscriptionsTable)
       .set({
         status: "active",
@@ -530,6 +535,11 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     .returning();
 
   if (sub?.userId) {
+    await db
+      .update(usersTable)
+      .set({ plan: "free", updatedAt: new Date() })
+      .where(eq(usersTable.id, sub.userId));
+
     await db
       .update(agentSubscriptionsTable)
       .set({ status: "past_due", updatedAt: new Date() })
