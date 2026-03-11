@@ -107,6 +107,21 @@ router.post("/listings", requireAuth, async (req, res, next) => {
   }
 });
 
+router.put("/listings/:listingId", requireAuth, async (req, res, next) => {
+  try {
+    const listingId = req.params.listingId as string;
+    const parsed = createListingSchema.omit({ agentId: true }).parse(req.body);
+    const result = await updateListing(listingId, req.userId!, parsed);
+    if (!result.success) {
+      const code = result.error === "LISTING_NOT_FOUND" ? 404 : 400;
+      throw new AppError(code, result.error!, result.error!);
+    }
+    res.json(result.listing);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.patch("/listings/:listingId", requireAuth, async (req, res, next) => {
   try {
     const listingId = req.params.listingId as string;
