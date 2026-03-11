@@ -96,6 +96,12 @@
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
 }
+@keyframes holo-shift {
+  0%, 100% { background-position: 0% 0%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 50% 100%; }
+  75% { background-position: 0% 50%; }
+}
 @keyframes flow-dot {
   0% { transform: translateX(0); opacity: 0; }
   10% { opacity: 1; }
@@ -124,33 +130,124 @@
 
 .id-object {
   position: relative;
-  background: linear-gradient(145deg, #0E1219 0%, #141A24 50%, #0E1219 100%);
-  border: 1px solid rgba(59,130,246,0.15);
+  background: linear-gradient(145deg, #0C1018 0%, #111824 40%, #0D1320 70%, #0C1018 100%);
+  border: 1px solid rgba(59,130,246,0.18);
   border-radius: 20px;
   overflow: hidden;
   perspective: 800px;
+  box-shadow:
+    0 0 0 1px rgba(59,130,246,0.05),
+    0 4px 24px rgba(0,0,0,0.5),
+    0 8px 48px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.04);
 }
 .id-object::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 20px;
-  background: linear-gradient(145deg, rgba(59,130,246,0.06) 0%, transparent 40%, rgba(139,92,246,0.04) 100%);
+  background:
+    linear-gradient(145deg, rgba(59,130,246,0.06) 0%, transparent 40%, rgba(139,92,246,0.04) 100%),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 29px,
+      rgba(59,130,246,0.015) 29px,
+      rgba(59,130,246,0.015) 30px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 29px,
+      rgba(59,130,246,0.015) 29px,
+      rgba(59,130,246,0.015) 30px
+    );
   pointer-events: none;
 }
 .id-object::after {
   content: '';
   position: absolute;
   left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent);
+  height: 2px;
+  background: linear-gradient(90deg, transparent 5%, rgba(59,130,246,0.5) 30%, rgba(139,92,246,0.4) 50%, rgba(6,182,212,0.5) 70%, transparent 95%);
   animation: scan-line 4s ease-in-out infinite;
   pointer-events: none;
+  filter: blur(0.5px);
 }
 .id-object-inner {
   position: relative;
   z-index: 2;
   padding: 32px;
+}
+.id-object-holo {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    125deg,
+    transparent 20%,
+    rgba(59,130,246,0.04) 30%,
+    rgba(139,92,246,0.05) 38%,
+    rgba(6,182,212,0.04) 46%,
+    transparent 55%
+  );
+  background-size: 300% 300%;
+  animation: holo-shift 8s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+.id-object-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  z-index: 3;
+}
+.id-object-corner::before,
+.id-object-corner::after {
+  content: '';
+  position: absolute;
+  background: rgba(59,130,246,0.25);
+}
+.id-object-corner::before {
+  width: 14px; height: 1px; top: 0; left: 0;
+}
+.id-object-corner::after {
+  width: 1px; height: 14px; top: 0; left: 0;
+}
+.id-object-corner.top-right { top: 12px; right: 12px; }
+.id-object-corner.top-right::before { right: 0; left: auto; }
+.id-object-corner.top-right::after { right: 0; left: auto; }
+.id-object-corner.bottom-left { bottom: 12px; left: 12px; }
+.id-object-corner.bottom-left::before { bottom: 0; top: auto; }
+.id-object-corner.bottom-left::after { bottom: 0; top: auto; }
+.id-object-corner.bottom-right { bottom: 12px; right: 12px; }
+.id-object-corner.bottom-right::before { right: 0; left: auto; bottom: 0; top: auto; }
+.id-object-corner.bottom-right::after { right: 0; left: auto; bottom: 0; top: auto; }
+.id-object-chip {
+  width: 28px;
+  height: 20px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #1E293B 0%, #334155 50%, #1E293B 100%);
+  border: 1px solid rgba(59,130,246,0.2);
+  position: relative;
+  overflow: hidden;
+}
+.id-object-chip::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 0.5px solid rgba(59,130,246,0.15);
+  border-radius: 1px;
+}
+.id-object-chip::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  right: 3px;
+  height: 0.5px;
+  background: rgba(59,130,246,0.12);
 }
 
 .section-sep {
@@ -171,6 +268,7 @@
   .animate-marquee { animation: none !important; }
   .id-object { animation: none !important; }
   .id-object-inner::before { animation: none !important; }
+  .id-object-holo { animation: none !important; }
   .cursor-blink::after { animation: none !important; }
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

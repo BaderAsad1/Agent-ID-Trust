@@ -23,18 +23,24 @@ const OBJECT_FIELDS = [
 function AgentIDObject({ expanded = false, className = '' }: { expanded?: boolean; className?: string }) {
   return (
     <div className={`id-object ${expanded ? '' : 'animate-object-float'} ${className}`}>
+      <div className="id-object-holo" />
+      <div className="id-object-corner top-right" />
+      <div className="id-object-corner bottom-left" />
+      <div className="id-object-corner bottom-right" />
+
       <div className="id-object-inner">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <Identicon handle="research-agent" size={36} />
+            <div className="id-object-chip" />
+            <Identicon handle="research-agent" size={34} />
             <div>
               <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Research Agent</div>
-              <div className="text-xs" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>agt_01j9x4k2mw</div>
+              <div className="text-[10px]" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>agt_01j9x4k2mw</div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full animate-pulse-dot" style={{ background: 'var(--success)' }} />
-            <span className="text-xs font-medium" style={{ color: 'var(--success)' }}>VERIFIED</span>
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-full" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: 'var(--success)' }} />
+            <span className="text-[10px] font-semibold tracking-wide" style={{ color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>VERIFIED</span>
           </div>
         </div>
 
@@ -47,26 +53,26 @@ function AgentIDObject({ expanded = false, className = '' }: { expanded?: boolea
                 display: 'flex',
                 alignItems: 'baseline',
                 justifyContent: 'space-between',
-                padding: '8px 0',
-                borderTop: i === 0 ? '1px solid rgba(59,130,246,0.08)' : '1px solid rgba(255,255,255,0.03)',
+                padding: '7px 0',
+                borderTop: i === 0 ? '1px solid rgba(59,130,246,0.1)' : '1px solid rgba(255,255,255,0.025)',
                 animationDelay: expanded ? `${i * 80}ms` : undefined,
               }}
             >
-              <span className="text-xs tracking-wider uppercase" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', minWidth: '90px' }}>
+              <span className="text-[10px] tracking-[0.12em] uppercase" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', minWidth: '85px' }}>
                 {f.dimLabel}
               </span>
               {f.special === 'trust' ? (
                 <div className="flex items-center gap-2">
-                  <TrustScoreRing score={94} size={28} />
-                  <span className="text-sm font-semibold" style={{ color: 'var(--success)' }}>94</span>
+                  <TrustScoreRing score={94} size={26} />
+                  <span className="text-sm font-bold" style={{ color: 'var(--success)' }}>94</span>
                 </div>
               ) : (
                 <span
-                  className="text-xs text-right"
+                  className="text-[11px] text-right"
                   style={{
                     fontFamily: f.mono ? 'var(--font-mono)' : 'var(--font-body)',
                     color: f.color || 'var(--text-muted)',
-                    maxWidth: '260px',
+                    maxWidth: '250px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -79,13 +85,13 @@ function AgentIDObject({ expanded = false, className = '' }: { expanded?: boolea
           ))}
         </div>
 
-        <div className="mt-5 pt-4 flex items-center justify-between" style={{ borderTop: '1px solid rgba(59,130,246,0.08)' }}>
+        <div className="mt-4 pt-3 flex items-center justify-between" style={{ borderTop: '1px solid rgba(59,130,246,0.1)' }}>
           <div className="flex gap-1.5">
             {['MCP', 'A2A', 'REST'].map(p => (
-              <span key={p} className="text-[10px] px-2 py-0.5 rounded" style={{ background: 'rgba(59,130,246,0.06)', color: 'var(--accent)', fontFamily: 'var(--font-mono)', border: '1px solid rgba(59,130,246,0.1)' }}>{p}</span>
+              <span key={p} className="text-[9px] px-2 py-0.5 rounded-sm font-medium" style={{ background: 'rgba(59,130,246,0.08)', color: 'var(--accent)', fontFamily: 'var(--font-mono)', border: '1px solid rgba(59,130,246,0.12)' }}>{p}</span>
             ))}
           </div>
-          <span className="text-[10px]" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>agentid/v1</span>
+          <span className="text-[9px] tracking-wider" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>agentid/v1</span>
         </div>
       </div>
     </div>
@@ -122,17 +128,15 @@ function HeroSection() {
             style={{
               fontFamily: 'var(--font-display)',
               fontWeight: 800,
-              fontSize: 'clamp(2.5rem, 5.5vw, 4.5rem)',
-              lineHeight: 1.05,
+              fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+              lineHeight: 1.08,
               letterSpacing: '-0.035em',
               animationDelay: '80ms',
+              color: 'var(--text-primary)',
             }}
           >
-            <span style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.05em' }}>The identity layer</span>
-            <span style={{ color: 'var(--text-primary)', display: 'block' }}>
-              for the{' '}
-              <span className="text-gradient-blue">agent internet.</span>
-            </span>
+            The identity layer&nbsp;for{' '}
+            <span className="text-gradient-blue">the&nbsp;agent&nbsp;internet.</span>
           </h1>
 
           <p
@@ -672,7 +676,7 @@ function PricingSection() {
   ];
 
   return (
-    <section className="relative py-32 px-6">
+    <section id="pricing" className="relative py-32 px-6">
       <div className="max-w-[1000px] mx-auto">
         <div className="mb-16">
           <p className="text-xs uppercase tracking-[0.2em] mb-6" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>Pricing</p>

@@ -18,11 +18,24 @@ export function Nav() {
 
   if (isDashboard) return null;
 
+  const scrollToPricing = () => {
+    if (location.pathname !== '/') {
+      navigate('/');
+      setTimeout(() => {
+        const el = document.getElementById('pricing');
+        el?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } else {
+      const el = document.getElementById('pricing');
+      el?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const navLinks = [
     { label: 'Marketplace', onClick: () => navigate('/marketplace') },
     { label: 'For Agents', onClick: () => navigate('/for-agents'), highlight: true },
-    { label: 'Docs', onClick: undefined },
-    { label: 'Pricing', onClick: undefined },
+    { label: 'Docs', onClick: () => navigate('/for-agents') },
+    { label: 'Pricing', onClick: scrollToPricing },
   ];
 
   return (
@@ -50,7 +63,7 @@ export function Nav() {
               <button
                 key={l.label}
                 onClick={l.onClick}
-                className={`text-sm transition-colors ${l.onClick ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+                className="text-sm transition-colors cursor-pointer hover:opacity-80"
                 style={{
                   color: l.highlight ? 'var(--accent)' : 'var(--text-muted)',
                   background: 'none',
@@ -99,7 +112,7 @@ export function Nav() {
               <button
                 key={l.label}
                 onClick={() => { l.onClick?.(); setMobileOpen(false); }}
-                className={`text-left py-3 text-lg ${l.onClick ? 'cursor-pointer' : 'cursor-default'}`}
+                className="text-left py-3 text-lg cursor-pointer"
                 style={{ color: l.highlight ? 'var(--accent)' : 'var(--text-primary)', background: 'none', border: 'none', fontFamily: 'var(--font-body)' }}
                 aria-label={l.label}
               >{l.label}</button>
