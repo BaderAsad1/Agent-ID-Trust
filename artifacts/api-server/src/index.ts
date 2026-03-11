@@ -1,6 +1,7 @@
 import app from "./app";
 import { startDomainWorker, closeDomainWorker } from "./workers/domain-provisioning";
 import { closeRedis } from "./lib/redis";
+import { expireJobs } from "./services/jobs";
 
 const rawPort = process.env["PORT"];
 
@@ -18,12 +19,31 @@ if (Number.isNaN(port) || port <= 0) {
 
 startDomainWorker();
 
+const JOB_EXPIRY_INTERVAL_MS = 60 * 1000;
+let jobExpiryTimer: ReturnType<typeof setInterval> | null = null;
+
+function startJobExpiryRunner() {
+  jobExpiryTimer = setInterval(async () => {
+    try {
+      const count = await expireJobs();
+      if (count > 0) {
+        console.log(`[job-expiry] Expired ${count} job(s)`);
+      }
+    } catch (err) {
+      console.error("[job-expiry] Error expiring jobs:", err);
+    }
+  }, JOB_EXPIRY_INTERVAL_MS);
+}
+
+startJobExpiryRunner();
+
 const server = app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
 });
 
 async function gracefulShutdown(signal: string) {
   console.log(`Received ${signal}, shutting down gracefully...`);
+  if (jobExpiryTimer) clearInterval(jobExpiryTimer);
   server.close();
   await closeDomainWorker();
   await closeRedis();

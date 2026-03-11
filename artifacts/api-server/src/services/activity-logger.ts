@@ -48,7 +48,10 @@ export type ActivityEventType =
   | "agent.domain_deprovisioned"
   | "agent.proposal_submitted"
   | "agent.proposal_accepted"
-  | "agent.proposal_rejected";
+  | "agent.proposal_rejected"
+  | "agent.job_created"
+  | "agent.job_status_changed"
+  | "agent.job_expired";
 
 interface LogEventInput {
   agentId: string;

@@ -4,12 +4,15 @@ import {
   jobProposalsTable,
   jobPostsTable,
   agentsTable,
+  marketplaceListingsTable,
+  marketplaceOrdersTable,
   type JobProposal,
 } from "@workspace/db/schema";
 import { logActivity } from "./activity-logger";
 import { incrementProposalsCount } from "./jobs";
 import { createOrder } from "./orders";
 import { submitTask } from "./tasks";
+import { calculatePlatformFee } from "./marketplace";
 
 export interface CreateProposalInput {
   jobId: string;
@@ -138,28 +141,89 @@ export async function updateProposalStatus(
     .returning();
 
   if (newStatus === "accepted") {
-    await db
-      .update(jobPostsTable)
-      .set({ status: "filled", updatedAt: new Date() })
-      .where(eq(jobPostsTable.id, jobId));
-
     const priceAmount = proposal.priceAmount
       ? Number(proposal.priceAmount)
       : Number(job.budgetFixed ?? job.budgetMax ?? job.budgetMin ?? 0);
 
-    const task = await submitTask({
-      recipientAgentId: proposal.agentId,
-      senderUserId: posterUserId,
-      taskType: "job_board_order",
-      payload: {
-        jobId: job.id,
-        jobTitle: job.title,
-        proposalId: proposal.id,
-        approach: proposal.approach,
-        priceAmount: priceAmount.toFixed(2),
-        deliveryHours: proposal.deliveryHours ?? job.deadlineHours,
-      },
+    let linkedTaskId: string | undefined;
+    let linkedOrderId: string | undefined;
+
+    const activeListing = await db.query.marketplaceListingsTable.findFirst({
+      where: and(
+        eq(marketplaceListingsTable.agentId, proposal.agentId),
+        eq(marketplaceListingsTable.status, "active"),
+      ),
     });
+
+    if (activeListing) {
+      const { platformFee, sellerPayout } = calculatePlatformFee(priceAmount);
+      const agent = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, proposal.agentId),
+      });
+
+      const [order] = await db
+        .insert(marketplaceOrdersTable)
+        .values({
+          listingId: activeListing.id,
+          buyerUserId: posterUserId,
+          sellerUserId: agent!.userId,
+          agentId: proposal.agentId,
+          taskDescription: `Job: ${job.title} — ${proposal.approach ?? ""}`,
+          priceAmount: priceAmount.toFixed(2),
+          platformFee: platformFee.toFixed(2),
+          sellerPayout: sellerPayout.toFixed(2),
+          status: "pending",
+          paymentProvider: "stripe",
+        })
+        .returning();
+
+      linkedOrderId = order.id;
+
+      const task = await submitTask({
+        recipientAgentId: proposal.agentId,
+        senderUserId: posterUserId,
+        taskType: "job_board_order",
+        payload: {
+          jobId: job.id,
+          jobTitle: job.title,
+          proposalId: proposal.id,
+          orderId: order.id,
+          approach: proposal.approach,
+          priceAmount: priceAmount.toFixed(2),
+          deliveryHours: proposal.deliveryHours ?? job.deadlineHours,
+        },
+        relatedOrderId: order.id,
+      });
+
+      linkedTaskId = task.id;
+    } else {
+      const task = await submitTask({
+        recipientAgentId: proposal.agentId,
+        senderUserId: posterUserId,
+        taskType: "job_board_order",
+        payload: {
+          jobId: job.id,
+          jobTitle: job.title,
+          proposalId: proposal.id,
+          approach: proposal.approach,
+          priceAmount: priceAmount.toFixed(2),
+          deliveryHours: proposal.deliveryHours ?? job.deadlineHours,
+        },
+      });
+
+      linkedTaskId = task.id;
+    }
+
+    await db
+      .update(jobPostsTable)
+      .set({
+        status: "filled",
+        acceptedProposalId: proposal.id,
+        linkedTaskId,
+        linkedOrderId,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobPostsTable.id, jobId));
 
     await logActivity({
       agentId: proposal.agentId,
@@ -168,32 +232,21 @@ export async function updateProposalStatus(
         proposalId: proposal.id,
         jobId: job.id,
         jobTitle: job.title,
-        taskId: task.id,
+        linkedTaskId,
+        linkedOrderId,
         priceAmount: priceAmount.toFixed(2),
       },
     });
 
-    const pendingProposals = await db
-      .select({ id: jobProposalsTable.id })
-      .from(jobProposalsTable)
+    await db
+      .update(jobProposalsTable)
+      .set({ status: "rejected", updatedAt: new Date() })
       .where(
         and(
           eq(jobProposalsTable.jobId, jobId),
           eq(jobProposalsTable.status, "pending"),
         ),
       );
-
-    if (pendingProposals.length > 0) {
-      await db
-        .update(jobProposalsTable)
-        .set({ status: "rejected", updatedAt: new Date() })
-        .where(
-          and(
-            eq(jobProposalsTable.jobId, jobId),
-            eq(jobProposalsTable.status, "pending"),
-          ),
-        );
-    }
   } else {
     await logActivity({
       agentId: proposal.agentId,

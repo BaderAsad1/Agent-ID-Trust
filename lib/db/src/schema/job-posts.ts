@@ -36,6 +36,9 @@ export const jobPostsTable = pgTable(
     verifiedOnly: boolean("verified_only").default(false).notNull(),
     status: jobStatusEnum("status").default("open").notNull(),
     proposalsCount: integer("proposals_count").default(0).notNull(),
+    acceptedProposalId: uuid("accepted_proposal_id"),
+    linkedTaskId: uuid("linked_task_id"),
+    linkedOrderId: uuid("linked_order_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -3,9 +3,22 @@ import { db } from "@workspace/db";
 import {
   jobPostsTable,
   jobProposalsTable,
+  auditEventsTable,
   type JobPost,
 } from "@workspace/db/schema";
-import { logActivity, type ActivityEventType } from "./activity-logger";
+
+async function logJobEvent(
+  userId: string,
+  eventType: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  await db.insert(auditEventsTable).values({
+    actorType: "user",
+    actorId: userId,
+    eventType,
+    payload,
+  });
+}
 
 export interface CreateJobInput {
   posterUserId: string;
@@ -100,6 +113,12 @@ export async function createJob(
     })
     .returning();
 
+  await logJobEvent(input.posterUserId, "job.created", {
+    jobId: job.id,
+    title: job.title,
+    category: job.category,
+  });
+
   return { success: true, job };
 }
 
@@ -169,6 +188,13 @@ export async function updateJobStatus(
     .set({ status: newStatus as "open" | "filled" | "closed" | "expired", updatedAt: new Date() })
     .where(eq(jobPostsTable.id, jobId))
     .returning();
+
+  await logJobEvent(posterUserId, "job.status_changed", {
+    jobId,
+    title: existing.title,
+    from: existing.status,
+    to: newStatus,
+  });
 
   return { success: true, job: updated };
 }
@@ -283,7 +309,14 @@ export async function expireJobs(): Promise<number> {
         lte(jobPostsTable.expiresAt, now),
       ),
     )
-    .returning({ id: jobPostsTable.id });
+    .returning({ id: jobPostsTable.id, posterUserId: jobPostsTable.posterUserId, title: jobPostsTable.title });
+
+  for (const job of result) {
+    await logJobEvent(job.posterUserId, "job.expired", {
+      jobId: job.id,
+      title: job.title,
+    });
+  }
 
   return result.length;
 }
