@@ -153,11 +153,13 @@ export async function completeOrder(
     },
   });
 
+  const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
+
   await db.insert(paymentLedgerTable).values([
     {
       relatedOrderId: orderId,
       provider: order.paymentProvider ?? "stripe",
-      direction: "inbound",
+      direction: "outbound",
       accountType: "user",
       accountId: order.buyerUserId,
       amount: order.priceAmount,
@@ -168,13 +170,24 @@ export async function completeOrder(
     {
       relatedOrderId: orderId,
       provider: order.paymentProvider ?? "stripe",
-      direction: "outbound",
+      direction: "inbound",
       accountType: "platform",
-      accountId: order.sellerUserId,
+      accountId: PLATFORM_ACCOUNT_ID,
       amount: order.platformFee,
       currency: "USD",
       entryType: "platform_fee",
-      metadata: { orderId },
+      metadata: { orderId, buyerUserId: order.buyerUserId },
+    },
+    {
+      relatedOrderId: orderId,
+      provider: order.paymentProvider ?? "stripe",
+      direction: "inbound",
+      accountType: "user",
+      accountId: order.sellerUserId,
+      amount: order.sellerPayout,
+      currency: "USD",
+      entryType: "seller_payout",
+      metadata: { orderId, listingId: order.listingId },
     },
   ]);
 

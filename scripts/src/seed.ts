@@ -14,11 +14,23 @@ import {
   jobProposalsTable,
   subscriptionsTable,
   tasksTable,
+  paymentLedgerTable,
+  payoutLedgerTable,
+  paymentIntentsTable,
+  paymentAuthorizationsTable,
+  webhookEventsTable,
+  auditEventsTable,
 } from "@workspace/db/schema";
 
 async function seed() {
   console.log("Seeding database...");
 
+  await db.delete(paymentLedgerTable);
+  await db.delete(payoutLedgerTable);
+  await db.delete(paymentAuthorizationsTable);
+  await db.delete(paymentIntentsTable);
+  await db.delete(auditEventsTable);
+  await db.delete(webhookEventsTable);
   await db.delete(agentReputationEventsTable);
   await db.delete(agentActivityLogTable);
   await db.delete(marketplaceReviewsTable);
