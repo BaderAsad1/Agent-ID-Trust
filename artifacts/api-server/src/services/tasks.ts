@@ -150,7 +150,7 @@ export async function acknowledgeTask(
     return task;
   }
 
-  if (task.deliveryStatus !== "delivered" && task.deliveryStatus !== "pending") {
+  if (task.deliveryStatus !== "delivered") {
     throw new Error("INVALID_DELIVERY_STATE");
   }
 

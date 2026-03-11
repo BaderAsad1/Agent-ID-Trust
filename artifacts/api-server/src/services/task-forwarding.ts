@@ -56,6 +56,11 @@ export async function forwardTask(task: Task): Promise<ForwardResult> {
     return { success: false, deliveryReceipt: receipt };
   }
 
+  await db
+    .update(tasksTable)
+    .set({ deliveryStatus: "queued", updatedAt: new Date() })
+    .where(eq(tasksTable.id, task.id));
+
   const attemptCount = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(deliveryReceiptsTable)
