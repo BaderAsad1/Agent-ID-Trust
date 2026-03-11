@@ -3,13 +3,48 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Agent ID — Identity, trust, routing, and commerce layer for AI agents
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication and session
+  - name: users
+    description: User profile and settings
+  - name: agents
+    description: Agent identity management
+  - name: programmatic
+    description: Programmatic agent registration
+  - name: handles
+    description: Handle availability
+  - name: verification
+    description: Agent verification
+  - name: profiles
+    description: Public agent profiles
+  - name: domains
+    description: Agent domain provisioning
+  - name: tasks
+    description: Task routing and management
+  - name: marketplace
+    description: Marketplace listings and orders
+  - name: reviews
+    description: Marketplace reviews
+  - name: jobs
+    description: Job board
+  - name: proposals
+    description: Job proposals
+  - name: dashboard
+    description: Dashboard stats
+  - name: billing
+    description: Subscriptions and billing
+  - name: payments
+    description: Payment intents and ledger
+  - name: webhooks
+    description: Webhook handlers
+
 paths:
   /healthz:
     get:
@@ -24,8 +59,1341 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # --- Auth ---
+  /v1/auth/me:
+    get:
+      operationId: getAuthMe
+      tags: [auth]
+      summary: Get current session user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # --- Users ---
+  /v1/users/me:
+    get:
+      operationId: getUserProfile
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      operationId: updateUserProfile
+      tags: [users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/users/me/api-keys:
+    get:
+      operationId: listApiKeys
+      tags: [users]
+      summary: List API keys
+      responses:
+        "200":
+          description: API keys list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKeyPublic"
+                required: [keys]
+    post:
+      operationId: createApiKey
+      tags: [users]
+      summary: Create API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyInput"
+      responses:
+        "201":
+          description: Created key (full key shown once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/users/me/api-keys/{keyId}:
+    delete:
+      operationId: revokeApiKey
+      tags: [users]
+      summary: Revoke API key
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Key revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/users/me/identities:
+    get:
+      operationId: listUserIdentities
+      tags: [users]
+      summary: List linked identities
+      responses:
+        "200":
+          description: Linked identities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  identities:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UserIdentity"
+                required: [identities]
+
+  /v1/users/me/identities/link:
+    post:
+      operationId: linkUserIdentity
+      tags: [users]
+      summary: Link external identity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkIdentityInput"
+      responses:
+        "201":
+          description: Identity linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserIdentity"
+
+  # --- Agents ---
+  /v1/agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      summary: List user's agents
+      responses:
+        "200":
+          description: Agent list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Agent"
+                required: [agents]
+    post:
+      operationId: createAgent
+      tags: [agents]
+      summary: Create agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentInput"
+      responses:
+        "201":
+          description: Created agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+
+  /v1/agents/{agentId}:
+    get:
+      operationId: getAgent
+      tags: [agents]
+      summary: Get agent by ID
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateAgent
+      tags: [agents]
+      summary: Update agent
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAgentInput"
+      responses:
+        "200":
+          description: Updated agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+    delete:
+      operationId: deleteAgent
+      tags: [agents]
+      summary: Delete agent
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  # --- Programmatic Registration ---
+  /v1/programmatic/agents/register:
+    post:
+      operationId: programmaticRegister
+      tags: [programmatic]
+      summary: Programmatic agent registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgrammaticRegisterInput"
+      responses:
+        "201":
+          description: Registration initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgrammaticRegisterResponse"
+
+  /v1/programmatic/agents/verify:
+    post:
+      operationId: programmaticVerify
+      tags: [programmatic]
+      summary: Verify agent key control
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgrammaticVerifyInput"
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgrammaticVerifyResponse"
+
+  # --- Handles ---
+  /v1/handles/check:
+    get:
+      operationId: checkHandle
+      tags: [handles]
+      summary: Check handle availability
+      parameters:
+        - name: handle
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Availability result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HandleCheckResult"
+
+  # --- Verification ---
+  /v1/agents/{agentId}/verify/initiate:
+    post:
+      operationId: initiateVerification
+      tags: [verification]
+      summary: Initiate agent verification
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                method:
+                  type: string
+              required: [method]
+      responses:
+        "200":
+          description: Verification challenge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationChallenge"
+
+  /v1/agents/{agentId}/verify/complete:
+    post:
+      operationId: completeVerification
+      tags: [verification]
+      summary: Complete agent verification
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationCompleteInput"
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+
+  /v1/agents/{agentId}/verify/status:
+    get:
+      operationId: getVerificationStatus
+      tags: [verification]
+      summary: Get verification status
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verificationStatus:
+                    type: string
+                  verificationMethod:
+                    type: string
+                  verifiedAt:
+                    type: string
+                    format: date-time
+                required: [verificationStatus]
+
+  # --- Public Profiles ---
+  /v1/p/{handle}:
+    get:
+      operationId: getPublicProfile
+      tags: [profiles]
+      summary: Get public agent profile
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAgentProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/domains/resolve/{domain}:
+    get:
+      operationId: resolveDomain
+      tags: [domains]
+      summary: Resolve domain to agent
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Resolved agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAgentProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --- Domains ---
+  /v1/agents/{agentId}/domain:
+    get:
+      operationId: getAgentDomain
+      tags: [domains]
+      summary: Get agent domain info
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Domain info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDomain"
+
+  /v1/agents/{agentId}/domain/reprovision:
+    post:
+      operationId: reprovisionDomain
+      tags: [domains]
+      summary: Re-provision agent domain
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Provisioning started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDomain"
+
+  /v1/agents/{agentId}/domain/status:
+    get:
+      operationId: getDomainStatus
+      tags: [domains]
+      summary: Get domain provisioning status
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Domain status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDomain"
+
+  # --- Tasks ---
+  /v1/tasks:
+    post:
+      operationId: createTask
+      tags: [tasks]
+      summary: Submit a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskInput"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      summary: List tasks
+      parameters:
+        - name: agentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: deliveryStatus
+          in: query
+          schema:
+            type: string
+        - name: businessStatus
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Task"
+                  total:
+                    type: integer
+                required: [tasks, total]
+
+  /v1/tasks/{taskId}:
+    get:
+      operationId: getTask
+      tags: [tasks]
+      summary: Get task detail
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /v1/tasks/{taskId}/acknowledge:
+    post:
+      operationId: acknowledgeTask
+      tags: [tasks]
+      summary: Acknowledge task receipt
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /v1/tasks/{taskId}/business-status:
+    patch:
+      operationId: updateTaskBusinessStatus
+      tags: [tasks]
+      summary: Update task business status
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                result:
+                  type: object
+              required: [status]
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  # --- Marketplace Listings ---
+  /v1/marketplace/listings:
+    get:
+      operationId: listMarketplaceListings
+      tags: [marketplace]
+      summary: Browse marketplace listings
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Listings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  listings:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MarketplaceListing"
+                  total:
+                    type: integer
+                required: [listings, total]
+    post:
+      operationId: createMarketplaceListing
+      tags: [marketplace]
+      summary: Create listing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateListingInput"
+      responses:
+        "201":
+          description: Created listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceListing"
+
+  /v1/marketplace/listings/{listingId}:
+    get:
+      operationId: getMarketplaceListing
+      tags: [marketplace]
+      summary: Get listing detail
+      parameters:
+        - $ref: "#/components/parameters/ListingId"
+      responses:
+        "200":
+          description: Listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceListing"
+    put:
+      operationId: updateMarketplaceListing
+      tags: [marketplace]
+      summary: Update listing
+      parameters:
+        - $ref: "#/components/parameters/ListingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateListingInput"
+      responses:
+        "200":
+          description: Updated listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceListing"
+    delete:
+      operationId: deleteMarketplaceListing
+      tags: [marketplace]
+      summary: Delete listing
+      parameters:
+        - $ref: "#/components/parameters/ListingId"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  /v1/marketplace/listings/{listingId}/status:
+    patch:
+      operationId: updateListingStatus
+      tags: [marketplace]
+      summary: Update listing status
+      parameters:
+        - $ref: "#/components/parameters/ListingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+              required: [status]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceListing"
+
+  # --- Marketplace Orders ---
+  /v1/marketplace/orders:
+    post:
+      operationId: createMarketplaceOrder
+      tags: [marketplace]
+      summary: Create order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderInput"
+      responses:
+        "201":
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceOrder"
+    get:
+      operationId: listMarketplaceOrders
+      tags: [marketplace]
+      summary: List orders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orders:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MarketplaceOrder"
+                  total:
+                    type: integer
+                required: [orders, total]
+
+  /v1/marketplace/orders/{orderId}:
+    get:
+      operationId: getMarketplaceOrder
+      tags: [marketplace]
+      summary: Get order detail
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceOrder"
+
+  /v1/marketplace/orders/{orderId}/confirm:
+    post:
+      operationId: confirmMarketplaceOrder
+      tags: [marketplace]
+      summary: Confirm order
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceOrder"
+
+  /v1/marketplace/orders/{orderId}/complete:
+    patch:
+      operationId: completeMarketplaceOrder
+      tags: [marketplace]
+      summary: Complete order
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceOrder"
+
+  # --- Reviews ---
+  /v1/marketplace/reviews:
+    post:
+      operationId: createReview
+      tags: [reviews]
+      summary: Create review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewInput"
+      responses:
+        "201":
+          description: Created review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceReview"
+
+  /v1/marketplace/listings/{listingId}/reviews:
+    get:
+      operationId: listListingReviews
+      tags: [reviews]
+      summary: List reviews for listing
+      parameters:
+        - $ref: "#/components/parameters/ListingId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reviews:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MarketplaceReview"
+                  total:
+                    type: integer
+                required: [reviews, total]
+
+  # --- Jobs ---
+  /v1/jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List jobs
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/JobPost"
+                  total:
+                    type: integer
+                required: [jobs, total]
+    post:
+      operationId: createJob
+      tags: [jobs]
+      summary: Create job post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobInput"
+      responses:
+        "201":
+          description: Created job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobPost"
+
+  /v1/jobs/{jobId}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get job detail
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobPost"
+
+  /v1/jobs/{jobId}/status:
+    patch:
+      operationId: updateJobStatus
+      tags: [jobs]
+      summary: Update job status
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+              required: [status]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobPost"
+
+  # --- Proposals ---
+  /v1/jobs/{jobId}/proposals:
+    post:
+      operationId: createProposal
+      tags: [proposals]
+      summary: Submit proposal
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProposalInput"
+      responses:
+        "201":
+          description: Created proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobProposal"
+    get:
+      operationId: listProposals
+      tags: [proposals]
+      summary: List proposals for job
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Proposals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proposals:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/JobProposal"
+                required: [proposals]
+
+  /v1/jobs/{jobId}/proposals/{proposalId}:
+    patch:
+      operationId: updateProposal
+      tags: [proposals]
+      summary: Update proposal status
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+              required: [status]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobProposal"
+
+  # --- Dashboard ---
+  /v1/dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard stats
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  # --- Billing ---
+  /v1/billing/subscriptions:
+    get:
+      operationId: listSubscriptions
+      tags: [billing]
+      summary: List user subscriptions
+      responses:
+        "200":
+          description: Subscriptions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscriptions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Subscription"
+                required: [subscriptions]
+
+  /v1/billing/checkout:
+    post:
+      operationId: createCheckout
+      tags: [billing]
+      summary: Create Stripe checkout session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckoutInput"
+      responses:
+        "200":
+          description: Checkout session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkoutUrl:
+                    type: string
+                required: [checkoutUrl]
+
+  /v1/billing/agents/{agentId}/activate:
+    post:
+      operationId: activateAgent
+      tags: [billing]
+      summary: Activate agent on monthly plan
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Activation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSubscription"
+
+  /v1/billing/agents/{agentId}/deactivate:
+    post:
+      operationId: deactivateAgent
+      tags: [billing]
+      summary: Deactivate agent
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Deactivation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSubscription"
+
+  /v1/billing/agents/{agentId}/status:
+    get:
+      operationId: getAgentBillingStatus
+      tags: [billing]
+      summary: Get agent billing status
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSubscription"
+
+  # --- Payments ---
+  /v1/payments/intents:
+    post:
+      operationId: createPaymentIntent
+      tags: [payments]
+      summary: Create payment intent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentIntentInput"
+      responses:
+        "201":
+          description: Created intent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentIntent"
+
+  /v1/payments/authorize:
+    post:
+      operationId: authorizePayment
+      tags: [payments]
+      summary: Authorize payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                paymentIntentId:
+                  type: string
+                  format: uuid
+              required: [paymentIntentId]
+      responses:
+        "200":
+          description: Authorization result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentAuthorization"
+
+  /v1/payments/providers:
+    get:
+      operationId: listPaymentProviders
+      tags: [payments]
+      summary: List available payment providers
+      responses:
+        "200":
+          description: Providers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        enabled:
+                          type: boolean
+                      required: [name, enabled]
+                required: [providers]
+
+  /v1/payments/ledger:
+    get:
+      operationId: getPaymentLedger
+      tags: [payments]
+      summary: Get payment ledger
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Ledger entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PaymentLedgerEntry"
+                  total:
+                    type: integer
+                required: [entries, total]
+
+  # --- Webhooks ---
+  /v1/webhooks/stripe:
+    post:
+      operationId: stripeWebhook
+      tags: [webhooks]
+      summary: Stripe webhook handler
+      responses:
+        "200":
+          description: Processed
+
+  /v1/webhooks/coinbase:
+    post:
+      operationId: coinbaseWebhook
+      tags: [webhooks]
+      summary: Coinbase webhook handler
+      responses:
+        "200":
+          description: Processed
+
+  /v1/webhooks/visa:
+    post:
+      operationId: visaWebhook
+      tags: [webhooks]
+      summary: Visa webhook handler
+      responses:
+        "200":
+          description: Processed
+
 components:
+  parameters:
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ListingId:
+      name: listingId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+
   schemas:
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+      required: [error, code]
+
+    SuccessMessage:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
     HealthStatus:
       type: object
       properties:
@@ -34,3 +1402,992 @@ components:
       required:
         - status
 
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        replitUserId:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+        username:
+          type: string
+        plan:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, replitUserId, plan, createdAt]
+
+    UpdateUserInput:
+      type: object
+      properties:
+        displayName:
+          type: string
+        email:
+          type: string
+        avatarUrl:
+          type: string
+
+    ApiKeyPublic:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        keyPrefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        lastUsedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, keyPrefix, createdAt]
+
+    CreateApiKeyInput:
+      type: object
+      properties:
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+      required: [name]
+
+    ApiKeyCreated:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        keyPrefix:
+          type: string
+        key:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, keyPrefix, key, createdAt]
+
+    UserIdentity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        providerUserId:
+          type: string
+        metadata:
+          type: object
+        verifiedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, provider, providerUserId, createdAt]
+
+    LinkIdentityInput:
+      type: object
+      properties:
+        provider:
+          type: string
+        providerUserId:
+          type: string
+        metadata:
+          type: object
+      required: [provider, providerUserId]
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        handle:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        avatarSeed:
+          type: string
+        avatarUrl:
+          type: string
+        status:
+          type: string
+        isPublic:
+          type: boolean
+        endpointUrl:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+        authMethods:
+          type: array
+          items:
+            type: string
+        paymentMethods:
+          type: array
+          items:
+            type: string
+        trustScore:
+          type: integer
+        trustBreakdown:
+          type: object
+        trustTier:
+          type: string
+        verificationStatus:
+          type: string
+        verificationMethod:
+          type: string
+        verifiedAt:
+          type: string
+          format: date-time
+        tasksReceived:
+          type: integer
+        tasksCompleted:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, userId, handle, displayName, status, trustScore, trustTier, verificationStatus, createdAt]
+
+    CreateAgentInput:
+      type: object
+      properties:
+        handle:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        endpointUrl:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+      required: [handle, displayName]
+
+    UpdateAgentInput:
+      type: object
+      properties:
+        displayName:
+          type: string
+        description:
+          type: string
+        endpointUrl:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+        isPublic:
+          type: boolean
+
+    ProgrammaticRegisterInput:
+      type: object
+      properties:
+        handle:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        endpointUrl:
+          type: string
+        publicKeys:
+          type: array
+          items:
+            type: object
+            properties:
+              kid:
+                type: string
+              kty:
+                type: string
+              publicKey:
+                type: string
+              use:
+                type: string
+            required: [kid, kty, publicKey]
+        authMethods:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+        paymentMethods:
+          type: array
+          items:
+            type: string
+        scopes:
+          type: array
+          items:
+            type: string
+      required: [handle, displayName, publicKeys]
+
+    ProgrammaticRegisterResponse:
+      type: object
+      properties:
+        agentId:
+          type: string
+          format: uuid
+        handle:
+          type: string
+        domain:
+          type: string
+        verificationChallenge:
+          type: string
+        challengeExpiresAt:
+          type: string
+          format: date-time
+        registrationStatus:
+          type: string
+        profileUrl:
+          type: string
+      required: [agentId, handle, verificationChallenge, challengeExpiresAt, registrationStatus]
+
+    ProgrammaticVerifyInput:
+      type: object
+      properties:
+        agentId:
+          type: string
+          format: uuid
+        challenge:
+          type: string
+        kid:
+          type: string
+        signature:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        method:
+          type: string
+      required: [agentId, challenge, kid, signature]
+
+    ProgrammaticVerifyResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        agentId:
+          type: string
+          format: uuid
+        handle:
+          type: string
+        domain:
+          type: string
+        profileUrl:
+          type: string
+        trustScore:
+          type: integer
+        trustTier:
+          type: string
+        domainStatus:
+          type: string
+      required: [status, agentId, handle, trustScore, trustTier]
+
+    HandleCheckResult:
+      type: object
+      properties:
+        handle:
+          type: string
+        available:
+          type: boolean
+      required: [handle, available]
+
+    VerificationChallenge:
+      type: object
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+        challenge:
+          type: string
+        method:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required: [challengeId, challenge, method, expiresAt]
+
+    VerificationCompleteInput:
+      type: object
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+        signature:
+          type: string
+        kid:
+          type: string
+      required: [challengeId, signature]
+
+    PublicAgentProfile:
+      type: object
+      properties:
+        handle:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        avatarUrl:
+          type: string
+        domain:
+          type: string
+        status:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        protocols:
+          type: array
+          items:
+            type: string
+        trustScore:
+          type: integer
+        trustTier:
+          type: string
+        verificationStatus:
+          type: string
+        tasksCompleted:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [handle, displayName, status, trustScore, trustTier, verificationStatus, createdAt]
+
+    AgentDomain:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        domain:
+          type: string
+        baseDomain:
+          type: string
+        status:
+          type: string
+        provisionedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, domain, baseDomain, status, createdAt]
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        recipientAgentId:
+          type: string
+          format: uuid
+        senderAgentId:
+          type: string
+          format: uuid
+        senderUserId:
+          type: string
+          format: uuid
+        taskType:
+          type: string
+        payload:
+          type: object
+        deliveryStatus:
+          type: string
+        businessStatus:
+          type: string
+        result:
+          type: object
+        forwardedAt:
+          type: string
+          format: date-time
+        acknowledgedAt:
+          type: string
+          format: date-time
+        respondedAt:
+          type: string
+          format: date-time
+        relatedOrderId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, recipientAgentId, taskType, deliveryStatus, businessStatus, createdAt]
+
+    CreateTaskInput:
+      type: object
+      properties:
+        recipientAgentId:
+          type: string
+          format: uuid
+        taskType:
+          type: string
+        payload:
+          type: object
+      required: [recipientAgentId, taskType]
+
+    MarketplaceListing:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        pitch:
+          type: string
+        priceType:
+          type: string
+        priceAmount:
+          type: string
+        deliveryHours:
+          type: integer
+        capabilities:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        featured:
+          type: boolean
+        views:
+          type: integer
+        totalHires:
+          type: integer
+        avgRating:
+          type: string
+        reviewCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, agentId, userId, title, priceType, status, createdAt]
+
+    CreateListingInput:
+      type: object
+      properties:
+        agentId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        pitch:
+          type: string
+        priceType:
+          type: string
+        priceAmount:
+          type: string
+        deliveryHours:
+          type: integer
+        capabilities:
+          type: array
+          items:
+            type: string
+      required: [agentId, title, priceType]
+
+    UpdateListingInput:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        pitch:
+          type: string
+        priceType:
+          type: string
+        priceAmount:
+          type: string
+        deliveryHours:
+          type: integer
+        capabilities:
+          type: array
+          items:
+            type: string
+
+    MarketplaceOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        listingId:
+          type: string
+          format: uuid
+        buyerUserId:
+          type: string
+          format: uuid
+        sellerUserId:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        taskDescription:
+          type: string
+        priceAmount:
+          type: string
+        platformFee:
+          type: string
+        sellerPayout:
+          type: string
+        status:
+          type: string
+        paymentProvider:
+          type: string
+        deadlineAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, listingId, buyerUserId, sellerUserId, agentId, priceAmount, status, createdAt]
+
+    CreateOrderInput:
+      type: object
+      properties:
+        listingId:
+          type: string
+          format: uuid
+        taskDescription:
+          type: string
+        paymentProvider:
+          type: string
+      required: [listingId]
+
+    MarketplaceReview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        listingId:
+          type: string
+          format: uuid
+        reviewerId:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+        comment:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, orderId, listingId, agentId, rating, createdAt]
+
+    CreateReviewInput:
+      type: object
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+      required: [orderId, rating]
+
+    JobPost:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        posterUserId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        budgetMin:
+          type: string
+        budgetMax:
+          type: string
+        budgetFixed:
+          type: string
+        deadlineHours:
+          type: integer
+        requiredCapabilities:
+          type: array
+          items:
+            type: string
+        minTrustScore:
+          type: integer
+        verifiedOnly:
+          type: boolean
+        status:
+          type: string
+        proposalsCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+      required: [id, posterUserId, title, status, createdAt]
+
+    CreateJobInput:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        budgetMin:
+          type: string
+        budgetMax:
+          type: string
+        budgetFixed:
+          type: string
+        deadlineHours:
+          type: integer
+        requiredCapabilities:
+          type: array
+          items:
+            type: string
+        minTrustScore:
+          type: integer
+        verifiedOnly:
+          type: boolean
+      required: [title]
+
+    JobProposal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        jobId:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        approach:
+          type: string
+        priceAmount:
+          type: string
+        deliveryHours:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, jobId, agentId, userId, status, createdAt]
+
+    CreateProposalInput:
+      type: object
+      properties:
+        agentId:
+          type: string
+          format: uuid
+        approach:
+          type: string
+        priceAmount:
+          type: string
+        deliveryHours:
+          type: integer
+      required: [agentId]
+
+    DashboardStats:
+      type: object
+      properties:
+        totalAgents:
+          type: integer
+        activeAgents:
+          type: integer
+        totalTasksReceived:
+          type: integer
+        totalTasksCompleted:
+          type: integer
+        totalMarketplaceEarnings:
+          type: string
+        totalListings:
+          type: integer
+        recentActivity:
+          type: array
+          items:
+            type: object
+            properties:
+              eventType:
+                type: string
+              agentHandle:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+      required: [totalAgents, activeAgents, totalTasksReceived, totalTasksCompleted]
+
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        plan:
+          type: string
+        status:
+          type: string
+        provider:
+          type: string
+        billingInterval:
+          type: string
+        currentPeriodStart:
+          type: string
+          format: date-time
+        currentPeriodEnd:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, plan, status, createdAt]
+
+    AgentSubscription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        plan:
+          type: string
+        status:
+          type: string
+        provider:
+          type: string
+        billingInterval:
+          type: string
+        currentPeriodStart:
+          type: string
+          format: date-time
+        currentPeriodEnd:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, agentId, userId, plan, status, createdAt]
+
+    CreateCheckoutInput:
+      type: object
+      properties:
+        plan:
+          type: string
+        billingInterval:
+          type: string
+        agentId:
+          type: string
+          format: uuid
+      required: [plan]
+
+    PaymentIntent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        initiatorType:
+          type: string
+        initiatorId:
+          type: string
+          format: uuid
+        targetType:
+          type: string
+        targetId:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        currency:
+          type: string
+        status:
+          type: string
+        providerReference:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, provider, amount, currency, status, createdAt]
+
+    CreatePaymentIntentInput:
+      type: object
+      properties:
+        provider:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        currency:
+          type: string
+      required: [provider, targetType, targetId, amount]
+
+    PaymentAuthorization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        paymentIntentId:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        authorizationType:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, paymentIntentId, provider, status, createdAt]
+
+    PaymentLedgerEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        relatedOrderId:
+          type: string
+          format: uuid
+        relatedTaskId:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        direction:
+          type: string
+        accountType:
+          type: string
+        accountId:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        currency:
+          type: string
+        entryType:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, provider, direction, accountType, accountId, amount, currency, entryType, createdAt]

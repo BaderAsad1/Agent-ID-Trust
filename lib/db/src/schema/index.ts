@@ -1,20 +1,24 @@
-// Export your models here. Add one export per file
-// export * from "./posts";
-//
-// Each model/table should ideally be split into different files.
-// Each model/table should define a Drizzle table, insert schema, and types:
-//
-//   import { pgTable, text, serial } from "drizzle-orm/pg-core";
-//   import { createInsertSchema } from "drizzle-zod";
-//   import { z } from "zod/v4";
-//
-//   export const postsTable = pgTable("posts", {
-//     id: serial("id").primaryKey(),
-//     title: text("title").notNull(),
-//   });
-//
-//   export const insertPostSchema = createInsertSchema(postsTable).omit({ id: true });
-//   export type InsertPost = z.infer<typeof insertPostSchema>;
-//   export type Post = typeof postsTable.$inferSelect;
-
-export {}
+export * from "./enums";
+export * from "./users";
+export * from "./user-identities";
+export * from "./api-keys";
+export * from "./agents";
+export * from "./agent-keys";
+export * from "./agent-verification-challenges";
+export * from "./agent-domains";
+export * from "./agent-activity-log";
+export * from "./agent-reputation-events";
+export * from "./agent-subscriptions";
+export * from "./tasks";
+export * from "./marketplace-listings";
+export * from "./marketplace-orders";
+export * from "./marketplace-reviews";
+export * from "./job-posts";
+export * from "./job-proposals";
+export * from "./subscriptions";
+export * from "./payment-intents";
+export * from "./payment-authorizations";
+export * from "./payment-ledger";
+export * from "./payout-ledger";
+export * from "./webhook-events";
+export * from "./audit-events";
