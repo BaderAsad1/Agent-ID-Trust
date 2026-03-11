@@ -6,7 +6,6 @@ import {
   getDomainStatus,
   provisionDomain,
   reprovisionDomain,
-  resolveDomain,
 } from "../../services/domains";
 
 const router = Router();
@@ -60,19 +59,6 @@ router.post("/:agentId/domain/reprovision", requireAuth, async (req, res, next) 
       throw new AppError(code, result.error!, result.error!);
     }
     res.json(result.domain);
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get("/resolve/:domain", async (req, res, next) => {
-  try {
-    const domain = req.params.domain as string;
-    const result = await resolveDomain(domain);
-    if (!result) {
-      throw new AppError(404, "NOT_FOUND", "Domain not found");
-    }
-    res.json(result);
   } catch (err) {
     next(err);
   }

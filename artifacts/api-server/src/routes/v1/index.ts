@@ -12,7 +12,8 @@ import tasksRouter from "./tasks";
 import dashboardRouter from "./dashboard";
 import billingRouter from "./billing";
 import webhooksRouter from "./webhooks";
-import domainsRouter from "./domains";
+import agentDomainsRouter from "./domains";
+import domainResolveRouter from "./domain-resolve";
 
 const router = Router();
 
@@ -22,7 +23,7 @@ router.use("/users/me/api-keys", apiKeysRouter);
 router.use("/users/me/identities", identitiesRouter);
 router.use("/agents", agentsRouter);
 router.use("/agents", agentVerificationRouter);
-router.use("/agents", domainsRouter);
+router.use("/agents", agentDomainsRouter);
 router.use("/handles", handlesRouter);
 router.use("/p", publicProfilesRouter);
 router.use("/programmatic", programmaticRouter);
@@ -30,6 +31,6 @@ router.use("/tasks", tasksRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/billing", billingRouter);
 router.use("/webhooks", webhooksRouter);
-router.use("/domains", domainsRouter);
+router.use("/domains", domainResolveRouter);
 
 export default router;

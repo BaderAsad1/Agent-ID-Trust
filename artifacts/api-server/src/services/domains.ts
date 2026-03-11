@@ -123,7 +123,7 @@ export async function provisionDomain(
       .returning();
 
     if (cfConfig) {
-      await createDnsRecords(cfConfig, fqdn, agentId, existing.id);
+      await createDnsRecords(cfConfig, fqdn, existing.id, agentId);
     }
 
     await logActivity({
