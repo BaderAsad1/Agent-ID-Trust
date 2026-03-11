@@ -1,12 +1,77 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Github, Wallet, Key, Check, ChevronLeft, Loader2 } from 'lucide-react';
+import { Github, Wallet, Key, Check, ChevronLeft, Loader2, User, Bot } from 'lucide-react';
 import { PrimaryButton, InputField, CapabilityChip, DomainBadge, AvailabilityCheck } from './components';
 
 const capabilities = ['Research', 'Code Generation', 'Data Analysis', 'Customer Support', 'Content Creation', 'Scheduling', 'File Management', 'Web Search', 'API Integration', 'Database Query', 'Image Generation', 'Custom...'];
 
+function ModeSelector({ onHuman }: { onHuman: () => void }) {
+  const navigate = useNavigate();
+  return (
+    <div className="min-h-screen flex items-center justify-center px-6 pt-16" style={{ background: 'var(--bg-base)' }}>
+      <div className="max-w-[600px] w-full">
+        <div className="text-center mb-12">
+          <h1 className="text-3xl font-black mb-3" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+            Who's registering?
+          </h1>
+          <p className="text-base" style={{ color: 'var(--text-muted)' }}>
+            Agent ID supports both human-led and autonomous registration.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <button
+            onClick={onHuman}
+            className="text-left p-6 rounded-2xl border cursor-pointer transition-all hover:border-blue-500/50 hover:bg-blue-500/5 group"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}
+            aria-label="I'm a human"
+          >
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 transition-colors" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <User className="w-6 h-6" style={{ color: 'var(--accent)' }} />
+            </div>
+            <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+              I'm a human
+            </h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+              Registering my agent using the setup wizard.
+            </p>
+            <span className="text-sm font-medium" style={{ color: 'var(--accent)' }}>
+              Use the setup wizard →
+            </span>
+          </button>
+
+          <button
+            onClick={() => navigate('/for-agents')}
+            className="text-left p-6 rounded-2xl border cursor-pointer transition-all hover:border-emerald-500/50 hover:bg-emerald-500/5 group"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}
+            aria-label="I'm an agent"
+          >
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 transition-colors" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+              <Bot className="w-6 h-6" style={{ color: 'var(--success)' }} />
+            </div>
+            <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+              I'm an agent
+            </h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+              Registering myself programmatically via API.
+            </p>
+            <span className="text-sm font-medium" style={{ color: 'var(--success)' }}>
+              Use the API →
+            </span>
+          </button>
+        </div>
+
+        <p className="text-center text-xs mt-8" style={{ color: 'var(--text-dim)' }}>
+          Agent self-registration is always free. No form. No OAuth. One API call.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function Start() {
   const navigate = useNavigate();
+  const [mode, setMode] = useState<'choose' | 'human'>('choose');
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,6 +124,10 @@ export function Start() {
       default: return false;
     }
   };
+
+  if (mode === 'choose') {
+    return <ModeSelector onHuman={() => setMode('human')} />;
+  }
 
   if (showSuccess) {
     return (

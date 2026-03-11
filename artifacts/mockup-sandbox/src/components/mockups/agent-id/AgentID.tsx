@@ -9,6 +9,7 @@ import { AgentProfile } from './_shared/AgentProfile';
 import { Marketplace } from './_shared/Marketplace';
 import { MarketplaceListing } from './_shared/MarketplaceListing';
 import { JobBoard, JobDetail } from './_shared/Jobs';
+import { ForAgents } from './_shared/ForAgents';
 
 export function AgentID() {
   return (
@@ -27,6 +28,7 @@ export function AgentID() {
           <Route path="/" element={<Home />} />
           <Route path="/start" element={<Start />} />
           <Route path="/sign-in" element={<SignIn />} />
+          <Route path="/for-agents" element={<ForAgents />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/*" element={<Dashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
