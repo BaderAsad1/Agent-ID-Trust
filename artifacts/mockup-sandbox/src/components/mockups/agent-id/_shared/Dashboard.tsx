@@ -390,6 +390,58 @@ function MarketplaceDashboard() {
   );
 }
 
+function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; handle: string; domainName?: string }) {
+  const [records, setRecords] = useState<Array<{ type: string; name: string; value: string; ttl: number }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.agents.domain(agentId)
+      .then(domain => {
+        if (domain && domain.dnsRecords && domain.dnsRecords.length > 0) {
+          setRecords(domain.dnsRecords);
+        } else {
+          setRecords([
+            { type: 'CNAME', name: domainName || `${handle}.agent`, value: 'edge.agentid.net', ttl: 300 },
+            { type: 'TXT', name: '_agentid', value: `v=agentid1 id=${agentId}`, ttl: 3600 },
+          ]);
+        }
+      })
+      .catch(() => {
+        setRecords([
+          { type: 'CNAME', name: domainName || `${handle}.agent`, value: 'edge.agentid.net', ttl: 300 },
+          { type: 'TXT', name: '_agentid', value: `v=agentid1 id=${agentId}`, ttl: 3600 },
+        ]);
+      })
+      .finally(() => setLoading(false));
+  }, [agentId, handle, domainName]);
+
+  if (loading) return <div className="h-20 rounded-lg animate-pulse mb-4" style={{ background: 'var(--bg-elevated)' }} />;
+
+  return (
+    <div className="rounded-lg border overflow-hidden mb-4" style={{ borderColor: 'var(--border-color)' }}>
+      <table className="w-full text-sm">
+        <thead>
+          <tr style={{ background: 'var(--bg-elevated)' }}>
+            {['Type', 'Name', 'Value', 'TTL'].map(h => (
+              <th key={h} className="text-left py-2 px-3 text-xs font-medium" style={{ color: 'var(--text-dim)' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {records.map((r, i) => (
+            <tr key={i} className="border-t" style={{ borderColor: 'var(--border-color)' }}>
+              <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>{r.type}</td>
+              <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>{r.name}</td>
+              <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>{r.value}</td>
+              <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>{r.ttl}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function DomainDashboard() {
   const { agents } = useAuth();
   const [hnsEnabled, setHnsEnabled] = useState(false);
@@ -410,31 +462,7 @@ function DomainDashboard() {
                 </div>
                 <button className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Copy domain">Copy</button>
               </div>
-              <div className="rounded-lg border overflow-hidden mb-4" style={{ borderColor: 'var(--border-color)' }}>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ background: 'var(--bg-elevated)' }}>
-                      {['Type', 'Name', 'Value', 'TTL'].map(h => (
-                        <th key={h} className="text-left py-2 px-3 text-xs font-medium" style={{ color: 'var(--text-dim)' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t" style={{ borderColor: 'var(--border-color)' }}>
-                      <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>A</td>
-                      <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>{agent.domainName || `${agent.handle}.agent`}</td>
-                      <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>104.21.32.{Math.floor(Math.random() * 255)}</td>
-                      <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>300</td>
-                    </tr>
-                    <tr className="border-t" style={{ borderColor: 'var(--border-color)' }}>
-                      <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>TXT</td>
-                      <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>_agentid</td>
-                      <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>agid_verify_{agent.handle.replace('-', '')}</td>
-                      <td className="py-2 px-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: '12px' }}>3600</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <DomainRecordsTable agentId={agent.id} handle={agent.handle} domainName={agent.domainName} />
               <div className="flex items-center justify-between py-3 px-4 rounded-lg" style={{ background: 'var(--bg-elevated)' }}>
                 <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Handshake blockchain anchoring</span>
                 <button

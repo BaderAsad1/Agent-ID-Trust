@@ -123,8 +123,9 @@ export function Start() {
     if (!createdAgentId) return;
     setVerifying(true);
     try {
-      await api.agents.verify.initiate(createdAgentId, 'github');
-      await api.agents.verify.complete(createdAgentId, { proof: 'mock-proof-data' });
+      const initResult = await api.agents.verify.initiate(createdAgentId, 'github');
+      const challenge = (initResult as Record<string, unknown>)?.challenge || '';
+      await api.agents.verify.complete(createdAgentId, { challenge });
       setVerified(true);
     } catch {
       setError('Verification failed. You can skip and verify later from the dashboard.');

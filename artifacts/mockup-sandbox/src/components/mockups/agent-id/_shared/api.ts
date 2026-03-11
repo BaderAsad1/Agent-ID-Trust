@@ -45,6 +45,16 @@ export class ApiError extends Error {
   }
 }
 
+const MAX_RETRIES = 2;
+const RETRY_DELAYS = [500, 1500];
+const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504]);
+
+function isRetryable(method: string | undefined, status: number): boolean {
+  if (!RETRYABLE_STATUSES.has(status)) return false;
+  const m = (method || 'GET').toUpperCase();
+  return m === 'GET' || m === 'HEAD';
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -60,23 +70,45 @@ async function request<T>(
     headers["X-AgentID-User-Id"] = uid;
   }
 
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  let lastError: ApiError | Error | null = null;
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(
-      res.status,
-      body.code || "UNKNOWN",
-      body.message || body.error || `HTTP ${res.status}`,
-      body,
-    );
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${BASE}${path}`, {
+        ...options,
+        headers,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const err = new ApiError(
+          res.status,
+          body.code || "UNKNOWN",
+          body.message || body.error || `HTTP ${res.status}`,
+          body,
+        );
+
+        if (attempt < MAX_RETRIES && isRetryable(options.method, res.status)) {
+          lastError = err;
+          await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+          continue;
+        }
+        throw err;
+      }
+
+      if (res.status === 204) return undefined as T;
+      return res.json();
+    } catch (e) {
+      if (e instanceof ApiError) throw e;
+      lastError = e instanceof Error ? e : new Error(String(e));
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+        continue;
+      }
+    }
   }
 
-  if (res.status === 204) return undefined as T;
-  return res.json();
+  throw lastError || new Error('Request failed after retries');
 }
 
 export const api = {

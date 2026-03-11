@@ -1,6 +1,6 @@
 import './_group.css';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './_shared/AuthContext';
+import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './_shared/AuthContext';
 import { Nav } from './_shared/Nav';
 import { Home } from './_shared/Home';
 import { Start } from './_shared/Start';
@@ -11,6 +11,14 @@ import { Marketplace } from './_shared/Marketplace';
 import { MarketplaceListing } from './_shared/MarketplaceListing';
 import { JobBoard, JobDetail } from './_shared/Jobs';
 import { ForAgents } from './_shared/ForAgents';
+import type { ReactNode } from 'react';
+
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { userId, loading } = useAuth();
+  if (loading) return null;
+  if (!userId) return <Navigate to="/sign-in" replace />;
+  return <>{children}</>;
+}
 
 export function AgentID() {
   const autoLogin = (() => { try { return new URLSearchParams(window.location.search).get('auto_login'); } catch { return null; } })();
@@ -33,8 +41,8 @@ export function AgentID() {
             <Route path="/start" element={<Start />} />
             <Route path="/sign-in" element={<SignIn />} />
             <Route path="/for-agents" element={<ForAgents />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/*" element={<Dashboard />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/marketplace/:id" element={<MarketplaceListing />} />
             <Route path="/jobs" element={<JobBoard />} />

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Github, AlertCircle } from 'lucide-react';
 import { PrimaryButton, InputField } from './components';
 import { useAuth } from './AuthContext';
+import { api, ApiError } from './api';
 
 export function SignIn() {
   const navigate = useNavigate();
@@ -20,9 +21,17 @@ export function SignIn() {
     setError('');
     try {
       login(userId.trim());
+      const me = await api.auth.me();
+      if (!me || !me.id) {
+        throw new Error('Invalid session');
+      }
       navigate('/dashboard');
-    } catch {
-      setError('Sign in failed. Please try again.');
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        setError('Authentication failed. Invalid user ID.');
+      } else {
+        setError('Sign in failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -40,7 +49,7 @@ export function SignIn() {
           )}
           <InputField label="User ID" placeholder="your-replit-user-id" value={userId} onChange={setUserId} />
           <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-            Enter a Replit User ID to sign in. Use a seeded ID (e.g. "seed-user-1") or any string.
+            Sign in with your Replit User ID. In production, authentication is handled automatically via Replit Auth.
           </p>
           <PrimaryButton className="w-full" onClick={handleSignIn} disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
