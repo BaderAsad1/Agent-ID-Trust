@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   tasksTable,
@@ -17,6 +17,7 @@ export interface SubmitTaskInput {
 
 export interface TaskListFilters {
   recipientAgentId?: string;
+  recipientAgentIds?: string[];
   senderUserId?: string;
   senderAgentId?: string;
   deliveryStatus?: string;
@@ -86,13 +87,19 @@ export async function listTasks(filters: TaskListFilters): Promise<{
 
   if (filters.recipientAgentId) {
     conditions.push(eq(tasksTable.recipientAgentId, filters.recipientAgentId));
-  }
-  if (filters.senderUserId) {
+  } else if (filters.senderAgentId) {
+    conditions.push(eq(tasksTable.senderAgentId, filters.senderAgentId));
+  } else if (filters.recipientAgentIds && filters.senderUserId) {
+    const scopeConditions = [];
+    if (filters.recipientAgentIds.length > 0) {
+      scopeConditions.push(inArray(tasksTable.recipientAgentId, filters.recipientAgentIds));
+    }
+    scopeConditions.push(eq(tasksTable.senderUserId, filters.senderUserId));
+    conditions.push(or(...scopeConditions)!);
+  } else if (filters.senderUserId) {
     conditions.push(eq(tasksTable.senderUserId, filters.senderUserId));
   }
-  if (filters.senderAgentId) {
-    conditions.push(eq(tasksTable.senderAgentId, filters.senderAgentId));
-  }
+
   if (filters.deliveryStatus) {
     conditions.push(
       eq(

@@ -145,12 +145,9 @@ router.get("/", requireAuth, async (req, res, next) => {
       return;
     }
 
-    if (!query.recipientAgentId && !query.senderAgentId) {
-      query.senderAgentId = undefined;
-    }
-
     const result = await listTasks({
       ...query,
+      recipientAgentIds: (!query.recipientAgentId && !query.senderAgentId) ? userAgentIds : undefined,
       senderUserId: (!query.recipientAgentId && !query.senderAgentId) ? req.userId! : undefined,
     });
 
