@@ -376,8 +376,14 @@ export async function requirePlanFeature(
 
 function extractSubscriptionId(invoice: Stripe.Invoice): string | null {
   const ref = invoice.parent?.subscription_details?.subscription;
-  if (!ref) return null;
-  return typeof ref === "string" ? ref : ref.id;
+  if (ref) {
+    return typeof ref === "string" ? ref : ref.id;
+  }
+  const legacy = (invoice as unknown as Record<string, unknown>).subscription;
+  if (legacy) {
+    return typeof legacy === "string" ? legacy : (legacy as { id?: string }).id ?? null;
+  }
+  return null;
 }
 
 function computePeriodDates(billingInterval: string): { start: Date; end: Date } {
