@@ -141,11 +141,17 @@ router.patch("/:jobId/status", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/:jobId/proposals", async (req, res, next) => {
+router.get("/:jobId/proposals", requireAuth, async (req, res, next) => {
   try {
+    const jobId = req.params.jobId as string;
+    const job = await getJobById(jobId);
+    if (!job) throw new AppError(404, "NOT_FOUND", "Job not found");
+    if (job.posterUserId !== req.userId!) {
+      throw new AppError(403, "FORBIDDEN", "Only job poster can view proposals");
+    }
     const limit = req.query.limit ? Number(req.query.limit) : 20;
     const offset = req.query.offset ? Number(req.query.offset) : 0;
-    const result = await getProposalsByJob(req.params.jobId as string, limit, offset);
+    const result = await getProposalsByJob(jobId, limit, offset);
     res.json(result);
   } catch (err) {
     next(err);

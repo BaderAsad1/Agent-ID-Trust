@@ -139,6 +139,18 @@ export async function updateJob(
     return { success: false, error: "JOB_NOT_EDITABLE" };
   }
 
+  const mergedMin = updates.budgetMin !== undefined ? updates.budgetMin : existing.budgetMin;
+  const mergedMax = updates.budgetMax !== undefined ? updates.budgetMax : existing.budgetMax;
+  const mergedFixed = updates.budgetFixed !== undefined ? updates.budgetFixed : existing.budgetFixed;
+
+  if (!mergedFixed && !(mergedMin && mergedMax)) {
+    return { success: false, error: "BUDGET_REQUIRED" };
+  }
+
+  if (mergedMin && mergedMax && Number(mergedMin) > Number(mergedMax)) {
+    return { success: false, error: "INVALID_BUDGET_RANGE" };
+  }
+
   const setValues: Record<string, unknown> = { updatedAt: new Date() };
   if (updates.title !== undefined) setValues.title = updates.title.trim();
   if (updates.description !== undefined) setValues.description = updates.description;
