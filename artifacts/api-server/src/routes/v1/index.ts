@@ -16,6 +16,7 @@ import agentDomainsRouter from "./domains";
 import domainResolveRouter from "./domain-resolve";
 import marketplaceRouter from "./marketplace";
 import paymentsRouter from "./payments";
+import jobsRouter from "./jobs";
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use("/webhooks", webhooksRouter);
 router.use("/domains", domainResolveRouter);
 router.use("/marketplace", marketplaceRouter);
 router.use("/payments", paymentsRouter);
+router.use("/jobs", jobsRouter);
 
 export default router;

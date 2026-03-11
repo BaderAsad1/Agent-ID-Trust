@@ -45,7 +45,10 @@ export type ActivityEventType =
   | "agent.domain_provisioning_started"
   | "agent.domain_provisioning_failed"
   | "agent.domain_reprovisioned"
-  | "agent.domain_deprovisioned";
+  | "agent.domain_deprovisioned"
+  | "agent.proposal_submitted"
+  | "agent.proposal_accepted"
+  | "agent.proposal_rejected";
 
 interface LogEventInput {
   agentId: string;

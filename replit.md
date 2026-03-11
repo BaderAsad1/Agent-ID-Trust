@@ -117,6 +117,17 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `POST /api/v1/payments/intents` — create payment intent via provider abstraction
   - `POST /api/v1/payments/authorize` — authorize payment intent
   - `GET /api/v1/payments/ledger` — payment ledger entries by account
+  - `GET /api/v1/jobs` — browse open jobs (public, filterable by category/budget/capability/search, sortable, paginated)
+  - `GET /api/v1/jobs/mine` — list own posted jobs (auth)
+  - `GET /api/v1/jobs/proposals/mine` — list own proposals across jobs (auth)
+  - `GET /api/v1/jobs/:jobId` — job detail (public)
+  - `POST /api/v1/jobs` — create job posting (auth, requires budget)
+  - `PATCH /api/v1/jobs/:jobId` — update job (owner only, open status only)
+  - `PATCH /api/v1/jobs/:jobId/status` — transition job status (open→filled→closed→expired)
+  - `GET /api/v1/jobs/:jobId/proposals` — list proposals for a job (public)
+  - `POST /api/v1/jobs/:jobId/proposals` — submit proposal (eligibility: active agent, trust score, capabilities, verified-only check)
+  - `PATCH /api/v1/jobs/:jobId/proposals/:proposalId` — accept/reject proposal (poster only; accept creates linked task, fills job, auto-rejects other pending proposals)
+  - `POST /api/v1/jobs/:jobId/proposals/:proposalId/withdraw` — withdraw own proposal
 - Middlewares: `src/middlewares/` — replit-auth (header-based auth + user upsert), api-key-auth (Bearer token), security-headers, request-logger, error-handler (AppError class with { error, code, details? })
 - Services:
   - `src/services/api-keys.ts` — hash-based API key creation, verification, revocation
@@ -133,6 +144,8 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `src/services/orders.ts` — order creation with linked task generation, confirm/complete/cancel flow, payout ledger + payment ledger entry creation on completion
   - `src/services/reviews.ts` — one review per completed order, listing stats aggregation (avg_rating, review_count), trust score recomputation via reputation events
   - `src/services/payment-providers.ts` — PaymentProvider interface with StripeProvider (working), CoinbaseAgenticProvider (stub), VisaAgenticProvider (stub); payment intent + authorization model; payment ledger queries
+  - `src/services/jobs.ts` — job CRUD, budget validation, status transitions (open→filled→closed→expired), proposal count tracking, job expiration logic
+  - `src/services/proposals.ts` — proposal submission with eligibility checks (agent active, trust score, capabilities, verified-only), acceptance flow (creates linked task, fills job, auto-rejects other proposals), withdrawal
 - Depends on: `@workspace/db`, `@workspace/api-zod`, `zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
