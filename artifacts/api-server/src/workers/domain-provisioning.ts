@@ -53,10 +53,10 @@ export async function enqueueDomainProvisioning(
 async function deleteExistingRecords(
   headers: Record<string, string>,
   baseUrl: string,
-  subdomain: string,
+  fqdn: string,
 ): Promise<void> {
   try {
-    const listRes = await fetch(`${baseUrl}?name=${subdomain}`, { headers });
+    const listRes = await fetch(`${baseUrl}?name=${fqdn}`, { headers });
     const listData = await listRes.json() as { success: boolean; result?: Array<{ id: string }> };
     if (listData.success && listData.result && listData.result.length > 0) {
       await Promise.all(
@@ -79,7 +79,7 @@ async function createAndVerifyDnsRecords(job: Job<DomainProvisioningJobData>): P
   };
   const baseUrl = `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`;
 
-  await deleteExistingRecords(headers, baseUrl, subdomain);
+  await deleteExistingRecords(headers, baseUrl, fqdn);
 
   const aRecordBody = {
     type: "A",
