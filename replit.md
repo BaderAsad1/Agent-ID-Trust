@@ -98,6 +98,24 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `POST /api/v1/agents/:agentId/domain/provision` — trigger domain provisioning
   - `POST /api/v1/agents/:agentId/domain/reprovision` — trigger re-provisioning (resets DNS records)
   - `GET /api/v1/domains/resolve/:domain` — resolve domain to agent (public endpoint)
+  - `GET /api/v1/marketplace/listings` — browse active marketplace listings (public, filterable, sortable, paginated)
+  - `GET /api/v1/marketplace/listings/mine` — list own listings (auth)
+  - `GET /api/v1/marketplace/listings/:listingId` — listing detail with view increment (public)
+  - `POST /api/v1/marketplace/listings` — create listing (verified agent + active subscription required)
+  - `PATCH /api/v1/marketplace/listings/:listingId` — update listing (ownership enforced)
+  - `DELETE /api/v1/marketplace/listings/:listingId` — soft-delete listing (sets status=closed)
+  - `GET /api/v1/marketplace/listings/:listingId/reviews` — listing reviews (public)
+  - `POST /api/v1/marketplace/orders` — create order (creates linked task, calculates 10% platform fee)
+  - `GET /api/v1/marketplace/orders` — list orders (buyer/seller/all roles)
+  - `GET /api/v1/marketplace/orders/:orderId` — order detail (buyer or seller)
+  - `POST /api/v1/marketplace/orders/:orderId/confirm` — seller confirms order
+  - `POST /api/v1/marketplace/orders/:orderId/complete` — seller completes order (records payout + ledger entries)
+  - `POST /api/v1/marketplace/orders/:orderId/cancel` — cancel order (buyer or seller)
+  - `POST /api/v1/marketplace/reviews` — submit review (one per completed order, triggers trust recomputation)
+  - `GET /api/v1/payments/providers` — list payment providers (stripe, coinbase stub, visa stub)
+  - `POST /api/v1/payments/intents` — create payment intent via provider abstraction
+  - `POST /api/v1/payments/authorize` — authorize payment intent
+  - `GET /api/v1/payments/ledger` — payment ledger entries by account
 - Middlewares: `src/middlewares/` — replit-auth (header-based auth + user upsert), api-key-auth (Bearer token), security-headers, request-logger, error-handler (AppError class with { error, code, details? })
 - Services:
   - `src/services/api-keys.ts` — hash-based API key creation, verification, revocation
@@ -110,6 +128,10 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `src/services/task-forwarding.ts` — HMAC-signed outbound payload forwarding, delivery receipt tracking
   - `src/services/billing.ts` — Stripe checkout sessions, subscription management, agent activation/deactivation, plan tier enforcement (free:1/starter:1/pro:5/team:10), webhook event handlers (idempotent via webhook_events table)
   - `src/services/domains.ts` — domain provisioning (handle→subdomain generation, Cloudflare DNS API for A+TXT records), domain resolution, status tracking (pending→provisioning→active→failed), graceful fallback when Cloudflare not configured
+  - `src/services/marketplace.ts` — listing CRUD with eligibility enforcement (verified + active sub), platform fee calculation (10%), view/hire tracking
+  - `src/services/orders.ts` — order creation with linked task generation, confirm/complete/cancel flow, payout ledger + payment ledger entry creation on completion
+  - `src/services/reviews.ts` — one review per completed order, listing stats aggregation (avg_rating, review_count), trust score recomputation via reputation events
+  - `src/services/payment-providers.ts` — PaymentProvider interface with StripeProvider (working), CoinbaseAgenticProvider (stub), VisaAgenticProvider (stub); payment intent + authorization model; payment ledger queries
 - Depends on: `@workspace/db`, `@workspace/api-zod`, `zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)

@@ -14,6 +14,8 @@ import billingRouter from "./billing";
 import webhooksRouter from "./webhooks";
 import agentDomainsRouter from "./domains";
 import domainResolveRouter from "./domain-resolve";
+import marketplaceRouter from "./marketplace";
+import paymentsRouter from "./payments";
 
 const router = Router();
 
@@ -32,5 +34,7 @@ router.use("/dashboard", dashboardRouter);
 router.use("/billing", billingRouter);
 router.use("/webhooks", webhooksRouter);
 router.use("/domains", domainResolveRouter);
+router.use("/marketplace", marketplaceRouter);
+router.use("/payments", paymentsRouter);
 
 export default router;
