@@ -19,7 +19,13 @@ const corsOrigins: cors.CorsOptions["origin"] =
 
 app.use(cors({ origin: corsOrigins, credentials: true }));
 
-app.use(express.json());
+app.use((req, res, next) => {
+  if (req.path === "/api/v1/webhooks/stripe") {
+    next();
+    return;
+  }
+  express.json()(req, res, next);
+});
 app.use(express.urlencoded({ extended: true }));
 
 app.use(replitAuth);

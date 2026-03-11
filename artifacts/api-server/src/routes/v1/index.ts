@@ -10,6 +10,8 @@ import programmaticRouter from "./programmatic";
 import agentVerificationRouter from "./agent-verification";
 import tasksRouter from "./tasks";
 import dashboardRouter from "./dashboard";
+import billingRouter from "./billing";
+import webhooksRouter from "./webhooks";
 
 const router = Router();
 
@@ -24,5 +26,7 @@ router.use("/p", publicProfilesRouter);
 router.use("/programmatic", programmaticRouter);
 router.use("/tasks", tasksRouter);
 router.use("/dashboard", dashboardRouter);
+router.use("/billing", billingRouter);
+router.use("/webhooks", webhooksRouter);
 
 export default router;
