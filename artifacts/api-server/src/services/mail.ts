@@ -292,7 +292,7 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
       bodyFormat: input.bodyFormat || "text",
       structuredPayload: input.structuredPayload,
       isRead: input.direction === "outbound",
-      deliveryStatus: "delivered",
+      deliveryStatus: input.direction === "outbound" ? "queued" : "delivered",
       senderTrustScore: input.senderTrustScore,
       senderVerified: input.senderVerified ?? false,
       provenanceChain: initialProvenance,

@@ -118,13 +118,28 @@ export async function updateAgent(
   userId: string,
   updates: UpdateAgentInput,
 ): Promise<Agent | null> {
+  const existing = await db.query.agentsTable.findFirst({
+    where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
+    columns: { status: true },
+  });
+
   const [updated] = await db
     .update(agentsTable)
     .set({ ...updates, updatedAt: new Date() })
     .where(and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)))
     .returning();
 
-  return updated ?? null;
+  if (!updated) return null;
+
+  if (updates.status === "active" && existing?.status !== "active") {
+    try {
+      const { provisionInboxForAgent } = await import("./mail");
+      await provisionInboxForAgent(agentId);
+    } catch {
+    }
+  }
+
+  return updated;
 }
 
 export async function deleteAgent(

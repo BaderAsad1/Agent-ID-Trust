@@ -126,7 +126,8 @@ export async function enqueueWebhookDelivery(job: WebhookDeliveryJob): Promise<b
   await webhookQueue.add("deliver", job, {
     attempts: MAX_ATTEMPTS,
     backoff: {
-      type: "custom",
+      type: "exponential",
+      delay: 2000,
     },
     removeOnComplete: { age: 3600 },
     removeOnFail: { age: 86400 },
