@@ -1,0 +1,70 @@
+:root {
+  --bg-base: #080C10;
+  --bg-surface: #0F1419;
+  --bg-elevated: #161D26;
+  --accent: #3B82F6;
+  --accent-glow: #60A5FA;
+  --text-primary: #F1F5F9;
+  --text-muted: #94A3B8;
+  --text-dim: #475569;
+  --border-color: #1E293B;
+  --border-focus: #3B82F6;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --marketplace: #8B5CF6;
+  --marketplace-glow: #A78BFA;
+  --domain: #06B6D4;
+  --domain-bg: rgba(6, 182, 212, 0.15);
+  --font-display: 'Geist', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes draw-check {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes grid-move {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(40px, 40px); }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s ease forwards;
+  opacity: 0;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.animate-draw-check {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: draw-check 0.5s ease forwards 0.3s;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 1.5s linear infinite;
+}

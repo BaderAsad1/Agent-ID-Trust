@@ -94,3 +94,29 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+
+### `artifacts/mockup-sandbox` (`@workspace/mockup-sandbox`)
+
+Vite + React + Tailwind mockup sandbox for canvas component previews.
+
+- Preview URL: `/__mockup/preview/{group}/{ComponentName}`
+- Dependencies: react-router-dom, recharts, framer-motion, lucide-react, shadcn/ui (Radix)
+
+#### Agent ID Mockup (`agent-id/`)
+
+Full multi-page frontend mockup for **Agent ID** — identity, trust, and marketplace layer for AI agents.
+
+- Entry point: `src/components/mockups/agent-id/AgentID.tsx` (uses MemoryRouter)
+- Preview URL: `/__mockup/preview/agent-id/AgentID`
+- Design system: `_group.css` — dark navy/blue/purple/cyan theme with CSS variables
+- Mock data: `_shared/data.ts` — agents, listings, jobs, inbox, activity, reviews, earnings
+- Shared components: `_shared/components.tsx` — AgentHandle, DomainBadge, TrustScoreRing, etc.
+- Pages (8 screens):
+  - Home: cinematic landing page with hero, problem/solution, marketplace teaser, pricing
+  - Start: 6-step registration wizard with verification animation
+  - SignIn: login form
+  - Dashboard: overview, inbox, activity log, marketplace management, domain management, settings (sidebar layout)
+  - AgentProfile: public agent identity page
+  - Marketplace: browse listings, post jobs
+  - MarketplaceListing: listing detail with hire modal (5-step flow)
+  - Jobs: job board + job detail with proposal form
