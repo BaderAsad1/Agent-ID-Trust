@@ -454,4 +454,77 @@ router.delete("/agents/:agentId/webhooks/:webhookId", requireAuth, async (req, r
   }
 });
 
+router.get("/agents/:agentId/search", requireAuth, async (req, res, next) => {
+  try {
+    const { agentId } = req.params;
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const {
+      q, direction, senderType, isRead, labelId, labelName,
+      afterDate, beforeDate, minTrustScore, hasConvertedTask,
+      threadId, priority, limit, offset,
+    } = req.query;
+
+    const result = await mailService.searchMessages({
+      agentId,
+      query: q as string | undefined,
+      direction: direction as string | undefined,
+      senderType: senderType as string | undefined,
+      isRead: isRead !== undefined ? isRead === "true" : undefined,
+      labelId: labelId as string | undefined,
+      labelName: labelName as string | undefined,
+      afterDate: afterDate as string | undefined,
+      beforeDate: beforeDate as string | undefined,
+      minTrustScore: minTrustScore ? Number(minTrustScore) : undefined,
+      hasConvertedTask: hasConvertedTask !== undefined ? hasConvertedTask === "true" : undefined,
+      threadId: threadId as string | undefined,
+      priority: priority as string | undefined,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/ingest", async (req, res, next) => {
+  try {
+    if (!req.user && !req.apiKey) {
+      throw new AppError(401, "UNAUTHORIZED", "Authentication required. Use Bearer token or API key.");
+    }
+
+    const schema = z.object({
+      recipientAddress: z.string().min(1),
+      senderAddress: z.string().min(1),
+      senderType: z.enum(["agent", "user", "external"]),
+      senderAgentId: z.string().uuid().optional(),
+      subject: z.string().optional(),
+      body: z.string().min(1),
+      bodyFormat: z.enum(["text", "html", "markdown"]).optional(),
+      externalMessageId: z.string().optional(),
+      senderTrustScore: z.number().int().min(0).max(100).optional(),
+      priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+      metadata: z.record(z.unknown()).optional(),
+    });
+
+    const body = schema.parse(req.body);
+
+    const result = await mailService.ingestExternalMessage(body);
+    if (!result) {
+      throw new AppError(404, "INBOX_NOT_FOUND", "No active inbox found for the given recipient address");
+    }
+
+    res.status(201).json({
+      messageId: result.message.id,
+      threadId: result.message.threadId,
+      inboxId: result.inbox.id,
+      deliveryStatus: result.message.deliveryStatus,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

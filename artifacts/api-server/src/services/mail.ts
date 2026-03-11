@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, ilike, gte, lte, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, ilike, gte, lte, inArray, or } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   agentInboxesTable,
@@ -22,6 +22,7 @@ import {
   type RoutingCondition,
   type RoutingAction,
 } from "@workspace/db/schema";
+import { signWebhookPayload, deliverOutbound, recordOutboundDeliveryResult } from "./mail-transport";
 
 const SYSTEM_LABELS = ["inbox", "sent", "archived", "spam", "important", "tasks"];
 
@@ -317,6 +318,31 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
     await applyRoutingRules(message, inbox.routingRules as RoutingRule[]);
   }
 
+  if (input.direction === "outbound" && input.recipientAddress) {
+    const transportResult = await deliverOutbound({
+      messageId: message.id,
+      from: input.senderAddress || inbox.address,
+      to: input.recipientAddress,
+      subject: message.subject || undefined,
+      body: input.body,
+      bodyFormat: input.bodyFormat || "text",
+      metadata: input.metadata,
+    });
+    await recordOutboundDeliveryResult(message.id, transportResult);
+
+    if (transportResult.success) {
+      await db
+        .update(agentMessagesTable)
+        .set({ deliveryStatus: "delivered", updatedAt: new Date() })
+        .where(eq(agentMessagesTable.id, message.id));
+    } else {
+      await db
+        .update(agentMessagesTable)
+        .set({ deliveryStatus: "failed", updatedAt: new Date() })
+        .where(eq(agentMessagesTable.id, message.id));
+    }
+  }
+
   await emitWebhookEvent(inbox.id, input.direction === "inbound" ? "message.received" : "message.sent", {
     messageId: message.id,
     threadId: thread.id,
@@ -556,6 +582,9 @@ function evaluateCondition(message: AgentMessage, cond: RoutingCondition): boole
     case "direction":
       value = message.direction;
       break;
+    case "label":
+      value = undefined;
+      break;
     default:
       return false;
   }
@@ -613,6 +642,91 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
     }
     case "convert_task": {
       await convertMessageToTask(message.id, message.agentId);
+      break;
+    }
+    case "forward": {
+      const targetAddress = action.params?.to as string;
+      if (!targetAddress) break;
+      const targetInbox = await db.query.agentInboxesTable.findFirst({
+        where: eq(agentInboxesTable.address, targetAddress),
+      });
+      if (targetInbox) {
+        await sendMessage({
+          agentId: targetInbox.agentId,
+          direction: "inbound",
+          senderType: message.senderType as "agent" | "user" | "system" | "external",
+          senderAgentId: message.senderAgentId || undefined,
+          senderUserId: message.senderUserId || undefined,
+          senderAddress: message.senderAddress || undefined,
+          subject: message.subject ? `Fwd: ${message.subject}` : undefined,
+          body: message.body,
+          bodyFormat: message.bodyFormat,
+          metadata: { forwardedFrom: message.id, originalInbox: message.inboxId },
+        });
+      }
+      await db.insert(messageEventsTable).values({
+        messageId: message.id,
+        eventType: "message.forwarded",
+        payload: { to: targetAddress, targetInboxFound: !!targetInbox },
+      });
+      break;
+    }
+    case "auto_reply": {
+      const replyBody = action.params?.body as string;
+      if (!replyBody) break;
+      const inbox = await db.query.agentInboxesTable.findFirst({
+        where: eq(agentInboxesTable.id, message.inboxId),
+      });
+      if (inbox) {
+        await sendMessage({
+          agentId: message.agentId,
+          direction: "outbound",
+          senderType: "agent",
+          senderAgentId: message.agentId,
+          senderAddress: inbox.address,
+          recipientAddress: message.senderAddress || undefined,
+          subject: message.subject ? `Re: ${message.subject}` : undefined,
+          body: replyBody,
+          inReplyToId: message.id,
+        });
+      }
+      break;
+    }
+    case "webhook": {
+      const webhookUrl = action.params?.url as string;
+      if (!webhookUrl) break;
+      try {
+        await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "routing.webhook",
+            messageId: message.id,
+            subject: message.subject,
+            senderType: message.senderType,
+            direction: message.direction,
+          }),
+          signal: AbortSignal.timeout(10000),
+        });
+      } catch {
+      }
+      await db.insert(messageEventsTable).values({
+        messageId: message.id,
+        eventType: "routing.webhook_fired",
+        payload: { url: webhookUrl },
+      });
+      break;
+    }
+    case "drop": {
+      await db
+        .update(agentMessagesTable)
+        .set({ deliveryStatus: "bounced", updatedAt: new Date() })
+        .where(eq(agentMessagesTable.id, message.id));
+      await db.insert(messageEventsTable).values({
+        messageId: message.id,
+        eventType: "message.dropped",
+        payload: { reason: action.params?.reason || "routing_rule" },
+      });
       break;
     }
     default:
@@ -735,14 +849,21 @@ async function emitWebhookEvent(
     const events = (wh.events as string[]) || [];
     if (events.length > 0 && !events.includes(eventType)) continue;
 
+    const timestamp = new Date().toISOString();
+    const webhookPayload = { event: eventType, payload, timestamp };
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+    if (wh.secret) {
+      const signature = signWebhookPayload(webhookPayload as unknown as Record<string, unknown>, wh.secret);
+      headers["X-Webhook-Signature"] = `sha256=${signature}`;
+      headers["X-Webhook-Timestamp"] = timestamp;
+    }
+
     try {
       const response = await fetch(wh.url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(wh.secret ? { "X-Webhook-Secret": wh.secret } : {}),
-        },
-        body: JSON.stringify({ event: eventType, payload, timestamp: new Date().toISOString() }),
+        headers,
+        body: JSON.stringify(webhookPayload),
         signal: AbortSignal.timeout(10000),
       });
 
@@ -754,7 +875,18 @@ async function emitWebhookEvent(
           updatedAt: new Date(),
         })
         .where(eq(inboxWebhooksTable.id, wh.id));
-    } catch {
+
+      await db.insert(messageEventsTable).values({
+        messageId: payload.messageId as string,
+        eventType: response.ok ? "webhook.delivered" : "webhook.failed",
+        payload: {
+          webhookId: wh.id,
+          url: wh.url,
+          statusCode: response.status,
+          attempt: 1,
+        },
+      });
+    } catch (err) {
       await db
         .update(inboxWebhooksTable)
         .set({
@@ -762,6 +894,17 @@ async function emitWebhookEvent(
           updatedAt: new Date(),
         })
         .where(eq(inboxWebhooksTable.id, wh.id));
+
+      await db.insert(messageEventsTable).values({
+        messageId: payload.messageId as string,
+        eventType: "webhook.failed",
+        payload: {
+          webhookId: wh.id,
+          url: wh.url,
+          error: err instanceof Error ? err.message : "Unknown error",
+          attempt: 1,
+        },
+      });
     }
   }
 }
@@ -821,6 +964,163 @@ export async function getMessageAttachments(messageId: string) {
   return db.query.messageAttachmentsTable.findMany({
     where: eq(messageAttachmentsTable.messageId, messageId),
   });
+}
+
+export interface SearchFilters {
+  agentId: string;
+  query?: string;
+  direction?: string;
+  senderType?: string;
+  isRead?: boolean;
+  labelId?: string;
+  labelName?: string;
+  afterDate?: string;
+  beforeDate?: string;
+  minTrustScore?: number;
+  hasConvertedTask?: boolean;
+  threadId?: string;
+  priority?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function searchMessages(filters: SearchFilters): Promise<{
+  messages: AgentMessage[];
+  total: number;
+}> {
+  const conditions = [eq(agentMessagesTable.agentId, filters.agentId)];
+
+  if (filters.query) {
+    conditions.push(
+      or(
+        ilike(agentMessagesTable.subject, `%${filters.query}%`),
+        ilike(agentMessagesTable.body, `%${filters.query}%`),
+        ilike(agentMessagesTable.senderAddress, `%${filters.query}%`),
+      )!,
+    );
+  }
+  if (filters.direction) {
+    conditions.push(eq(agentMessagesTable.direction, filters.direction as AgentMessage["direction"]));
+  }
+  if (filters.senderType) {
+    conditions.push(eq(agentMessagesTable.senderType, filters.senderType as AgentMessage["senderType"]));
+  }
+  if (filters.isRead !== undefined) {
+    conditions.push(eq(agentMessagesTable.isRead, filters.isRead));
+  }
+  if (filters.afterDate) {
+    conditions.push(gte(agentMessagesTable.createdAt, new Date(filters.afterDate)));
+  }
+  if (filters.beforeDate) {
+    conditions.push(lte(agentMessagesTable.createdAt, new Date(filters.beforeDate)));
+  }
+  if (filters.minTrustScore !== undefined) {
+    conditions.push(gte(agentMessagesTable.senderTrustScore, filters.minTrustScore));
+  }
+  if (filters.threadId) {
+    conditions.push(eq(agentMessagesTable.threadId, filters.threadId));
+  }
+  if (filters.hasConvertedTask === true) {
+    conditions.push(sql`${agentMessagesTable.convertedTaskId} is not null`);
+  } else if (filters.hasConvertedTask === false) {
+    conditions.push(sql`${agentMessagesTable.convertedTaskId} is null`);
+  }
+
+  if (filters.labelId || filters.labelName) {
+    let targetLabelId = filters.labelId;
+    if (!targetLabelId && filters.labelName) {
+      const label = await db.query.messageLabelsTable.findFirst({
+        where: and(
+          eq(messageLabelsTable.agentId, filters.agentId),
+          eq(messageLabelsTable.name, filters.labelName),
+        ),
+      });
+      targetLabelId = label?.id;
+    }
+    if (targetLabelId) {
+      const labelMsgIds = await db
+        .select({ messageId: messageLabelAssignmentsTable.messageId })
+        .from(messageLabelAssignmentsTable)
+        .where(eq(messageLabelAssignmentsTable.labelId, targetLabelId));
+      const ids = labelMsgIds.map((r) => r.messageId);
+      if (ids.length === 0) return { messages: [], total: 0 };
+      conditions.push(inArray(agentMessagesTable.id, ids));
+    } else {
+      return { messages: [], total: 0 };
+    }
+  }
+
+  const where = and(...conditions);
+
+  const [messages, countResult] = await Promise.all([
+    db.query.agentMessagesTable.findMany({
+      where,
+      orderBy: [desc(agentMessagesTable.createdAt)],
+      limit: filters.limit || 50,
+      offset: filters.offset || 0,
+    }),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(agentMessagesTable)
+      .where(where),
+  ]);
+
+  return { messages, total: countResult[0].count };
+}
+
+export async function ingestExternalMessage(input: {
+  recipientAddress: string;
+  senderAddress: string;
+  senderType: "agent" | "user" | "external";
+  senderAgentId?: string;
+  subject?: string;
+  body: string;
+  bodyFormat?: string;
+  externalMessageId?: string;
+  senderTrustScore?: number;
+  priority?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<{ message: AgentMessage; inbox: AgentInbox } | null> {
+  const inbox = await db.query.agentInboxesTable.findFirst({
+    where: eq(agentInboxesTable.address, input.recipientAddress),
+  });
+  if (!inbox) return null;
+
+  if (inbox.status !== "active") return null;
+
+  const message = await sendMessage({
+    agentId: inbox.agentId,
+    direction: "inbound",
+    senderType: input.senderType,
+    senderAgentId: input.senderAgentId,
+    senderAddress: input.senderAddress,
+    recipientAddress: input.recipientAddress,
+    subject: input.subject,
+    body: input.body,
+    bodyFormat: input.bodyFormat,
+    senderTrustScore: input.senderTrustScore,
+    metadata: {
+      ...input.metadata,
+      externalMessageId: input.externalMessageId,
+      priority: input.priority,
+    },
+  });
+
+  if (input.externalMessageId) {
+    await db
+      .update(agentMessagesTable)
+      .set({ externalMessageId: input.externalMessageId })
+      .where(eq(agentMessagesTable.id, message.id));
+  }
+
+  await recordInboundTransport(
+    inbox.id,
+    "api",
+    { senderAddress: input.senderAddress, externalMessageId: input.externalMessageId },
+    message.id,
+  );
+
+  return { message, inbox };
 }
 
 export async function verifyAgentOwnership(

@@ -112,14 +112,27 @@ Complete communications layer for agents with identity-bound inboxes.
 - Webhook registration and event emission (with secret headers, event filtering)
 - Transport event recording (inbound/outbound)
 
-**Routes (25 endpoints):** `artifacts/api-server/src/routes/v1/mail.ts` — all under `/api/v1/mail/agents/:agentId/`
-- `GET|PATCH /inbox`, `GET /inbox/stats`
-- `GET /threads`, `GET|PATCH /threads/:threadId`, `POST /threads/:threadId/read`
-- `GET|POST /messages`, `GET /messages/:messageId`, `POST /messages/:messageId/read`
-- `POST /messages/:messageId/convert-task`, `GET /messages/:messageId/events`
-- `GET|POST /labels`, `DELETE /labels/:labelId`
-- `POST|DELETE /messages/:messageId/labels/:labelId`
-- `GET|POST /webhooks`, `PATCH|DELETE /webhooks/:webhookId`
+**Transport:** `artifacts/api-server/src/services/mail-transport.ts`
+- Provider adapter interface with `canDeliver()` / `send()` methods
+- Built-in providers: `InternalTransportProvider` (handles `@agents.local`), `WebhookTransportProvider` (fallback)
+- Outbound delivery tracking in `outbound_message_deliveries` table
+- `registerProvider()` for custom transport extensions
+- HMAC webhook signing (`X-Webhook-Signature: sha256=...`, `X-Webhook-Timestamp`)
+
+**Routes (27 endpoints):** `artifacts/api-server/src/routes/v1/mail.ts`
+- Agent-scoped (under `/api/v1/mail/agents/:agentId/`):
+  - `GET|PATCH /inbox`, `GET /inbox/stats`
+  - `GET /threads`, `GET|PATCH /threads/:threadId`, `POST /threads/:threadId/read`
+  - `GET|POST /messages`, `GET /messages/:messageId`, `POST /messages/:messageId/read`
+  - `POST /messages/:messageId/convert-task`, `GET /messages/:messageId/events`
+  - `GET|POST /labels`, `DELETE /labels/:labelId`
+  - `POST|DELETE /messages/:messageId/labels/:labelId`
+  - `GET|POST /webhooks`, `PATCH|DELETE /webhooks/:webhookId`
+  - `GET /search` — full search with q, direction, senderType, label, trust, date, hasConvertedTask
+- Programmatic ingestion (under `/api/v1/mail/`):
+  - `POST /ingest` — API-key or user auth, address-based routing, external message ID, priority
+
+**Routing rules engine actions:** `label`, `archive`, `convert_task`, `forward` (to another agent inbox), `auto_reply`, `webhook` (fire to URL), `drop` (bounce message)
 
 **Seed data:** 2 inboxes, 3 threads, 7 messages (threaded conversations), system + custom labels, label assignments, message events
 

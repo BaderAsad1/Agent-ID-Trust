@@ -14,6 +14,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { agentsTable } from "./agents";
 import { usersTable } from "./users";
+import { tasksTable } from "./tasks";
 import {
   inboxStatusEnum,
   messageDirectionEnum,
@@ -132,7 +133,8 @@ export const agentMessagesTable = pgTable(
       .default("queued")
       .notNull(),
     senderTrustScore: integer("sender_trust_score"),
-    originatingTaskId: uuid("originating_task_id"),
+    priority: varchar("priority", { length: 20 }).default("normal").notNull(),
+    originatingTaskId: uuid("originating_task_id").references(() => tasksTable.id),
     convertedTaskId: uuid("converted_task_id"),
     inReplyToId: uuid("in_reply_to_id"),
     externalMessageId: varchar("external_message_id", { length: 500 }),
