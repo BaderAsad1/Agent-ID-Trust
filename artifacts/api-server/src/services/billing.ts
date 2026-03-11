@@ -486,32 +486,7 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       ),
     );
 
-  const newLimits = getPlanLimits(plan);
-  const activeAgentSubs = await db
-    .select({ id: agentSubscriptionsTable.id, agentId: agentSubscriptionsTable.agentId })
-    .from(agentSubscriptionsTable)
-    .where(
-      and(
-        eq(agentSubscriptionsTable.userId, userId),
-        eq(agentSubscriptionsTable.status, "active"),
-      ),
-    )
-    .orderBy(desc(agentSubscriptionsTable.createdAt));
-
-  if (activeAgentSubs.length > newLimits.maxAgents) {
-    const excessSubs = activeAgentSubs.slice(newLimits.maxAgents);
-    for (const excess of excessSubs) {
-      await db
-        .update(agentSubscriptionsTable)
-        .set({ status: "cancelled", updatedAt: new Date() })
-        .where(eq(agentSubscriptionsTable.id, excess.id));
-
-      await db
-        .update(agentsTable)
-        .set({ status: "inactive", isPublic: false, updatedAt: new Date() })
-        .where(eq(agentsTable.id, excess.agentId));
-    }
-  }
+  await enforceAgentLimitsForUser(userId, plan);
 }
 
 export async function handleInvoicePaid(invoice: Stripe.Invoice) {
@@ -584,32 +559,7 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       .set({ plan: "free", updatedAt: new Date() })
       .where(eq(usersTable.id, sub.userId));
 
-    await db
-      .update(agentSubscriptionsTable)
-      .set({ status: "past_due", updatedAt: new Date() })
-      .where(
-        and(
-          eq(agentSubscriptionsTable.userId, sub.userId),
-          eq(agentSubscriptionsTable.providerSubscriptionId, subscriptionId),
-        ),
-      );
-
-    const affectedSubs = await db
-      .select({ agentId: agentSubscriptionsTable.agentId })
-      .from(agentSubscriptionsTable)
-      .where(
-        and(
-          eq(agentSubscriptionsTable.userId, sub.userId),
-          eq(agentSubscriptionsTable.providerSubscriptionId, subscriptionId),
-        ),
-      );
-
-    for (const agentSub of affectedSubs) {
-      await db
-        .update(agentsTable)
-        .set({ status: "inactive", isPublic: false, updatedAt: new Date() })
-        .where(eq(agentsTable.id, agentSub.agentId));
-    }
+    await enforceAgentLimitsForUser(sub.userId, "free");
   }
 }
 
@@ -632,26 +582,33 @@ export async function handleSubscriptionDeleted(subscription: Stripe.Subscriptio
     .set({ plan: "free", updatedAt: new Date() })
     .where(eq(usersTable.id, sub.userId));
 
-  await db
-    .update(agentSubscriptionsTable)
-    .set({ status: "cancelled", updatedAt: new Date() })
+  await enforceAgentLimitsForUser(sub.userId, "free");
+}
+
+async function enforceAgentLimitsForUser(userId: string, plan: string) {
+  const limits = getPlanLimits(plan);
+  const activeAgentSubs = await db
+    .select({ id: agentSubscriptionsTable.id, agentId: agentSubscriptionsTable.agentId })
+    .from(agentSubscriptionsTable)
     .where(
       and(
-        eq(agentSubscriptionsTable.userId, sub.userId),
+        eq(agentSubscriptionsTable.userId, userId),
         eq(agentSubscriptionsTable.status, "active"),
       ),
-    );
+    )
+    .orderBy(desc(agentSubscriptionsTable.createdAt));
 
-  const agentSubs = await db
-    .select({ agentId: agentSubscriptionsTable.agentId })
-    .from(agentSubscriptionsTable)
-    .where(eq(agentSubscriptionsTable.userId, sub.userId));
+  const excessSubs = activeAgentSubs.slice(limits.maxAgents);
+  for (const excess of excessSubs) {
+    await db
+      .update(agentSubscriptionsTable)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(agentSubscriptionsTable.id, excess.id));
 
-  for (const agentSub of agentSubs) {
     await db
       .update(agentsTable)
       .set({ status: "inactive", isPublic: false, updatedAt: new Date() })
-      .where(eq(agentsTable.id, agentSub.agentId));
+      .where(eq(agentsTable.id, excess.agentId));
   }
 }
 
