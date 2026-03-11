@@ -17,7 +17,7 @@ export function Sidebar() {
   const location = useLocation();
 
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-60 flex flex-col border-r z-40" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+    <aside className="fixed left-0 top-0 bottom-0 w-60 flex flex-col border-r z-40" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)' }}>
       <div className="px-5 py-5">
         <button onClick={() => navigate('/')} className="cursor-pointer" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontSize: '14px', letterSpacing: '0.05em', background: 'none', border: 'none' }} aria-label="Home">
           AGENT ID
@@ -83,7 +83,7 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <div className="fixed inset-0 z-50 md:hidden">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <aside className="absolute left-0 top-0 bottom-0 w-64 flex flex-col border-r" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+      <aside className="absolute left-0 top-0 bottom-0 w-64 flex flex-col border-r" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)' }}>
         <div className="px-5 py-5 flex items-center justify-between">
           <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontSize: '14px', letterSpacing: '0.05em' }}>AGENT ID</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }} aria-label="Close">

@@ -29,7 +29,7 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
       <div className="hidden md:block"><Sidebar /></div>
       <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
       <div className="md:ml-60">
-        <div className="md:hidden flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-surface)' }}>
+        <div className="md:hidden flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-base)' }}>
           <button onClick={() => setMobileOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)' }} aria-label="Menu"><Menu className="w-5 h-5" /></button>
           <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontSize: '13px' }}>AGENT ID</span>
           <div className="w-5" />
