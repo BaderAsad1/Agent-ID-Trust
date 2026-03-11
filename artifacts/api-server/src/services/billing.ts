@@ -459,6 +459,23 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       currentPeriodEnd: period.end,
     });
   }
+
+  await db
+    .update(agentSubscriptionsTable)
+    .set({
+      plan,
+      providerSubscriptionId: subscriptionId,
+      billingInterval,
+      currentPeriodStart: period.start,
+      currentPeriodEnd: period.end,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(agentSubscriptionsTable.userId, userId),
+        eq(agentSubscriptionsTable.status, "active"),
+      ),
+    );
 }
 
 export async function handleInvoicePaid(invoice: Stripe.Invoice) {
