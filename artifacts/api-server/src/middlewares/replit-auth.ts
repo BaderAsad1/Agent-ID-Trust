@@ -55,7 +55,7 @@ export async function replitAuth(
   _res: Response,
   next: NextFunction,
 ) {
-  const replitUserId = req.headers["x-replit-user-id"] as string | undefined;
+  const replitUserId = (req.headers["x-agentid-user-id"] || req.headers["x-replit-user-id"]) as string | undefined;
 
   if (!replitUserId) {
     next();

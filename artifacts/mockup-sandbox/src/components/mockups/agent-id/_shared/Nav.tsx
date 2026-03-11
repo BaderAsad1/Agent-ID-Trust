@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 
 export function Nav() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { userId, logout } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const isDashboard = location.pathname.startsWith('/dashboard');
@@ -33,8 +35,8 @@ export function Nav() {
 
   const navLinks = [
     { label: 'Marketplace', onClick: () => navigate('/marketplace') },
+    { label: 'Jobs', onClick: () => navigate('/jobs') },
     { label: 'For Agents', onClick: () => navigate('/for-agents'), highlight: true },
-    { label: 'Docs', onClick: () => navigate('/for-agents') },
     { label: 'Pricing', onClick: scrollToPricing },
   ];
 
@@ -78,18 +80,37 @@ export function Nav() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <button
-              onClick={() => navigate('/sign-in')}
-              className="px-4 py-2 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
-              style={{ color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border-color)', fontFamily: 'var(--font-body)' }}
-              aria-label="Sign In"
-            >Sign In</button>
-            <button
-              onClick={() => navigate('/start')}
-              className="px-5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer hover:scale-[1.02]"
-              style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }}
-              aria-label="Register Agent"
-            >Register Agent</button>
+            {userId ? (
+              <>
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="px-4 py-2 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
+                  style={{ color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border-color)', fontFamily: 'var(--font-body)' }}
+                  aria-label="Dashboard"
+                >Dashboard</button>
+                <button
+                  onClick={() => { logout(); navigate('/'); }}
+                  className="px-4 py-2 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
+                  style={{ color: 'var(--text-dim)', background: 'transparent', border: 'none', fontFamily: 'var(--font-body)' }}
+                  aria-label="Sign Out"
+                >Sign Out</button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate('/sign-in')}
+                  className="px-4 py-2 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
+                  style={{ color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border-color)', fontFamily: 'var(--font-body)' }}
+                  aria-label="Sign In"
+                >Sign In</button>
+                <button
+                  onClick={() => navigate('/start')}
+                  className="px-5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer hover:scale-[1.02]"
+                  style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }}
+                  aria-label="Register Agent"
+                >Register Agent</button>
+              </>
+            )}
           </div>
 
           <button
@@ -118,8 +139,17 @@ export function Nav() {
               >{l.label}</button>
             ))}
             <div className="border-t pt-4 mt-2 flex flex-col gap-3" style={{ borderColor: 'var(--border-color)' }}>
-              <button onClick={() => { navigate('/sign-in'); setMobileOpen(false); }} className="py-3 text-center rounded-lg border cursor-pointer" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-color)', background: 'none', fontFamily: 'var(--font-body)' }} aria-label="Sign In">Sign In</button>
-              <button onClick={() => { navigate('/start'); setMobileOpen(false); }} className="py-3 text-center rounded-lg font-medium cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }} aria-label="Register Agent">Register Agent</button>
+              {userId ? (
+                <>
+                  <button onClick={() => { navigate('/dashboard'); setMobileOpen(false); }} className="py-3 text-center rounded-lg border cursor-pointer" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-color)', background: 'none' }} aria-label="Dashboard">Dashboard</button>
+                  <button onClick={() => { logout(); navigate('/'); setMobileOpen(false); }} className="py-3 text-center rounded-lg cursor-pointer" style={{ color: 'var(--text-dim)', background: 'none', border: 'none' }} aria-label="Sign Out">Sign Out</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => { navigate('/sign-in'); setMobileOpen(false); }} className="py-3 text-center rounded-lg border cursor-pointer" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-color)', background: 'none', fontFamily: 'var(--font-body)' }} aria-label="Sign In">Sign In</button>
+                  <button onClick={() => { navigate('/start'); setMobileOpen(false); }} className="py-3 text-center rounded-lg font-medium cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }} aria-label="Register Agent">Register Agent</button>
+                </>
+              )}
             </div>
           </div>
         </div>

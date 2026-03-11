@@ -1,28 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Clock, Shield, Users, CheckCircle } from 'lucide-react';
-import { Identicon, DomainBadge, TrustScoreRing, CapabilityChip, GlassCard, PrimaryButton, StarRating, InputField } from './components';
-import { agents, marketplaceListings } from './data';
+import { Search, Filter, Clock, Shield, Users, AlertCircle, RefreshCw } from 'lucide-react';
+import { Identicon, DomainBadge, TrustScoreRing, CapabilityChip, GlassCard, PrimaryButton, StarRating, InputField, ListSkeleton, EmptyState } from './components';
 import { Footer } from './Footer';
+import { api, type Listing, type Agent as ApiAgent } from './api';
+import { useAuth } from './AuthContext';
 
 const categories = ['All', 'Research', 'Code', 'Data', 'Support', 'Content', 'Custom'];
-const priceFilters = ['Any', 'Under $25', '$25–$100', '$100+'];
-const deliveryFilters = ['Any', '<1 hr', '<24 hrs', 'Custom'];
-const trustFilters = ['Any', '70+', '85+', '95+'];
 
 function BrowseTab() {
   const navigate = useNavigate();
   const [category, setCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [priceFilter, setPriceFilter] = useState('Any');
-  const [deliveryFilter, setDeliveryFilter] = useState('Any');
-  const [trustFilter, setTrustFilter] = useState('Any');
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [agentMap, setAgentMap] = useState<Record<string, ApiAgent>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = marketplaceListings.filter(l => {
-    if (category !== 'All' && l.category !== category) return false;
-    if (searchQuery && !l.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
+  const fetchListings = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params: Record<string, string> = {};
+      if (category !== 'All') params.category = category;
+      if (searchQuery) params.search = searchQuery;
+      const result = await api.marketplace.listings.list(params);
+      setListings(result.listings || []);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load listings');
+    } finally {
+      setLoading(false);
+    }
+  }, [category, searchQuery]);
+
+  useEffect(() => { fetchListings(); }, [fetchListings]);
 
   return (
     <div>
@@ -37,7 +48,7 @@ function BrowseTab() {
         />
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-6">
         {categories.map(c => (
           <button
             key={c}
@@ -53,64 +64,42 @@ function BrowseTab() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-6 py-3 px-4 rounded-lg" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}>
-        <Filter className="w-4 h-4" style={{ color: 'var(--text-dim)' }} />
-        <span className="text-xs font-medium" style={{ color: 'var(--text-dim)' }}>Filters:</span>
-        {[
-          { label: 'Price', options: priceFilters, value: priceFilter, set: setPriceFilter },
-          { label: 'Delivery', options: deliveryFilters, value: deliveryFilter, set: setDeliveryFilter },
-          { label: 'Trust', options: trustFilters, value: trustFilter, set: setTrustFilter },
-        ].map(f => (
-          <select
-            key={f.label}
-            value={f.value}
-            onChange={e => f.set(e.target.value)}
-            className="rounded-md border px-2 py-1 text-xs outline-none"
-            style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}
-          >
-            {f.options.map(o => <option key={o} value={o}>{f.label}: {o}</option>)}
-          </select>
-        ))}
-        <span className="text-xs ml-auto" style={{ color: 'var(--text-dim)' }}>{filtered.length} results</span>
-      </div>
-
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1,2,3].map(i => <div key={i} className="h-64 rounded-xl animate-pulse" style={{ background: 'var(--bg-surface)' }} />)}
+        </div>
+      ) : error ? (
+        <div className="text-center py-12">
+          <AlertCircle className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--danger)' }} />
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>{error}</p>
+          <PrimaryButton variant="ghost" onClick={fetchListings}><RefreshCw className="w-4 h-4 mr-2" /> Retry</PrimaryButton>
+        </div>
+      ) : listings.length === 0 ? (
         <div className="text-center py-16">
           <Search className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-dim)' }} />
-          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>No agents found</h3>
+          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>No listings found</h3>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Try adjusting your filters or search query.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map(l => {
-            const agent = agents.find(a => a.id === l.agentId)!;
-            return (
-              <GlassCard key={l.id} hover purple>
-                <div className="flex items-center gap-2 mb-3">
-                  <Identicon handle={agent.handle} size={28} />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{agent.displayName}</span>
-                    <div className="text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>{agent.handle}</div>
-                  </div>
-                  <TrustScoreRing score={agent.trustScore} size={32} />
-                </div>
-                <DomainBadge domain={agent.domain} size="sm" />
-                <h3 className="text-base font-semibold mt-3 mb-2 line-clamp-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{l.title}</h3>
-                <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{l.description}</p>
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {l.capabilities.slice(0, 3).map(c => <CapabilityChip key={c} label={c} variant="purple" />)}
-                </div>
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span style={{ color: 'var(--text-primary)' }}>From ${l.price} / {l.priceUnit}</span>
-                  <span style={{ color: 'var(--text-dim)' }}>{l.delivery}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <StarRating rating={l.rating} count={l.reviews} />
-                  <PrimaryButton variant="purple" onClick={() => navigate(`/marketplace/${l.id}`)}>View &amp; Hire</PrimaryButton>
-                </div>
-              </GlassCard>
-            );
-          })}
+          {listings.map(l => (
+            <GlassCard key={l.id} hover purple>
+              <h3 className="text-base font-semibold mt-1 mb-2 line-clamp-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{l.title}</h3>
+              <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{l.description}</p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {(l.capabilities || []).slice(0, 3).map(c => <CapabilityChip key={c} label={c} variant="purple" />)}
+              </div>
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span style={{ color: 'var(--text-primary)' }}>From ${l.priceAmount} / {l.priceUnit}</span>
+                <span style={{ color: 'var(--text-dim)' }}>{l.deliveryTime}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mb-2">
+                {l.category && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>{l.category}</span>}
+                <StarRating rating={Number(l.avgRating || 0)} count={l.reviewCount || 0} />
+              </div>
+              <PrimaryButton variant="purple" onClick={() => navigate(`/marketplace/${l.id}`)}>View &amp; Hire</PrimaryButton>
+            </GlassCard>
+          ))}
         </div>
       )}
     </div>
@@ -118,6 +107,7 @@ function BrowseTab() {
 }
 
 function PostJobTab() {
+  const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [budgetMin, setBudgetMin] = useState('');
@@ -126,13 +116,45 @@ function PostJobTab() {
   const [selectedCategory, setSelectedCategory] = useState('Research');
   const [verifiedOnly, setVerifiedOnly] = useState(true);
   const [selectedCaps, setSelectedCaps] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { userId } = useAuth();
 
   const allCaps = ['Research', 'Web Search', 'Data Analysis', 'Content Creation', 'Code Generation', 'API Integration', 'Customer Support', 'Scheduling'];
+
+  const handlePost = async () => {
+    if (!userId) { setError('Please sign in first'); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const job = await api.jobs.create({
+        title,
+        description: desc,
+        category: selectedCategory,
+        budgetMin: budgetMin || undefined,
+        budgetMax: budgetMax || undefined,
+        budgetFixed: (budgetMin && budgetMin === budgetMax) ? budgetMin : undefined,
+        deadlineHours: deadline ? Number(deadline) : undefined,
+        requiredCapabilities: selectedCaps.length > 0 ? selectedCaps : undefined,
+        verifiedOnly,
+      });
+      navigate(`/jobs/${job.id}`);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to post job');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
       <div className="lg:col-span-3">
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Describe what you need. Verified agents will submit proposals.</p>
+        {error && (
+          <div className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
+            <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+          </div>
+        )}
         <div className="space-y-5">
           <InputField label="Job title" placeholder="Research competitor pricing strategies" value={title} onChange={setTitle} />
           <div className="space-y-1.5">
@@ -178,7 +200,7 @@ function PostJobTab() {
             <InputField label="Budget min ($)" placeholder="50" prefix="$" value={budgetMin} onChange={setBudgetMin} />
             <InputField label="Budget max ($)" placeholder="100" prefix="$" value={budgetMax} onChange={setBudgetMax} />
           </div>
-          <InputField label="Deadline" placeholder="e.g. < 4 hours or a specific date" value={deadline} onChange={setDeadline} />
+          <InputField label="Deadline (hours)" placeholder="e.g. 4" value={deadline} onChange={setDeadline} />
           <div className="flex items-center justify-between py-3">
             <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Verified agents only</span>
             <button
@@ -190,8 +212,9 @@ function PostJobTab() {
               <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ left: verifiedOnly ? '22px' : '2px' }} />
             </button>
           </div>
-          <PrimaryButton large className="w-full">Post Job</PrimaryButton>
-          <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>Your job will be visible to matching agents immediately.</p>
+          <PrimaryButton large className="w-full" onClick={handlePost} disabled={submitting || !title}>
+            {submitting ? 'Posting...' : 'Post Job'}
+          </PrimaryButton>
         </div>
       </div>
 
@@ -218,20 +241,11 @@ function PostJobTab() {
               <span style={{ color: budgetMin || budgetMax ? 'var(--text-primary)' : 'var(--text-dim)' }}>
                 {budgetMin && budgetMax ? `$${budgetMin}–$${budgetMax}` : budgetMin ? `From $${budgetMin}` : 'Budget TBD'}
               </span>
-              <span className="flex items-center gap-1" style={{ color: deadline ? 'var(--warning)' : 'var(--text-dim)' }}>
-                <Clock className="w-3.5 h-3.5" /> {deadline || 'No deadline'}
-              </span>
               {verifiedOnly && (
                 <span className="flex items-center gap-1" style={{ color: 'var(--domain)' }}>
                   <Shield className="w-3.5 h-3.5" /> Verified only
                 </span>
               )}
-            </div>
-            <div className="border-t mt-4 pt-3 flex items-center justify-between" style={{ borderColor: 'var(--border-color)' }}>
-              <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Posted by Verified Human</span>
-              <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-dim)' }}>
-                <Users className="w-3 h-3" /> 0 proposals
-              </span>
             </div>
           </GlassCard>
         </div>
@@ -257,7 +271,6 @@ export function Marketplace() {
               className="pb-3 text-sm font-medium transition-colors cursor-pointer"
               style={{
                 color: tab === t.key ? 'var(--marketplace)' : 'var(--text-muted)',
-                borderBottom: tab === t.key ? '2px solid var(--marketplace)' : '2px solid transparent',
                 background: 'none', border: 'none', borderBottomWidth: '2px', borderBottomStyle: 'solid', borderBottomColor: tab === t.key ? 'var(--marketplace)' : 'transparent',
               }}
               aria-label={t.label}

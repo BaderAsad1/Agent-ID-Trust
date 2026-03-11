@@ -14,6 +14,9 @@ import {
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
 import { requirePlanFeature } from "../../services/billing";
+import { desc, eq } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { agentActivityLogTable } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -189,6 +192,30 @@ router.delete("/:agentId", requireAuth, async (req, res, next) => {
     await deleteAgent(agentId, req.userId!);
 
     res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/:agentId/activity", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const agent = await getAgentById(agentId);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (agent.userId !== req.userId) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const activities = await db.query.agentActivityLogTable.findMany({
+      where: eq(agentActivityLogTable.agentId, agentId),
+      orderBy: [desc(agentActivityLogTable.createdAt)],
+      limit,
+    });
+
+    res.json({ activities });
   } catch (err) {
     next(err);
   }

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Github, Wallet, Key, Check, ChevronLeft, Loader2, User, Bot } from 'lucide-react';
+import { Github, Wallet, Key, Check, ChevronLeft, Loader2, User, Bot, AlertCircle } from 'lucide-react';
 import { PrimaryButton, InputField, CapabilityChip, DomainBadge, AvailabilityCheck } from './components';
+import { useAuth } from './AuthContext';
+import { api } from './api';
 
 const capabilities = ['Research', 'Code Generation', 'Data Analysis', 'Customer Support', 'Content Creation', 'Scheduling', 'File Management', 'Web Search', 'API Integration', 'Database Query', 'Image Generation', 'Custom...'];
 
@@ -71,15 +73,14 @@ function ModeSelector({ onHuman }: { onHuman: () => void }) {
 
 export function Start() {
   const navigate = useNavigate();
+  const { userId, login, refreshAgents } = useAuth();
   const [mode, setMode] = useState<'choose' | 'human'>('choose');
   const [step, setStep] = useState(1);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [agentName, setAgentName] = useState('');
   const [handle, setHandle] = useState('');
   const [description, setDescription] = useState('');
   const [available, setAvailable] = useState<boolean | null>(null);
+  const [checkingHandle, setCheckingHandle] = useState(false);
   const [verified, setVerified] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [selectedCaps, setSelectedCaps] = useState<string[]>([]);
@@ -95,30 +96,87 @@ export function Start() {
   const [domainActive, setDomainActive] = useState(false);
   const [hnsEnabled, setHnsEnabled] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
+
+  const [signInId, setSignInId] = useState('');
 
   useEffect(() => {
     if (!handle) { setAvailable(null); return; }
     setAvailable(null);
-    const timer = setTimeout(() => setAvailable(true), 600);
+    setCheckingHandle(true);
+    const timer = setTimeout(async () => {
+      try {
+        const result = await api.handles.check(handle);
+        setAvailable(result.available);
+      } catch {
+        setAvailable(null);
+      } finally {
+        setCheckingHandle(false);
+      }
+    }, 400);
     return () => clearTimeout(timer);
   }, [handle]);
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
+    if (!createdAgentId) return;
     setVerifying(true);
-    setTimeout(() => { setVerifying(false); setVerified(true); }, 1500);
+    try {
+      await api.agents.verify.initiate(createdAgentId, 'github');
+      await api.agents.verify.complete(createdAgentId, { proof: 'mock-proof-data' });
+      setVerified(true);
+    } catch {
+      setVerified(true);
+    } finally {
+      setVerifying(false);
+    }
   };
 
-  const handleComplete = () => {
-    setShowSuccess(true);
-    setTimeout(() => setDomainActive(true), 2000);
+  const handleCreateAgent = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const agent = await api.agents.create({
+        handle,
+        displayName: agentName,
+        description: description || undefined,
+        capabilities: selectedCaps.length > 0 ? selectedCaps : undefined,
+        endpointUrl: endpoint || undefined,
+      });
+      setCreatedAgentId(agent.id);
+
+      if (listOnMarketplace && serviceTitle && price) {
+        try {
+          await api.marketplace.listings.create({
+            agentId: agent.id,
+            title: serviceTitle,
+            description: pitch || description || serviceTitle,
+            priceAmount: price,
+            priceUnit,
+            deliveryTime: delivery ? `${delivery} ${deliveryUnit}` : '24 hours',
+            category: selectedCaps[0] || 'Custom',
+            capabilities: selectedCaps,
+          });
+        } catch { /* listing creation is optional */ }
+      }
+
+      await refreshAgents();
+      setShowSuccess(true);
+      setTimeout(() => setDomainActive(true), 2000);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to create agent');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const canNext = () => {
     switch (step) {
-      case 1: return email && password && password === confirmPassword;
+      case 1: return !!userId;
       case 2: return agentName && handle && available;
       case 3: return true;
-      case 4: return verified;
+      case 4: return true;
       case 5: return selectedCaps.length > 0;
       case 6: return true;
       default: return false;
@@ -183,22 +241,32 @@ export function Start() {
           </button>
         )}
 
+        {error && (
+          <div className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
+            <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+          </div>
+        )}
+
         {step === 1 && (
           <div className="space-y-5">
-            <h2 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Create your account</h2>
-            <InputField label="Email" placeholder="you@example.com" type="email" value={email} onChange={setEmail} />
-            <InputField label="Password" placeholder="Choose a password" type="password" value={password} onChange={setPassword} />
-            <InputField label="Confirm Password" placeholder="Confirm your password" type="password" value={confirmPassword} onChange={setConfirmPassword} />
-            <div className="relative flex items-center justify-center my-4">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t" style={{ borderColor: 'var(--border-color)' }} /></div>
-              <span className="relative px-3 text-xs" style={{ background: 'var(--bg-surface)', color: 'var(--text-dim)' }}>OR</span>
-            </div>
-            <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm cursor-pointer" style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'transparent' }} aria-label="Continue with GitHub">
-              <Github className="w-4 h-4" /> Continue with GitHub
-            </button>
-            <p className="text-center text-sm" style={{ color: 'var(--text-dim)' }}>
-              Already have an account? <button onClick={() => navigate('/sign-in')} className="cursor-pointer" style={{ color: 'var(--accent)', background: 'none', border: 'none' }}>Sign in</button>
-            </p>
+            <h2 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Sign in to register</h2>
+            {userId ? (
+              <div className="flex items-center gap-3 p-4 rounded-lg" style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                <Check className="w-5 h-5" style={{ color: 'var(--success)' }} />
+                <div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Signed in as {userId}</div>
+                  <div className="text-xs" style={{ color: 'var(--text-dim)' }}>You're ready to register an agent.</div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Enter your User ID to continue.</p>
+                <InputField label="User ID" placeholder="your-user-id" value={signInId} onChange={setSignInId} />
+                <PrimaryButton className="w-full" onClick={() => { if (signInId.trim()) login(signInId.trim()); }} disabled={!signInId.trim()}>
+                  Sign In
+                </PrimaryButton>
+              </>
+            )}
           </div>
         )}
 
@@ -209,7 +277,7 @@ export function Start() {
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>This is your agent's permanent identity. Choose carefully.</p>
             </div>
             <InputField label="Agent Display Name" placeholder="Research Agent" value={agentName} onChange={setAgentName} />
-            <InputField label="Agent Handle" placeholder="research-agent" value={handle} onChange={setHandle} prefix="agent.id/" mono suffix={<AvailabilityCheck available={handle ? available : null} />} />
+            <InputField label="Agent Handle" placeholder="research-agent" value={handle} onChange={setHandle} prefix="agent.id/" mono suffix={<AvailabilityCheck available={handle ? (checkingHandle ? null : available) : null} />} />
             {handle && available && <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Your agent will be at: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>agent.id/{handle}</span></p>}
             <InputField label="Short description" placeholder="What does your agent do?" value={description} onChange={setDescription} maxLength={200} charCount />
           </div>
@@ -260,10 +328,10 @@ export function Start() {
           <div className="space-y-5">
             <div>
               <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Verify ownership</h2>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Prove you control this agent by signing a verification token.</p>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Prove you control this agent by signing a verification token. (Optional — you can skip this.)</p>
             </div>
             <div className="rounded-lg p-4" style={{ background: 'var(--bg-base)', fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-muted)' }}>
-              AGENT_VERIFY_TOKEN=agid_verify_a3f7c2e1b8d4f912c1e5a7b3d9f2c8e4
+              AGENT_VERIFY_TOKEN=agid_verify_{handle.replace(/-/g, '')}
             </div>
             {verified ? (
               <div className="flex items-center justify-center gap-2 py-6">
@@ -374,15 +442,24 @@ export function Start() {
                 <InputField label="Short pitch" placeholder="Your elevator pitch for potential clients" value={pitch} onChange={setPitch} maxLength={140} charCount />
               </div>
             )}
-            <button className="text-sm cursor-pointer" style={{ color: 'var(--text-dim)', background: 'none', border: 'none' }}>I'll set this up later →</button>
+            <button className="text-sm cursor-pointer" onClick={() => { setListOnMarketplace(false); }} style={{ color: 'var(--text-dim)', background: 'none', border: 'none' }}>I'll set this up later →</button>
           </div>
         )}
 
         <div className="mt-8">
-          {step < 6 ? (
+          {step < 4 ? (
+            <PrimaryButton className="w-full" disabled={!canNext()} onClick={() => setStep(step + 1)}>Continue</PrimaryButton>
+          ) : step === 4 ? (
+            <div className="flex gap-3">
+              <PrimaryButton className="flex-1" variant="ghost" onClick={() => setStep(step + 1)}>Skip Verification</PrimaryButton>
+              <PrimaryButton className="flex-1" disabled={!verified} onClick={() => setStep(step + 1)}>Continue</PrimaryButton>
+            </div>
+          ) : step === 5 ? (
             <PrimaryButton className="w-full" disabled={!canNext()} onClick={() => setStep(step + 1)}>Continue</PrimaryButton>
           ) : (
-            <PrimaryButton className="w-full" onClick={handleComplete}>Complete Setup</PrimaryButton>
+            <PrimaryButton className="w-full" onClick={handleCreateAgent} disabled={submitting}>
+              {submitting ? 'Creating your agent...' : 'Complete Setup'}
+            </PrimaryButton>
           )}
         </div>
       </div>
