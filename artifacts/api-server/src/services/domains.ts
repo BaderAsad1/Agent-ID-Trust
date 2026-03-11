@@ -6,6 +6,7 @@ import {
   type AgentDomain,
 } from "@workspace/db/schema";
 import { logActivity } from "./activity-logger";
+import { enqueueDomainProvisioning } from "../workers/domain-provisioning";
 
 const DEFAULT_BASE_DOMAIN = "agentid.dev";
 
@@ -84,6 +85,33 @@ export async function resolveDomain(
   };
 }
 
+async function enqueueOrFallback(
+  cfConfig: CloudflareConfig,
+  domainRecordId: string,
+  agentId: string,
+  fqdn: string,
+  subdomain: string,
+): Promise<"queued" | "pending"> {
+  const enqueued = await enqueueDomainProvisioning({
+    domainRecordId,
+    agentId,
+    fqdn,
+    subdomain,
+    apiToken: cfConfig.apiToken,
+    zoneId: cfConfig.zoneId,
+    proxyIp: process.env.AGENT_PROXY_IP ?? "127.0.0.1",
+  });
+
+  if (!enqueued) {
+    await db
+      .update(agentDomainsTable)
+      .set({ status: "pending", updatedAt: new Date() })
+      .where(eq(agentDomainsTable.id, domainRecordId));
+    return "pending";
+  }
+  return "queued";
+}
+
 export async function provisionDomain(
   agentId: string,
   userId: string,
@@ -95,6 +123,7 @@ export async function provisionDomain(
   if (!agent) return { success: false, error: "AGENT_NOT_FOUND" };
 
   const fqdn = buildFqdn(agent.handle);
+  const subdomain = handleToSubdomain(agent.handle);
 
   const existing = await db.query.agentDomainsTable.findFirst({
     where: eq(agentDomainsTable.agentId, agentId),
@@ -104,7 +133,7 @@ export async function provisionDomain(
     return { success: true, domain: existing };
   }
 
-  if (existing && (existing.status === "provisioning")) {
+  if (existing && existing.status === "provisioning") {
     return { success: false, error: "PROVISIONING_IN_PROGRESS" };
   }
 
@@ -123,7 +152,7 @@ export async function provisionDomain(
       .returning();
 
     if (cfConfig) {
-      await createDnsRecords(cfConfig, fqdn, existing.id, agentId);
+      await enqueueOrFallback(cfConfig, existing.id, agentId, fqdn, subdomain);
     }
 
     await logActivity({
@@ -152,7 +181,7 @@ export async function provisionDomain(
   });
 
   if (cfConfig) {
-    await createDnsRecords(cfConfig, fqdn, domainRecord.id, agentId);
+    await enqueueOrFallback(cfConfig, domainRecord.id, agentId, fqdn, subdomain);
   }
 
   return { success: true, domain: domainRecord };
@@ -181,6 +210,7 @@ export async function reprovisionDomain(
   }
 
   const fqdn = buildFqdn(agent.handle);
+  const subdomain = handleToSubdomain(agent.handle);
   const cfConfig = getCloudflareConfig();
 
   const [updated] = await db
@@ -198,7 +228,7 @@ export async function reprovisionDomain(
     .returning();
 
   if (cfConfig) {
-    await createDnsRecords(cfConfig, fqdn, existing.id, agentId);
+    await enqueueOrFallback(cfConfig, existing.id, agentId, fqdn, subdomain);
   }
 
   await logActivity({
@@ -208,106 +238,4 @@ export async function reprovisionDomain(
   });
 
   return { success: true, domain: updated };
-}
-
-async function createDnsRecords(
-  config: CloudflareConfig,
-  fqdn: string,
-  domainRecordId: string,
-  agentId: string,
-): Promise<void> {
-  const subdomain = fqdn.split(".")[0];
-  const verificationTxt = `agentid-verify=${agentId}`;
-
-  try {
-    const headers = {
-      "Authorization": `Bearer ${config.apiToken}`,
-      "Content-Type": "application/json",
-    };
-    const baseUrl = `https://api.cloudflare.com/client/v4/zones/${config.zoneId}/dns_records`;
-
-    const aRecordBody = {
-      type: "A",
-      name: subdomain,
-      content: process.env.AGENT_PROXY_IP ?? "127.0.0.1",
-      ttl: 1,
-      proxied: true,
-    };
-
-    const txtRecordBody = {
-      type: "TXT",
-      name: subdomain,
-      content: verificationTxt,
-      ttl: 1,
-    };
-
-    const [aRes, txtRes] = await Promise.all([
-      fetch(baseUrl, { method: "POST", headers, body: JSON.stringify(aRecordBody) }),
-      fetch(baseUrl, { method: "POST", headers, body: JSON.stringify(txtRecordBody) }),
-    ]);
-
-    const aData = await aRes.json() as { success: boolean; result?: { id: string } };
-    const txtData = await txtRes.json() as { success: boolean; result?: { id: string } };
-
-    if (!aData.success || !txtData.success) {
-      await db
-        .update(agentDomainsTable)
-        .set({
-          status: "failed",
-          providerMetadata: { error: "DNS record creation failed", aData, txtData },
-          updatedAt: new Date(),
-        })
-        .where(eq(agentDomainsTable.id, domainRecordId));
-
-      await logActivity({
-        agentId,
-        eventType: "agent.domain_provisioning_failed",
-        payload: { domain: fqdn, aSuccess: aData.success, txtSuccess: txtData.success },
-      });
-      return;
-    }
-
-    const dnsRecords = {
-      a: { id: aData.result?.id, type: "A", name: subdomain },
-      txt: { id: txtData.result?.id, type: "TXT", name: subdomain, content: verificationTxt },
-    };
-
-    await db
-      .update(agentDomainsTable)
-      .set({
-        status: "active",
-        dnsRecords,
-        providerMetadata: {
-          provider: "cloudflare",
-          zoneId: config.zoneId,
-          aRecordId: aData.result?.id,
-          txtRecordId: txtData.result?.id,
-        },
-        provisionedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(agentDomainsTable.id, domainRecordId));
-
-    await logActivity({
-      agentId,
-      eventType: "agent.domain_provisioned",
-      payload: { domain: fqdn, dnsRecords },
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    await db
-      .update(agentDomainsTable)
-      .set({
-        status: "failed",
-        providerMetadata: { error: message },
-        updatedAt: new Date(),
-      })
-      .where(eq(agentDomainsTable.id, domainRecordId));
-
-    await logActivity({
-      agentId,
-      eventType: "agent.domain_provisioning_failed",
-      payload: { domain: fqdn, error: message },
-    });
-  }
 }
