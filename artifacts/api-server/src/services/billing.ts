@@ -206,7 +206,7 @@ export async function deactivateAgent(
 
   await db
     .update(agentsTable)
-    .set({ status: "inactive", updatedAt: new Date() })
+    .set({ status: "inactive", isPublic: false, updatedAt: new Date() })
     .where(eq(agentsTable.id, agentId));
 
   return { success: true };
@@ -539,6 +539,23 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
           eq(agentSubscriptionsTable.providerSubscriptionId, subscriptionId),
         ),
       );
+
+    const affectedSubs = await db
+      .select({ agentId: agentSubscriptionsTable.agentId })
+      .from(agentSubscriptionsTable)
+      .where(
+        and(
+          eq(agentSubscriptionsTable.userId, sub.userId),
+          eq(agentSubscriptionsTable.providerSubscriptionId, subscriptionId),
+        ),
+      );
+
+    for (const agentSub of affectedSubs) {
+      await db
+        .update(agentsTable)
+        .set({ status: "inactive", isPublic: false, updatedAt: new Date() })
+        .where(eq(agentsTable.id, agentSub.agentId));
+    }
   }
 }
 
@@ -572,11 +589,11 @@ export async function handleSubscriptionDeleted(subscription: Stripe.Subscriptio
       .from(agentSubscriptionsTable)
       .where(eq(agentSubscriptionsTable.userId, sub.userId));
 
-    for (const as of agentSubs) {
+    for (const agentSub of agentSubs) {
       await db
         .update(agentsTable)
-        .set({ status: "inactive", updatedAt: new Date() })
-        .where(eq(agentsTable.id, as.agentId));
+        .set({ status: "inactive", isPublic: false, updatedAt: new Date() })
+        .where(eq(agentsTable.id, agentSub.agentId));
     }
   }
 }
