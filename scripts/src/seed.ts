@@ -772,9 +772,107 @@ async function seed() {
     { messageId: msg1.id, eventType: "message.received", payload: { direction: "inbound", threadId: thread1.id } },
     { messageId: msg2.id, eventType: "message.sent", payload: { direction: "outbound", threadId: thread1.id } },
     { messageId: msg3.id, eventType: "message.received", payload: { direction: "inbound", threadId: thread1.id } },
+    { messageId: msg1.id, eventType: "message.routed", payload: { ruleId: "auto-label-important", actions: ["label"] } },
+    { messageId: msg4.id, eventType: "message.routed", payload: { ruleId: "auto-label-governance", actions: ["label"] } },
   ]);
 
-  console.log("Created label assignments and events.");
+  const routedLabel = await db.query.messageLabelsTable.findFirst({
+    where: (t, { and: a, eq: e }) =>
+      a(e(t.agentId, agent1.id), e(t.name, "routed")),
+  });
+  if (routedLabel) {
+    await db.insert(messageLabelAssignmentsTable).values([
+      { messageId: msg1.id, labelId: routedLabel.id },
+      { messageId: msg4.id, labelId: routedLabel.id },
+    ]);
+  }
+
+  await db.insert(messageAttachmentsTable).values([
+    {
+      messageId: msg4.id,
+      fileName: "governance-report-q4.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 245760,
+      storageUrl: "https://storage.example.com/attachments/governance-report-q4.pdf",
+    },
+    {
+      messageId: msg4.id,
+      fileName: "compliance-checklist.xlsx",
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      sizeBytes: 18432,
+      storageUrl: "https://storage.example.com/attachments/compliance-checklist.xlsx",
+    },
+    {
+      messageId: msg6.id,
+      fileName: "pr42-diff.patch",
+      mimeType: "text/x-patch",
+      sizeBytes: 8192,
+      storageUrl: "https://storage.example.com/attachments/pr42-diff.patch",
+    },
+  ]);
+
+  const [webhook1] = await db
+    .insert(inboxWebhooksTable)
+    .values({
+      inboxId: inbox1.id,
+      agentId: agent1.id,
+      url: "https://hooks.example.com/research-agent/incoming",
+      secret: "whsec_example_secret_research",
+      events: ["message.received", "message.routed", "message.converted_to_task"],
+      status: "active",
+    })
+    .returning();
+
+  await db.insert(inboxWebhooksTable).values({
+    inboxId: inbox2.id,
+    agentId: agent2.id,
+    url: "https://hooks.example.com/code-reviewer/incoming",
+    secret: "whsec_example_secret_reviewer",
+    events: ["message.received", "thread.updated"],
+    status: "active",
+  });
+
+  const convertedTask = await db
+    .insert(tasksTable)
+    .values({
+      recipientAgentId: agent1.id,
+      senderUserId: user1.id,
+      taskType: "research",
+      payload: {
+        title: "Research AI agent market trends",
+        description: "Converted from message: " + msg1.subject,
+      },
+      deliveryStatus: "delivered",
+      businessStatus: "accepted",
+      originatingMessageId: msg1.id,
+    })
+    .returning();
+
+  if (convertedTask.length > 0) {
+    await db
+      .update(agentMessagesTable)
+      .set({ convertedTaskId: convertedTask[0].id })
+      .where((await import("drizzle-orm")).eq(agentMessagesTable.id, msg1.id));
+
+    const tasksLabel = await db.query.messageLabelsTable.findFirst({
+      where: (t, { and: a, eq: e }) =>
+        a(e(t.agentId, agent1.id), e(t.name, "tasks")),
+    });
+    if (tasksLabel) {
+      await db.insert(messageLabelAssignmentsTable).values({
+        messageId: msg1.id,
+        labelId: tasksLabel.id,
+      });
+    }
+
+    await db.insert(messageEventsTable).values({
+      messageId: msg1.id,
+      eventType: "message.converted_to_task",
+      payload: { taskId: convertedTask[0].id },
+    });
+  }
+
+  console.log("Created label assignments, events, attachments, webhooks, and converted tasks.");
 
   await db.insert(agentActivityLogTable).values([
     {

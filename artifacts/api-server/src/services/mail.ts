@@ -191,6 +191,85 @@ export async function getThread(threadId: string): Promise<AgentThread | null> {
   return thread ?? null;
 }
 
+export async function getThreadMessages(threadId: string): Promise<AgentMessage[]> {
+  return db.query.agentMessagesTable.findMany({
+    where: eq(agentMessagesTable.threadId, threadId),
+    orderBy: [desc(agentMessagesTable.createdAt)],
+  });
+}
+
+export async function archiveMessage(messageId: string, agentId: string): Promise<AgentMessage | null> {
+  const message = await getMessage(messageId);
+  if (!message || message.agentId !== agentId) return null;
+
+  const archivedLabel = await db.query.messageLabelsTable.findFirst({
+    where: and(
+      eq(messageLabelsTable.agentId, agentId),
+      eq(messageLabelsTable.name, "archived"),
+    ),
+  });
+  if (archivedLabel) {
+    await assignLabel(messageId, archivedLabel.id, agentId);
+  }
+
+  await db.insert(messageEventsTable).values({
+    messageId,
+    eventType: "message.archived",
+    payload: {},
+  });
+
+  return message;
+}
+
+export async function manuallyRouteMessage(
+  messageId: string,
+  agentId: string,
+  rules?: RoutingRule[],
+): Promise<void> {
+  const message = await getMessage(messageId);
+  if (!message || message.agentId !== agentId) return;
+
+  let rulesToApply = rules;
+  if (!rulesToApply) {
+    const inbox = await db.query.agentInboxesTable.findFirst({
+      where: eq(agentInboxesTable.id, message.inboxId),
+    });
+    rulesToApply = (inbox?.routingRules as RoutingRule[]) || [];
+  }
+
+  await applyRoutingRules(message, rulesToApply);
+}
+
+export async function bulkAssignLabel(
+  messageIds: string[],
+  labelId: string,
+  agentId: string,
+): Promise<number> {
+  let count = 0;
+  for (const messageId of messageIds) {
+    try {
+      await assignLabel(messageId, labelId, agentId);
+      count++;
+    } catch {}
+  }
+  return count;
+}
+
+export async function bulkRemoveLabel(
+  messageIds: string[],
+  labelId: string,
+  agentId: string,
+): Promise<number> {
+  let count = 0;
+  for (const messageId of messageIds) {
+    try {
+      await removeLabel(messageId, labelId, agentId);
+      count++;
+    } catch {}
+  }
+  return count;
+}
+
 export async function updateThreadStatus(
   threadId: string,
   status: AgentThread["status"],
@@ -1254,6 +1333,7 @@ export interface SearchFilters {
   minTrustScore?: number;
   hasConvertedTask?: boolean;
   convertedTaskId?: string;
+  originatingTaskId?: string;
   threadId?: string;
   priority?: string;
   limit?: number;
@@ -1304,6 +1384,9 @@ export async function searchMessages(filters: SearchFilters): Promise<{
   }
   if (filters.convertedTaskId) {
     conditions.push(eq(agentMessagesTable.convertedTaskId, filters.convertedTaskId));
+  }
+  if (filters.originatingTaskId) {
+    conditions.push(eq(agentMessagesTable.originatingTaskId, filters.originatingTaskId));
   }
   if (filters.hasConvertedTask === true) {
     conditions.push(sql`${agentMessagesTable.convertedTaskId} is not null`);

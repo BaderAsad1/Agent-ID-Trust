@@ -93,7 +93,8 @@ router.get("/agents/:agentId/threads/:threadId", requireAuth, async (req, res, n
     if (!thread || thread.agentId !== agentId) {
       throw new AppError(404, "NOT_FOUND", "Thread not found");
     }
-    res.json({ thread });
+    const messages = await mailService.getThreadMessages(threadId);
+    res.json({ thread: { ...thread, messages, unreadCount: thread.unreadCount } });
   } catch (err) {
     next(err);
   }
@@ -521,6 +522,70 @@ router.post("/agents/:agentId/messages/:messageId/approve", requireAuth, async (
   }
 });
 
+router.post("/agents/:agentId/messages/:messageId/archive", requireAuth, async (req, res, next) => {
+  try {
+    const { agentId, messageId } = req.params;
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const message = await mailService.archiveMessage(messageId, agentId);
+    if (!message) throw new AppError(404, "NOT_FOUND", "Message not found or not owned by this agent");
+
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/agents/:agentId/messages/:messageId/route", requireAuth, async (req, res, next) => {
+  try {
+    const { agentId, messageId } = req.params;
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    await mailService.manuallyRouteMessage(messageId, agentId);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/agents/:agentId/labels/:labelId/bulk-assign", requireAuth, async (req, res, next) => {
+  try {
+    const { agentId, labelId } = req.params;
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const schema = z.object({
+      messageIds: z.array(z.string().uuid()),
+    });
+    const { messageIds } = schema.parse(req.body);
+
+    const count = await mailService.bulkAssignLabel(messageIds, labelId, agentId);
+    res.json({ success: true, count });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/agents/:agentId/labels/:labelId/bulk-remove", requireAuth, async (req, res, next) => {
+  try {
+    const { agentId, labelId } = req.params;
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const schema = z.object({
+      messageIds: z.array(z.string().uuid()),
+    });
+    const { messageIds } = schema.parse(req.body);
+
+    const count = await mailService.bulkRemoveLabel(messageIds, labelId, agentId);
+    res.json({ success: true, count });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/agents/:agentId/search", requireAuth, async (req, res, next) => {
   try {
     const { agentId } = req.params;
@@ -530,7 +595,7 @@ router.get("/agents/:agentId/search", requireAuth, async (req, res, next) => {
     const {
       q, direction, senderType, isRead, senderVerified, labelId, labelName,
       afterDate, beforeDate, minTrustScore, hasConvertedTask, convertedTaskId,
-      threadId, priority, limit, offset,
+      originatingTaskId, threadId, priority, limit, offset,
     } = req.query;
 
     const result = await mailService.searchMessages({
@@ -547,6 +612,7 @@ router.get("/agents/:agentId/search", requireAuth, async (req, res, next) => {
       minTrustScore: minTrustScore ? Number(minTrustScore) : undefined,
       hasConvertedTask: hasConvertedTask !== undefined ? hasConvertedTask === "true" : undefined,
       convertedTaskId: convertedTaskId as string | undefined,
+      originatingTaskId: originatingTaskId as string | undefined,
       threadId: threadId as string | undefined,
       priority: priority as string | undefined,
       limit: limit ? Number(limit) : undefined,
