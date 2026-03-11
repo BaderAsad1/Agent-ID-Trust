@@ -1,14 +1,24 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 
+let cachedKey: Buffer | null = null;
+let warnedNoKey = false;
+
 function getEncryptionKey(): Buffer {
+  if (cachedKey) return cachedKey;
+
   const key = process.env.WEBHOOK_SECRET_KEY || process.env.ACTIVITY_HMAC_SECRET;
   if (!key) {
-    return Buffer.from("0".repeat(64), "hex");
+    if (!warnedNoKey) {
+      console.error("[crypto] WARNING: WEBHOOK_SECRET_KEY not set — generating ephemeral key. Encrypted secrets will not survive restarts.");
+      warnedNoKey = true;
+    }
+    cachedKey = randomBytes(32);
+    return cachedKey;
   }
-  const hash = require("crypto").createHash("sha256").update(key).digest();
-  return hash;
+  cachedKey = createHash("sha256").update(key).digest();
+  return cachedKey;
 }
 
 export function encryptSecret(plaintext: string): string {

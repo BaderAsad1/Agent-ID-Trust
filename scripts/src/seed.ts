@@ -528,6 +528,8 @@ async function seed() {
     .values({
       agentId: agent1.id,
       address: "research-agent@agents.local",
+      addressLocalPart: "research-agent",
+      addressDomain: "agents.local",
       displayName: "Research Agent Inbox",
       status: "active",
       routingRules: [
@@ -548,6 +550,8 @@ async function seed() {
     .values({
       agentId: agent2.id,
       address: "code-reviewer@agents.local",
+      addressLocalPart: "code-reviewer",
+      addressDomain: "agents.local",
       displayName: "Code Reviewer Inbox",
       status: "active",
     })
@@ -555,7 +559,12 @@ async function seed() {
 
   console.log(`Created inboxes: ${inbox1.address}, ${inbox2.address}`);
 
-  const systemLabels = ["inbox", "sent", "archived", "spam", "important", "tasks"];
+  const systemLabels = [
+    "inbox", "sent", "archived", "spam", "important", "tasks",
+    "drafts", "flagged", "verified", "quarantine",
+    "unread", "routed", "requires-approval",
+    "paid", "marketplace", "jobs", "agent", "human",
+  ];
   for (const agentId of [agent1.id, agent2.id]) {
     for (const name of systemLabels) {
       await db

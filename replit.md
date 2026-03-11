@@ -103,23 +103,28 @@ Complete communications layer for agents with identity-bound inboxes.
 **7 new enums:** `inbox_status`, `message_direction`, `sender_type`, `message_delivery_status`, `mail_webhook_status`, `transport_status`, `thread_status`
 
 **Service:** `artifacts/api-server/src/services/mail.ts`
-- Inbox auto-provisioning with address generation (`handle@agents.local`)
-- Thread-aware messaging: auto-groups by subject/inReplyTo, tracks participants, unread counts
+- Inbox auto-provisioning with address generation (`handle@agents.local`), stores `addressLocalPart`/`addressDomain`, tracks `lastMessageAt`
+- Thread-aware messaging: auto-groups by normalized subject (strips Re:/Fwd:/Fw:) or inReplyTo, tracks participants, unread counts
 - System labels (18): inbox, sent, archived, spam, important, tasks, drafts, flagged, verified, quarantine, unread, routed, requires-approval, paid, marketplace, jobs, agent, human
 - Message snippets: auto-generated from body content (strips HTML/markdown markup, 200 char limit)
-- Custom labels with assignment/removal
+- Extended message fields: `bodyText`, `bodyHtml`, `headers` (JSONB), `readAt`, `archivedAt`, `spamMetadata`, `paymentMetadata`
+- Custom labels with assignment/removal + bulk label assign/remove operations
 - Structured payloads (`structuredPayload` JSONB) for machine-readable message content
 - Provenance tracking (`provenanceChain` JSONB) — records actor, action, timestamp per message lifecycle step
 - Sender verification (`senderVerified` boolean) and trust scoring (`senderTrustScore` integer)
-- Full-text search: query (ILIKE on subject/body/senderAddress), direction, senderType, label (by ID or name), date range, trust score, hasConvertedTask, threadId
-- Routing rules engine: async condition evaluator (supports 9 fields including `label`, `sender_verified`, `priority`, `sender_address`, `body`) + 10 action types
-- Message→task conversion with bidirectional linkage (`convertedTaskId` on message, `originatingMessageId` on task)
+- Full-text search: query, direction, senderType, senderVerified, label (by ID or name), date range, trust score, hasConvertedTask, convertedTaskId, originatingTaskId, threadId, priority
+- Routing rules engine: async condition evaluator (9 fields) + 10 action types; forward supports both internal inbox and external HTTP endpoint
+- Message→task conversion with bidirectional FK linkage (`convertedTaskId` on message → tasks, `originatingMessageId` on task)
 - Thread reply helper (`replyToThread`) — auto-resolves last inbound message, sets proper subject
-- Message reject/approve lifecycle — reject sends bounce notification, approve removes quarantine label
+- Message reject/approve lifecycle — reject sends bounce notification, approve removes quarantine+requires-approval labels
+- Message archive with `archivedAt` timestamp and archived label
+- Manual routing endpoint for re-evaluating inbox routing rules against a message
+- Lifecycle events emitted for: received, sent, read/unread, label assigned/removed, routed, converted_to_task, delivery_failed, archived, approved, rejected
 - Webhook delivery: BullMQ worker-backed queue when Redis available, in-process fallback with exponential backoff retry (3 attempts)
-- Webhook HMAC signing (`X-Webhook-Signature: sha256=...`, `X-Webhook-Timestamp`)
-- Inbox auto-provisioned on agent creation (`provisionInboxForAgent`)
+- Webhook HMAC signing (`X-Webhook-Signature: sha256=...`, `X-Webhook-Timestamp`); secrets encrypted at rest (AES-256-GCM)
+- Inbox auto-provisioned on agent creation and activation (`provisionInboxForAgent`)
 - Configurable base domain via `MAIL_BASE_DOMAIN` env var (default: `agents.local`)
+- Message direction enum includes: inbound, outbound, internal
 
 **Transport:** `artifacts/api-server/src/services/mail-transport.ts`
 - Provider adapter interface with `canDeliver()` / `send()` methods
@@ -127,17 +132,19 @@ Complete communications layer for agents with identity-bound inboxes.
 - Outbound delivery tracking in `outbound_message_deliveries` table
 - `registerProvider()` for custom transport extensions
 
-**Routes (27 endpoints):** `artifacts/api-server/src/routes/v1/mail.ts`
+**Routes (31 endpoints):** `artifacts/api-server/src/routes/v1/mail.ts`
 - Agent-scoped (under `/api/v1/mail/agents/:agentId/`):
   - `GET|PATCH /inbox`, `GET /inbox/stats`
-  - `GET /threads`, `GET|PATCH /threads/:threadId`, `POST /threads/:threadId/read`, `POST /threads/:threadId/reply`
+  - `GET /threads`, `GET|PATCH /threads/:threadId` (includes messages+unreadCount), `POST /threads/:threadId/read`, `POST /threads/:threadId/reply`
   - `GET|POST /messages`, `GET /messages/:messageId`, `POST /messages/:messageId/read`
   - `POST /messages/:messageId/convert-task`, `GET /messages/:messageId/events`
   - `POST /messages/:messageId/reject`, `POST /messages/:messageId/approve`
+  - `POST /messages/:messageId/archive`, `POST /messages/:messageId/route` (manual routing)
   - `GET|POST /labels`, `DELETE /labels/:labelId`
   - `POST|DELETE /messages/:messageId/labels/:labelId`
+  - `POST /labels/:labelId/bulk-assign`, `POST /labels/:labelId/bulk-remove`
   - `GET|POST /webhooks`, `PATCH|DELETE /webhooks/:webhookId`
-  - `GET /search` — full-text + trust + label + date + task-linked filters
+  - `GET /search` — full-text + trust + senderVerified + label + date + task-linked + originatingTaskId filters
 - Programmatic ingestion (under `/api/v1/mail/`):
   - `POST /ingest` — API-key or user auth, address-based routing, structuredPayload, senderVerified, priority
 

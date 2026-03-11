@@ -29,6 +29,23 @@ import { encryptSecret, decryptSecret } from "../utils/crypto";
 
 const MAIL_BASE_DOMAIN = process.env.MAIL_BASE_DOMAIN || "agents.local";
 
+function isUrlSafe(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (!["https:", "http:"].includes(parsed.protocol)) return false;
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
+    if (host.startsWith("10.") || host.startsWith("192.168.")) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
+    if (host.startsWith("169.254.")) return false;
+    if (host === "metadata.google.internal" || host.endsWith(".internal")) return false;
+    if (host === "0.0.0.0" || host === "[::0]") return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function generateSnippet(body: string, bodyFormat: string, maxLen = 200): string {
   let text = body;
   if (bodyFormat === "html") {
@@ -227,7 +244,8 @@ export async function archiveMessage(messageId: string, agentId: string): Promis
     payload: {},
   });
 
-  return message;
+  const updated = await getMessage(messageId);
+  return updated;
 }
 
 export async function manuallyRouteMessage(
@@ -692,6 +710,9 @@ export async function assignLabel(messageId: string, labelId: string, agentId: s
   });
   if (!label) return false;
 
+  const message = await getMessage(messageId);
+  if (!message || message.agentId !== agentId) return false;
+
   await db
     .insert(messageLabelAssignmentsTable)
     .values({ messageId, labelId })
@@ -711,6 +732,9 @@ export async function removeLabel(messageId: string, labelId: string, agentId: s
     where: and(eq(messageLabelsTable.id, labelId), eq(messageLabelsTable.agentId, agentId)),
   });
   if (!label) return false;
+
+  const message = await getMessage(messageId);
+  if (!message || message.agentId !== agentId) return false;
 
   await db.delete(messageLabelAssignmentsTable).where(
     and(
@@ -897,6 +921,10 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
       let delivered = false;
 
       if (targetEndpoint) {
+        if (!isUrlSafe(targetEndpoint)) {
+          console.error(`[mail] Blocked forward to unsafe endpoint: ${targetEndpoint}`);
+          break;
+        }
         try {
           const forwardPayload = {
             messageId: message.id,
@@ -1166,6 +1194,9 @@ export async function createWebhook(
   events: string[],
   secret?: string,
 ): Promise<InboxWebhook> {
+  if (!isUrlSafe(url)) {
+    throw new Error("Webhook URL targets a private or unsafe address");
+  }
   const secretEncrypted = secret ? encryptSecret(secret) : undefined;
   const [webhook] = await db
     .insert(inboxWebhooksTable)
@@ -1185,6 +1216,9 @@ export async function updateWebhook(
   agentId: string,
   updates: Partial<Pick<InboxWebhook, "url" | "events" | "status">> & { secret?: string },
 ): Promise<InboxWebhook | null> {
+  if (updates.url && !isUrlSafe(updates.url)) {
+    throw new Error("Webhook URL targets a private or unsafe address");
+  }
   const dbUpdates: Record<string, unknown> = { ...updates, updatedAt: new Date() };
   if (updates.secret !== undefined) {
     dbUpdates.secretEncrypted = updates.secret ? encryptSecret(updates.secret) : null;
@@ -1223,6 +1257,11 @@ async function emitWebhookEvent(
     const events = (wh.events as string[]) || [];
     if (events.length > 0 && !events.includes(eventType)) continue;
 
+    if (!isUrlSafe(wh.url)) {
+      console.error(`[mail] Blocked webhook delivery to unsafe URL: ${wh.url}`);
+      continue;
+    }
+
     if (useQueue) {
       const webhookSecret = wh.secretEncrypted ? decryptSecret(wh.secretEncrypted) : undefined;
       await enqueueWebhookDelivery({
@@ -1246,7 +1285,8 @@ async function deliverWebhookInProcess(
   payload: Record<string, unknown>,
 ): Promise<void> {
   const MAX_RETRIES = 3;
-  const RETRY_DELAYS = [0, 1000, 3000];
+  const BASE_DELAY = 2000;
+  const RETRY_DELAYS = [0, BASE_DELAY, BASE_DELAY * 2];
 
   const timestamp = new Date().toISOString();
   const webhookPayload = { event: eventType, payload, timestamp };
