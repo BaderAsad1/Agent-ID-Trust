@@ -1,5 +1,8 @@
 import { Router } from "express";
 import { z } from "zod/v4";
+import { eq } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { agentsTable } from "@workspace/db/schema";
 import { requireAuth } from "../../middlewares/replit-auth";
 import {
   submitTask,
@@ -8,6 +11,7 @@ import {
   acknowledgeTask,
   updateBusinessStatus,
   canAccessTask,
+  getUserAgentIds,
 } from "../../services/tasks";
 import { forwardTask, getDeliveryReceipts } from "../../services/task-forwarding";
 import { logActivity } from "../../services/activity-logger";
@@ -26,6 +30,20 @@ router.post("/", requireAuth, async (req, res, next) => {
   try {
     const body = submitTaskSchema.parse(req.body);
 
+    if (body.senderAgentId) {
+      const senderAgent = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, body.senderAgentId),
+        columns: { id: true, userId: true },
+      });
+      if (!senderAgent || senderAgent.userId !== req.userId) {
+        res.status(403).json({
+          code: "SENDER_NOT_OWNED",
+          message: "You do not own the specified sender agent",
+        });
+        return;
+      }
+    }
+
     const createdTask = await submitTask({
       ...body,
       senderUserId: body.senderAgentId ? undefined : req.userId!,
@@ -43,11 +61,24 @@ router.post("/", requireAuth, async (req, res, next) => {
         taskType: createdTask.taskType,
         senderUserId: createdTask.senderUserId,
         senderAgentId: createdTask.senderAgentId,
-        delivered: forwardResult.success,
       },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });
+
+    if (forwardResult.success) {
+      await logActivity({
+        agentId: createdTask.recipientAgentId,
+        eventType: "agent.task_delivered",
+        payload: {
+          taskId: createdTask.id,
+          attemptNumber: forwardResult.deliveryReceipt.attemptNumber,
+          endpointUrl: forwardResult.deliveryReceipt.endpointUrl,
+        },
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+    }
 
     res.status(201).json({
       task,
@@ -96,10 +127,31 @@ const listTasksSchema = z.object({
 router.get("/", requireAuth, async (req, res, next) => {
   try {
     const query = listTasksSchema.parse(req.query);
+    const userAgentIds = await getUserAgentIds(req.userId!);
+
+    if (query.recipientAgentId && !userAgentIds.includes(query.recipientAgentId)) {
+      res.status(403).json({
+        code: "NOT_OWNER",
+        message: "You do not own the specified recipient agent",
+      });
+      return;
+    }
+
+    if (query.senderAgentId && !userAgentIds.includes(query.senderAgentId)) {
+      res.status(403).json({
+        code: "NOT_OWNER",
+        message: "You do not own the specified sender agent",
+      });
+      return;
+    }
+
+    if (!query.recipientAgentId && !query.senderAgentId) {
+      query.senderAgentId = undefined;
+    }
 
     const result = await listTasks({
       ...query,
-      senderUserId: query.recipientAgentId ? undefined : req.userId!,
+      senderUserId: (!query.recipientAgentId && !query.senderAgentId) ? req.userId! : undefined,
     });
 
     res.json(result);
@@ -141,10 +193,10 @@ router.post("/:taskId/acknowledge", requireAuth, async (req, res, next) => {
 
     await logActivity({
       agentId: task.recipientAgentId,
-      eventType: "agent.task_received",
+      eventType: "agent.task_acknowledged",
       payload: {
         taskId: task.id,
-        action: "acknowledged",
+        acknowledgedAt: task.acknowledgedAt,
       },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],

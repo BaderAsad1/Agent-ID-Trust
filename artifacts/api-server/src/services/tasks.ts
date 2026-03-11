@@ -231,6 +231,14 @@ export async function updateBusinessStatus(
   return updated ?? null;
 }
 
+export async function getUserAgentIds(userId: string): Promise<string[]> {
+  const agents = await db.query.agentsTable.findMany({
+    where: eq(agentsTable.userId, userId),
+    columns: { id: true },
+  });
+  return agents.map((a) => a.id);
+}
+
 export async function canAccessTask(
   taskId: string,
   userId: string,

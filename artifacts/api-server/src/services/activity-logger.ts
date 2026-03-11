@@ -32,6 +32,8 @@ export type ActivityEventType =
   | "agent.key_rotated"
   | "agent.key_revoked"
   | "agent.task_received"
+  | "agent.task_delivered"
+  | "agent.task_acknowledged"
   | "agent.task_completed"
   | "agent.listing_created"
   | "agent.listing_updated"
