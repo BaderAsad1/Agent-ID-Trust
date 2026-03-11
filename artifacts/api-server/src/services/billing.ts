@@ -507,7 +507,7 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
       .set({ plan: existingSub[0].plan, updatedAt: new Date() })
       .where(eq(usersTable.id, existingSub[0].userId));
 
-    await db
+    const agentSubs = await db
       .update(agentSubscriptionsTable)
       .set({
         status: "active",
@@ -520,7 +520,15 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
           eq(agentSubscriptionsTable.userId, existingSub[0].userId),
           eq(agentSubscriptionsTable.providerSubscriptionId, subscriptionId),
         ),
-      );
+      )
+      .returning({ agentId: agentSubscriptionsTable.agentId });
+
+    for (const agentSub of agentSubs) {
+      await db
+        .update(agentsTable)
+        .set({ status: "active", updatedAt: new Date() })
+        .where(eq(agentsTable.id, agentSub.agentId));
+    }
   }
 }
 
