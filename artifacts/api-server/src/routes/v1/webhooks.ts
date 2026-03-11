@@ -77,4 +77,24 @@ router.post(
   },
 );
 
+router.post("/coinbase", raw({ type: "application/json" }), async (req, res, _next) => {
+  const signature = req.headers["x-coinbase-signature"];
+  if (!signature) {
+    res.status(401).json({ error: "Missing webhook signature" });
+    return;
+  }
+  console.log("[webhook] Coinbase Agentic webhook received (stub)");
+  res.json({ received: true, status: "stub_acknowledged" });
+});
+
+router.post("/visa", raw({ type: "application/json" }), async (req, res, _next) => {
+  const signature = req.headers["x-visa-signature"];
+  if (!signature) {
+    res.status(401).json({ error: "Missing webhook signature" });
+    return;
+  }
+  console.log("[webhook] Visa Agentic webhook received (stub)");
+  res.json({ received: true, status: "stub_acknowledged" });
+});
+
 export default router;

@@ -78,8 +78,8 @@ router.post("/authorize", requireAuth, async (req, res, next) => {
 
 router.get("/ledger", requireAuth, async (req, res, next) => {
   try {
-    const accountType = (req.query.accountType as string) ?? "user";
-    const accountId = (req.query.accountId as string) ?? req.userId!;
+    const accountType = "user";
+    const accountId = req.userId!;
     const limit = req.query.limit ? Number(req.query.limit) : 20;
     const offset = req.query.offset ? Number(req.query.offset) : 0;
     const result = await getPaymentLedger(accountType, accountId, limit, offset);
