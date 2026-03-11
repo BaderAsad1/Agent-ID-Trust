@@ -1,0 +1,1313 @@
+You are the lead architect, principal product engineer, and systems designer for Agent ID.
+
+Your job is to design and build the complete production system for Agent ID inside Replit.
+
+Do NOT start coding immediately.
+
+You must first understand the full product structure, current frontend assumptions, system boundaries, and implementation phases before touching code.
+
+Your working style must be:
+
+1. inspect the existing codebase first
+2. identify all current mock-data dependencies
+3. map frontend expectations to real backend contracts
+4. produce architecture, schema, routes, services, and phased execution plan
+5. only then begin implementation in the correct order
+
+Do not brute-force everything at once.
+Do not fake complete systems.
+Do not build shallow CRUD and call it done.
+Do not drift into hackathon architecture.
+
+This must be built like the backend and live platform of a serious category-defining infrastructure company.
+
+==================================================
+PRODUCT CONTEXT
+==================================================
+
+Agent ID is the identity, trust, routing, and commerce layer for AI agents.
+
+It is not just a profile site.
+It is not just a marketplace.
+It is not just a dev tool.
+
+It is a platform where:
+
+- humans can create, own, manage, and monetize agents
+- agents can self-register programmatically
+- agents can receive verifiable identity
+- agents can expose capabilities and endpoints
+- tasks can be sent from humans or other agents
+- public trust can compound through verification, activity, and reviews
+- agents can be discoverable, hirable, and operational
+- domains / handles can resolve to agents
+- both traditional payments and agentic payments can be supported
+- monthly active-agent subscriptions are a core business model
+
+The frontend already exists in large part and currently uses mock data.
+
+Your job is to replace production-path mock data with real infrastructure safely and correctly.
+
+==================================================
+PRIMARY PLATFORM PILLARS
+==================================================
+
+Build Agent ID around five core pillars:
+
+1. IDENTITY
+- human user identity
+- account ownership
+- linked provider identities
+- persistent agent identities
+- public handles
+- public agent profiles
+- API credentials
+- cryptographic proof of agent ownership
+
+2. TRUST
+- verification states
+- trust score
+- trust breakdown
+- reputation events
+- signed activity logs
+- marketplace reviews
+- trust tiers
+
+3. ROUTING
+- tasks from users to agents
+- tasks from agents to agents
+- endpoint delivery
+- delivery state vs business state separation
+- inboxes and task history
+- background processing
+
+4. COMMERCE
+- marketplace listings
+- marketplace orders
+- reviews
+- job posts
+- proposals
+- subscriptions
+- payment ledger
+- payout ledger
+- both traditional and agentic payments
+
+5. NAMING / ADDRESSING
+- handle namespace
+- public profile URLs
+- agent domains
+- provisioned subdomains on a controlled base domain
+- future-compatible naming abstraction
+
+==================================================
+CRITICAL EXECUTION RULES
+==================================================
+
+- Build in phases, not in one giant shallow pass
+- Correctness over breadth
+- Architecture over speed
+- No fake production readiness
+- No mock-data theater in production paths
+- If a dependency is not fully ready, stub it cleanly behind an adapter and document it
+- Do not invent backend behavior that the frontend cannot actually use
+- Do not break current routes, navigation, or core UI unless truly necessary
+- The final system must feel coherent, typed, secure, and production-minded
+
+==================================================
+AUTH ARCHITECTURE
+==================================================
+
+IMPORTANT:
+This app uses Replit’s built-in authentication for primary browser login.
+
+Do NOT build a separate password-based auth system unless the existing codebase explicitly requires it.
+
+However, the full platform must support multiple auth layers:
+
+LAYER 1 — APP USER AUTH
+Use Replit’s built-in auth as the canonical browser session identity.
+
+Requirements:
+- read the authenticated Replit user from request/context
+- upsert a local app user row on first authenticated request
+- attach the local app user to request context
+- use this local user for ownership, billing, marketplace activity, and dashboard logic
+
+LAYER 2 — LINKED IDENTITIES
+Design and implement support for linked identities.
+
+The schema and services must support:
+- GitHub
+- Google
+- wallet address
+- future providers
+
+This does NOT mean building an entirely separate auth stack first.
+It means building a proper linked-identity model.
+
+Use cases:
+- account verification
+- richer profile trust
+- ownership proofs
+- future delegated workflows
+
+LAYER 3 — API AUTH / PROGRAMMATIC AUTH
+The system must support programmatic access.
+
+Implement:
+- personal API keys for users
+- agent-scoped API credentials
+- scoped tokens / scopes
+- secure API key storage via hashing
+- revocation
+- rotation
+- usage tracking
+- ownership checks
+
+This is required because agents must be able to self-register and interact with the platform without a browser session.
+
+LAYER 4 — SERVICE / ENDPOINT AUTH
+When Agent ID forwards tasks to agent endpoints:
+- sign outbound payloads
+- include verification headers
+- support secure callback verification
+- support future proof-of-possession or DPoP-style patterns cleanly if architecture allows
+
+The browser app uses Replit Auth.
+The API uses scoped key-based auth.
+The platform must support both.
+
+==================================================
+AGENT AUTH + SELF-REGISTRATION
+==================================================
+
+This is a core product feature.
+
+Agents must be able to register directly via API without filling out a browser form.
+
+This should be treated as the machine-native bootstrap identity flow.
+
+Important:
+This bootstrap flow is NOT the only auth model in the platform.
+It is the machine-native identity issuance flow for autonomous agents.
+
+The system must support:
+
+STEP 1 — AGENT REGISTRATION INTENT
+An agent can POST:
+- handle
+- display_name
+- description optional
+- capabilities
+- endpoint_url
+- public_keys
+- auth_methods supported
+- protocols supported
+- payment methods supported
+- scopes requested
+
+Example conceptual payload:
+- handle
+- display_name
+- capabilities: ["research", "web-search"]
+- endpoint_url
+- public_keys: [{ kid, kty, public_key, use }]
+- auth_methods: ["key_challenge", "dpop"]
+- protocols: ["https", "mcp", "a2a"]
+- payment_methods: ["stripe", "x402"]
+- scopes: ["task.receive", "task.respond"]
+
+STEP 2 — SERVER RETURNS CHALLENGE
+Server returns:
+- agent_id
+- reserved handle
+- provisional domain
+- verification_challenge
+- challenge_expires_at
+- registration_status
+- profile_url
+
+Use challenge terminology, not just a generic token.
+
+STEP 3 — AGENT PROVES KEY CONTROL
+Agent signs the challenge and returns:
+- agent_id
+- challenge
+- kid
+- signature
+- timestamp
+- method
+
+The system verifies proof against the submitted public key.
+
+STEP 4 — VERIFIED IDENTITY ISSUED
+On success return:
+- verified status
+- agent_id
+- handle
+- domain
+- profile_url
+- trust_score baseline
+- trust_tier
+- domain provisioning status
+- auth metadata / next-step operational credentials info
+- supported payment rails / readiness
+
+This bootstrap registration flow should power the site’s “Register via API in one call” story.
+
+==================================================
+MONTHLY ACTIVE AGENT BUSINESS MODEL
+==================================================
+
+This is a core product and monetization requirement.
+
+Important:
+Do NOT design the system so agents must fully re-register every month.
+
+Instead:
+- Agent identity is persistent
+- Commercial / operational activation can be monthly
+
+This means an agent should be able to:
+- claim an Agent ID once
+- retain identity history permanently
+- be activated on a monthly paid plan
+- be paused or downgraded without losing history
+- be reactivated later with trust history and public continuity preserved where allowed
+
+Differentiate clearly between:
+
+IDENTITY LAYER
+- permanent agent record
+- handle
+- verification history
+- trust history
+- signed activity history
+- public profile continuity
+
+COMMERCIAL / OPERATIONAL LAYER
+- monthly subscription status
+- discoverability
+- marketplace eligibility
+- premium routing
+- premium API limits
+- advanced payment features
+- premium domain/branding features
+
+The platform must support both:
+- user-level subscriptions
+- agent-level subscriptions
+
+Suggested business logic:
+- free agent: identity exists, but limited visibility / routing / marketplace eligibility
+- monthly active agent: publicly discoverable, operational, can receive work and participate
+- pro monthly agent: higher limits, premium placement, advanced auth/payment/routing features
+- team / enterprise bundles: multiple active agents under account/workspace structure
+
+Requirements:
+- preserve identity even if subscription lapses
+- do not delete trust, reviews, or activity history on cancellation
+- cleanly downgrade operational features when unpaid
+- allow reactivation without re-registration
+
+Frontend/product requirements:
+- clearly show registered vs active
+- clearly show monthly plan status per agent
+- allow activation / reactivation flows
+- preserve continuity
+
+This monthly active-agent model is central to the product.
+
+==================================================
+PAYMENTS ARCHITECTURE
+==================================================
+
+The platform must support two payment modes through a clean abstraction layer.
+
+PAYMENT MODE A — TRADITIONAL PAYMENTS
+Use Stripe for:
+- subscriptions
+- standard marketplace checkout
+- billing
+- future seller onboarding / settlement support
+
+PAYMENT MODE B — AGENTIC PAYMENTS
+Design and implement a payments abstraction layer that can support:
+- Coinbase agentic payment flows / x402 / AgentKit-style rails
+- Visa agentic payment / trusted-agent commerce style rails
+
+Do NOT hard-code the platform around only Stripe.
+
+Create a unified payment architecture with provider adapters.
+
+Implement a provider abstraction like:
+- PaymentProvider interface
+- StripeProvider
+- CoinbaseAgenticProvider
+- VisaAgenticProvider
+
+The system must support concepts like:
+- PaymentIntent
+- PaymentAuthorization
+- Settlement
+- Payment Ledger
+- Payout Ledger
+
+Use cases to support:
+- human hires agent through standard marketplace checkout
+- agent pays another agent for work or access
+- endpoint requires payment before execution
+- future trusted agent commerce flows
+- future merchant-side inspection of trust/payment context
+
+Important MVP guidance:
+- Stripe can be the first fully working traditional rail
+- Coinbase and Visa should be integrated through a clean adapter architecture
+- do not fake production certification or merchant-network completeness
+- build the internal architecture correctly so future expansion is clean
+
+PAYOUTS
+Do not fake real seller money movement if full Stripe Connect onboarding is not ready.
+If live seller payout is not fully implemented:
+- record payout intent
+- create payout ledger entries
+- keep ledger/state correct
+- document live payout as next sprint if needed
+
+==================================================
+DOMAIN / ADDRESSING ARCHITECTURE
+==================================================
+
+Do NOT pretend Agent ID operates a real .agent TLD in MVP.
+
+Instead:
+- implement an agent domain abstraction
+- provision subdomains on a base domain we control
+- keep base domain configurable via env
+
+Examples:
+- research.agentid.dev
+- support.agentid.dev
+
+Product language can still refer to these as “agent domains.”
+
+Requirements:
+- handle namespace reservation
+- uniqueness validation
+- configurable domain generation
+- Cloudflare DNS provisioning
+- domain status tracking
+- future-compatible migration to other naming systems
+
+Do not build registrar or TLD infrastructure.
+Do not implement Handshake anchoring in MVP unless explicitly stubbed and documented as future work.
+
+==================================================
+TECH STACK
+==================================================
+
+Use a production-friendly TypeScript stack suitable for Replit.
+
+Backend:
+- Node.js 20+
+- TypeScript
+- Hono preferred, Express acceptable if clearly justified
+- PostgreSQL
+- Drizzle ORM
+- Zod
+- Pino
+- BullMQ + Redis
+- Resend
+- Cloudflare DNS API
+- Stripe
+- Replit Auth integration
+
+Frontend integration:
+- typed API client
+- no production mock data on implemented flows
+- preserve existing routes and UI wherever possible
+- add loading / empty / error states where newly needed
+
+==================================================
+DATABASE DESIGN
+==================================================
+
+Design the database first before coding.
+
+Use Drizzle ORM.
+Create migrations.
+Use UUID primary keys.
+Use created_at and updated_at consistently.
+
+At minimum include these tables, but improve or normalize if necessary and document why.
+
+1. users
+- id
+- replit_user_id unique
+- email
+- display_name
+- avatar_url
+- username
+- plan
+- stripe_customer_id
+- created_at
+- updated_at
+
+2. user_identities
+- id
+- user_id
+- provider
+- provider_user_id
+- metadata
+- verified_at
+- created_at
+
+3. api_keys
+- id
+- owner_type (user or agent)
+- owner_id
+- name
+- key_prefix
+- hashed_key
+- scopes JSONB
+- last_used_at
+- revoked_at
+- created_at
+
+4. agents
+- id
+- user_id owner
+- handle unique
+- display_name
+- description
+- avatar_seed or avatar_url
+- status
+- is_public
+- endpoint_url
+- encrypted endpoint_secret
+- capabilities JSONB
+- scopes JSONB
+- protocols JSONB
+- auth_methods JSONB
+- payment_methods JSONB
+- metadata JSONB
+- trust_score
+- trust_breakdown JSONB
+- trust_tier
+- verification_status
+- verification_method
+- verified_at
+- tasks_received
+- tasks_completed
+- created_at
+- updated_at
+
+5. agent_keys
+- id
+- agent_id
+- kid
+- key_type
+- public_key or jwk JSONB
+- use
+- status
+- created_at
+- revoked_at
+
+6. agent_verification_challenges
+- id
+- agent_id
+- challenge
+- method
+- expires_at
+- used_at
+- created_at
+
+7. agent_domains
+- id
+- agent_id
+- domain
+- base_domain
+- status
+- provider_metadata JSONB
+- dns_records JSONB
+- provisioned_at
+- expires_at
+- created_at
+- updated_at
+
+8. agent_activity_log
+- id
+- agent_id
+- event_type
+- payload JSONB
+- signature
+- ip_address
+- user_agent
+- created_at
+
+9. agent_reputation_events
+- id
+- agent_id
+- event_type
+- delta
+- reason
+- created_at
+
+10. tasks
+IMPORTANT:
+separate transport state from business state
+
+Include:
+- id
+- recipient_agent_id
+- sender_agent_id nullable
+- sender_user_id nullable
+- task_type
+- payload JSONB
+- delivery_status
+- business_status
+- result JSONB
+- forwarded_at
+- acknowledged_at
+- responded_at
+- related_order_id nullable
+- created_at
+- updated_at
+
+11. marketplace_listings
+- id
+- agent_id
+- user_id
+- title
+- description
+- category
+- pitch
+- price_type
+- price_amount
+- delivery_hours
+- capabilities JSONB
+- status
+- featured
+- views
+- total_hires
+- avg_rating
+- review_count
+- created_at
+- updated_at
+
+12. marketplace_orders
+- id
+- listing_id
+- buyer_user_id
+- seller_user_id
+- agent_id
+- task_description
+- price_amount
+- platform_fee
+- seller_payout
+- status
+- payment_provider
+- provider_payment_reference
+- deadline_at
+- completed_at
+- created_at
+- updated_at
+
+13. marketplace_reviews
+- id
+- order_id
+- listing_id
+- reviewer_id
+- agent_id
+- rating
+- comment
+- created_at
+
+14. job_posts
+- id
+- poster_user_id
+- title
+- description
+- category
+- budget_min
+- budget_max
+- budget_fixed
+- deadline_hours
+- required_capabilities JSONB
+- min_trust_score
+- verified_only
+- status
+- proposals_count
+- created_at
+- expires_at
+- updated_at
+
+15. job_proposals
+- id
+- job_id
+- agent_id
+- user_id
+- approach
+- price_amount
+- delivery_hours
+- status
+- created_at
+- updated_at
+
+16. subscriptions
+- id
+- user_id nullable
+- plan
+- status
+- provider
+- provider_customer_id
+- provider_subscription_id
+- billing_interval
+- current_period_start
+- current_period_end
+- created_at
+- updated_at
+
+17. agent_subscriptions
+- id
+- agent_id
+- user_id
+- plan
+- status
+- provider
+- provider_subscription_id
+- billing_interval
+- current_period_start
+- current_period_end
+- created_at
+- updated_at
+
+18. payment_intents
+- id
+- provider
+- initiator_type
+- initiator_id
+- target_type
+- target_id
+- amount
+- currency
+- status
+- metadata JSONB
+- provider_reference
+- created_at
+- updated_at
+
+19. payment_authorizations
+- id
+- payment_intent_id
+- provider
+- authorization_type
+- status
+- metadata JSONB
+- created_at
+- updated_at
+
+20. payment_ledger
+- id
+- related_order_id nullable
+- related_task_id nullable
+- provider
+- direction
+- account_type
+- account_id
+- amount
+- currency
+- entry_type
+- metadata JSONB
+- created_at
+
+21. payout_ledger
+- id
+- related_order_id nullable
+- seller_user_id
+- provider
+- amount
+- currency
+- status
+- metadata JSONB
+- created_at
+- updated_at
+
+22. webhook_events
+- id
+- provider
+- event_type
+- provider_event_id
+- payload JSONB
+- processed_at
+- status
+- created_at
+
+23. audit_events
+- id
+- actor_type
+- actor_id
+- event_type
+- payload JSONB
+- created_at
+
+If a better normalized design is needed, use it and explain why.
+
+==================================================
+TRUST SYSTEM
+==================================================
+
+Implement a real trust score service.
+
+It must:
+- compute a numeric trust score
+- store trust breakdown
+- store trust tier
+- update on meaningful lifecycle events
+
+Suggested factors:
+- verification
+- longevity
+- tasks completed
+- marketplace reviews
+- reputation events
+- negative events / abuse
+- endpoint health
+- profile completeness
+
+Store:
+- trust_score 0–100
+- trust_breakdown JSON object
+- trust_tier string:
+  - unverified
+  - basic
+  - verified
+  - trusted
+  - elite
+
+The trust system must be reusable for:
+- marketplace ranking
+- public profile display
+- eligibility filters
+- future anti-abuse logic
+
+==================================================
+SIGNED ACTIVITY LOG
+==================================================
+
+All important agent events must go through a centralized activity logger.
+
+Sign events using HMAC with a server secret.
+Never expose secrets.
+Prefer async logging where safe.
+
+Examples:
+- agent created
+- challenge issued
+- verification completed
+- endpoint updated
+- task received
+- task delivered
+- task acknowledged
+- task completed
+- listing created
+- order created
+- review received
+- domain provisioned
+- payment received
+- payout ledger update
+
+This supports auditability and future trust logic.
+
+==================================================
+ROUTING / TASK MODEL
+==================================================
+
+The system must support:
+- human-to-agent tasks
+- agent-to-agent tasks
+- marketplace-linked tasks
+- task delivery and status transitions
+
+Important:
+Do NOT collapse transport state into business state.
+
+A successful endpoint POST does NOT mean the task was accepted.
+
+Model separate states such as:
+- delivery_status:
+  - pending
+  - queued
+  - delivered
+  - failed
+  - acknowledged
+- business_status:
+  - pending
+  - accepted
+  - rejected
+  - completed
+  - failed
+  - cancelled
+
+Task forwarding must:
+- sign outbound payload
+- retry with backoff
+- record delivery attempts
+- not confuse transport success with business acceptance
+
+==================================================
+API DESIGN
+==================================================
+
+All routes under /api/v1/
+Use consistent error shape:
+{ error: string, code: string, details?: any }
+
+Protected browser routes use Replit-authenticated user context.
+Programmatic routes use API key auth or agent key auth as appropriate.
+
+Create route groups for:
+
+1. auth / session
+- GET /api/v1/auth/me
+- optional logout/session helper only if frontend truly needs it
+
+2. users
+- GET /api/v1/users/me
+- PATCH /api/v1/users/me
+- GET /api/v1/users/me/api-keys
+- POST /api/v1/users/me/api-keys
+- DELETE /api/v1/users/me/api-keys/:keyId
+- GET /api/v1/users/me/identities
+- POST /api/v1/users/me/identities/link
+
+3. agents
+- GET /api/v1/agents
+- POST /api/v1/agents
+- GET /api/v1/agents/:agentId
+- PUT /api/v1/agents/:agentId
+- DELETE /api/v1/agents/:agentId
+
+4. programmatic agent registration
+- POST /api/v1/programmatic/agents/register
+- POST /api/v1/programmatic/agents/verify
+- POST /api/v1/programmatic/agents/:agentId/rotate-key
+- GET /api/v1/programmatic/agents/:agentId/auth-metadata
+
+5. handles
+- GET /api/v1/handles/check?handle=:handle
+
+6. verification
+- POST /api/v1/agents/:agentId/verify/initiate
+- POST /api/v1/agents/:agentId/verify/complete
+- GET /api/v1/agents/:agentId/verify/status
+
+7. public profiles
+- GET /api/v1/p/:handle
+- GET /api/v1/domains/resolve/:domain
+
+8. domains
+- GET /api/v1/agents/:agentId/domain
+- POST /api/v1/agents/:agentId/domain/reprovision
+- GET /api/v1/agents/:agentId/domain/status
+
+9. tasks
+- POST /api/v1/tasks
+- GET /api/v1/tasks
+- GET /api/v1/tasks/:taskId
+- PATCH /api/v1/tasks/:taskId/business-status
+- POST /api/v1/tasks/:taskId/acknowledge
+- GET /api/v1/tasks/:taskId/delivery-receipts
+
+10. marketplace listings
+- GET /api/v1/marketplace/listings
+- POST /api/v1/marketplace/listings
+- GET /api/v1/marketplace/listings/:listingId
+- PUT /api/v1/marketplace/listings/:listingId
+- PATCH /api/v1/marketplace/listings/:listingId/status
+- DELETE /api/v1/marketplace/listings/:listingId
+
+11. marketplace orders
+- POST /api/v1/marketplace/orders
+- POST /api/v1/marketplace/orders/:orderId/confirm
+- PATCH /api/v1/marketplace/orders/:orderId/complete
+- GET /api/v1/marketplace/orders
+- GET /api/v1/marketplace/orders/:orderId
+
+12. marketplace reviews
+- POST /api/v1/marketplace/reviews
+- GET /api/v1/marketplace/listings/:listingId/reviews
+
+13. jobs
+- GET /api/v1/jobs
+- POST /api/v1/jobs
+- GET /api/v1/jobs/:jobId
+- PATCH /api/v1/jobs/:jobId/status
+
+14. proposals
+- POST /api/v1/jobs/:jobId/proposals
+- GET /api/v1/jobs/:jobId/proposals
+- PATCH /api/v1/jobs/:jobId/proposals/:proposalId
+
+15. dashboard
+- GET /api/v1/dashboard/stats
+
+16. billing / subscriptions
+- GET /api/v1/billing/subscriptions
+- POST /api/v1/billing/checkout
+- POST /api/v1/billing/agents/:agentId/activate
+- POST /api/v1/billing/agents/:agentId/deactivate
+- GET /api/v1/billing/agents/:agentId/status
+
+17. payments
+- POST /api/v1/payments/intents
+- POST /api/v1/payments/authorize
+- GET /api/v1/payments/providers
+- GET /api/v1/payments/ledger
+
+18. webhooks
+- POST /api/v1/webhooks/stripe
+- POST /api/v1/webhooks/coinbase
+- POST /api/v1/webhooks/visa
+
+Build only the routes needed by the current frontend in early phases first, but architect all domains coherently.
+
+==================================================
+MARKETPLACE
+==================================================
+
+Build a real marketplace layer.
+
+Requirements:
+- only verified and eligible active agents can list
+- listing eligibility should depend on identity + monthly activation + plan rules
+- listings support category, teaser, pricing type, delivery estimate, capabilities
+- users can browse, filter, sort
+- buyers can create orders
+- orders can generate linked tasks
+- orders can be completed and reviewed
+- reviews affect trust / listing stats
+
+Do not misrepresent payout completeness if it is not fully live.
+
+==================================================
+JOB BOARD
+==================================================
+
+Build the jobs system after core identity and marketplace foundations are stable.
+
+Requirements:
+- users can post jobs
+- jobs define category, budget, deadline, capabilities, trust requirements
+- agents can submit proposals
+- posters can accept or reject proposals
+- accepted proposals can create marketplace orders or direct tasks
+
+==================================================
+DOMAIN PROVISIONING SERVICE
+==================================================
+
+Implement a domain service with configurable base domain.
+
+Flow:
+- validate handle uniqueness
+- reserve subdomain
+- create Cloudflare DNS record(s)
+- optionally create TXT verification record
+- store provider metadata
+- retry / poll until status known
+- mark active or failed
+- notify owner on success/failure
+
+Do not hardcode fake TLD infrastructure.
+
+==================================================
+BACKGROUND JOBS
+==================================================
+
+Use BullMQ for async work.
+
+At minimum implement workers for:
+- task forwarding
+- domain provisioning
+- trust recomputation
+- email dispatch
+- payment webhook reconciliation
+- endpoint health checks
+
+==================================================
+SERVICES
+==================================================
+
+Create clear domain services at minimum:
+
+- auth context / user sync service
+- api key service
+- agent registration service
+- verification challenge service
+- trust score service
+- activity logger service
+- domain service
+- task routing / forwarding service
+- marketplace service
+- reviews/stat aggregation service
+- billing service
+- payment provider abstraction layer
+- Stripe provider
+- Coinbase agentic provider adapter
+- Visa agentic provider adapter
+- email service
+
+==================================================
+FRONTEND WIRING
+==================================================
+
+Before wiring anything:
+- inventory all frontend mock data imports
+- map each production-path component to real endpoint(s)
+- document mismatches
+
+Then create:
+- src/api/client.ts
+- typed domain API modules
+- auth-aware fetch wrapper
+- typed error handling
+- loading states
+- empty states
+- retryable error states
+
+Do not leave production mock data in implemented flows.
+
+==================================================
+SECURITY REQUIREMENTS
+==================================================
+
+- do not log secrets, tokens, private keys, or full raw credentials
+- hash API keys before storage
+- encrypt sensitive endpoint secrets at rest if possible
+- validate all inputs with Zod
+- use parameterized queries
+- verify webhook signatures
+- restrict CORS in production
+- set security headers
+- enforce ownership everywhere
+- ensure platform fees and trust scores are server-side only
+- rate limit sensitive routes
+- challenge/verification flow must prevent replay where possible
+- programmatic auth must support key rotation
+
+==================================================
+TESTING REQUIREMENTS
+==================================================
+
+Before declaring completion, implement and run tests.
+
+At minimum:
+- unit tests for trust score calculation
+- unit tests for marketplace fee calculation
+- unit tests for payment provider abstraction behavior
+- integration tests for user sync from Replit auth
+- integration tests for agent creation
+- integration tests for handle check
+- integration tests for public profile
+- integration tests for programmatic agent registration + challenge verification
+- integration tests for task submission
+- integration tests for marketplace order creation
+- integration tests for API key auth
+- integration tests for monthly active-agent activation logic
+
+At least one end-to-end happy path:
+- Replit-auth user login
+- create agent
+- verify agent
+- activate monthly agent plan
+- provision domain
+- create marketplace listing
+- create order
+- create linked task
+- complete order
+- leave review
+- trust score updates
+
+Also produce a manual QA checklist.
+
+==================================================
+SEED DATA
+==================================================
+
+Create useful seed data for local/dev use:
+
+- at least 2 app users
+- at least 2 owned agents
+- at least 6 marketplace listings total
+- varied trust scores
+- active and inactive agent subscriptions
+- reviews, orders, tasks, jobs, proposals, activity events
+
+Include seeded examples of:
+- one verified active paid agent
+- one verified but inactive/unpaid agent
+- one programmatically registered agent
+
+==================================================
+ENVIRONMENT + CONFIG
+==================================================
+
+Produce a clear .env.example.
+
+Include at minimum:
+- database url
+- redis url
+- resend api key
+- stripe secret key
+- stripe webhook secret
+- cloudflare api token
+- cloudflare zone id
+- app url
+- api url
+- base agent domain
+- signing secret
+- encryption secret
+- payment provider toggles / config
+- replit auth related config as needed by the environment
+
+==================================================
+PHASED EXECUTION ORDER
+==================================================
+
+Follow this exact order.
+
+PHASE 0 — DISCOVERY
+- inspect entire codebase
+- inspect frontend assumptions
+- locate all production-path mock data
+- produce architecture summary
+- produce schema plan
+- produce route map
+- produce service map
+- produce implementation phases
+- identify risks and assumptions
+
+PHASE 1 — CORE IDENTITY PLATFORM
+- database setup
+- Replit auth integration
+- local users sync
+- linked identity support scaffolding
+- API key system
+- agents
+- handle availability
+- public profiles
+- verification challenge flow
+- trust score service
+- signed activity log
+- task model and core task routes
+- dashboard basics
+
+PHASE 2 — MONTHLY AGENT ACTIVATION + BILLING FOUNDATION
+- user subscriptions
+- agent subscriptions
+- activation/deactivation rules
+- eligibility logic for active agents
+- Stripe subscription foundation
+- billing status endpoints
+
+PHASE 3 — DOMAIN LAYER
+- domain abstraction
+- Cloudflare provisioning
+- provisioning worker
+- domain status handling
+
+PHASE 4 — MARKETPLACE
+- listings
+- orders
+- reviews
+- task linkage
+- payout ledger
+- stats updates
+
+PHASE 5 — PAYMENT ABSTRACTION
+- payment provider interface
+- Stripe provider
+- Coinbase adapter
+- Visa adapter
+- ledger model
+- internal authorization model
+- endpoint-level payment-ready architecture
+
+PHASE 6 — JOB BOARD
+- jobs
+- proposals
+- proposal acceptance
+- order/task linkage
+
+PHASE 7 — FRONTEND INTEGRATION + TESTING
+- replace production mocks
+- wire APIs
+- loading / empty / error states
+- run tests
+- QA checklist
+- fix mismatches
+
+IMPORTANT:
+Do not jump ahead.
+Do not build all phases partially in parallel.
+Finish each phase cleanly before moving to the next.
+
+==================================================
+OUTPUT FORMAT
+==================================================
+
+Before coding, output:
+
+1. architecture summary
+2. schema plan
+3. route map
+4. service map
+5. implementation phases
+6. risks / assumptions
+7. frontend mock-data dependency inventory
+
+After each phase, output:
+- files created/changed
+- migrations added
+- services added
+- routes implemented
+- tests added
+- frontend pieces wired
+- what remains
+
+At final completion, output:
+- complete file list
+- migrations list
+- all implemented routes with auth mode
+- all required environment variables
+- known limitations
+- next sprint recommendations
+
+==================================================
+QUALITY BAR
+==================================================
+
+Build this like the backend of a real infrastructure company.
+
+Correctness first.
+Architecture first.
+No fake “done.”
+No shallow demo logic.
+No mock-data theater.
+No pretending unsupported payment rails are fully live if they are only adapter-level in MVP.
+No re-registration-every-month nonsense — identity persists, activation is monthly.
+
+The result should support:
+- browser users
+- programmatic agents
+- identity issuance
+- trust growth
+- discoverability
+- tasks
+- subscriptions
+- marketplace operations
+- future agentic payments
+
+Now begin with Phase 0 only:
+inspect the codebase, map the current frontend assumptions, and produce the full architecture before making implementation changes.
