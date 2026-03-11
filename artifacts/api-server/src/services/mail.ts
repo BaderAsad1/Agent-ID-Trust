@@ -25,6 +25,7 @@ import {
 } from "@workspace/db/schema";
 import { signWebhookPayload, deliverOutbound, recordOutboundDeliveryResult } from "./mail-transport";
 import { enqueueWebhookDelivery, isWebhookQueueAvailable } from "../workers/webhook-delivery";
+import { encryptSecret, decryptSecret } from "../utils/crypto";
 
 const MAIL_BASE_DOMAIN = process.env.MAIL_BASE_DOMAIN || "agents.local";
 
@@ -69,13 +70,16 @@ export async function getOrCreateInbox(agentId: string): Promise<AgentInbox> {
     columns: { handle: true },
   });
 
-  const address = agent ? `${agent.handle}@${MAIL_BASE_DOMAIN}` : `${agentId}@${MAIL_BASE_DOMAIN}`;
+  const localPart = agent?.handle || agentId;
+  const address = `${localPart}@${MAIL_BASE_DOMAIN}`;
 
   const [inbox] = await db
     .insert(agentInboxesTable)
     .values({
       agentId,
       address,
+      addressLocalPart: localPart,
+      addressDomain: MAIL_BASE_DOMAIN,
       displayName: agent?.handle,
       status: "active",
     })
@@ -202,6 +206,11 @@ export async function archiveMessage(messageId: string, agentId: string): Promis
   const message = await getMessage(messageId);
   if (!message || message.agentId !== agentId) return null;
 
+  await db
+    .update(agentMessagesTable)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(eq(agentMessagesTable.id, messageId));
+
   const archivedLabel = await db.query.messageLabelsTable.findFirst({
     where: and(
       eq(messageLabelsTable.agentId, agentId),
@@ -244,30 +253,40 @@ export async function bulkAssignLabel(
   messageIds: string[],
   labelId: string,
   agentId: string,
-): Promise<number> {
+): Promise<{ count: number; errors: string[] }> {
   let count = 0;
+  const errors: string[] = [];
   for (const messageId of messageIds) {
     try {
       await assignLabel(messageId, labelId, agentId);
       count++;
-    } catch {}
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[mail] bulkAssignLabel failed for message ${messageId}: ${msg}`);
+      errors.push(messageId);
+    }
   }
-  return count;
+  return { count, errors };
 }
 
 export async function bulkRemoveLabel(
   messageIds: string[],
   labelId: string,
   agentId: string,
-): Promise<number> {
+): Promise<{ count: number; errors: string[] }> {
   let count = 0;
+  const errors: string[] = [];
   for (const messageId of messageIds) {
     try {
       await removeLabel(messageId, labelId, agentId);
       count++;
-    } catch {}
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[mail] bulkRemoveLabel failed for message ${messageId}: ${msg}`);
+      errors.push(messageId);
+    }
   }
-  return count;
+  return { count, errors };
 }
 
 export async function updateThreadStatus(
@@ -444,6 +463,11 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
     .set(participantUpdate)
     .where(eq(agentThreadsTable.id, thread.id));
 
+  await db
+    .update(agentInboxesTable)
+    .set({ lastMessageAt: new Date(), updatedAt: new Date() })
+    .where(eq(agentInboxesTable.id, inbox.id));
+
   await db.insert(messageEventsTable).values({
     messageId: message.id,
     eventType: input.direction === "inbound" ? "message.received" : "message.sent",
@@ -590,7 +614,11 @@ export async function markMessageRead(
 
   const [updated] = await db
     .update(agentMessagesTable)
-    .set({ isRead, updatedAt: new Date() })
+    .set({
+      isRead,
+      readAt: isRead ? new Date() : null,
+      updatedAt: new Date(),
+    })
     .where(eq(agentMessagesTable.id, messageId))
     .returning();
 
@@ -964,7 +992,8 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
           }),
           signal: AbortSignal.timeout(10000),
         });
-      } catch {
+      } catch (err) {
+        console.error(`[mail] routing webhook delivery to ${webhookUrl} failed:`, err instanceof Error ? err.message : err);
       }
       await db.insert(messageEventsTable).values({
         messageId: message.id,
@@ -1137,9 +1166,10 @@ export async function createWebhook(
   events: string[],
   secret?: string,
 ): Promise<InboxWebhook> {
+  const secretEncrypted = secret ? encryptSecret(secret) : undefined;
   const [webhook] = await db
     .insert(inboxWebhooksTable)
-    .values({ inboxId, agentId, url, events, secret, status: "active" })
+    .values({ inboxId, agentId, url, events, secretEncrypted, status: "active" })
     .returning();
   return webhook;
 }
@@ -1153,11 +1183,16 @@ export async function listWebhooks(inboxId: string): Promise<InboxWebhook[]> {
 export async function updateWebhook(
   webhookId: string,
   agentId: string,
-  updates: Partial<Pick<InboxWebhook, "url" | "events" | "secret" | "status">>,
+  updates: Partial<Pick<InboxWebhook, "url" | "events" | "status">> & { secret?: string },
 ): Promise<InboxWebhook | null> {
+  const dbUpdates: Record<string, unknown> = { ...updates, updatedAt: new Date() };
+  if (updates.secret !== undefined) {
+    dbUpdates.secretEncrypted = updates.secret ? encryptSecret(updates.secret) : null;
+    delete dbUpdates.secret;
+  }
   const [updated] = await db
     .update(inboxWebhooksTable)
-    .set({ ...updates, updatedAt: new Date() })
+    .set(dbUpdates)
     .where(and(eq(inboxWebhooksTable.id, webhookId), eq(inboxWebhooksTable.agentId, agentId)))
     .returning();
   return updated ?? null;
@@ -1189,10 +1224,11 @@ async function emitWebhookEvent(
     if (events.length > 0 && !events.includes(eventType)) continue;
 
     if (useQueue) {
+      const webhookSecret = wh.secretEncrypted ? decryptSecret(wh.secretEncrypted) : undefined;
       await enqueueWebhookDelivery({
         webhookId: wh.id,
         webhookUrl: wh.url,
-        webhookSecret: wh.secret,
+        webhookSecret,
         eventType,
         payload,
         messageId: payload.messageId as string,
@@ -1216,8 +1252,9 @@ async function deliverWebhookInProcess(
   const webhookPayload = { event: eventType, payload, timestamp };
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
-  if (wh.secret) {
-    const signature = signWebhookPayload(webhookPayload as unknown as Record<string, unknown>, wh.secret);
+  const webhookSecret = wh.secretEncrypted ? decryptSecret(wh.secretEncrypted) : undefined;
+  if (webhookSecret) {
+    const signature = signWebhookPayload(webhookPayload as unknown as Record<string, unknown>, webhookSecret);
     headers["X-Webhook-Signature"] = `sha256=${signature}`;
     headers["X-Webhook-Timestamp"] = timestamp;
   }

@@ -168,6 +168,7 @@ export const inboxStatusEnum = pgEnum("inbox_status", [
 export const messageDirectionEnum = pgEnum("message_direction", [
   "inbound",
   "outbound",
+  "internal",
 ]);
 
 export const senderTypeEnum = pgEnum("sender_type", [

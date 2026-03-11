@@ -561,8 +561,8 @@ router.post("/agents/:agentId/labels/:labelId/bulk-assign", requireAuth, async (
     });
     const { messageIds } = schema.parse(req.body);
 
-    const count = await mailService.bulkAssignLabel(messageIds, labelId, agentId);
-    res.json({ success: true, count });
+    const result = await mailService.bulkAssignLabel(messageIds, labelId, agentId);
+    res.json({ success: true, count: result.count, errors: result.errors });
   } catch (err) {
     next(err);
   }
@@ -579,8 +579,8 @@ router.post("/agents/:agentId/labels/:labelId/bulk-remove", requireAuth, async (
     });
     const { messageIds } = schema.parse(req.body);
 
-    const count = await mailService.bulkRemoveLabel(messageIds, labelId, agentId);
-    res.json({ success: true, count });
+    const result = await mailService.bulkRemoveLabel(messageIds, labelId, agentId);
+    res.json({ success: true, count: result.count, errors: result.errors });
   } catch (err) {
     next(err);
   }

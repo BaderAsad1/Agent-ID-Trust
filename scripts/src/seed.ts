@@ -817,7 +817,7 @@ async function seed() {
       inboxId: inbox1.id,
       agentId: agent1.id,
       url: "https://hooks.example.com/research-agent/incoming",
-      secret: "whsec_example_secret_research",
+      secretEncrypted: "seed_placeholder_encrypted_research",
       events: ["message.received", "message.routed", "message.converted_to_task"],
       status: "active",
     })
@@ -827,7 +827,7 @@ async function seed() {
     inboxId: inbox2.id,
     agentId: agent2.id,
     url: "https://hooks.example.com/code-reviewer/incoming",
-    secret: "whsec_example_secret_reviewer",
+    secretEncrypted: "seed_placeholder_encrypted_reviewer",
     events: ["message.received", "thread.updated"],
     status: "active",
   });

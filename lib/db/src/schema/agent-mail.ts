@@ -33,11 +33,17 @@ export const agentInboxesTable = pgTable(
       .notNull()
       .references(() => agentsTable.id, { onDelete: "cascade" }),
     address: varchar("address", { length: 255 }).notNull(),
+    addressLocalPart: varchar("address_local_part", { length: 128 }),
+    addressDomain: varchar("address_domain", { length: 128 }),
     displayName: varchar("display_name", { length: 255 }),
     status: inboxStatusEnum("status").default("active").notNull(),
+    visibility: varchar("visibility", { length: 20 }).default("private").notNull(),
     autoRespond: boolean("auto_respond").default(false).notNull(),
     autoRespondMessage: text("auto_respond_message"),
     routingRules: jsonb("routing_rules").$type<RoutingRule[]>().default([]),
+    settings: jsonb("settings").$type<Record<string, unknown>>().default({}),
+    retentionPolicy: jsonb("retention_policy").$type<Record<string, unknown>>(),
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -135,10 +141,15 @@ export const agentMessagesTable = pgTable(
     recipientAddress: varchar("recipient_address", { length: 255 }),
     subject: varchar("subject", { length: 500 }),
     body: text("body").notNull(),
+    bodyText: text("body_text"),
+    bodyHtml: text("body_html"),
     snippet: varchar("snippet", { length: 300 }),
     bodyFormat: varchar("body_format", { length: 20 }).default("text").notNull(),
+    headers: jsonb("headers").$type<Record<string, string>>(),
     structuredPayload: jsonb("structured_payload").$type<Record<string, unknown>>(),
     isRead: boolean("is_read").default(false).notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     deliveryStatus: messageDeliveryStatusEnum("delivery_status")
       .default("queued")
       .notNull(),
@@ -146,6 +157,8 @@ export const agentMessagesTable = pgTable(
     senderVerified: boolean("sender_verified").default(false).notNull(),
     provenanceChain: jsonb("provenance_chain").$type<ProvenanceEntry[]>(),
     priority: varchar("priority", { length: 20 }).default("normal").notNull(),
+    spamMetadata: jsonb("spam_metadata").$type<Record<string, unknown>>(),
+    paymentMetadata: jsonb("payment_metadata").$type<Record<string, unknown>>(),
     originatingTaskId: uuid("originating_task_id").references(() => tasksTable.id),
     convertedTaskId: uuid("converted_task_id").references(() => tasksTable.id),
     inReplyToId: uuid("in_reply_to_id"),
@@ -267,7 +280,7 @@ export const inboxWebhooksTable = pgTable(
       .notNull()
       .references(() => agentsTable.id, { onDelete: "cascade" }),
     url: text("url").notNull(),
-    secret: varchar("secret", { length: 255 }),
+    secretEncrypted: text("secret_encrypted"),
     events: jsonb("events").$type<string[]>().default([]),
     status: mailWebhookStatusEnum("status").default("active").notNull(),
     lastDeliveredAt: timestamp("last_delivered_at", { withTimezone: true }),

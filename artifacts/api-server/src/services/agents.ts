@@ -86,7 +86,8 @@ export async function createAgent(input: CreateAgentInput): Promise<Agent> {
   try {
     const { provisionInboxForAgent } = await import("./mail");
     await provisionInboxForAgent(agent.id);
-  } catch {
+  } catch (err) {
+    console.error(`[agents] Failed to provision inbox for agent ${agent.id}:`, err instanceof Error ? err.message : err);
   }
 
   return agent;
@@ -135,7 +136,8 @@ export async function updateAgent(
     try {
       const { provisionInboxForAgent } = await import("./mail");
       await provisionInboxForAgent(agentId);
-    } catch {
+    } catch (err) {
+      console.error(`[agents] Failed to provision inbox on activation for ${agentId}:`, err instanceof Error ? err.message : err);
     }
   }
 
