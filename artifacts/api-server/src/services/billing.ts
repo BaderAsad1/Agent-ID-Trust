@@ -374,6 +374,12 @@ export async function requirePlanFeature(
   };
 }
 
+function extractSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const ref = invoice.parent?.subscription_details?.subscription;
+  if (!ref) return null;
+  return typeof ref === "string" ? ref : ref.id;
+}
+
 function computePeriodDates(billingInterval: string): { start: Date; end: Date } {
   const start = new Date();
   const end = new Date(start);
@@ -450,8 +456,7 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
 }
 
 export async function handleInvoicePaid(invoice: Stripe.Invoice) {
-  const rawSubId = invoice.parent?.subscription_details?.subscription;
-  const subscriptionId = typeof rawSubId === "string" ? rawSubId : rawSubId?.id ?? null;
+  const subscriptionId = extractSubscriptionId(invoice);
   if (!subscriptionId) return;
 
   const existingSub = await db
@@ -492,8 +497,7 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 }
 
 export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
-  const rawSubId = invoice.parent?.subscription_details?.subscription;
-  const subscriptionId = typeof rawSubId === "string" ? rawSubId : rawSubId?.id ?? null;
+  const subscriptionId = extractSubscriptionId(invoice);
   if (!subscriptionId) return;
 
   const [sub] = await db
