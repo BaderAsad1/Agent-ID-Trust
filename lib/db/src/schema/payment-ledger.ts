@@ -28,6 +28,10 @@ export const paymentLedgerTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("payment_ledger_order_id_idx").on(table.relatedOrderId),
@@ -42,6 +46,6 @@ export const paymentLedgerTable = pgTable(
 
 export const insertPaymentLedgerSchema = createInsertSchema(
   paymentLedgerTable,
-).omit({ id: true, createdAt: true });
+).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertPaymentLedger = z.infer<typeof insertPaymentLedgerSchema>;
 export type PaymentLedgerEntry = typeof paymentLedgerTable.$inferSelect;

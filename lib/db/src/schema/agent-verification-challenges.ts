@@ -24,6 +24,10 @@ export const agentVerificationChallengesTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("agent_verification_challenges_agent_id_idx").on(table.agentId),
@@ -32,7 +36,7 @@ export const agentVerificationChallengesTable = pgTable(
 
 export const insertAgentVerificationChallengeSchema = createInsertSchema(
   agentVerificationChallengesTable,
-).omit({ id: true, createdAt: true });
+).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAgentVerificationChallenge = z.infer<
   typeof insertAgentVerificationChallengeSchema
 >;

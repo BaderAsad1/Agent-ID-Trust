@@ -35,6 +35,10 @@ export const marketplaceReviewsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     uniqueIndex("marketplace_reviews_order_id_idx").on(table.orderId),
@@ -46,7 +50,7 @@ export const marketplaceReviewsTable = pgTable(
 
 export const insertMarketplaceReviewSchema = createInsertSchema(
   marketplaceReviewsTable,
-).omit({ id: true, createdAt: true });
+).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertMarketplaceReview = z.infer<
   typeof insertMarketplaceReviewSchema
 >;

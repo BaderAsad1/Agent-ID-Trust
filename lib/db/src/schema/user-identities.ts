@@ -25,6 +25,10 @@ export const userIdentitiesTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("user_identities_user_id_idx").on(table.userId),
@@ -37,6 +41,6 @@ export const userIdentitiesTable = pgTable(
 
 export const insertUserIdentitySchema = createInsertSchema(
   userIdentitiesTable,
-).omit({ id: true, createdAt: true });
+).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertUserIdentity = z.infer<typeof insertUserIdentitySchema>;
 export type UserIdentity = typeof userIdentitiesTable.$inferSelect;

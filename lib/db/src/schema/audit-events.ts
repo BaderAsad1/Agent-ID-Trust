@@ -20,6 +20,10 @@ export const auditEventsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("audit_events_actor_idx").on(table.actorType, table.actorId),
@@ -30,6 +34,6 @@ export const auditEventsTable = pgTable(
 
 export const insertAuditEventSchema = createInsertSchema(
   auditEventsTable,
-).omit({ id: true, createdAt: true });
+).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAuditEvent = z.infer<typeof insertAuditEventSchema>;
 export type AuditEvent = typeof auditEventsTable.$inferSelect;

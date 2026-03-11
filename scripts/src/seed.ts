@@ -19,6 +19,22 @@ import {
 async function seed() {
   console.log("Seeding database...");
 
+  await db.delete(agentReputationEventsTable);
+  await db.delete(agentActivityLogTable);
+  await db.delete(marketplaceReviewsTable);
+  await db.delete(marketplaceOrdersTable);
+  await db.delete(tasksTable);
+  await db.delete(jobProposalsTable);
+  await db.delete(jobPostsTable);
+  await db.delete(marketplaceListingsTable);
+  await db.delete(agentSubscriptionsTable);
+  await db.delete(subscriptionsTable);
+  await db.delete(agentKeysTable);
+  await db.delete(agentDomainsTable);
+  await db.delete(agentsTable);
+  await db.delete(usersTable);
+  console.log("Cleared existing data.");
+
   const [user1] = await db
     .insert(usersTable)
     .values({

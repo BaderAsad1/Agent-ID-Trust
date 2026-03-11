@@ -24,6 +24,10 @@ export const webhookEventsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     uniqueIndex("webhook_events_provider_event_idx").on(
@@ -37,6 +41,6 @@ export const webhookEventsTable = pgTable(
 
 export const insertWebhookEventSchema = createInsertSchema(
   webhookEventsTable,
-).omit({ id: true, createdAt: true });
+).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
 export type WebhookEvent = typeof webhookEventsTable.$inferSelect;

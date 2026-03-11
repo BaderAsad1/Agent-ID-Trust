@@ -28,6 +28,10 @@ export const agentKeysTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
   },
   (table) => [
@@ -39,6 +43,7 @@ export const agentKeysTable = pgTable(
 export const insertAgentKeySchema = createInsertSchema(agentKeysTable).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 export type InsertAgentKey = z.infer<typeof insertAgentKeySchema>;
 export type AgentKey = typeof agentKeysTable.$inferSelect;

@@ -25,6 +25,10 @@ export const apiKeysTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("api_keys_owner_idx").on(table.ownerType, table.ownerId),
@@ -35,6 +39,7 @@ export const apiKeysTable = pgTable(
 export const insertApiKeySchema = createInsertSchema(apiKeysTable).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
 export type ApiKey = typeof apiKeysTable.$inferSelect;

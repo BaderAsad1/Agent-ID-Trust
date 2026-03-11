@@ -26,6 +26,10 @@ export const agentActivityLogTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("agent_activity_log_agent_id_idx").on(table.agentId),
@@ -36,7 +40,7 @@ export const agentActivityLogTable = pgTable(
 
 export const insertAgentActivityLogSchema = createInsertSchema(
   agentActivityLogTable,
-).omit({ id: true, createdAt: true });
+).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAgentActivityLog = z.infer<
   typeof insertAgentActivityLogSchema
 >;

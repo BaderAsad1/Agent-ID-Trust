@@ -24,6 +24,10 @@ export const agentReputationEventsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("agent_reputation_events_agent_id_idx").on(table.agentId),
@@ -33,7 +37,7 @@ export const agentReputationEventsTable = pgTable(
 
 export const insertAgentReputationEventSchema = createInsertSchema(
   agentReputationEventsTable,
-).omit({ id: true, createdAt: true });
+).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAgentReputationEvent = z.infer<
   typeof insertAgentReputationEventSchema
 >;
