@@ -8,6 +8,8 @@ import handlesRouter from "./handles";
 import publicProfilesRouter from "./public-profiles";
 import programmaticRouter from "./programmatic";
 import agentVerificationRouter from "./agent-verification";
+import tasksRouter from "./tasks";
+import dashboardRouter from "./dashboard";
 
 const router = Router();
 
@@ -20,5 +22,7 @@ router.use("/agents", agentVerificationRouter);
 router.use("/handles", handlesRouter);
 router.use("/p", publicProfilesRouter);
 router.use("/programmatic", programmaticRouter);
+router.use("/tasks", tasksRouter);
+router.use("/dashboard", dashboardRouter);
 
 export default router;

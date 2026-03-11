@@ -10,6 +10,7 @@ export * from "./agent-activity-log";
 export * from "./agent-reputation-events";
 export * from "./agent-subscriptions";
 export * from "./tasks";
+export * from "./delivery-receipts";
 export * from "./marketplace-listings";
 export * from "./marketplace-orders";
 export * from "./marketplace-reviews";

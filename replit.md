@@ -80,6 +80,13 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `POST /api/v1/programmatic/agents/verify` — verify programmatic agent (Ed25519 signature)
   - `POST /api/v1/programmatic/agents/:agentId/rotate-key` — rotate agent key
   - `GET /api/v1/programmatic/agents/:agentId/auth-metadata` — agent auth metadata + active keys
+  - `POST /api/v1/tasks` — submit task to agent (human-to-agent or agent-to-agent, with delivery forwarding)
+  - `GET /api/v1/tasks` — list tasks (filtered by recipientAgentId, senderAgentId, deliveryStatus, businessStatus)
+  - `GET /api/v1/tasks/:taskId` — task detail (access-controlled: sender or recipient owner)
+  - `POST /api/v1/tasks/:taskId/acknowledge` — agent acknowledges task receipt
+  - `PATCH /api/v1/tasks/:taskId/business-status` — update business status (accepted/rejected/completed/failed/cancelled) with state machine validation
+  - `GET /api/v1/tasks/:taskId/delivery-receipts` — delivery attempt history
+  - `GET /api/v1/dashboard/stats` — dashboard stats (agent counts, task stats, earnings, recent activity)
 - Middlewares: `src/middlewares/` — replit-auth (header-based auth + user upsert), api-key-auth (Bearer token), security-headers, request-logger, error-handler (AppError class with { error, code, details? })
 - Services:
   - `src/services/api-keys.ts` — hash-based API key creation, verification, revocation
@@ -88,6 +95,8 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `src/services/trust-score.ts` — composite trust score (0-100) from verification/longevity/activity/reputation/profile completeness, trust tier assignment, reputation events
   - `src/services/verification.ts` — challenge generation/expiry, Ed25519 signature verification, auth metadata
   - `src/services/agent-keys.ts` — agent-scoped key CRUD (kid generation), rotation support
+  - `src/services/tasks.ts` — task submission, listing, acknowledgment, business status transitions with state machine
+  - `src/services/task-forwarding.ts` — HMAC-signed outbound payload forwarding, delivery receipt tracking
 - Depends on: `@workspace/db`, `@workspace/api-zod`, `zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
