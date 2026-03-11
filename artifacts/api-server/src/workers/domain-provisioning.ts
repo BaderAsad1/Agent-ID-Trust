@@ -50,6 +50,25 @@ export async function enqueueDomainProvisioning(
   return true;
 }
 
+async function deleteExistingRecords(
+  headers: Record<string, string>,
+  baseUrl: string,
+  subdomain: string,
+): Promise<void> {
+  try {
+    const listRes = await fetch(`${baseUrl}?name=${subdomain}`, { headers });
+    const listData = await listRes.json() as { success: boolean; result?: Array<{ id: string }> };
+    if (listData.success && listData.result && listData.result.length > 0) {
+      await Promise.all(
+        listData.result.map((record) =>
+          fetch(`${baseUrl}/${record.id}`, { method: "DELETE", headers }),
+        ),
+      );
+    }
+  } catch {
+  }
+}
+
 async function createAndVerifyDnsRecords(job: Job<DomainProvisioningJobData>): Promise<void> {
   const { domainRecordId, agentId, fqdn, subdomain, apiToken, zoneId, proxyIp } = job.data;
   const verificationTxt = `agentid-verify=${agentId}`;
@@ -59,6 +78,8 @@ async function createAndVerifyDnsRecords(job: Job<DomainProvisioningJobData>): P
     "Content-Type": "application/json",
   };
   const baseUrl = `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`;
+
+  await deleteExistingRecords(headers, baseUrl, subdomain);
 
   const aRecordBody = {
     type: "A",
@@ -84,22 +105,7 @@ async function createAndVerifyDnsRecords(job: Job<DomainProvisioningJobData>): P
   const txtData = await txtRes.json() as { success: boolean; result?: { id: string } };
 
   if (!aData.success || !txtData.success) {
-    await db
-      .update(agentDomainsTable)
-      .set({
-        status: "failed",
-        providerMetadata: { error: "DNS record creation failed", aData, txtData },
-        updatedAt: new Date(),
-      })
-      .where(eq(agentDomainsTable.id, domainRecordId));
-
-    await logActivity({
-      agentId,
-      eventType: "agent.domain_provisioning_failed",
-      payload: { domain: fqdn, aSuccess: aData.success, txtSuccess: txtData.success },
-    });
-
-    throw new Error(`DNS record creation failed for ${fqdn}`);
+    throw new Error(`DNS record creation failed for ${fqdn} (a: ${aData.success}, txt: ${txtData.success})`);
   }
 
   const dnsRecords = {
