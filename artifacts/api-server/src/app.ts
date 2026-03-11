@@ -12,14 +12,12 @@ const app: Express = express();
 app.use(securityHeaders);
 app.use(requestLogger);
 
-app.use(
-  cors({
-    origin: process.env.NODE_ENV === "production"
-      ? [process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : ""]
-      : true,
-    credentials: true,
-  }),
-);
+const corsOrigins: cors.CorsOptions["origin"] =
+  process.env.NODE_ENV === "production" && process.env.REPLIT_DEV_DOMAIN
+    ? [`https://${process.env.REPLIT_DEV_DOMAIN}`]
+    : true;
+
+app.use(cors({ origin: corsOrigins, credentials: true }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

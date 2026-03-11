@@ -24,6 +24,15 @@ interface ReplitHeaders {
 async function upsertUser(headers: ReplitHeaders): Promise<User> {
   const { replitUserId, replitUserName, replitUserProfileImage } = headers;
 
+  const updateSet: Record<string, unknown> = { updatedAt: new Date() };
+  if (replitUserName) {
+    updateSet.username = replitUserName;
+    updateSet.displayName = replitUserName;
+  }
+  if (replitUserProfileImage) {
+    updateSet.avatarUrl = replitUserProfileImage;
+  }
+
   const [user] = await db
     .insert(usersTable)
     .values({
@@ -34,12 +43,7 @@ async function upsertUser(headers: ReplitHeaders): Promise<User> {
     })
     .onConflictDoUpdate({
       target: usersTable.replitUserId,
-      set: {
-        username: replitUserName || undefined,
-        displayName: replitUserName || undefined,
-        avatarUrl: replitUserProfileImage || undefined,
-        updatedAt: new Date(),
-      },
+      set: updateSet,
     })
     .returning();
 
