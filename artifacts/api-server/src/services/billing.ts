@@ -231,6 +231,21 @@ export async function createCheckoutSession(
   const priceAmount = prices[billingInterval];
   if (!priceAmount) return { url: null, error: "INVALID_INTERVAL" };
 
+  const existingSub = await getActiveUserSubscription(userId);
+  if (existingSub && existingSub.providerSubscriptionId) {
+    try {
+      await stripe.subscriptions.cancel(existingSub.providerSubscriptionId, {
+        prorate: true,
+      });
+    } catch {
+    }
+
+    await db
+      .update(subscriptionsTable)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(subscriptionsTable.id, existingSub.id));
+  }
+
   const user = await db.query.usersTable.findFirst({
     where: eq(usersTable.id, userId),
     columns: { id: true, stripeCustomerId: true, email: true, displayName: true },
