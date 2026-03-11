@@ -55,9 +55,21 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /healthz` (full path: `/api/healthz`); `src/routes/llms-txt.ts` exposes `GET /llms.txt` (full path: `/api/llms.txt`) — structured plaintext describing Agent ID for LLM consumption
-- Depends on: `@workspace/db`, `@workspace/api-zod`
+- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded, security headers, request logging, Replit Auth + API key auth middleware, error handler
+- Routes: `src/routes/index.ts` mounts sub-routers; health, llms-txt at root; v1 routes under `/api/v1`
+  - `GET /api/healthz` — health check
+  - `GET /api/llms.txt` — structured plaintext for LLM consumption
+  - `GET /api/v1/auth/me` — current session user
+  - `GET /api/v1/users/me` — full user profile
+  - `PATCH /api/v1/users/me` — update profile (displayName, email, avatarUrl, username)
+  - `POST /api/v1/users/me/api-keys` — create API key (returns raw key once)
+  - `GET /api/v1/users/me/api-keys` — list API keys (prefix only)
+  - `DELETE /api/v1/users/me/api-keys/:keyId` — revoke API key
+  - `GET /api/v1/users/me/identities` — list linked identities
+  - `POST /api/v1/users/me/identities/link` — link external identity (github/google/wallet)
+- Middlewares: `src/middlewares/` — replit-auth (header-based auth + user upsert), api-key-auth (Bearer token), security-headers, request-logger, error-handler (AppError class with { error, code, details? })
+- Services: `src/services/api-keys.ts` — hash-based API key creation, verification, revocation
+- Depends on: `@workspace/db`, `@workspace/api-zod`, `zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
 - Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
