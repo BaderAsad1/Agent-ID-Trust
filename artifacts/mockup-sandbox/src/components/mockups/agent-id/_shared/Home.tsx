@@ -23,7 +23,6 @@ const OBJECT_FIELDS = [
 function AgentIDObject({ expanded = false, className = '' }: { expanded?: boolean; className?: string }) {
   return (
     <div className={`id-object ${expanded ? '' : 'animate-object-float'} ${className}`}>
-      <div className="id-object-holo" />
       <div className="id-object-corner top-right" />
       <div className="id-object-corner bottom-left" />
       <div className="id-object-corner bottom-right" />
