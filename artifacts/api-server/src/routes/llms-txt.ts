@@ -85,8 +85,8 @@ Base URL: \`https://api.agentid.dev\`
 
 ### Utility
 
-- \`GET /healthz\` — Health check endpoint
-- \`GET /llms.txt\` — This document
+- \`GET /api/healthz\` — Health check endpoint
+- \`GET /api/llms.txt\` — This document (machine-readable platform description)
 
 ## Platform Features
 
