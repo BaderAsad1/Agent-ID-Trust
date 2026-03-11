@@ -9,7 +9,7 @@ import {
   isHandleAvailable,
 } from "../../services/agents";
 import {
-  createChallenge,
+  initiateVerification,
   verifyChallenge,
   getAuthMetadata,
 } from "../../services/verification";
@@ -89,7 +89,7 @@ router.post("/agents/register", requireAuth, async (req, res, next) => {
       publicKey,
     });
 
-    const challenge = await createChallenge(agent.id, "key_challenge");
+    const challenge = await initiateVerification(agent.id, "key_challenge");
 
     await logActivity({
       agentId: agent.id,

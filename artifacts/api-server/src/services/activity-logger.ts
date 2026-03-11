@@ -6,6 +6,11 @@ import { agentActivityLogTable } from "@workspace/db/schema";
 function getHmacSecret(): string {
   const secret = process.env.ACTIVITY_HMAC_SECRET;
   if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "ACTIVITY_HMAC_SECRET is required in production for signature integrity",
+      );
+    }
     console.warn(
       "ACTIVITY_HMAC_SECRET not set — generating ephemeral secret. Signatures will not survive restarts.",
     );
