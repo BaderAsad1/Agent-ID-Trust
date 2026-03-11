@@ -93,6 +93,11 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `POST /api/v1/billing/agents/:agentId/deactivate` — deactivate agent (identity preserved, subscription cancelled)
   - `GET /api/v1/billing/agents/:agentId/status` — agent billing/activation status with eligibility flags
   - `POST /api/v1/webhooks/stripe` — Stripe webhook handler (raw body, signature verification, idempotent processing)
+  - `GET /api/v1/agents/:agentId/domain` — current domain info and DNS records
+  - `GET /api/v1/agents/:agentId/domain/status` — provisioning status
+  - `POST /api/v1/agents/:agentId/domain/provision` — trigger domain provisioning
+  - `POST /api/v1/agents/:agentId/domain/reprovision` — trigger re-provisioning (resets DNS records)
+  - `GET /api/v1/domains/resolve/:domain` — resolve domain to agent (public endpoint)
 - Middlewares: `src/middlewares/` — replit-auth (header-based auth + user upsert), api-key-auth (Bearer token), security-headers, request-logger, error-handler (AppError class with { error, code, details? })
 - Services:
   - `src/services/api-keys.ts` — hash-based API key creation, verification, revocation
@@ -104,6 +109,7 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
   - `src/services/tasks.ts` — task submission, listing, acknowledgment, business status transitions with state machine
   - `src/services/task-forwarding.ts` — HMAC-signed outbound payload forwarding, delivery receipt tracking
   - `src/services/billing.ts` — Stripe checkout sessions, subscription management, agent activation/deactivation, plan tier enforcement (free:1/starter:1/pro:5/team:10), webhook event handlers (idempotent via webhook_events table)
+  - `src/services/domains.ts` — domain provisioning (handle→subdomain generation, Cloudflare DNS API for A+TXT records), domain resolution, status tracking (pending→provisioning→active→failed), graceful fallback when Cloudflare not configured
 - Depends on: `@workspace/db`, `@workspace/api-zod`, `zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
