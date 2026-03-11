@@ -136,6 +136,11 @@ export async function activateAgent(
 
   if (!agent) return { success: false, error: "AGENT_NOT_FOUND" };
 
+  const existingSub = await getAgentSubscription(agentId);
+  if (existingSub && existingSub.status === "active") {
+    return { success: true, subscription: existingSub };
+  }
+
   const userSub = await getActiveUserSubscription(userId);
   const userPlan = userSub?.plan ?? "free";
   const limits = getPlanLimits(userPlan);
@@ -146,11 +151,6 @@ export async function activateAgent(
       success: false,
       error: "AGENT_LIMIT_REACHED",
     };
-  }
-
-  const existingSub = await getAgentSubscription(agentId);
-  if (existingSub && existingSub.status === "active") {
-    return { success: true, subscription: existingSub };
   }
 
   const periodStart = userSub?.currentPeriodStart ?? new Date();
@@ -485,6 +485,33 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
         eq(agentSubscriptionsTable.status, "active"),
       ),
     );
+
+  const newLimits = getPlanLimits(plan);
+  const activeAgentSubs = await db
+    .select({ id: agentSubscriptionsTable.id, agentId: agentSubscriptionsTable.agentId })
+    .from(agentSubscriptionsTable)
+    .where(
+      and(
+        eq(agentSubscriptionsTable.userId, userId),
+        eq(agentSubscriptionsTable.status, "active"),
+      ),
+    )
+    .orderBy(desc(agentSubscriptionsTable.createdAt));
+
+  if (activeAgentSubs.length > newLimits.maxAgents) {
+    const excessSubs = activeAgentSubs.slice(newLimits.maxAgents);
+    for (const excess of excessSubs) {
+      await db
+        .update(agentSubscriptionsTable)
+        .set({ status: "cancelled", updatedAt: new Date() })
+        .where(eq(agentSubscriptionsTable.id, excess.id));
+
+      await db
+        .update(agentsTable)
+        .set({ status: "inactive", isPublic: false, updatedAt: new Date() })
+        .where(eq(agentsTable.id, excess.agentId));
+    }
+  }
 }
 
 export async function handleInvoicePaid(invoice: Stripe.Invoice) {
