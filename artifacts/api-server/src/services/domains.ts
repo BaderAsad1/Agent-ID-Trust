@@ -146,6 +146,9 @@ export async function provisionDomain(
         domain: fqdn,
         baseDomain: getBaseDomain(),
         status: cfConfig ? "provisioning" : "pending",
+        provisionedAt: null,
+        dnsRecords: null,
+        providerMetadata: null,
         updatedAt: new Date(),
       })
       .where(eq(agentDomainsTable.id, existing.id))
