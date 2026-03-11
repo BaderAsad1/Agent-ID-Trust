@@ -17,6 +17,7 @@ import domainResolveRouter from "./domain-resolve";
 import marketplaceRouter from "./marketplace";
 import paymentsRouter from "./payments";
 import jobsRouter from "./jobs";
+import mailRouter from "./mail";
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use("/domains", domainResolveRouter);
 router.use("/marketplace", marketplaceRouter);
 router.use("/payments", paymentsRouter);
 router.use("/jobs", jobsRouter);
+router.use("/mail", mailRouter);
 
 export default router;

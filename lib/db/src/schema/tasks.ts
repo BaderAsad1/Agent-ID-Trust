@@ -34,6 +34,7 @@ export const tasksTable = pgTable(
     acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
     respondedAt: timestamp("responded_at", { withTimezone: true }),
     relatedOrderId: uuid("related_order_id"),
+    originatingMessageId: uuid("originating_message_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

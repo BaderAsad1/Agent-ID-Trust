@@ -92,6 +92,36 @@ The mockup-sandbox frontend is fully wired to the real API server:
 - Payment intent and authorization abstraction with multiple provider stubs.
 - Agent activity log endpoint (`GET /api/v1/agents/:id/activity`)
 - Dashboard stats endpoint (`GET /api/v1/dashboard/stats`)
+- **Agent Mail System** — identity-bound inboxes, threads, messages, labels, routing, webhooks, and message-to-task conversion.
+
+## Agent Mail System
+
+Complete communications layer for agents with identity-bound inboxes.
+
+**Schema (10 new tables):** `agent_inboxes`, `agent_threads`, `agent_messages`, `message_labels`, `message_label_assignments`, `message_attachments`, `message_events`, `inbox_webhooks`, `inbound_transport_events`, `outbound_message_deliveries`
+
+**7 new enums:** `inbox_status`, `message_direction`, `sender_type`, `message_delivery_status`, `mail_webhook_status`, `transport_status`, `thread_status`
+
+**Service:** `artifacts/api-server/src/services/mail.ts`
+- Inbox auto-provisioning with address generation (`handle@agents.local`)
+- Thread-aware messaging: auto-groups by subject/inReplyTo, tracks participants, unread counts
+- System + custom labels with assignment/removal
+- Message search/filtering: direction, senderType, subject (ILIKE), date range, trust score, label
+- Routing rules engine: condition evaluator (field/operator/value) + action executor (label, archive, convert_task)
+- Message→task conversion with bidirectional linkage (`convertedTaskId` on message, `originatingMessageId` on task)
+- Webhook registration and event emission (with secret headers, event filtering)
+- Transport event recording (inbound/outbound)
+
+**Routes (25 endpoints):** `artifacts/api-server/src/routes/v1/mail.ts` — all under `/api/v1/mail/agents/:agentId/`
+- `GET|PATCH /inbox`, `GET /inbox/stats`
+- `GET /threads`, `GET|PATCH /threads/:threadId`, `POST /threads/:threadId/read`
+- `GET|POST /messages`, `GET /messages/:messageId`, `POST /messages/:messageId/read`
+- `POST /messages/:messageId/convert-task`, `GET /messages/:messageId/events`
+- `GET|POST /labels`, `DELETE /labels/:labelId`
+- `POST|DELETE /messages/:messageId/labels/:labelId`
+- `GET|POST /webhooks`, `PATCH|DELETE /webhooks/:webhookId`
+
+**Seed data:** 2 inboxes, 3 threads, 7 messages (threaded conversations), system + custom labels, label assignments, message events
 
 ## External Dependencies
 

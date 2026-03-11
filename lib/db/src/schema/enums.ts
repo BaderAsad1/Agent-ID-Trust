@@ -158,3 +158,48 @@ export const accountTypeEnum = pgEnum("account_type", [
   "agent",
   "platform",
 ]);
+
+export const inboxStatusEnum = pgEnum("inbox_status", [
+  "active",
+  "paused",
+  "disabled",
+]);
+
+export const messageDirectionEnum = pgEnum("message_direction", [
+  "inbound",
+  "outbound",
+]);
+
+export const senderTypeEnum = pgEnum("sender_type", [
+  "agent",
+  "user",
+  "system",
+  "external",
+]);
+
+export const messageDeliveryStatusEnum = pgEnum("message_delivery_status", [
+  "queued",
+  "sent",
+  "delivered",
+  "bounced",
+  "failed",
+]);
+
+export const mailWebhookStatusEnum = pgEnum("mail_webhook_status", [
+  "active",
+  "paused",
+  "disabled",
+]);
+
+export const transportStatusEnum = pgEnum("transport_status", [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+]);
+
+export const threadStatusEnum = pgEnum("thread_status", [
+  "open",
+  "archived",
+  "closed",
+]);

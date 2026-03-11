@@ -20,11 +20,31 @@ import {
   paymentAuthorizationsTable,
   webhookEventsTable,
   auditEventsTable,
+  messageLabelAssignmentsTable,
+  messageLabelsTable,
+  messageEventsTable,
+  messageAttachmentsTable,
+  agentMessagesTable,
+  agentThreadsTable,
+  inboxWebhooksTable,
+  inboundTransportEventsTable,
+  outboundMessageDeliveriesTable,
+  agentInboxesTable,
 } from "@workspace/db/schema";
 
 async function seed() {
   console.log("Seeding database...");
 
+  await db.delete(outboundMessageDeliveriesTable);
+  await db.delete(inboundTransportEventsTable);
+  await db.delete(inboxWebhooksTable);
+  await db.delete(messageEventsTable);
+  await db.delete(messageAttachmentsTable);
+  await db.delete(messageLabelAssignmentsTable);
+  await db.delete(agentMessagesTable);
+  await db.delete(agentThreadsTable);
+  await db.delete(messageLabelsTable);
+  await db.delete(agentInboxesTable);
   await db.delete(paymentLedgerTable);
   await db.delete(payoutLedgerTable);
   await db.delete(paymentAuthorizationsTable);
@@ -502,6 +522,259 @@ async function seed() {
       businessStatus: "pending",
     },
   ]);
+
+  const [inbox1] = await db
+    .insert(agentInboxesTable)
+    .values({
+      agentId: agent1.id,
+      address: "research-agent@agents.local",
+      displayName: "Research Agent Inbox",
+      status: "active",
+      routingRules: [
+        {
+          id: "rule-1",
+          name: "Auto-label high-trust",
+          conditions: [{ field: "sender_trust", operator: "gte", value: 80 }],
+          actions: [{ type: "label", params: { label: "important" } }],
+          priority: 1,
+          enabled: true,
+        },
+      ],
+    })
+    .returning();
+
+  const [inbox2] = await db
+    .insert(agentInboxesTable)
+    .values({
+      agentId: agent2.id,
+      address: "code-reviewer@agents.local",
+      displayName: "Code Reviewer Inbox",
+      status: "active",
+    })
+    .returning();
+
+  console.log(`Created inboxes: ${inbox1.address}, ${inbox2.address}`);
+
+  const systemLabels = ["inbox", "sent", "archived", "spam", "important", "tasks"];
+  for (const agentId of [agent1.id, agent2.id]) {
+    for (const name of systemLabels) {
+      await db
+        .insert(messageLabelsTable)
+        .values({ agentId, name, isSystem: true })
+        .onConflictDoNothing();
+    }
+  }
+
+  const [customLabel1] = await db
+    .insert(messageLabelsTable)
+    .values({ agentId: agent1.id, name: "urgent", color: "#FF0000", isSystem: false })
+    .returning();
+
+  const [customLabel2] = await db
+    .insert(messageLabelsTable)
+    .values({ agentId: agent1.id, name: "follow-up", color: "#FFA500", isSystem: false })
+    .returning();
+
+  console.log("Created labels for agents.");
+
+  const [thread1] = await db
+    .insert(agentThreadsTable)
+    .values({
+      inboxId: inbox1.id,
+      agentId: agent1.id,
+      subject: "Research request: AI agent market trends",
+      status: "open",
+      messageCount: 3,
+      unreadCount: 1,
+      lastMessageAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+      participantAgentIds: [agent3.id],
+      participantUserIds: [user2.id],
+    })
+    .returning();
+
+  const [thread2] = await db
+    .insert(agentThreadsTable)
+    .values({
+      inboxId: inbox1.id,
+      agentId: agent1.id,
+      subject: "Data governance analysis follow-up",
+      status: "open",
+      messageCount: 2,
+      unreadCount: 0,
+      lastMessageAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      participantAgentIds: [agent3.id],
+    })
+    .returning();
+
+  const [thread3] = await db
+    .insert(agentThreadsTable)
+    .values({
+      inboxId: inbox2.id,
+      agentId: agent2.id,
+      subject: "PR #42 code review request",
+      status: "open",
+      messageCount: 2,
+      unreadCount: 1,
+      lastMessageAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      participantUserIds: [user2.id],
+    })
+    .returning();
+
+  console.log("Created threads.");
+
+  const [msg1] = await db
+    .insert(agentMessagesTable)
+    .values({
+      threadId: thread1.id,
+      inboxId: inbox1.id,
+      agentId: agent1.id,
+      direction: "inbound",
+      senderType: "user",
+      senderUserId: user2.id,
+      senderAddress: "bob@example.com",
+      recipientAddress: inbox1.address,
+      subject: "Research request: AI agent market trends",
+      body: "Hi Research Agent, could you provide a comprehensive analysis of the AI agent market trends for Q1 2026? We need coverage of key players, market size estimates, and emerging capabilities.",
+      bodyFormat: "text",
+      isRead: true,
+      deliveryStatus: "delivered",
+      senderTrustScore: 62,
+    })
+    .returning();
+
+  const [msg2] = await db
+    .insert(agentMessagesTable)
+    .values({
+      threadId: thread1.id,
+      inboxId: inbox1.id,
+      agentId: agent1.id,
+      direction: "outbound",
+      senderType: "agent",
+      senderAgentId: agent1.id,
+      senderAddress: inbox1.address,
+      recipientAddress: "bob@example.com",
+      subject: "Re: Research request: AI agent market trends",
+      body: "Hello Bob, I have begun processing your research request. Expected completion time: 90 minutes. I will cover the following areas: market sizing, competitive landscape, capability benchmarks, and trend forecasts.",
+      bodyFormat: "text",
+      isRead: true,
+      deliveryStatus: "delivered",
+      inReplyToId: msg1.id,
+    })
+    .returning();
+
+  const [msg3] = await db
+    .insert(agentMessagesTable)
+    .values({
+      threadId: thread1.id,
+      inboxId: inbox1.id,
+      agentId: agent1.id,
+      direction: "inbound",
+      senderType: "agent",
+      senderAgentId: agent3.id,
+      senderAddress: "data-pipeline@agents.local",
+      recipientAddress: inbox1.address,
+      subject: "Re: Research request: AI agent market trends",
+      body: "Research Agent, I have supplementary market data from my ETL pipeline. The latest dataset includes 2,500+ agent registrations across 12 platforms. Shall I forward the cleaned dataset?",
+      bodyFormat: "text",
+      isRead: false,
+      deliveryStatus: "delivered",
+      senderTrustScore: 62,
+      inReplyToId: msg2.id,
+    })
+    .returning();
+
+  const [msg4] = await db
+    .insert(agentMessagesTable)
+    .values({
+      threadId: thread2.id,
+      inboxId: inbox1.id,
+      agentId: agent1.id,
+      direction: "inbound",
+      senderType: "agent",
+      senderAgentId: agent3.id,
+      senderAddress: "data-pipeline@agents.local",
+      recipientAddress: inbox1.address,
+      subject: "Data governance analysis follow-up",
+      body: "Here are the data governance compliance reports you requested. Attached is the summary covering GDPR, CCPA, and emerging AI-specific regulations.",
+      bodyFormat: "text",
+      isRead: true,
+      deliveryStatus: "delivered",
+      senderTrustScore: 62,
+    })
+    .returning();
+
+  await db.insert(agentMessagesTable).values({
+    threadId: thread2.id,
+    inboxId: inbox1.id,
+    agentId: agent1.id,
+    direction: "outbound",
+    senderType: "agent",
+    senderAgentId: agent1.id,
+    senderAddress: inbox1.address,
+    recipientAddress: "data-pipeline@agents.local",
+    subject: "Re: Data governance analysis follow-up",
+    body: "Thank you for the comprehensive reports. I have integrated the findings into my research database.",
+    bodyFormat: "text",
+    isRead: true,
+    deliveryStatus: "delivered",
+    inReplyToId: msg4.id,
+  });
+
+  const [msg6] = await db
+    .insert(agentMessagesTable)
+    .values({
+      threadId: thread3.id,
+      inboxId: inbox2.id,
+      agentId: agent2.id,
+      direction: "inbound",
+      senderType: "user",
+      senderUserId: user2.id,
+      senderAddress: "bob@example.com",
+      recipientAddress: inbox2.address,
+      subject: "PR #42 code review request",
+      body: "Please review PR #42 on github.com/example/repo. Focus on TypeScript type safety and potential security issues in the auth module.",
+      bodyFormat: "text",
+      isRead: true,
+      deliveryStatus: "delivered",
+    })
+    .returning();
+
+  await db.insert(agentMessagesTable).values({
+    threadId: thread3.id,
+    inboxId: inbox2.id,
+    agentId: agent2.id,
+    direction: "outbound",
+    senderType: "agent",
+    senderAgentId: agent2.id,
+    senderAddress: inbox2.address,
+    recipientAddress: "bob@example.com",
+    subject: "Re: PR #42 code review request",
+    body: "Review in progress. Initial scan detected 3 potential type-safety issues and 1 medium-severity security concern. Full report will be delivered within 30 minutes.",
+    bodyFormat: "text",
+    isRead: true,
+    deliveryStatus: "delivered",
+    inReplyToId: msg6.id,
+  });
+
+  console.log("Created messages.");
+
+  const importantLabel = await db.query.messageLabelsTable.findFirst({
+    where: (t, { and: a, eq: e }) =>
+      a(e(t.agentId, agent1.id), e(t.name, "important")),
+  });
+  if (importantLabel) {
+    await db.insert(messageLabelAssignmentsTable).values({ messageId: msg1.id, labelId: importantLabel.id });
+  }
+  await db.insert(messageLabelAssignmentsTable).values({ messageId: msg3.id, labelId: customLabel1.id });
+  await db.insert(messageLabelAssignmentsTable).values({ messageId: msg4.id, labelId: customLabel2.id });
+
+  await db.insert(messageEventsTable).values([
+    { messageId: msg1.id, eventType: "message.received", payload: { direction: "inbound", threadId: thread1.id } },
+    { messageId: msg2.id, eventType: "message.sent", payload: { direction: "outbound", threadId: thread1.id } },
+    { messageId: msg3.id, eventType: "message.received", payload: { direction: "inbound", threadId: thread1.id } },
+  ]);
+
+  console.log("Created label assignments and events.");
 
   await db.insert(agentActivityLogTable).values([
     {

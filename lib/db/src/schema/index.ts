@@ -23,3 +23,4 @@ export * from "./payment-ledger";
 export * from "./payout-ledger";
 export * from "./webhook-events";
 export * from "./audit-events";
+export * from "./agent-mail";

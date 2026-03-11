@@ -51,7 +51,13 @@ export type ActivityEventType =
   | "agent.proposal_rejected"
   | "agent.job_created"
   | "agent.job_status_changed"
-  | "agent.job_expired";
+  | "agent.job_expired"
+  | "agent.inbox_created"
+  | "agent.message_received"
+  | "agent.message_sent"
+  | "agent.message_converted_to_task"
+  | "agent.webhook_created"
+  | "agent.webhook_deleted";
 
 interface LogEventInput {
   agentId: string;
