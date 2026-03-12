@@ -270,7 +270,7 @@ export const api = {
     markRead: (agentId: string, messageId: string, isRead: boolean) =>
       request<{ message: MailMessage }>(`/mail/agents/${agentId}/messages/${messageId}/read`, { method: "POST", body: JSON.stringify({ isRead }) }),
     archiveMessage: (agentId: string, messageId: string) =>
-      request<{ success: boolean }>(`/mail/agents/${agentId}/messages/${messageId}/archive`, { method: "POST" }),
+      request<{ message: string }>(`/mail/agents/${agentId}/messages/${messageId}/archive`, { method: "POST" }),
     convertToTask: (agentId: string, messageId: string) =>
       request<{ taskId: string }>(`/mail/agents/${agentId}/messages/${messageId}/convert-task`, { method: "POST" }),
     messageEvents: (agentId: string, messageId: string) =>
@@ -278,9 +278,9 @@ export const api = {
     rejectMessage: (agentId: string, messageId: string, reason?: string) =>
       request<{ success: boolean }>(`/mail/agents/${agentId}/messages/${messageId}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
     approveMessage: (agentId: string, messageId: string) =>
-      request<{ success: boolean }>(`/mail/agents/${agentId}/messages/${messageId}/approve`, { method: "POST" }),
+      request<{ message: MailMessage }>(`/mail/agents/${agentId}/messages/${messageId}/approve`, { method: "POST" }),
     routeMessage: (agentId: string, messageId: string) =>
-      request<{ success: boolean }>(`/mail/agents/${agentId}/messages/${messageId}/route`, { method: "POST" }),
+      request<{ message: string }>(`/mail/agents/${agentId}/messages/${messageId}/route`, { method: "POST" }),
 
     labels: (agentId: string) =>
       request<{ labels: MailLabel[] }>(`/mail/agents/${agentId}/labels`),
