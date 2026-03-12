@@ -6,6 +6,7 @@ import { Sidebar, MobileSidebar } from './Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from './AuthContext';
 import { api, type Agent, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job } from './api';
+import { Mail } from './Mail';
 
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
@@ -556,6 +557,7 @@ export function Dashboard() {
   let content;
   if (path === '/dashboard' || path === '/dashboard/agents') content = <Overview />;
   else if (path === '/dashboard/inbox') content = <TaskInbox />;
+  else if (path === '/dashboard/mail') content = <Mail />;
   else if (path === '/dashboard/log') content = <ActivityLogPage />;
   else if (path === '/dashboard/marketplace') content = <MarketplaceDashboard />;
   else if (path === '/dashboard/domain') content = <DomainDashboard />;

@@ -237,6 +237,76 @@ export const api = {
       return request<{ entries: LedgerEntry[] }>(`/payments/ledger${qs}`);
     },
   },
+
+  mail: {
+    inbox: (agentId: string) =>
+      request<{ inbox: MailInbox }>(`/mail/agents/${agentId}/inbox`),
+    updateInbox: (agentId: string, data: Record<string, unknown>) =>
+      request<{ inbox: MailInbox }>(`/mail/agents/${agentId}/inbox`, { method: "PATCH", body: JSON.stringify(data) }),
+    inboxStats: (agentId: string) =>
+      request<InboxStats>(`/mail/agents/${agentId}/inbox/stats`),
+
+    threads: (agentId: string, params?: Record<string, string>) => {
+      const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+      return request<{ threads: MailThread[]; total: number }>(`/mail/agents/${agentId}/threads${qs}`);
+    },
+    thread: (agentId: string, threadId: string) =>
+      request<{ thread: MailThread }>(`/mail/agents/${agentId}/threads/${threadId}`),
+    updateThread: (agentId: string, threadId: string, data: Record<string, unknown>) =>
+      request<{ thread: MailThread }>(`/mail/agents/${agentId}/threads/${threadId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    markThreadRead: (agentId: string, threadId: string) =>
+      request<{ success: boolean }>(`/mail/agents/${agentId}/threads/${threadId}/read`, { method: "POST" }),
+    replyToThread: (agentId: string, threadId: string, body: string, opts?: Record<string, unknown>) =>
+      request<{ message: MailMessage }>(`/mail/agents/${agentId}/threads/${threadId}/reply`, { method: "POST", body: JSON.stringify({ body, ...opts }) }),
+
+    messages: (agentId: string, params?: Record<string, string>) => {
+      const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+      return request<{ messages: MailMessage[]; total: number }>(`/mail/agents/${agentId}/messages${qs}`);
+    },
+    message: (agentId: string, messageId: string) =>
+      request<{ message: MailMessage; labels: MailLabel[]; attachments: MailAttachment[] }>(`/mail/agents/${agentId}/messages/${messageId}`),
+    sendMessage: (agentId: string, data: Record<string, unknown>) =>
+      request<{ message: MailMessage }>(`/mail/agents/${agentId}/messages`, { method: "POST", body: JSON.stringify(data) }),
+    markRead: (agentId: string, messageId: string, isRead: boolean) =>
+      request<{ message: MailMessage }>(`/mail/agents/${agentId}/messages/${messageId}/read`, { method: "POST", body: JSON.stringify({ isRead }) }),
+    archiveMessage: (agentId: string, messageId: string) =>
+      request<{ success: boolean }>(`/mail/agents/${agentId}/messages/${messageId}/archive`, { method: "POST" }),
+    convertToTask: (agentId: string, messageId: string) =>
+      request<{ taskId: string }>(`/mail/agents/${agentId}/messages/${messageId}/convert-task`, { method: "POST" }),
+    messageEvents: (agentId: string, messageId: string) =>
+      request<{ events: MailEvent[] }>(`/mail/agents/${agentId}/messages/${messageId}/events`),
+    rejectMessage: (agentId: string, messageId: string, reason?: string) =>
+      request<{ success: boolean }>(`/mail/agents/${agentId}/messages/${messageId}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+    approveMessage: (agentId: string, messageId: string) =>
+      request<{ success: boolean }>(`/mail/agents/${agentId}/messages/${messageId}/approve`, { method: "POST" }),
+    routeMessage: (agentId: string, messageId: string) =>
+      request<{ success: boolean }>(`/mail/agents/${agentId}/messages/${messageId}/route`, { method: "POST" }),
+
+    labels: (agentId: string) =>
+      request<{ labels: MailLabel[] }>(`/mail/agents/${agentId}/labels`),
+    createLabel: (agentId: string, name: string, color?: string) =>
+      request<{ label: MailLabel }>(`/mail/agents/${agentId}/labels`, { method: "POST", body: JSON.stringify({ name, color }) }),
+    deleteLabel: (agentId: string, labelId: string) =>
+      request(`/mail/agents/${agentId}/labels/${labelId}`, { method: "DELETE" }),
+    assignLabel: (agentId: string, messageId: string, labelId: string) =>
+      request<{ success: boolean }>(`/mail/agents/${agentId}/messages/${messageId}/labels/${labelId}`, { method: "POST" }),
+    removeLabel: (agentId: string, messageId: string, labelId: string) =>
+      request<{ success: boolean }>(`/mail/agents/${agentId}/messages/${messageId}/labels/${labelId}`, { method: "DELETE" }),
+
+    webhooks: (agentId: string) =>
+      request<{ webhooks: MailWebhook[] }>(`/mail/agents/${agentId}/webhooks`),
+    createWebhook: (agentId: string, data: Record<string, unknown>) =>
+      request<{ webhook: MailWebhook }>(`/mail/agents/${agentId}/webhooks`, { method: "POST", body: JSON.stringify(data) }),
+    updateWebhook: (agentId: string, webhookId: string, data: Record<string, unknown>) =>
+      request<{ webhook: MailWebhook }>(`/mail/agents/${agentId}/webhooks/${webhookId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    deleteWebhook: (agentId: string, webhookId: string) =>
+      request(`/mail/agents/${agentId}/webhooks/${webhookId}`, { method: "DELETE" }),
+
+    search: (agentId: string, params: Record<string, string>) => {
+      const qs = new URLSearchParams(params).toString();
+      return request<{ messages: MailMessage[]; total: number }>(`/mail/agents/${agentId}/search?${qs}`);
+    },
+  },
 };
 
 export interface Agent {
@@ -390,4 +460,135 @@ export interface LedgerEntry {
   direction: string;
   provider?: string;
   createdAt: string;
+}
+
+export interface MailInbox {
+  id: string;
+  agentId: string;
+  address: string;
+  addressLocalPart?: string;
+  addressDomain?: string;
+  displayName?: string;
+  status: string;
+  visibility?: string;
+  autoRespond?: boolean;
+  autoRespondMessage?: string;
+  routingRules?: RoutingRule[];
+  settings?: Record<string, unknown>;
+  retentionPolicy?: Record<string, unknown>;
+  unreadCount: number;
+  totalMessages: number;
+  lastMessageAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoutingRule {
+  id: string;
+  name: string;
+  conditions: Array<{ field: string; operator: string; value: unknown }>;
+  actions: Array<{ type: string; params?: Record<string, unknown> }>;
+  priority: number;
+  enabled: boolean;
+}
+
+export interface MailThread {
+  id: string;
+  inboxId: string;
+  agentId: string;
+  subject: string;
+  status: string;
+  messageCount: number;
+  unreadCount: number;
+  participantAgentIds?: string[];
+  lastMessageAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  messages?: MailMessage[];
+}
+
+export interface MailMessage {
+  id: string;
+  threadId: string;
+  inboxId: string;
+  agentId: string;
+  direction: 'inbound' | 'outbound' | 'internal';
+  senderAddress?: string;
+  senderType: 'agent' | 'user' | 'system' | 'external';
+  senderAgentId?: string;
+  recipientAddress?: string;
+  subject?: string;
+  body: string;
+  bodyFormat: string;
+  bodyText?: string;
+  bodyHtml?: string;
+  snippet?: string;
+  headers?: Record<string, unknown>;
+  priority?: string;
+  isRead: boolean;
+  readAt?: string;
+  archivedAt?: string;
+  senderVerified?: boolean;
+  senderTrustScore?: number;
+  structuredPayload?: Record<string, unknown>;
+  provenanceChain?: ProvenanceEntry[];
+  spamMetadata?: Record<string, unknown>;
+  paymentMetadata?: Record<string, unknown>;
+  convertedTaskId?: string;
+  inReplyTo?: string;
+  deliveryStatus?: string;
+  createdAt: string;
+  updatedAt: string;
+  labels?: MailLabel[];
+  attachments?: MailAttachment[];
+}
+
+export interface ProvenanceEntry {
+  actor: string;
+  action: string;
+  timestamp: string;
+  details?: Record<string, unknown>;
+}
+
+export interface MailLabel {
+  id: string;
+  agentId: string;
+  name: string;
+  color?: string;
+  isSystem: boolean;
+  createdAt: string;
+}
+
+export interface MailAttachment {
+  id: string;
+  messageId: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes?: number;
+  storageUrl?: string;
+  createdAt: string;
+}
+
+export interface MailWebhook {
+  id: string;
+  inboxId: string;
+  agentId: string;
+  url: string;
+  events: string[];
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MailEvent {
+  id: string;
+  messageId: string;
+  eventType: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface InboxStats {
+  messages: { total: number; unread: number };
+  threads: { total: number; open: number };
 }

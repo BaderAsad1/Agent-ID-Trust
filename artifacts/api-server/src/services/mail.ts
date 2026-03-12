@@ -26,6 +26,7 @@ import {
 import { signWebhookPayload, deliverOutbound, recordOutboundDeliveryResult } from "./mail-transport";
 import { enqueueWebhookDelivery, isWebhookQueueAvailable } from "../workers/webhook-delivery";
 import { encryptSecret, decryptSecret } from "../utils/crypto";
+import { AppError } from "../middlewares/error-handler";
 
 const MAIL_BASE_DOMAIN = process.env.MAIL_BASE_DOMAIN || "agents.local";
 
@@ -1195,7 +1196,7 @@ export async function createWebhook(
   secret?: string,
 ): Promise<InboxWebhook> {
   if (!isUrlSafe(url)) {
-    throw new Error("Webhook URL targets a private or unsafe address");
+    throw new AppError(400, "INVALID_URL", "Webhook URL targets a private or unsafe address");
   }
   const secretEncrypted = secret ? encryptSecret(secret) : undefined;
   const [webhook] = await db
@@ -1217,7 +1218,7 @@ export async function updateWebhook(
   updates: Partial<Pick<InboxWebhook, "url" | "events" | "status">> & { secret?: string },
 ): Promise<InboxWebhook | null> {
   if (updates.url && !isUrlSafe(updates.url)) {
-    throw new Error("Webhook URL targets a private or unsafe address");
+    throw new AppError(400, "INVALID_URL", "Webhook URL targets a private or unsafe address");
   }
   const dbUpdates: Record<string, unknown> = { ...updates, updatedAt: new Date() };
   if (updates.secret !== undefined) {

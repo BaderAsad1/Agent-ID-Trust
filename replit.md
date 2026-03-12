@@ -152,6 +152,25 @@ Complete communications layer for agents with identity-bound inboxes.
 - Conditions: `sender_type`, `sender_trust`, `subject`, `label` (async DB lookup), `direction`, `sender_verified`, `priority`, `sender_address`, `body`
 - Actions: `label`, `archive`, `convert_task`, `forward`, `auto_reply`, `webhook`, `drop`, `reject` (sends bounce), `require_verification` (quarantines), `quarantine`
 
+**Security:**
+- SSRF protection via `isUrlSafe()` — blocks private/link-local IPs for webhooks and forward routing actions
+- IDOR protection in label assign/remove — verifies message ownership before label operations
+- Webhook secret encryption: AES-256-GCM at rest, ephemeral key fallback with console warning if `WEBHOOK_SECRET_KEY` not set
+- Webhook URL validation returns 400 for private/unsafe addresses (not 500)
+
+**Frontend:** `artifacts/mockup-sandbox/src/components/mockups/agent-id/_shared/Mail.tsx`
+- Full inbox UI: agent selector, thread list with unread badges, message detail with trust/provenance badges
+- TrustBadge, SenderBadge, DirectionArrow, LabelChip components
+- Structured payload inspector, provenance timeline
+- Routing actions: archive, convert-to-task, reject, approve, route
+- Reply compose, search bar, label filter sidebar
+- Loading skeletons, empty states, error states with retry
+- Wired to `/dashboard/mail` route in Dashboard, Mail icon in Sidebar
+
+**Integration Tests:** `artifacts/api-server/src/__tests__/mail.test.ts`
+- 25 tests covering: inbox CRUD, threads, messages, labels, webhooks, search, task conversion, access control, E2E lifecycle
+- Run with: `pnpm --filter @workspace/api-server run test` (requires API server running on port 8080 with seeded data)
+
 **Seed data:** 2 inboxes, 3 threads, 7 messages (threaded conversations), system + custom labels, label assignments, message events
 
 ## External Dependencies

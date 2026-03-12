@@ -11,6 +11,7 @@ import { Marketplace } from './_shared/Marketplace';
 import { MarketplaceListing } from './_shared/MarketplaceListing';
 import { JobBoard, JobDetail } from './_shared/Jobs';
 import { ForAgents } from './_shared/ForAgents';
+import { Mail } from './_shared/Mail';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {

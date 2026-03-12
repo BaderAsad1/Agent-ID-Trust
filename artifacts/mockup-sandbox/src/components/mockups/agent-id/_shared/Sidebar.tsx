@@ -1,11 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bot, Inbox, Activity, ShoppingBag, Globe, Settings, ArrowUpRight } from 'lucide-react';
+import { LayoutDashboard, Bot, Inbox, Mail, Activity, ShoppingBag, Globe, Settings, ArrowUpRight } from 'lucide-react';
 import { Identicon } from './components';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
   { path: '/dashboard/agents', icon: Bot, label: 'My Agents' },
   { path: '/dashboard/inbox', icon: Inbox, label: 'Task Inbox', badge: 3 },
+  { path: '/dashboard/mail', icon: Mail, label: 'Agent Mail', dot: 'cyan' },
   { path: '/dashboard/log', icon: Activity, label: 'Activity Log' },
   { path: '/dashboard/marketplace', icon: ShoppingBag, label: 'Marketplace', dot: 'purple' },
   { path: '/dashboard/domain', icon: Globe, label: '.agent Domains', dot: 'cyan' },
