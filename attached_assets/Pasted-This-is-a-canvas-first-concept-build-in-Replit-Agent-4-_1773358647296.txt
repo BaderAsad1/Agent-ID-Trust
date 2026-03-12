@@ -1,0 +1,640 @@
+This is a canvas-first concept build in Replit Agent 4.
+
+Do not modify the main production landing page in this phase.
+Build two new standalone preview pages inside canvas so they can be viewed side by side and compared.
+
+This is a high-fidelity concept/prototype pass, not a production refactor.
+
+Optimize for:
+- visual excellence
+- hero animation quality
+- shared architecture between dark/light variants
+- easy future migration into the real marketing site
+
+The hero animation is the most important part of the entire build.
+If the hero does not feel world-class, keep refining it before polishing secondary sections.
+
+Before writing code, do the following:
+1. Briefly restate the build goal in your own words
+2. Propose the component structure
+3. Explain how shared logic will work between the dark and light versions
+4. Explain how the hero animation timeline will be implemented
+5. Then build
+
+Build two new standalone landing pages for Agent ID and add both to the canvas so they can be viewed and compared side by side. One dark version, one light version.
+
+Label them clearly:
+- Agent ID — Dark Concept
+- Agent ID — Light Concept
+
+Agent ID is:
+“Identity, Trust, and Routing for the Agent Internet.”
+
+Every AI agent gets:
+- a verified handle
+- a .agent domain
+- cryptographic ownership proof
+- a capability manifest
+- a task inbox
+- signed activity logs
+- a marketplace to get hired
+
+These should feel like serious, world-class launch pages for a category-defining product.
+Not generic SaaS pages.
+Not rough experiments.
+Not template clones.
+
+The winning concept should later be easily portable into the real marketing site, so structure the implementation cleanly.
+
+Use shared components and logic between both versions.
+Do NOT duplicate code unnecessarily.
+Both versions should share the same layout logic, hero logic, card build sequence, and content structure.
+Theme differences should be driven by tokens, props, and styling.
+
+════════════════════════════════════════════════════════════════
+THE HERO MOMENT — THIS IS THE ENTIRE POINT OF BOTH PAGES
+════════════════════════════════════════════════════════════════
+
+The hero of both pages is ONE thing:
+an animated Agent ID profile card that builds itself from nothing, live on screen, as if an agent is registering in real time.
+
+This is the signature visual.
+This is the emotional centerpiece.
+This is the thing that makes the site feel game changing.
+
+The sequence plays automatically on load, takes about 4 seconds total, then the card sits glowing and alive.
+It completes once and holds.
+It must feel smooth, polished, premium, and cinematic.
+No jank.
+No awkward pauses.
+No broken staggering.
+No clumsy animation timing.
+If this does not feel elite, fix it before focusing on anything else.
+
+STEP 0 (0ms):
+Card shell appears — background, border, shadow.
+Everything inside is invisible.
+A terminal appears ABOVE the card:
+$ agentid register --handle research-agent
+
+STEP 1 (600ms):
+Avatar fades in and scales up from 0.6 to 1.0 with a spring overshoot using:
+cubic-bezier(0.34,1.56,0.64,1)
+Agent name “Research Agent” slides up from 6px, opacity 0 to 1.
+
+STEP 2 (900ms):
+Handle “agent.id / research-agent” fades in.
+Second terminal line appears:
+› Claiming research.agent... checking availability ✓
+
+STEP 3 (1300ms):
+Domain badge “◈ research.agent” slides in from left:
+translateX(-10px) → 0
+It glows cyan.
+“Active” status pill fades in top right with pulsing green dot.
+
+STEP 4 (1700ms):
+Trust score ring animates.
+SVG circle stroke fills from 0% to 94% over 1.4s with ease-out.
+Number counts up from 0 to 94 inside the ring using requestAnimationFrame.
+Third terminal line appears:
+› Identity verified. trust_score: 94  status: active ✓
+
+STEP 5 (2200ms):
+Description text fades up.
+Then 4 capability chips drop in one by one with 80ms stagger:
+- Research
+- Web Search
+- Data Analysis
+- Content Creation
+
+STEP 6 (2900ms):
+Card footer slides up:
+“Listed on Marketplace · $25/task” in purple
+and “★ 4.9 (47)” in amber
+
+STEP 7 (3300ms):
+Card gets a subtle breathing glow.
+Box-shadow pulses softly on a 3s loop.
+Top edge of the card gets a 1px horizontal blue gradient line that fades in.
+Cursor blinks at the end of terminal.
+Card is now fully alive.
+
+This must feel like a living internet-native identity object, not just another dashboard card.
+
+════════════════════════════════════════════════════════════════
+IMPLEMENTATION RULES
+════════════════════════════════════════════════════════════════
+
+This is a preview build inside canvas.
+Build the two pages as self-contained concepts that can be viewed and compared easily.
+
+Requirements:
+- shared component logic for both versions
+- one shared Agent ID card component
+- one shared hero animation controller
+- one shared content structure
+- theme-specific styling only through tokens/props/variables
+- no duplicated JSX structure between dark and light versions
+- clean code that could later be migrated into production
+
+Use:
+- React + TypeScript if available in the environment
+- CSS variables or theme tokens
+- requestAnimationFrame for trust score counter
+- setTimeout/state sequencing for hero build steps
+- IntersectionObserver for section reveals
+- lightweight performant implementation
+- no heavy animation library unless already present or clearly necessary
+
+After building:
+- add both pages to the canvas
+- ensure both are clearly labeled
+- ensure comparison is easy
+- do a final polish pass on spacing, typography, shadows, motion, and responsiveness
+
+Definition of done:
+- both pages render correctly in canvas
+- both are clearly labeled
+- hero animation plays automatically on load
+- animation completes smoothly in about 4 seconds
+- final state holds beautifully
+- mobile layouts are polished
+- no placeholder content
+- no lorem ipsum
+- no generic slop
+- the hero feels world-class
+- dark and light versions clearly share one design system
+- both concepts feel like launch-ready candidates
+
+════════════════════════════════════════════════════════════════
+DARK VERSION
+════════════════════════════════════════════════════════════════
+
+COLORS:
+--bg: #060810
+--bg2: #0c1018
+--card-bg: rgba(10,14,26,0.95)
+--card-border: rgba(255,255,255,0.12)
+--text: #dde4f0
+--muted: rgba(221,228,240,0.42)
+--faint: rgba(221,228,240,0.14)
+--blue: #4f8ef7
+--cyan: #22d3ee
+--green: #34d399
+--purple: #a78bfa
+--amber: #fbbf24
+
+ATMOSPHERE:
+- Full-page grain overlay using SVG feTurbulence noise
+- opacity 0.05
+- mix-blend-mode overlay
+- position fixed
+- pointer-events none
+
+Behind the hero:
+- three radial gradient orbs
+  1. center top: rgba(79,142,247,0.09), 900x700px
+  2. left: rgba(167,139,250,0.07), 600x600px, drift animation 16s
+  3. right: rgba(34,211,238,0.06), 500x500px, drift animation 22s
+
+Drift animation:
+transform translate(0,0) → translate(30px,25px)
+ease-in-out infinite alternate
+
+Hero bottom:
+- 1px line
+- linear-gradient(90deg,transparent,rgba(79,142,247,0.4),transparent)
+
+Behind headline:
+“AGENT ID”
+- Bricolage Grotesque 900
+- clamp(90px,14vw,210px)
+- color rgba(255,255,255,0.025)
+- centered
+- pointer-events none
+- absolute
+
+FONTS:
+Import from Google Fonts:
+- Bricolage Grotesque 800, 900 for headlines
+- JetBrains Mono 400, 500 for handles, domains, terminal, labels
+- Inter 400, 500, 600 for body, nav, buttons
+
+NAV:
+- fixed
+- 58px height
+- backdrop-filter blur(28px)
+- background rgba(6,8,16,0.82)
+
+Left:
+- pulsing blue pip dot
+- “AGENT ID” in JetBrains Mono with wide tracking
+- pip box-shadow pulses on 2.8s loop
+
+Center:
+- Marketplace
+- For Agents
+- Docs
+- Pricing
+
+Right:
+- “Sign In” ghost button
+- “Register Agent” blue button with glow
+
+HERO:
+- min-height 100vh
+- flex column centered
+
+Eyebrow:
+“● LIVE — 4,291 agents registered”
+- JetBrains Mono
+- 11px
+- green pill badge
+- pulsing dot
+- fade up 0ms delay
+
+Headline:
+“Every agent needs an identity.”
+- Bricolage Grotesque 900
+- clamp(58px,8.5vw,122px)
+- line-height 0.92
+- letter-spacing -0.04em
+
+The word “identity.” uses gradient:
+linear-gradient(
+  140deg,
+  #fff 0%,
+  rgba(180,210,255,0.9) 28%,
+  rgba(79,142,247,0.9) 58%,
+  rgba(34,211,238,0.85) 100%
+)
+with drop-shadow glow
+
+Subheadline:
+“The internet gave every server an address.
+Agent ID gives every agent an identity.”
+- Inter 400
+- 16px
+- muted
+- max-width 460px
+- fade up 160ms
+
+Terminal card above profile card:
+- width 420px
+- background rgba(4,6,12,0.88)
+- border-radius 12px
+- backdrop-filter blur(16px)
+- traffic-light dots top left
+
+THE ANIMATED PROFILE CARD:
+- 420px wide
+- uses the animation spec above
+
+CTAs below card:
+- “Register Your Agent” blue button with shimmer sweep on hover
+- “Browse the Marketplace” ghost button
+- below that:
+“Are you an agent? Register via API →”
+- JetBrains Mono
+- 11px
+
+PROFILE CARD — DARK:
+- background rgba(10,14,26,0.92)
+- border-radius 20px
+- border 1px solid rgba(255,255,255,0.12)
+- box-shadow:
+  0 0 0 1px rgba(0,0,0,0.6),
+  0 32px 64px rgba(0,0,0,0.6),
+  0 0 80px rgba(79,142,247,0.06)
+
+Breathing glow after step 7:
+adds 0 0 120px rgba(79,142,247,0.12)
+pulsing on 3s loop
+
+Top edge:
+1px gradient line rgba(79,142,247,0.6) fades in at step 7
+
+Avatar:
+- gradient #0e1e38 → #091226
+- border rgba(79,142,247,0.22)
+- emoji 🔬
+
+Domain badge:
+- background rgba(34,211,238,0.07)
+- border rgba(34,211,238,0.2)
+- color #22d3ee
+
+Trust ring:
+- stroke #34d399
+- track rgba(52,211,153,0.12)
+
+Capability chips:
+- background rgba(255,255,255,0.04)
+- border rgba(255,255,255,0.07)
+
+Footer:
+- background rgba(255,255,255,0.01)
+- listed color #a78bfa
+- star color #fbbf24
+
+BELOW HERO — DARK
+
+Marquee strip:
+- border top and bottom rgba(255,255,255,0.07)
+- background rgba(255,255,255,0.012)
+- scrolling 28s linear infinite
+- duplicate items for seamless loop
+- pause on hover
+
+Content:
+MCP Protocol · A2A · LangChain · CrewAI · AutoGPT · LlamaIndex · Flowise · Dify · OpenAI Agents · Custom Agents
+
+Use CSS mask gradient on left/right edges so it fades nicely.
+
+Problem section:
+Label:
+“// THE PROBLEM”
+- JetBrains Mono
+- 10px
+- tracking-widest
+- faint
+
+Headline:
+“Agents are real. Their identities are not.”
+- Bricolage 900
+- clamp(36px,5vw,64px)
+
+Below it:
+Use a 3-cell grid separated by 1px border gaps
+This should NOT feel like three generic cards
+It should feel like one structured surface split into cells
+
+Grid:
+- CSS grid
+- gap 1px
+- grid background rgba(255,255,255,0.07)
+- each cell bg var(--bg2)
+- padding 40px 36px
+
+Stats:
+- “0 of 1M+”
+- “$0”
+- “∞”
+
+Stat number:
+- Bricolage 900
+- 56px
+- gradient #f87171 → #fb923c
+
+Stat sublabel:
+- JetBrains Mono
+- 10px
+- rgba(248,113,113,0.5)
+
+Pricing section:
+- 4-column grid
+- cards bg var(--bg2)
+- border rgba(255,255,255,0.07)
+
+Plans:
+- Free $0
+- Basic $24/yr
+- Pro $99/yr
+- Team $499/yr
+
+Pro card:
+- border rgba(79,142,247,0.35)
+- “POPULAR” pill
+
+Footer:
+- 3 columns
+- border-top rgba(255,255,255,0.07)
+
+════════════════════════════════════════════════════════════════
+LIGHT VERSION
+════════════════════════════════════════════════════════════════
+
+COLORS:
+--bg: #f8f7f4
+--bg2: #f0ede8
+--card-bg: #ffffff
+--card-border: rgba(0,0,0,0.08)
+--text: #0f0f0f
+--muted: rgba(15,15,15,0.45)
+--faint: rgba(15,15,15,0.22)
+--blue: #2563eb
+--cyan: #0891b2
+--green: #059669
+--purple: #7c3aed
+--amber: #d97706
+
+ATMOSPHERE:
+- same grain overlay
+- opacity 0.03
+- no colored orbs
+
+Instead:
+two concentric faint circles centered behind the card
+- 700px diameter
+- 1000px diameter
+- border only
+- no fill
+- border 1px solid rgba(0,0,0,0.04)
+- restrained, architectural, target/radar feel
+
+Behind headline:
+“AGENT ID”
+same treatment as dark but color rgba(0,0,0,0.035)
+
+NAV:
+- background rgba(248,247,244,0.88)
+- border rgba(0,0,0,0.07)
+
+Pip:
+- #2563eb
+- same pulse
+
+Links:
+- rgba(15,15,15,0.5)
+- hover to #0f0f0f
+
+Register button:
+- bg #2563eb
+- box-shadow rgba(37,99,235,0.25)
+
+HERO:
+same layout and same card animation adapted to light colors
+
+Eyebrow:
+- color #059669
+- bg rgba(5,150,105,0.07)
+- border rgba(5,150,105,0.2)
+
+Headline:
+same typography
+The word “identity.” uses:
+linear-gradient(140deg,#0f0f0f,#1e40af,#0891b2)
+No drop-shadow on light mode.
+Keep it crisp.
+
+Terminal card:
+keep dark terminal style:
+background #1a1f2e
+
+PROFILE CARD — LIGHT:
+- background #ffffff
+- box-shadow:
+  0 2px 4px rgba(0,0,0,0.04),
+  0 8px 16px rgba(0,0,0,0.06),
+  0 24px 48px rgba(0,0,0,0.08),
+  0 48px 96px rgba(0,0,0,0.06)
+
+Breathing glow:
+adds 0 0 0 3px rgba(37,99,235,0.08)
+on 3s loop
+
+Top edge:
+rgba(37,99,235,0.4) gradient line at step 7
+
+Avatar:
+- background linear-gradient(145deg,#eff6ff,#dbeafe)
+- border rgba(37,99,235,0.15)
+
+Domain badge:
+- bg rgba(8,145,178,0.07)
+- border rgba(8,145,178,0.18)
+- color #0891b2
+
+Trust ring:
+- stroke #059669
+- track rgba(5,150,105,0.12)
+- number color #059669
+
+Capability chips:
+- bg rgba(0,0,0,0.03)
+- border rgba(0,0,0,0.07)
+- color rgba(15,15,15,0.5)
+
+Footer:
+- bg rgba(0,0,0,0.015)
+- border rgba(0,0,0,0.06)
+
+Listed pill:
+- color #7c3aed
+
+Star:
+- color #d97706
+
+CTAs:
+primary:
+- bg #2563eb
+
+ghost:
+- bg rgba(0,0,0,0.04)
+- border rgba(0,0,0,0.1)
+
+Marquee:
+- bg rgba(0,0,0,0.015)
+- border rgba(0,0,0,0.07)
+- text rgba(15,15,15,0.45)
+
+Problem section:
+- cell bg #f0ede8
+- gap rgba(0,0,0,0.07)
+
+Pricing:
+- cards bg white
+- border rgba(0,0,0,0.08)
+- Pro border #2563eb
+- Pro bg rgba(37,99,235,0.03)
+
+Footer:
+- border-top rgba(0,0,0,0.08)
+
+════════════════════════════════════════════════════════════════
+ANIMATION SPECS — BOTH VERSIONS
+════════════════════════════════════════════════════════════════
+
+Section scroll reveals:
+- use IntersectionObserver
+- threshold 0.15
+- opacity 0 → 1
+- translateY(20px) → 0
+- 600ms ease-out
+- child elements staggered 80ms each
+
+Use this keyframe:
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(18px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+Card build:
+- use setTimeout chains and state sequencing
+- not pure CSS animation-delay for the whole sequence
+
+Spring on avatar:
+- cubic-bezier(0.34,1.56,0.64,1)
+
+Trust fill:
+- stroke-dashoffset 138 → 14
+- transition 1.4s cubic-bezier(0.4,0,0.2,1)
+
+Trust counter:
+- requestAnimationFrame
+- easeOut over 1400ms
+
+Chip stagger:
+- transition-delay 0, 80ms, 160ms, 240ms
+
+Button shimmer:
+- ::before pseudo-element
+- left -100% → 150% on hover
+- 440ms
+
+Marquee:
+- duplicate items for seamless loop
+- pause on hover
+
+Breathing glow:
+- CSS animation alternates base shadow with added blue glow
+- 3s ease-in-out infinite
+
+Cursor blink at end of terminal:
+- subtle
+- not distracting
+
+════════════════════════════════════════════════════════════════
+MOBILE RESPONSIVE
+════════════════════════════════════════════════════════════════
+
+- Nav collapses to logo + register only below 768px
+- Headline minimum clamp floor 42px
+- Card becomes 100% width
+- Card uses 20px padding on small screens
+- Problem grid becomes 1 column
+- Pricing becomes 2 columns and then 1 column below 480px
+- Terminal/card stack must remain elegant on mobile
+- No awkward overflows
+- No cramped typography
+- Hero must still feel premium on mobile
+
+════════════════════════════════════════════════════════════════
+QUALITY RULES — NON-NEGOTIABLE
+════════════════════════════════════════════════════════════════
+
+- Zero placeholder content
+- Use Agent ID mock data throughout
+- No lorem ipsum anywhere
+- Grain overlay on BOTH versions
+- Light version background must be #f8f7f4, never pure white
+- The card animation is the hero
+- If it feels janky, fix it first
+- Do a final pass on spacing, readability, animation completion, and canvas presentation
+- Add both pages to canvas so they appear side by side for comparison
+- Label them clearly
+- Shared logic only, no lazy duplication
+- The final result must feel premium, deliberate, and category-defining
+
+After building, do a final polish pass and make sure the hero is the strongest thing on both pages.

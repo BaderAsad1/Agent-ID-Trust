@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "EKD4NxRs91Mu8aqc9zUkH"
+uri = "file://.local/outputs/Agent-ID-Trust.pdf"
+type = "pdf"
+title = "Agent ID Trust.pdf"
