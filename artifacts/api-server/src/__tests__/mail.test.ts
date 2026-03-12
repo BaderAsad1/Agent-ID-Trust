@@ -68,6 +68,20 @@ describe('Agent Mail Integration Tests', () => {
       expect(res.body.threads.length).toBeGreaterThan(0);
     });
 
+    it('should include lastMessage metadata per thread', async () => {
+      const res = await req(`/mail/agents/${agentId}/threads`);
+      expect(res.status).toBe(200);
+      const thread = res.body.threads[0];
+      expect(thread.lastMessage).toBeDefined();
+      expect(thread.lastMessage.id).toBeDefined();
+      expect(typeof thread.lastMessage.senderType).toBe('string');
+      expect(typeof thread.lastMessage.snippet).toBe('string');
+      expect(thread.lastMessage.snippet.length).toBeGreaterThan(0);
+      expect(typeof thread.lastMessage.isRead).toBe('boolean');
+      expect(thread.lastMessage.createdAt).toBeDefined();
+      expect(Array.isArray(thread.labels)).toBe(true);
+    });
+
     it('should get thread with messages', async () => {
       const listRes = await req(`/mail/agents/${agentId}/threads`);
       const threadId = listRes.body.threads[0].id;

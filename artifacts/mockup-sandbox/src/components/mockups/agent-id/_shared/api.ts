@@ -492,6 +492,17 @@ export interface RoutingRule {
   enabled: boolean;
 }
 
+export interface ThreadLastMessage {
+  id: string;
+  senderAddress: string | null;
+  senderType: string;
+  snippet: string;
+  isRead: boolean;
+  senderVerified: boolean | null;
+  senderTrustScore: number | null;
+  createdAt: string;
+}
+
 export interface MailThread {
   id: string;
   inboxId: string;
@@ -505,6 +516,8 @@ export interface MailThread {
   createdAt: string;
   updatedAt: string;
   messages?: MailMessage[];
+  lastMessage?: ThreadLastMessage;
+  labels?: MailLabel[];
 }
 
 export interface MailMessage {

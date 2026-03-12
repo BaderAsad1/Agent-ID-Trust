@@ -9,4 +9,5 @@ import type { MailThread } from "./mailThread";
 
 export type ListMailThreads200 = {
   threads?: MailThread[];
+  total?: number;
 };

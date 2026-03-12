@@ -108,6 +108,7 @@ export * from "./mailReplyInputBodyFormat";
 export * from "./mailThread";
 export * from "./mailThreadDetail";
 export * from "./mailThreadStatus";
+export * from "./threadLastMessage";
 export * from "./mailWebhook";
 export * from "./mailWebhookStatus";
 export * from "./marketplaceListing";

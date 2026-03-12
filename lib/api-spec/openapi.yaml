@@ -1415,6 +1415,8 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/MailThread"
+                  total:
+                    type: integer
 
   /v1/mail/agents/{agentId}/threads/{threadId}:
     get:
@@ -3204,6 +3206,32 @@ components:
             open:
               type: integer
 
+    ThreadLastMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        senderAddress:
+          type: string
+          nullable: true
+        senderType:
+          type: string
+        snippet:
+          type: string
+        isRead:
+          type: boolean
+        senderVerified:
+          type: boolean
+          nullable: true
+        senderTrustScore:
+          type: number
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, senderType, snippet, isRead, createdAt]
+
     MailThread:
       type: object
       properties:
@@ -3220,6 +3248,8 @@ components:
           enum: [open, closed, archived]
         messageCount:
           type: integer
+        unreadCount:
+          type: integer
         participants:
           type: array
           items:
@@ -3227,6 +3257,12 @@ components:
         lastMessageAt:
           type: string
           format: date-time
+        lastMessage:
+          $ref: "#/components/schemas/ThreadLastMessage"
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/MailLabel"
         createdAt:
           type: string
           format: date-time

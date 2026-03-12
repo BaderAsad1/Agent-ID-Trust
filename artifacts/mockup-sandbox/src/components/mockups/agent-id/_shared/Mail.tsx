@@ -155,13 +155,16 @@ function RoutingRulesViewer({ rules }: { rules: RoutingRule[] }) {
   );
 }
 
-function InboxList({ agents, selectedAgent, allStats, onSelect }: { agents: Agent[]; selectedAgent: string; allStats: Record<string, InboxStats>; onSelect: (id: string) => void }) {
+function InboxList({ agents, selectedAgent, allStats, inboxes, onSelect }: { agents: Agent[]; selectedAgent: string; allStats: Record<string, InboxStats>; inboxes: Record<string, MailInbox>; onSelect: (id: string) => void }) {
   return (
     <div className="mb-4">
       <GlassCard className="!p-0">
         {agents.map(a => {
           const s = allStats[a.id];
+          const inbox = inboxes[a.id];
           const isSelected = a.id === selectedAgent;
+          const statusLabel = inbox?.status || (s?.threads.open ? 'active' : 'idle');
+          const isActive = statusLabel === 'active';
           return (
             <button
               key={a.id}
@@ -178,12 +181,11 @@ function InboxList({ agents, selectedAgent, allStats, onSelect }: { agents: Agen
               <Identicon handle={a.handle} size={28} />
               <div className="flex-1 text-left min-w-0">
                 <div className="text-sm font-medium truncate" style={{ color: isSelected ? 'var(--accent)' : 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{a.handle}</div>
-                {s && (
-                  <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-dim)' }}>
-                    <span>{s.messages.total} messages</span>
-                    <span>{s.threads.open} open</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-dim)' }}>
+                  {s && <span>{s.messages.total} messages</span>}
+                  {s && <span>{s.threads.open} open</span>}
+                  {inbox?.lastMessageAt && <TimeAgo date={inbox.lastMessageAt} />}
+                </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {s && s.messages.unread > 0 && (
@@ -191,14 +193,12 @@ function InboxList({ agents, selectedAgent, allStats, onSelect }: { agents: Agen
                     {s.messages.unread}
                   </span>
                 )}
-                {s && (
-                  <span className="text-xs px-1.5 py-0.5 rounded" style={{
-                    color: s.threads.open > 0 ? 'var(--success)' : 'var(--text-dim)',
-                    background: s.threads.open > 0 ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.1)',
-                  }}>
-                    {s.threads.open > 0 ? 'active' : 'idle'}
-                  </span>
-                )}
+                <span className="text-xs px-1.5 py-0.5 rounded capitalize" style={{
+                  color: isActive ? 'var(--success)' : 'var(--text-dim)',
+                  background: isActive ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.1)',
+                }}>
+                  {statusLabel}
+                </span>
               </div>
             </button>
           );
@@ -369,7 +369,7 @@ function LabelFilter({ labels, activeLabel, onSelect }: { labels: MailLabel[]; a
 }
 
 function ThreadListItem({ thread, onClick }: { thread: MailThread; onClick: () => void }) {
-  const lastMsg = thread.messages?.[thread.messages.length - 1];
+  const lm = thread.lastMessage;
   return (
     <button
       onClick={onClick}
@@ -380,13 +380,13 @@ function ThreadListItem({ thread, onClick }: { thread: MailThread; onClick: () =
         {thread.unreadCount > 0 && <span className="mt-2 block w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--accent)' }} />}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            {lastMsg && (
+            {lm && (
               <span className="text-xs truncate" style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
-                {lastMsg.senderAddress || lastMsg.senderType}
+                {lm.senderAddress || lm.senderType}
               </span>
             )}
-            {lastMsg && <SenderBadge type={lastMsg.senderType} />}
-            {lastMsg && <TrustBadge score={lastMsg.senderTrustScore} verified={lastMsg.senderVerified} />}
+            {lm && <SenderBadge type={lm.senderType} />}
+            {lm && <TrustBadge score={lm.senderTrustScore ?? undefined} verified={lm.senderVerified ?? undefined} />}
           </div>
           <div className="flex items-center gap-2 mb-0.5">
             <span className={`text-sm truncate ${thread.unreadCount > 0 ? 'font-semibold' : ''}`} style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
@@ -398,15 +398,15 @@ function ThreadListItem({ thread, onClick }: { thread: MailThread; onClick: () =
               </span>
             )}
           </div>
-          {lastMsg?.snippet && (
-            <p className="text-xs truncate mb-1" style={{ color: 'var(--text-dim)' }}>{lastMsg.snippet}</p>
+          {lm?.snippet && (
+            <p className="text-xs truncate mb-1" style={{ color: 'var(--text-dim)' }}>{lm.snippet}</p>
           )}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{thread.messageCount} message{thread.messageCount !== 1 ? 's' : ''}</span>
             <span className="text-xs capitalize px-1.5 py-0.5 rounded" style={{ color: thread.status === 'open' ? 'var(--success)' : 'var(--text-dim)', background: thread.status === 'open' ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.1)' }}>
               {thread.status}
             </span>
-            {lastMsg?.labels && lastMsg.labels.length > 0 && lastMsg.labels.slice(0, 3).map(l => <LabelChip key={l.id} label={l} />)}
+            {thread.labels && thread.labels.length > 0 && thread.labels.slice(0, 3).map(l => <LabelChip key={l.id} label={l} />)}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -831,6 +831,7 @@ export function Mail() {
   const [stats, setStats] = useState<InboxStats | null>(null);
   const [agentStats, setAgentStats] = useState<Record<string, InboxStats>>({});
   const [inboxData, setInboxData] = useState<MailInbox | null>(null);
+  const [allInboxes, setAllInboxes] = useState<Record<string, MailInbox>>({});
   const [showRoutingRules, setShowRoutingRules] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -847,13 +848,19 @@ export function Mail() {
     if (agents.length === 0) return;
     const fetchAllStats = async () => {
       const entries: Record<string, InboxStats> = {};
+      const inboxEntries: Record<string, MailInbox> = {};
       await Promise.all(agents.map(async (a) => {
         try {
-          const s = await api.mail.inboxStats(a.id);
+          const [s, inboxRes] = await Promise.all([
+            api.mail.inboxStats(a.id),
+            api.mail.inbox(a.id),
+          ]);
           entries[a.id] = s;
+          inboxEntries[a.id] = inboxRes.inbox;
         } catch { /* skip */ }
       }));
       setAgentStats(entries);
+      setAllInboxes(inboxEntries);
     };
     fetchAllStats();
   }, [agents]);
@@ -977,7 +984,7 @@ export function Mail() {
         </div>
       </div>
 
-      <InboxList agents={agents} selectedAgent={selectedAgent} allStats={agentStats} onSelect={(id) => { setSelectedAgent(id); setView('threads'); setSelectedThread(null); setSelectedMessage(null); }} />
+      <InboxList agents={agents} selectedAgent={selectedAgent} allStats={agentStats} inboxes={allInboxes} onSelect={(id) => { setSelectedAgent(id); setView('threads'); setSelectedThread(null); setSelectedMessage(null); }} />
 
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
@@ -1004,7 +1011,7 @@ export function Mail() {
         <div className="flex-1">
           <SearchBar onSearch={handleSearch} />
         </div>
-        <PrimaryButton variant="ghost" onClick={() => setShowRoutingRules(!showRoutingRules)} title="Routing Rules">
+        <PrimaryButton variant="ghost" onClick={() => setShowRoutingRules(!showRoutingRules)}>
           <Settings className="w-4 h-4" />
         </PrimaryButton>
       </div>

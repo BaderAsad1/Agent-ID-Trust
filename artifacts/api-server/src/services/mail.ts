@@ -163,7 +163,7 @@ export interface ThreadListFilters {
 }
 
 export async function listThreads(filters: ThreadListFilters): Promise<{
-  threads: AgentThread[];
+  threads: (AgentThread & { lastMessage?: { id: string; senderAddress: string | null; senderType: string; snippet: string; isRead: boolean; senderVerified: boolean | null; senderTrustScore: number | null; createdAt: Date }; labels?: { id: string; name: string; color: string | null }[] })[];
   total: number;
 }> {
   const conditions = [eq(agentThreadsTable.inboxId, filters.inboxId)];
@@ -187,7 +187,75 @@ export async function listThreads(filters: ThreadListFilters): Promise<{
       .where(where),
   ]);
 
-  return { threads, total: countResult[0].count };
+  if (threads.length === 0) {
+    return { threads: [], total: countResult[0].count };
+  }
+
+  const threadIds = threads.map(t => t.id);
+
+  const allThreadMsgs = await db.query.agentMessagesTable.findMany({
+    where: inArray(agentMessagesTable.threadId, threadIds),
+    orderBy: [desc(agentMessagesTable.createdAt)],
+  });
+
+  const msgByThread = new Map<string, AgentMessage>();
+  for (const msg of allThreadMsgs) {
+    if (!msgByThread.has(msg.threadId)) {
+      msgByThread.set(msg.threadId, msg);
+    }
+  }
+
+  const lastMsgValues = [...msgByThread.values()];
+  const msgIds = lastMsgValues.map(r => r.id);
+  let labelsByMsg = new Map<string, { id: string; name: string; color: string | null }[]>();
+  if (msgIds.length > 0) {
+    const assignments = await db
+      .select({
+        messageId: messageLabelAssignmentsTable.messageId,
+        labelId: messageLabelAssignmentsTable.labelId,
+      })
+      .from(messageLabelAssignmentsTable)
+      .where(inArray(messageLabelAssignmentsTable.messageId, msgIds));
+
+    if (assignments.length > 0) {
+      const labelIds = [...new Set(assignments.map(a => a.labelId))];
+      const labelsData = await db.query.messageLabelsTable.findMany({
+        where: inArray(messageLabelsTable.id, labelIds),
+      });
+      const labelMap = new Map(labelsData.map(l => [l.id, l]));
+
+      for (const a of assignments) {
+        const label = labelMap.get(a.labelId);
+        if (label) {
+          const existing = labelsByMsg.get(a.messageId) || [];
+          existing.push({ id: label.id, name: label.name, color: label.color });
+          labelsByMsg.set(a.messageId, existing);
+        }
+      }
+    }
+  }
+
+  const enriched = threads.map((thread) => {
+    const msg = msgByThread.get(thread.id);
+    return {
+      ...thread,
+      lastMessage: msg
+        ? {
+            id: msg.id,
+            senderAddress: msg.senderAddress,
+            senderType: msg.senderType,
+            snippet: generateSnippet(msg.body, msg.bodyFormat || "text", 120),
+            isRead: msg.isRead,
+            senderVerified: msg.senderVerified,
+            senderTrustScore: msg.senderTrustScore,
+            createdAt: msg.createdAt,
+          }
+        : undefined,
+      labels: msg ? (labelsByMsg.get(msg.id) || []) : [],
+    };
+  });
+
+  return { threads: enriched, total: countResult[0].count };
 }
 
 export async function getThread(threadId: string): Promise<AgentThread | null> {

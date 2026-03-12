@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MailThreadStatus } from "./mailThreadStatus";
+import type { ThreadLastMessage } from "./threadLastMessage";
+import type { MailLabel } from "./mailLabel";
 
 export interface MailThread {
   id: string;
@@ -13,8 +15,11 @@ export interface MailThread {
   subject: string;
   status: MailThreadStatus;
   messageCount: number;
+  unreadCount?: number;
   participants?: string[];
   lastMessageAt?: Date;
+  lastMessage?: ThreadLastMessage;
+  labels?: MailLabel[];
   createdAt: Date;
   updatedAt?: Date;
 }
