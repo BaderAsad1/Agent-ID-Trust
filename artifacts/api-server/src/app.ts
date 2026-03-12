@@ -6,7 +6,7 @@ import { requestLogger } from "./middlewares/request-logger";
 import { replitAuth } from "./middlewares/replit-auth";
 import { apiKeyAuth } from "./middlewares/api-key-auth";
 import { errorHandler } from "./middlewares/error-handler";
-import { cliMarkdown } from "./middlewares/cli-markdown";
+import { cliDetect, cliMarkdownRoot } from "./middlewares/cli-markdown";
 
 const app: Express = express();
 
@@ -20,7 +20,8 @@ const corsOrigins: cors.CorsOptions["origin"] =
 
 app.use(cors({ origin: corsOrigins, credentials: true }));
 
-app.use(cliMarkdown);
+app.use(cliDetect);
+app.use(cliMarkdownRoot);
 
 app.use((req, res, next) => {
   if (req.path === "/api/v1/webhooks/stripe") {

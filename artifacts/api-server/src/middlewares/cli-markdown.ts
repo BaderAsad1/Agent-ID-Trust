@@ -1,6 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
 import { LLMS_TXT } from "../routes/llms-txt";
 
+declare global {
+  namespace Express {
+    interface Request {
+      isCliClient?: boolean;
+    }
+  }
+}
+
 const CLI_USER_AGENTS = [
   "curl/",
   "wget/",
@@ -17,7 +25,9 @@ const CLI_USER_AGENTS = [
   "powershell",
 ];
 
-function isCliClient(req: Request): boolean {
+const BROWSER_UA_PATTERNS = ["mozilla", "chrome", "safari", "edge", "opera"];
+
+function detectCliClient(req: Request): boolean {
   const ua = (req.headers["user-agent"] || "").toLowerCase();
 
   for (const pattern of CLI_USER_AGENTS) {
@@ -25,22 +35,41 @@ function isCliClient(req: Request): boolean {
   }
 
   const accept = req.headers["accept"] || "";
+
+  if (accept && accept !== "*/*") {
+    const acceptsHtml =
+      accept.includes("text/html") || accept.includes("application/xhtml+xml");
+    if (!acceptsHtml) return true;
+  }
+
   if (!accept || accept === "*/*") {
-    if (ua && !ua.includes("mozilla") && !ua.includes("chrome") && !ua.includes("safari") && !ua.includes("edge") && !ua.includes("opera")) {
-      return true;
-    }
+    const isBrowserLike = BROWSER_UA_PATTERNS.some((p) => ua.includes(p));
+    if (ua && !isBrowserLike) return true;
   }
 
   return false;
 }
 
-export function cliMarkdown(req: Request, res: Response, next: NextFunction): void {
+export function cliDetect(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void {
+  req.isCliClient = detectCliClient(req);
+  next();
+}
+
+export function cliMarkdownRoot(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
   if (req.path !== "/" && req.path !== "") {
     next();
     return;
   }
 
-  if (!isCliClient(req)) {
+  if (!req.isCliClient) {
     next();
     return;
   }
