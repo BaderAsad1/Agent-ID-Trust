@@ -42,7 +42,7 @@ function detectCliClient(req: Request): boolean {
     if (!acceptsHtml) return true;
   }
 
-  if (!accept || accept === "*/*") {
+  if (accept === "*/*") {
     const isBrowserLike = BROWSER_UA_PATTERNS.some((p) => ua.includes(p));
     if (ua && !isBrowserLike) return true;
   }
@@ -64,6 +64,11 @@ export function cliMarkdownRoot(
   res: Response,
   next: NextFunction,
 ): void {
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    next();
+    return;
+  }
+
   if (req.path !== "/" && req.path !== "") {
     next();
     return;
@@ -76,5 +81,6 @@ export function cliMarkdownRoot(
 
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=3600");
+  res.setHeader("Vary", "User-Agent, Accept");
   res.send(LLMS_TXT);
 }
