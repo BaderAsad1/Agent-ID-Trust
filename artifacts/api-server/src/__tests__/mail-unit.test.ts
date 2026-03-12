@@ -548,4 +548,187 @@ describe('Mail Unit Tests — Service Logic', () => {
       });
     });
   });
+
+  describe('Bulk Label Operations', () => {
+    it('should bulk assign labels to multiple messages', { timeout: TEST_TIMEOUT }, async () => {
+      const labelsRes = await req(`/mail/agents/${agentId}/labels`);
+      const label = labelsRes.body.labels.find((l: { name: string }) => l.name === 'flagged');
+      expect(label).toBeDefined();
+
+      const m1 = await req(`/mail/agents/${agentId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ subject: `bulk-assign-a-${Date.now()}`, body: 'Bulk A', bodyFormat: 'text', direction: 'inbound', senderType: 'agent' }),
+      });
+      const m2 = await req(`/mail/agents/${agentId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ subject: `bulk-assign-b-${Date.now()}`, body: 'Bulk B', bodyFormat: 'text', direction: 'inbound', senderType: 'agent' }),
+      });
+      expect(m1.status).toBe(201);
+      expect(m2.status).toBe(201);
+
+      const bulkRes = await req(`/mail/agents/${agentId}/labels/${label.id}/bulk-assign`, {
+        method: 'POST',
+        body: JSON.stringify({ messageIds: [m1.body.message.id, m2.body.message.id] }),
+      });
+      expect(bulkRes.status).toBe(200);
+      expect(bulkRes.body.success).toBe(true);
+      expect(bulkRes.body.count).toBe(2);
+
+      const d1 = await req(`/mail/agents/${agentId}/messages/${m1.body.message.id}`);
+      const d2 = await req(`/mail/agents/${agentId}/messages/${m2.body.message.id}`);
+      expect(d1.body.labels.some((l: { id: string }) => l.id === label.id)).toBe(true);
+      expect(d2.body.labels.some((l: { id: string }) => l.id === label.id)).toBe(true);
+    });
+
+    it('should bulk remove labels from multiple messages', { timeout: TEST_TIMEOUT }, async () => {
+      const labelsRes = await req(`/mail/agents/${agentId}/labels`);
+      const label = labelsRes.body.labels.find((l: { name: string }) => l.name === 'flagged');
+
+      const m1 = await req(`/mail/agents/${agentId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ subject: `bulk-remove-a-${Date.now()}`, body: 'Remove A', bodyFormat: 'text', direction: 'inbound', senderType: 'agent' }),
+      });
+      const m2 = await req(`/mail/agents/${agentId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ subject: `bulk-remove-b-${Date.now()}`, body: 'Remove B', bodyFormat: 'text', direction: 'inbound', senderType: 'agent' }),
+      });
+
+      await req(`/mail/agents/${agentId}/labels/${label.id}/bulk-assign`, {
+        method: 'POST',
+        body: JSON.stringify({ messageIds: [m1.body.message.id, m2.body.message.id] }),
+      });
+
+      const removeRes = await req(`/mail/agents/${agentId}/labels/${label.id}/bulk-remove`, {
+        method: 'POST',
+        body: JSON.stringify({ messageIds: [m1.body.message.id, m2.body.message.id] }),
+      });
+      expect(removeRes.status).toBe(200);
+      expect(removeRes.body.success).toBe(true);
+
+      const d1 = await req(`/mail/agents/${agentId}/messages/${m1.body.message.id}`);
+      expect(d1.body.labels.some((l: { id: string }) => l.id === label.id)).toBe(false);
+    });
+  });
+
+  describe('Webhook Dispatch', () => {
+    it('should register webhook and list it', async () => {
+      const createRes = await req(`/mail/agents/${agentId}/webhooks`, {
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://hooks.test-dispatch.example.com/mail', events: ['message.received', 'message.sent'] }),
+      });
+      expect(createRes.status).toBe(201);
+      const webhookId = createRes.body.webhook.id;
+      expect(createRes.body.webhook.url).toBe('https://hooks.test-dispatch.example.com/mail');
+      expect(createRes.body.webhook.events).toContain('message.received');
+
+      const listRes = await req(`/mail/agents/${agentId}/webhooks`);
+      expect(listRes.status).toBe(200);
+      const found = listRes.body.webhooks.find((w: { id: string }) => w.id === webhookId);
+      expect(found).toBeDefined();
+
+      await req(`/mail/agents/${agentId}/webhooks/${webhookId}`, { method: 'DELETE' });
+    });
+
+    it('should update webhook URL and events', async () => {
+      const createRes = await req(`/mail/agents/${agentId}/webhooks`, {
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://hooks.update-test.example.com/v1', events: ['message.received'] }),
+      });
+      const webhookId = createRes.body.webhook.id;
+
+      const updateRes = await req(`/mail/agents/${agentId}/webhooks/${webhookId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ url: 'https://hooks.update-test.example.com/v2', events: ['message.received', 'message.sent', 'message.archived'] }),
+      });
+      expect(updateRes.status).toBe(200);
+      expect(updateRes.body.webhook.url).toBe('https://hooks.update-test.example.com/v2');
+      expect(updateRes.body.webhook.events).toContain('message.archived');
+
+      await req(`/mail/agents/${agentId}/webhooks/${webhookId}`, { method: 'DELETE' });
+    });
+
+    it('should delete webhook', async () => {
+      const createRes = await req(`/mail/agents/${agentId}/webhooks`, {
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://hooks.delete-test.example.com/wh', events: ['message.received'] }),
+      });
+      const webhookId = createRes.body.webhook.id;
+
+      const delRes = await req(`/mail/agents/${agentId}/webhooks/${webhookId}`, { method: 'DELETE' });
+      expect(delRes.status).toBe(200);
+
+      const listRes = await req(`/mail/agents/${agentId}/webhooks`);
+      const found = listRes.body.webhooks.find((w: { id: string }) => w.id === webhookId);
+      expect(found).toBeUndefined();
+    });
+  });
+
+  describe('Mail Ingest', () => {
+    it('should ingest external message to agent inbox', { timeout: TEST_TIMEOUT }, async () => {
+      const inboxRes = await req(`/mail/agents/${agentId}/inbox`);
+      const address = inboxRes.body.inbox.address;
+      expect(address).toBeDefined();
+
+      const ingestRes = await req('/mail/ingest', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipientAddress: address,
+          senderAddress: 'external@sender.com',
+          senderType: 'external',
+          subject: `Ingested message ${Date.now()}`,
+          body: 'This came from outside',
+          bodyFormat: 'text',
+          senderVerified: false,
+        }),
+      });
+      expect(ingestRes.status).toBe(201);
+      expect(ingestRes.body.messageId).toBeDefined();
+      expect(ingestRes.body.threadId).toBeDefined();
+      expect(ingestRes.body.inboxId).toBeDefined();
+
+      const msgRes = await req(`/mail/agents/${agentId}/messages/${ingestRes.body.messageId}`);
+      expect(msgRes.status).toBe(200);
+      expect(msgRes.body.message.direction).toBe('inbound');
+      expect(msgRes.body.message.senderType).toBe('external');
+    });
+
+    it('should reject ingest to non-existent address', async () => {
+      const ingestRes = await req('/mail/ingest', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipientAddress: 'nonexistent@agents.local',
+          senderAddress: 'external@sender.com',
+          senderType: 'external',
+          body: 'Should fail',
+        }),
+      });
+      expect(ingestRes.status).toBe(404);
+    });
+  });
+
+  describe('Inbox List View', () => {
+    it('should return inbox with unread/total counts via stats', async () => {
+      const inboxRes = await req(`/mail/agents/${agentId}/inbox`);
+      expect(inboxRes.status).toBe(200);
+      expect(inboxRes.body.inbox).toBeDefined();
+      expect(inboxRes.body.inbox.agentId).toBe(agentId);
+
+      const statsRes = await req(`/mail/agents/${agentId}/inbox/stats`);
+      expect(statsRes.status).toBe(200);
+      expect(typeof statsRes.body.messages.total).toBe('number');
+      expect(typeof statsRes.body.messages.unread).toBe('number');
+      expect(typeof statsRes.body.threads.total).toBe('number');
+      expect(typeof statsRes.body.threads.open).toBe('number');
+    });
+
+    it('should return inbox stats for all user agents', async () => {
+      const agentsRes = await req('/agents');
+      for (const agent of agentsRes.body.agents) {
+        const statsRes = await req(`/mail/agents/${agent.id}/inbox/stats`);
+        expect(statsRes.status).toBe(200);
+        expect(statsRes.body.messages).toBeDefined();
+        expect(statsRes.body.threads).toBeDefined();
+      }
+    });
+  });
 });

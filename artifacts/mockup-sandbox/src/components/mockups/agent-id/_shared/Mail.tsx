@@ -3,10 +3,10 @@ import {
   Mail as MailIcon, Send, Search, ArrowLeft, Tag, CheckCircle, XCircle,
   ShieldCheck, ShieldAlert, Bot, User, Clock, Paperclip, ChevronRight,
   Archive, RotateCcw, AlertCircle, RefreshCw, Inbox as InboxIcon,
-  FileText, Filter, X, Loader2, CheckSquare, Eye, EyeOff, Code, ChevronDown
+  FileText, Filter, X, Loader2, CheckSquare, Eye, EyeOff, Code, ChevronDown, Settings
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
-import { api, type Agent, type MailThread, type MailMessage, type MailLabel, type MailEvent, type InboxStats } from './api';
+import { api, type Agent, type MailThread, type MailMessage, type MailLabel, type MailEvent, type InboxStats, type MailInbox, type RoutingRule } from './api';
 import { Identicon, GlassCard, PrimaryButton, CardSkeleton, ListSkeleton, EmptyState } from './components';
 
 function sanitizeHtml(html: string): string {
@@ -115,24 +115,95 @@ function TimeAgo({ date }: { date: string }) {
   return <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{text}</span>;
 }
 
-function AgentSelector({ agents, selected, onChange }: { agents: Agent[]; selected: string; onChange: (id: string) => void }) {
+function RoutingRulesViewer({ rules }: { rules: RoutingRule[] }) {
+  if (rules.length === 0) {
+    return (
+      <EmptyState icon={<Settings className="w-6 h-6" style={{ color: 'var(--text-dim)' }} />} title="No routing rules" description="Configure routing rules to automatically organize incoming messages." />
+    );
+  }
   return (
-    <div className="flex items-center gap-2 mb-4">
-      {agents.map(a => (
-        <button
-          key={a.id}
-          onClick={() => onChange(a.id)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors cursor-pointer"
-          style={{
-            background: selected === a.id ? 'rgba(59,130,246,0.12)' : 'transparent',
-            border: `1px solid ${selected === a.id ? 'var(--accent)' : 'var(--border-color)'}`,
-            color: selected === a.id ? 'var(--accent)' : 'var(--text-muted)',
-          }}
-        >
-          <Identicon handle={a.handle} size={20} />
-          <span className="text-sm" style={{ fontFamily: 'var(--font-mono)' }}>{a.handle}</span>
-        </button>
+    <div className="space-y-2">
+      {rules.sort((a, b) => a.priority - b.priority).map(rule => (
+        <GlassCard key={rule.id} className="!p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{rule.name}</span>
+              <span className="text-xs px-1.5 py-0.5 rounded" style={{
+                color: rule.enabled ? 'var(--success)' : 'var(--text-dim)',
+                background: rule.enabled ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.1)',
+              }}>{rule.enabled ? 'active' : 'disabled'}</span>
+            </div>
+            <span className="text-xs" style={{ color: 'var(--text-dim)' }}>priority {rule.priority}</span>
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <span className="font-medium">When: </span>
+              {rule.conditions.map((c, i) => (
+                <span key={i}>{i > 0 ? ' AND ' : ''}<code className="px-1 rounded" style={{ background: 'rgba(59,130,246,0.08)', fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>{c.field} {c.operator} {JSON.stringify(c.value)}</code></span>
+              ))}
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <span className="font-medium">Then: </span>
+              {rule.actions.map((a, i) => (
+                <span key={i}>{i > 0 ? ', ' : ''}<code className="px-1 rounded" style={{ background: 'rgba(34,197,94,0.08)', fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>{a.type}{a.params ? ` (${Object.entries(a.params).map(([k, v]) => `${k}=${v}`).join(', ')})` : ''}</code></span>
+              ))}
+            </div>
+          </div>
+        </GlassCard>
       ))}
+    </div>
+  );
+}
+
+function InboxList({ agents, selectedAgent, allStats, onSelect }: { agents: Agent[]; selectedAgent: string; allStats: Record<string, InboxStats>; onSelect: (id: string) => void }) {
+  return (
+    <div className="mb-4">
+      <GlassCard className="!p-0">
+        {agents.map(a => {
+          const s = allStats[a.id];
+          const isSelected = a.id === selectedAgent;
+          return (
+            <button
+              key={a.id}
+              onClick={() => onSelect(a.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 border-b transition-colors hover:bg-white/5 cursor-pointer"
+              style={{
+                background: isSelected ? 'rgba(59,130,246,0.08)' : 'transparent',
+                borderColor: 'var(--border-color)',
+                border: 'none',
+                borderBottom: '1px solid var(--border-color)',
+                borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
+              }}
+            >
+              <Identicon handle={a.handle} size={28} />
+              <div className="flex-1 text-left min-w-0">
+                <div className="text-sm font-medium truncate" style={{ color: isSelected ? 'var(--accent)' : 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{a.handle}</div>
+                {s && (
+                  <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-dim)' }}>
+                    <span>{s.messages.total} messages</span>
+                    <span>{s.threads.open} open</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {s && s.messages.unread > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--accent)', color: '#fff', minWidth: '22px', textAlign: 'center' }}>
+                    {s.messages.unread}
+                  </span>
+                )}
+                {s && (
+                  <span className="text-xs px-1.5 py-0.5 rounded" style={{
+                    color: s.threads.open > 0 ? 'var(--success)' : 'var(--text-dim)',
+                    background: s.threads.open > 0 ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.1)',
+                  }}>
+                    {s.threads.open > 0 ? 'active' : 'idle'}
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </GlassCard>
     </div>
   );
 }
@@ -720,6 +791,9 @@ export function Mail() {
   const [labels, setLabels] = useState<MailLabel[]>([]);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
   const [stats, setStats] = useState<InboxStats | null>(null);
+  const [agentStats, setAgentStats] = useState<Record<string, InboxStats>>({});
+  const [inboxData, setInboxData] = useState<MailInbox | null>(null);
+  const [showRoutingRules, setShowRoutingRules] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCompose, setShowCompose] = useState(false);
@@ -731,18 +805,35 @@ export function Mail() {
     }
   }, [agents, selectedAgent]);
 
+  useEffect(() => {
+    if (agents.length === 0) return;
+    const fetchAllStats = async () => {
+      const entries: Record<string, InboxStats> = {};
+      await Promise.all(agents.map(async (a) => {
+        try {
+          const s = await api.mail.inboxStats(a.id);
+          entries[a.id] = s;
+        } catch { /* skip */ }
+      }));
+      setAgentStats(entries);
+    };
+    fetchAllStats();
+  }, [agents]);
+
   const loadInbox = useCallback(async () => {
     if (!selectedAgent) return;
     setLoading(true);
     setError(null);
     try {
-      await api.mail.inbox(selectedAgent);
+      const inboxRes = await api.mail.inbox(selectedAgent);
+      setInboxData(inboxRes.inbox);
       const [labelsRes, statsRes] = await Promise.all([
         api.mail.labels(selectedAgent),
         api.mail.inboxStats(selectedAgent),
       ]);
       setLabels(labelsRes.labels);
       setStats(statsRes);
+      setAgentStats(prev => ({ ...prev, [selectedAgent]: statsRes }));
 
       if (activeLabel) {
         const searchRes = await api.mail.search(selectedAgent, { labelId: activeLabel });
@@ -843,7 +934,7 @@ export function Mail() {
         </div>
       </div>
 
-      <AgentSelector agents={agents} selected={selectedAgent} onChange={(id) => { setSelectedAgent(id); setView('threads'); setSelectedThread(null); setSelectedMessage(null); }} />
+      <InboxList agents={agents} selectedAgent={selectedAgent} allStats={agentStats} onSelect={(id) => { setSelectedAgent(id); setView('threads'); setSelectedThread(null); setSelectedMessage(null); }} />
 
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
@@ -866,9 +957,26 @@ export function Mail() {
         </div>
       )}
 
-      <div className="mb-4">
-        <SearchBar onSearch={handleSearch} />
+      <div className="flex items-center gap-2 mb-4">
+        <div className="flex-1">
+          <SearchBar onSearch={handleSearch} />
+        </div>
+        <PrimaryButton variant="ghost" onClick={() => setShowRoutingRules(!showRoutingRules)} title="Routing Rules">
+          <Settings className="w-4 h-4" />
+        </PrimaryButton>
       </div>
+
+      {showRoutingRules && inboxData && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Routing Rules</h3>
+            <button onClick={() => setShowRoutingRules(false)} className="text-xs cursor-pointer" style={{ color: 'var(--text-dim)' }}>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <RoutingRulesViewer rules={inboxData.routingRules || []} />
+        </div>
+      )}
 
       {showFilters && labels.length > 0 && (
         <div className="mb-4 p-3 rounded-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>

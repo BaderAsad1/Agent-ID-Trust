@@ -91,9 +91,18 @@ export function evaluateConditionSync(
   }
 }
 
-export function generateSnippet(body: string, maxLen = 200): string {
-  const clean = body.replace(/\s+/g, " ").trim();
-  return clean.length > maxLen ? clean.slice(0, maxLen - 3) + "..." : clean;
+export function generateSnippet(body: string, bodyFormat: string = "text", maxLen = 200): string {
+  let text = body;
+  if (bodyFormat === "html") {
+    text = text.replace(/<[^>]+>/g, " ").replace(/&[a-z]+;/gi, " ");
+  } else if (bodyFormat === "markdown") {
+    text = text.replace(/[#*_~`>\[\]()!|]/g, "");
+  }
+  text = text.replace(/\s+/g, " ").trim();
+  if (text.length > maxLen) {
+    text = text.slice(0, maxLen - 3) + "...";
+  }
+  return text;
 }
 
 export function isPrivateOrLocalUrl(url: string): boolean {

@@ -140,28 +140,44 @@ describe('Pure Unit Tests — Mail Utils', () => {
 
   describe('generateSnippet', () => {
     it('should return the body if shorter than max length', () => {
-      expect(generateSnippet('Hello world')).toBe('Hello world');
+      expect(generateSnippet('Hello world', 'text')).toBe('Hello world');
     });
 
     it('should truncate long bodies with ellipsis', () => {
       const long = 'a'.repeat(300);
-      const result = generateSnippet(long, 200);
+      const result = generateSnippet(long, 'text', 200);
       expect(result.length).toBe(200);
       expect(result.endsWith('...')).toBe(true);
     });
 
     it('should collapse whitespace', () => {
-      expect(generateSnippet('Hello   world\n\nfoo')).toBe('Hello world foo');
+      expect(generateSnippet('Hello   world\n\nfoo', 'text')).toBe('Hello world foo');
     });
 
     it('should handle empty string', () => {
-      expect(generateSnippet('')).toBe('');
+      expect(generateSnippet('', 'text')).toBe('');
     });
 
     it('should respect custom max length', () => {
-      const result = generateSnippet('Hello world this is a test', 10);
+      const result = generateSnippet('Hello world this is a test', 'text', 10);
       expect(result.length).toBe(10);
       expect(result.endsWith('...')).toBe(true);
+    });
+
+    it('should strip HTML tags for html format', () => {
+      const html = '<p>Hello <strong>world</strong></p>';
+      const result = generateSnippet(html, 'html');
+      expect(result).not.toContain('<');
+      expect(result).toContain('Hello');
+      expect(result).toContain('world');
+    });
+
+    it('should strip markdown symbols for markdown format', () => {
+      const md = '# Hello **world** [link](url)';
+      const result = generateSnippet(md, 'markdown');
+      expect(result).not.toContain('#');
+      expect(result).not.toContain('*');
+      expect(result).not.toContain('[');
     });
   });
 

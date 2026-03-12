@@ -32,34 +32,17 @@ import { normalizeSubject as normalizeSubjectUtil, evaluateConditionSync, genera
 const MAIL_BASE_DOMAIN = process.env.MAIL_BASE_DOMAIN || "agents.local";
 
 function isUrlSafe(url: string): boolean {
+  if (isPrivateOrLocalUrl(url)) return false;
   try {
     const parsed = new URL(url);
     if (!["https:", "http:"].includes(parsed.protocol)) return false;
     const host = parsed.hostname.toLowerCase();
-    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
-    if (host.startsWith("10.") || host.startsWith("192.168.")) return false;
-    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
     if (host.startsWith("169.254.")) return false;
-    if (host === "metadata.google.internal" || host.endsWith(".internal")) return false;
-    if (host === "0.0.0.0" || host === "[::0]") return false;
+    if (host === "metadata.google.internal") return false;
     return true;
   } catch {
     return false;
   }
-}
-
-function generateSnippet(body: string, bodyFormat: string, maxLen = 200): string {
-  let text = body;
-  if (bodyFormat === "html") {
-    text = text.replace(/<[^>]+>/g, " ").replace(/&[a-z]+;/gi, " ");
-  } else if (bodyFormat === "markdown") {
-    text = text.replace(/[#*_~`>\[\]()!|]/g, "");
-  }
-  text = text.replace(/\s+/g, " ").trim();
-  if (text.length > maxLen) {
-    text = text.slice(0, maxLen - 3) + "...";
-  }
-  return text;
 }
 
 const SYSTEM_LABELS = [
@@ -278,8 +261,9 @@ export async function bulkAssignLabel(
   const errors: string[] = [];
   for (const messageId of messageIds) {
     try {
-      await assignLabel(messageId, labelId, agentId);
-      count++;
+      const ok = await assignLabel(messageId, labelId, agentId);
+      if (ok) count++;
+      else errors.push(messageId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[mail] bulkAssignLabel failed for message ${messageId}: ${msg}`);
@@ -298,8 +282,9 @@ export async function bulkRemoveLabel(
   const errors: string[] = [];
   for (const messageId of messageIds) {
     try {
-      await removeLabel(messageId, labelId, agentId);
-      count++;
+      const ok = await removeLabel(messageId, labelId, agentId);
+      if (ok) count++;
+      else errors.push(messageId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[mail] bulkRemoveLabel failed for message ${messageId}: ${msg}`);
@@ -331,10 +316,7 @@ export async function updateThreadStatus(
   return updated ?? null;
 }
 
-function normalizeSubject(subject: string | null | undefined): string | null {
-  if (!subject) return null;
-  return subject.replace(/^(re|fwd|fw)\s*:\s*/gi, "").trim() || null;
-}
+const normalizeSubject = normalizeSubjectUtil;
 
 async function findOrCreateThread(
   inboxId: string,
@@ -1009,6 +991,10 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
     case "webhook": {
       const webhookUrl = action.params?.url as string;
       if (!webhookUrl) break;
+      if (!isUrlSafe(webhookUrl)) {
+        console.error(`[mail] Blocked routing webhook to unsafe URL: ${webhookUrl}`);
+        break;
+      }
       try {
         await fetch(webhookUrl, {
           method: "POST",
