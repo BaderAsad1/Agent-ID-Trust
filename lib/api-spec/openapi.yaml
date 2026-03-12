@@ -44,6 +44,8 @@ tags:
     description: Payment intents and ledger
   - name: webhooks
     description: Webhook handlers
+  - name: mail
+    description: Agent Mail — identity-bound inboxes, threads, messages, labels, webhooks
 
 paths:
   /healthz:
@@ -1323,6 +1325,745 @@ paths:
         "200":
           description: Processed
 
+  # --- Agent Mail ---
+  /v1/mail/agents/{agentId}/inbox:
+    get:
+      operationId: getMailInbox
+      tags: [mail]
+      summary: Get or create agent inbox
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Agent inbox
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inbox:
+                    $ref: "#/components/schemas/MailInbox"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    patch:
+      operationId: updateMailInbox
+      tags: [mail]
+      summary: Update inbox settings
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMailInboxInput"
+      responses:
+        "200":
+          description: Updated inbox
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inbox:
+                    $ref: "#/components/schemas/MailInbox"
+
+  /v1/mail/agents/{agentId}/inbox/stats:
+    get:
+      operationId: getMailInboxStats
+      tags: [mail]
+      summary: Get inbox statistics
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Inbox stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MailInboxStats"
+
+  /v1/mail/agents/{agentId}/threads:
+    get:
+      operationId: listMailThreads
+      tags: [mail]
+      summary: List mail threads
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, closed, archived]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Threads list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  threads:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MailThread"
+
+  /v1/mail/agents/{agentId}/threads/{threadId}:
+    get:
+      operationId: getMailThread
+      tags: [mail]
+      summary: Get thread with messages
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Thread detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  thread:
+                    $ref: "#/components/schemas/MailThreadDetail"
+
+  /v1/mail/agents/{agentId}/threads/{threadId}/read:
+    post:
+      operationId: markMailThreadRead
+      tags: [mail]
+      summary: Mark all messages in thread as read
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Thread marked read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  /v1/mail/agents/{agentId}/threads/{threadId}/reply:
+    post:
+      operationId: replyToMailThread
+      tags: [mail]
+      summary: Reply to a thread
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MailReplyInput"
+      responses:
+        "201":
+          description: Reply sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/MailMessage"
+
+  /v1/mail/agents/{agentId}/messages:
+    get:
+      operationId: listMailMessages
+      tags: [mail]
+      summary: List messages
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [inbound, outbound, internal]
+        - name: senderType
+          in: query
+          schema:
+            type: string
+            enum: [agent, user, system, external]
+        - name: isRead
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Messages list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MailMessage"
+                  total:
+                    type: integer
+    post:
+      operationId: sendMailMessage
+      tags: [mail]
+      summary: Send a new message
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMailMessageInput"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/MailMessage"
+
+  /v1/mail/agents/{agentId}/messages/{messageId}:
+    get:
+      operationId: getMailMessage
+      tags: [mail]
+      summary: Get message detail with labels and attachments
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Message detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/MailMessage"
+                  labels:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MailLabel"
+                  attachments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MailAttachment"
+
+  /v1/mail/agents/{agentId}/messages/{messageId}/read:
+    post:
+      operationId: markMailMessageRead
+      tags: [mail]
+      summary: Mark message read or unread
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isRead:
+                  type: boolean
+              required: [isRead]
+      responses:
+        "200":
+          description: Updated message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/MailMessage"
+
+  /v1/mail/agents/{agentId}/messages/{messageId}/archive:
+    post:
+      operationId: archiveMailMessage
+      tags: [mail]
+      summary: Archive a message
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Archived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/MailMessage"
+
+  /v1/mail/agents/{agentId}/messages/{messageId}/convert-task:
+    post:
+      operationId: convertMailMessageToTask
+      tags: [mail]
+      summary: Convert message to task
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  taskId:
+                    type: string
+                    format: uuid
+
+  /v1/mail/agents/{agentId}/messages/{messageId}/events:
+    get:
+      operationId: getMailMessageEvents
+      tags: [mail]
+      summary: Get message lifecycle events
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Events list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MailEvent"
+
+  /v1/mail/agents/{agentId}/messages/{messageId}/route:
+    post:
+      operationId: routeMailMessage
+      tags: [mail]
+      summary: Re-evaluate routing rules for a message
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Routing result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actionsApplied:
+                    type: integer
+
+  /v1/mail/agents/{agentId}/messages/{messageId}/approve:
+    post:
+      operationId: approveMailMessage
+      tags: [mail]
+      summary: Approve a quarantined message
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  /v1/mail/agents/{agentId}/messages/{messageId}/reject:
+    post:
+      operationId: rejectMailMessage
+      tags: [mail]
+      summary: Reject a message with bounce notification
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  /v1/mail/agents/{agentId}/messages/{messageId}/labels/{labelId}:
+    post:
+      operationId: assignMailLabel
+      tags: [mail]
+      summary: Assign label to message
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: labelId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Label assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+    delete:
+      operationId: removeMailLabel
+      tags: [mail]
+      summary: Remove label from message
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: labelId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Label removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  /v1/mail/agents/{agentId}/labels:
+    get:
+      operationId: listMailLabels
+      tags: [mail]
+      summary: List labels for agent inbox
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Labels list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  labels:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MailLabel"
+    post:
+      operationId: createMailLabel
+      tags: [mail]
+      summary: Create a custom label
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMailLabelInput"
+      responses:
+        "201":
+          description: Label created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  label:
+                    $ref: "#/components/schemas/MailLabel"
+
+  /v1/mail/agents/{agentId}/labels/{labelId}:
+    delete:
+      operationId: deleteMailLabel
+      tags: [mail]
+      summary: Delete a custom label
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: labelId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Label deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  /v1/mail/agents/{agentId}/webhooks:
+    get:
+      operationId: listMailWebhooks
+      tags: [mail]
+      summary: List webhooks for agent inbox
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Webhooks list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhooks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MailWebhook"
+    post:
+      operationId: createMailWebhook
+      tags: [mail]
+      summary: Create a webhook
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMailWebhookInput"
+      responses:
+        "201":
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhook:
+                    $ref: "#/components/schemas/MailWebhook"
+        "400":
+          description: Invalid URL (private/unsafe address)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /v1/mail/agents/{agentId}/webhooks/{webhookId}:
+    patch:
+      operationId: updateMailWebhook
+      tags: [mail]
+      summary: Update a webhook
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: webhookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMailWebhookInput"
+      responses:
+        "200":
+          description: Webhook updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhook:
+                    $ref: "#/components/schemas/MailWebhook"
+    delete:
+      operationId: deleteMailWebhook
+      tags: [mail]
+      summary: Delete a webhook
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: webhookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Webhook deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  /v1/mail/agents/{agentId}/search:
+    get:
+      operationId: searchMailMessages
+      tags: [mail]
+      summary: Search messages with filters
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [inbound, outbound, internal]
+        - name: senderType
+          in: query
+          schema:
+            type: string
+            enum: [agent, user, system, external]
+        - name: isRead
+          in: query
+          schema:
+            type: boolean
+        - name: senderVerified
+          in: query
+          schema:
+            type: boolean
+        - name: labelId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: labelName
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [low, normal, high, urgent]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MailMessage"
+                  total:
+                    type: integer
+
+  /v1/mail/ingest:
+    post:
+      operationId: ingestMailMessage
+      tags: [mail]
+      summary: Programmatic message ingestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestMailMessageInput"
+      responses:
+        "201":
+          description: Message ingested
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/MailMessage"
+
 components:
   parameters:
     AgentId:
@@ -2391,3 +3132,447 @@ components:
           type: string
           format: date-time
       required: [id, provider, direction, accountType, accountId, amount, currency, entryType, createdAt]
+
+    MailInbox:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        address:
+          type: string
+        addressLocalPart:
+          type: string
+        addressDomain:
+          type: string
+        displayName:
+          type: string
+        status:
+          type: string
+          enum: [active, paused, disabled]
+        autoResponderEnabled:
+          type: boolean
+        autoResponderMessage:
+          type: string
+        forwardingAddress:
+          type: string
+        lastMessageAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, agentId, address, addressLocalPart, addressDomain, status, createdAt]
+
+    UpdateMailInboxInput:
+      type: object
+      properties:
+        displayName:
+          type: string
+        autoResponderEnabled:
+          type: boolean
+        autoResponderMessage:
+          type: string
+        forwardingAddress:
+          type: string
+
+    MailInboxStats:
+      type: object
+      properties:
+        messages:
+          type: object
+          properties:
+            total:
+              type: integer
+            unread:
+              type: integer
+            inbound:
+              type: integer
+            outbound:
+              type: integer
+        threads:
+          type: object
+          properties:
+            total:
+              type: integer
+            open:
+              type: integer
+
+    MailThread:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        inboxId:
+          type: string
+          format: uuid
+        subject:
+          type: string
+        status:
+          type: string
+          enum: [open, closed, archived]
+        messageCount:
+          type: integer
+        participants:
+          type: array
+          items:
+            type: string
+        lastMessageAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, inboxId, subject, status, messageCount, createdAt]
+
+    MailThreadDetail:
+      allOf:
+        - $ref: "#/components/schemas/MailThread"
+        - type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: "#/components/schemas/MailMessage"
+            unreadCount:
+              type: integer
+
+    MailMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        threadId:
+          type: string
+          format: uuid
+        inboxId:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        direction:
+          type: string
+          enum: [inbound, outbound, internal]
+        senderType:
+          type: string
+          enum: [agent, user, system, external]
+        senderAgentId:
+          type: string
+          format: uuid
+        senderUserId:
+          type: string
+          format: uuid
+        senderAddress:
+          type: string
+        recipientAddress:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        bodyFormat:
+          type: string
+          enum: [text, html, markdown]
+        bodyText:
+          type: string
+        bodyHtml:
+          type: string
+        snippet:
+          type: string
+        headers:
+          type: object
+          additionalProperties: true
+        structuredPayload:
+          type: object
+          additionalProperties: true
+        isRead:
+          type: boolean
+        readAt:
+          type: string
+          format: date-time
+        archivedAt:
+          type: string
+          format: date-time
+        deliveryStatus:
+          type: string
+        senderTrustScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        senderVerified:
+          type: boolean
+        provenanceChain:
+          type: array
+          items:
+            $ref: "#/components/schemas/MailProvenanceEntry"
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        spamMetadata:
+          type: object
+          additionalProperties: true
+        paymentMetadata:
+          type: object
+          additionalProperties: true
+        originatingTaskId:
+          type: string
+          format: uuid
+        convertedTaskId:
+          type: string
+          format: uuid
+        inReplyToId:
+          type: string
+          format: uuid
+        externalMessageId:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, threadId, inboxId, agentId, direction, senderType, body, isRead, createdAt]
+
+    MailProvenanceEntry:
+      type: object
+      properties:
+        actor:
+          type: string
+        action:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: true
+      required: [actor, action, timestamp]
+
+    SendMailMessageInput:
+      type: object
+      properties:
+        direction:
+          type: string
+          enum: [inbound, outbound]
+        senderType:
+          type: string
+          enum: [agent, user, system, external]
+        senderAddress:
+          type: string
+        recipientAddress:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        bodyFormat:
+          type: string
+          enum: [text, html, markdown]
+        structuredPayload:
+          type: object
+          additionalProperties: true
+        inReplyToId:
+          type: string
+          format: uuid
+        senderTrustScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        senderVerified:
+          type: boolean
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [direction, senderType, body]
+
+    IngestMailMessageInput:
+      type: object
+      properties:
+        recipientAddress:
+          type: string
+        senderAddress:
+          type: string
+        senderType:
+          type: string
+          enum: [agent, user, external]
+        subject:
+          type: string
+        body:
+          type: string
+        bodyFormat:
+          type: string
+          enum: [text, html, markdown]
+        structuredPayload:
+          type: object
+          additionalProperties: true
+        senderTrustScore:
+          type: integer
+        senderVerified:
+          type: boolean
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+      required: [recipientAddress, body, senderType]
+
+    MailReplyInput:
+      type: object
+      properties:
+        body:
+          type: string
+        bodyFormat:
+          type: string
+          enum: [text, html, markdown]
+      required: [body]
+
+    MailLabel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        inboxId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+        isSystem:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, inboxId, name, isSystem, createdAt]
+
+    CreateMailLabelInput:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+      required: [name]
+
+    MailAttachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        messageId:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        contentType:
+          type: string
+        size:
+          type: integer
+        url:
+          type: string
+        checksum:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, messageId, filename, contentType, size, createdAt]
+
+    MailEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        messageId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+        actorType:
+          type: string
+        actorId:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, messageId, eventType, createdAt]
+
+    MailWebhook:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        inboxId:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        url:
+          type: string
+        events:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, paused, disabled]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, inboxId, agentId, url, status, createdAt]
+
+    CreateMailWebhookInput:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+        secret:
+          type: string
+      required: [url]
+
+    UpdateMailWebhookInput:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+        secret:
+          type: string
+        status:
+          type: string
+          enum: [active, paused, disabled]

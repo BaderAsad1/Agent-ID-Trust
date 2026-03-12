@@ -20,26 +20,40 @@ import type {
   Agent,
   AgentDomain,
   AgentSubscription,
+  ApiError,
   ApiKeyCreated,
+  ArchiveMailMessage200,
   AuthorizePaymentBody,
   CheckHandleParams,
+  ConvertMailMessageToTask201,
   CreateAgentInput,
   CreateApiKeyInput,
   CreateCheckout200,
   CreateCheckoutInput,
   CreateJobInput,
   CreateListingInput,
+  CreateMailLabel201,
+  CreateMailLabelInput,
+  CreateMailWebhook201,
+  CreateMailWebhookInput,
   CreateOrderInput,
   CreatePaymentIntentInput,
   CreateProposalInput,
   CreateReviewInput,
   CreateTaskInput,
   DashboardStats,
+  ForbiddenResponse,
+  GetMailInbox200,
+  GetMailMessage200,
+  GetMailMessageEvents200,
+  GetMailThread200,
   GetPaymentLedger200,
   GetPaymentLedgerParams,
   GetVerificationStatus200,
   HandleCheckResult,
   HealthStatus,
+  IngestMailMessage201,
+  IngestMailMessageInput,
   InitiateVerificationBody,
   JobPost,
   JobProposal,
@@ -50,6 +64,12 @@ import type {
   ListJobsParams,
   ListListingReviews200,
   ListListingReviewsParams,
+  ListMailLabels200,
+  ListMailMessages200,
+  ListMailMessagesParams,
+  ListMailThreads200,
+  ListMailThreadsParams,
+  ListMailWebhooks200,
   ListMarketplaceListings200,
   ListMarketplaceListingsParams,
   ListMarketplaceOrders200,
@@ -60,6 +80,10 @@ import type {
   ListTasks200,
   ListTasksParams,
   ListUserIdentities200,
+  MailInboxStats,
+  MailReplyInput,
+  MarkMailMessageRead200,
+  MarkMailMessageReadBody,
   MarketplaceListing,
   MarketplaceOrder,
   MarketplaceReview,
@@ -71,6 +95,12 @@ import type {
   ProgrammaticVerifyInput,
   ProgrammaticVerifyResponse,
   PublicAgentProfile,
+  ReplyToMailThread201,
+  RouteMailMessage200,
+  SearchMailMessages200,
+  SearchMailMessagesParams,
+  SendMailMessage201,
+  SendMailMessageInput,
   SuccessMessage,
   Task,
   UnauthorizedResponse,
@@ -78,6 +108,10 @@ import type {
   UpdateJobStatusBody,
   UpdateListingInput,
   UpdateListingStatusBody,
+  UpdateMailInbox200,
+  UpdateMailInboxInput,
+  UpdateMailWebhook200,
+  UpdateMailWebhookInput,
   UpdateProposalBody,
   UpdateTaskBusinessStatusBody,
   UpdateUserInput,
@@ -5502,4 +5536,2655 @@ export const useVisaWebhook = <
   TContext
 > => {
   return useMutation(getVisaWebhookMutationOptions(options));
+};
+
+/**
+ * @summary Get or create agent inbox
+ */
+export const getGetMailInboxUrl = (agentId: string) => {
+  return `/api/v1/mail/agents/${agentId}/inbox`;
+};
+
+export const getMailInbox = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<GetMailInbox200> => {
+  return customFetch<GetMailInbox200>(getGetMailInboxUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMailInboxQueryKey = (agentId: string) => {
+  return [`/api/v1/mail/agents/${agentId}/inbox`] as const;
+};
+
+export const getGetMailInboxQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMailInbox>>,
+  TError = ErrorType<ForbiddenResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMailInbox>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMailInboxQueryKey(agentId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMailInbox>>> = ({
+    signal,
+  }) => getMailInbox(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMailInbox>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMailInboxQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMailInbox>>
+>;
+export type GetMailInboxQueryError = ErrorType<ForbiddenResponse>;
+
+/**
+ * @summary Get or create agent inbox
+ */
+
+export function useGetMailInbox<
+  TData = Awaited<ReturnType<typeof getMailInbox>>,
+  TError = ErrorType<ForbiddenResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMailInbox>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMailInboxQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update inbox settings
+ */
+export const getUpdateMailInboxUrl = (agentId: string) => {
+  return `/api/v1/mail/agents/${agentId}/inbox`;
+};
+
+export const updateMailInbox = async (
+  agentId: string,
+  updateMailInboxInput: UpdateMailInboxInput,
+  options?: RequestInit,
+): Promise<UpdateMailInbox200> => {
+  return customFetch<UpdateMailInbox200>(getUpdateMailInboxUrl(agentId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateMailInboxInput),
+  });
+};
+
+export const getUpdateMailInboxMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMailInbox>>,
+    TError,
+    { agentId: string; data: BodyType<UpdateMailInboxInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMailInbox>>,
+  TError,
+  { agentId: string; data: BodyType<UpdateMailInboxInput> },
+  TContext
+> => {
+  const mutationKey = ["updateMailInbox"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMailInbox>>,
+    { agentId: string; data: BodyType<UpdateMailInboxInput> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return updateMailInbox(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMailInboxMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMailInbox>>
+>;
+export type UpdateMailInboxMutationBody = BodyType<UpdateMailInboxInput>;
+export type UpdateMailInboxMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update inbox settings
+ */
+export const useUpdateMailInbox = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMailInbox>>,
+    TError,
+    { agentId: string; data: BodyType<UpdateMailInboxInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMailInbox>>,
+  TError,
+  { agentId: string; data: BodyType<UpdateMailInboxInput> },
+  TContext
+> => {
+  return useMutation(getUpdateMailInboxMutationOptions(options));
+};
+
+/**
+ * @summary Get inbox statistics
+ */
+export const getGetMailInboxStatsUrl = (agentId: string) => {
+  return `/api/v1/mail/agents/${agentId}/inbox/stats`;
+};
+
+export const getMailInboxStats = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<MailInboxStats> => {
+  return customFetch<MailInboxStats>(getGetMailInboxStatsUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMailInboxStatsQueryKey = (agentId: string) => {
+  return [`/api/v1/mail/agents/${agentId}/inbox/stats`] as const;
+};
+
+export const getGetMailInboxStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMailInboxStats>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMailInboxStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMailInboxStatsQueryKey(agentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMailInboxStats>>
+  > = ({ signal }) => getMailInboxStats(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMailInboxStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMailInboxStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMailInboxStats>>
+>;
+export type GetMailInboxStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get inbox statistics
+ */
+
+export function useGetMailInboxStats<
+  TData = Awaited<ReturnType<typeof getMailInboxStats>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMailInboxStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMailInboxStatsQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List mail threads
+ */
+export const getListMailThreadsUrl = (
+  agentId: string,
+  params?: ListMailThreadsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/mail/agents/${agentId}/threads?${stringifiedParams}`
+    : `/api/v1/mail/agents/${agentId}/threads`;
+};
+
+export const listMailThreads = async (
+  agentId: string,
+  params?: ListMailThreadsParams,
+  options?: RequestInit,
+): Promise<ListMailThreads200> => {
+  return customFetch<ListMailThreads200>(
+    getListMailThreadsUrl(agentId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListMailThreadsQueryKey = (
+  agentId: string,
+  params?: ListMailThreadsParams,
+) => {
+  return [
+    `/api/v1/mail/agents/${agentId}/threads`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListMailThreadsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMailThreads>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  params?: ListMailThreadsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMailThreads>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMailThreadsQueryKey(agentId, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMailThreads>>> = ({
+    signal,
+  }) => listMailThreads(agentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMailThreads>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMailThreadsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMailThreads>>
+>;
+export type ListMailThreadsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List mail threads
+ */
+
+export function useListMailThreads<
+  TData = Awaited<ReturnType<typeof listMailThreads>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  params?: ListMailThreadsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMailThreads>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMailThreadsQueryOptions(agentId, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get thread with messages
+ */
+export const getGetMailThreadUrl = (agentId: string, threadId: string) => {
+  return `/api/v1/mail/agents/${agentId}/threads/${threadId}`;
+};
+
+export const getMailThread = async (
+  agentId: string,
+  threadId: string,
+  options?: RequestInit,
+): Promise<GetMailThread200> => {
+  return customFetch<GetMailThread200>(getGetMailThreadUrl(agentId, threadId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMailThreadQueryKey = (agentId: string, threadId: string) => {
+  return [`/api/v1/mail/agents/${agentId}/threads/${threadId}`] as const;
+};
+
+export const getGetMailThreadQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMailThread>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  threadId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMailThread>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMailThreadQueryKey(agentId, threadId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMailThread>>> = ({
+    signal,
+  }) => getMailThread(agentId, threadId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(agentId && threadId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMailThread>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMailThreadQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMailThread>>
+>;
+export type GetMailThreadQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get thread with messages
+ */
+
+export function useGetMailThread<
+  TData = Awaited<ReturnType<typeof getMailThread>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  threadId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMailThread>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMailThreadQueryOptions(agentId, threadId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Mark all messages in thread as read
+ */
+export const getMarkMailThreadReadUrl = (agentId: string, threadId: string) => {
+  return `/api/v1/mail/agents/${agentId}/threads/${threadId}/read`;
+};
+
+export const markMailThreadRead = async (
+  agentId: string,
+  threadId: string,
+  options?: RequestInit,
+): Promise<SuccessMessage> => {
+  return customFetch<SuccessMessage>(
+    getMarkMailThreadReadUrl(agentId, threadId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getMarkMailThreadReadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markMailThreadRead>>,
+    TError,
+    { agentId: string; threadId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markMailThreadRead>>,
+  TError,
+  { agentId: string; threadId: string },
+  TContext
+> => {
+  const mutationKey = ["markMailThreadRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markMailThreadRead>>,
+    { agentId: string; threadId: string }
+  > = (props) => {
+    const { agentId, threadId } = props ?? {};
+
+    return markMailThreadRead(agentId, threadId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkMailThreadReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markMailThreadRead>>
+>;
+
+export type MarkMailThreadReadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mark all messages in thread as read
+ */
+export const useMarkMailThreadRead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markMailThreadRead>>,
+    TError,
+    { agentId: string; threadId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markMailThreadRead>>,
+  TError,
+  { agentId: string; threadId: string },
+  TContext
+> => {
+  return useMutation(getMarkMailThreadReadMutationOptions(options));
+};
+
+/**
+ * @summary Reply to a thread
+ */
+export const getReplyToMailThreadUrl = (agentId: string, threadId: string) => {
+  return `/api/v1/mail/agents/${agentId}/threads/${threadId}/reply`;
+};
+
+export const replyToMailThread = async (
+  agentId: string,
+  threadId: string,
+  mailReplyInput: MailReplyInput,
+  options?: RequestInit,
+): Promise<ReplyToMailThread201> => {
+  return customFetch<ReplyToMailThread201>(
+    getReplyToMailThreadUrl(agentId, threadId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(mailReplyInput),
+    },
+  );
+};
+
+export const getReplyToMailThreadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof replyToMailThread>>,
+    TError,
+    { agentId: string; threadId: string; data: BodyType<MailReplyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof replyToMailThread>>,
+  TError,
+  { agentId: string; threadId: string; data: BodyType<MailReplyInput> },
+  TContext
+> => {
+  const mutationKey = ["replyToMailThread"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof replyToMailThread>>,
+    { agentId: string; threadId: string; data: BodyType<MailReplyInput> }
+  > = (props) => {
+    const { agentId, threadId, data } = props ?? {};
+
+    return replyToMailThread(agentId, threadId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReplyToMailThreadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof replyToMailThread>>
+>;
+export type ReplyToMailThreadMutationBody = BodyType<MailReplyInput>;
+export type ReplyToMailThreadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reply to a thread
+ */
+export const useReplyToMailThread = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof replyToMailThread>>,
+    TError,
+    { agentId: string; threadId: string; data: BodyType<MailReplyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof replyToMailThread>>,
+  TError,
+  { agentId: string; threadId: string; data: BodyType<MailReplyInput> },
+  TContext
+> => {
+  return useMutation(getReplyToMailThreadMutationOptions(options));
+};
+
+/**
+ * @summary List messages
+ */
+export const getListMailMessagesUrl = (
+  agentId: string,
+  params?: ListMailMessagesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/mail/agents/${agentId}/messages?${stringifiedParams}`
+    : `/api/v1/mail/agents/${agentId}/messages`;
+};
+
+export const listMailMessages = async (
+  agentId: string,
+  params?: ListMailMessagesParams,
+  options?: RequestInit,
+): Promise<ListMailMessages200> => {
+  return customFetch<ListMailMessages200>(
+    getListMailMessagesUrl(agentId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListMailMessagesQueryKey = (
+  agentId: string,
+  params?: ListMailMessagesParams,
+) => {
+  return [
+    `/api/v1/mail/agents/${agentId}/messages`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListMailMessagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMailMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  params?: ListMailMessagesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMailMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMailMessagesQueryKey(agentId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMailMessages>>
+  > = ({ signal }) =>
+    listMailMessages(agentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMailMessages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMailMessagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMailMessages>>
+>;
+export type ListMailMessagesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List messages
+ */
+
+export function useListMailMessages<
+  TData = Awaited<ReturnType<typeof listMailMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  params?: ListMailMessagesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMailMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMailMessagesQueryOptions(
+    agentId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Send a new message
+ */
+export const getSendMailMessageUrl = (agentId: string) => {
+  return `/api/v1/mail/agents/${agentId}/messages`;
+};
+
+export const sendMailMessage = async (
+  agentId: string,
+  sendMailMessageInput: SendMailMessageInput,
+  options?: RequestInit,
+): Promise<SendMailMessage201> => {
+  return customFetch<SendMailMessage201>(getSendMailMessageUrl(agentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(sendMailMessageInput),
+  });
+};
+
+export const getSendMailMessageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendMailMessage>>,
+    TError,
+    { agentId: string; data: BodyType<SendMailMessageInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendMailMessage>>,
+  TError,
+  { agentId: string; data: BodyType<SendMailMessageInput> },
+  TContext
+> => {
+  const mutationKey = ["sendMailMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendMailMessage>>,
+    { agentId: string; data: BodyType<SendMailMessageInput> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return sendMailMessage(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendMailMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendMailMessage>>
+>;
+export type SendMailMessageMutationBody = BodyType<SendMailMessageInput>;
+export type SendMailMessageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send a new message
+ */
+export const useSendMailMessage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendMailMessage>>,
+    TError,
+    { agentId: string; data: BodyType<SendMailMessageInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendMailMessage>>,
+  TError,
+  { agentId: string; data: BodyType<SendMailMessageInput> },
+  TContext
+> => {
+  return useMutation(getSendMailMessageMutationOptions(options));
+};
+
+/**
+ * @summary Get message detail with labels and attachments
+ */
+export const getGetMailMessageUrl = (agentId: string, messageId: string) => {
+  return `/api/v1/mail/agents/${agentId}/messages/${messageId}`;
+};
+
+export const getMailMessage = async (
+  agentId: string,
+  messageId: string,
+  options?: RequestInit,
+): Promise<GetMailMessage200> => {
+  return customFetch<GetMailMessage200>(
+    getGetMailMessageUrl(agentId, messageId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMailMessageQueryKey = (
+  agentId: string,
+  messageId: string,
+) => {
+  return [`/api/v1/mail/agents/${agentId}/messages/${messageId}`] as const;
+};
+
+export const getGetMailMessageQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMailMessage>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  messageId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMailMessage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMailMessageQueryKey(agentId, messageId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMailMessage>>> = ({
+    signal,
+  }) => getMailMessage(agentId, messageId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(agentId && messageId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMailMessage>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMailMessageQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMailMessage>>
+>;
+export type GetMailMessageQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get message detail with labels and attachments
+ */
+
+export function useGetMailMessage<
+  TData = Awaited<ReturnType<typeof getMailMessage>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  messageId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMailMessage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMailMessageQueryOptions(
+    agentId,
+    messageId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Mark message read or unread
+ */
+export const getMarkMailMessageReadUrl = (
+  agentId: string,
+  messageId: string,
+) => {
+  return `/api/v1/mail/agents/${agentId}/messages/${messageId}/read`;
+};
+
+export const markMailMessageRead = async (
+  agentId: string,
+  messageId: string,
+  markMailMessageReadBody: MarkMailMessageReadBody,
+  options?: RequestInit,
+): Promise<MarkMailMessageRead200> => {
+  return customFetch<MarkMailMessageRead200>(
+    getMarkMailMessageReadUrl(agentId, messageId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(markMailMessageReadBody),
+    },
+  );
+};
+
+export const getMarkMailMessageReadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markMailMessageRead>>,
+    TError,
+    {
+      agentId: string;
+      messageId: string;
+      data: BodyType<MarkMailMessageReadBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markMailMessageRead>>,
+  TError,
+  {
+    agentId: string;
+    messageId: string;
+    data: BodyType<MarkMailMessageReadBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["markMailMessageRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markMailMessageRead>>,
+    {
+      agentId: string;
+      messageId: string;
+      data: BodyType<MarkMailMessageReadBody>;
+    }
+  > = (props) => {
+    const { agentId, messageId, data } = props ?? {};
+
+    return markMailMessageRead(agentId, messageId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkMailMessageReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markMailMessageRead>>
+>;
+export type MarkMailMessageReadMutationBody = BodyType<MarkMailMessageReadBody>;
+export type MarkMailMessageReadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mark message read or unread
+ */
+export const useMarkMailMessageRead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markMailMessageRead>>,
+    TError,
+    {
+      agentId: string;
+      messageId: string;
+      data: BodyType<MarkMailMessageReadBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markMailMessageRead>>,
+  TError,
+  {
+    agentId: string;
+    messageId: string;
+    data: BodyType<MarkMailMessageReadBody>;
+  },
+  TContext
+> => {
+  return useMutation(getMarkMailMessageReadMutationOptions(options));
+};
+
+/**
+ * @summary Archive a message
+ */
+export const getArchiveMailMessageUrl = (
+  agentId: string,
+  messageId: string,
+) => {
+  return `/api/v1/mail/agents/${agentId}/messages/${messageId}/archive`;
+};
+
+export const archiveMailMessage = async (
+  agentId: string,
+  messageId: string,
+  options?: RequestInit,
+): Promise<ArchiveMailMessage200> => {
+  return customFetch<ArchiveMailMessage200>(
+    getArchiveMailMessageUrl(agentId, messageId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getArchiveMailMessageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveMailMessage>>,
+    TError,
+    { agentId: string; messageId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof archiveMailMessage>>,
+  TError,
+  { agentId: string; messageId: string },
+  TContext
+> => {
+  const mutationKey = ["archiveMailMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof archiveMailMessage>>,
+    { agentId: string; messageId: string }
+  > = (props) => {
+    const { agentId, messageId } = props ?? {};
+
+    return archiveMailMessage(agentId, messageId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ArchiveMailMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archiveMailMessage>>
+>;
+
+export type ArchiveMailMessageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Archive a message
+ */
+export const useArchiveMailMessage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveMailMessage>>,
+    TError,
+    { agentId: string; messageId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof archiveMailMessage>>,
+  TError,
+  { agentId: string; messageId: string },
+  TContext
+> => {
+  return useMutation(getArchiveMailMessageMutationOptions(options));
+};
+
+/**
+ * @summary Convert message to task
+ */
+export const getConvertMailMessageToTaskUrl = (
+  agentId: string,
+  messageId: string,
+) => {
+  return `/api/v1/mail/agents/${agentId}/messages/${messageId}/convert-task`;
+};
+
+export const convertMailMessageToTask = async (
+  agentId: string,
+  messageId: string,
+  options?: RequestInit,
+): Promise<ConvertMailMessageToTask201> => {
+  return customFetch<ConvertMailMessageToTask201>(
+    getConvertMailMessageToTaskUrl(agentId, messageId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getConvertMailMessageToTaskMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof convertMailMessageToTask>>,
+    TError,
+    { agentId: string; messageId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof convertMailMessageToTask>>,
+  TError,
+  { agentId: string; messageId: string },
+  TContext
+> => {
+  const mutationKey = ["convertMailMessageToTask"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof convertMailMessageToTask>>,
+    { agentId: string; messageId: string }
+  > = (props) => {
+    const { agentId, messageId } = props ?? {};
+
+    return convertMailMessageToTask(agentId, messageId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConvertMailMessageToTaskMutationResult = NonNullable<
+  Awaited<ReturnType<typeof convertMailMessageToTask>>
+>;
+
+export type ConvertMailMessageToTaskMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Convert message to task
+ */
+export const useConvertMailMessageToTask = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof convertMailMessageToTask>>,
+    TError,
+    { agentId: string; messageId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof convertMailMessageToTask>>,
+  TError,
+  { agentId: string; messageId: string },
+  TContext
+> => {
+  return useMutation(getConvertMailMessageToTaskMutationOptions(options));
+};
+
+/**
+ * @summary Get message lifecycle events
+ */
+export const getGetMailMessageEventsUrl = (
+  agentId: string,
+  messageId: string,
+) => {
+  return `/api/v1/mail/agents/${agentId}/messages/${messageId}/events`;
+};
+
+export const getMailMessageEvents = async (
+  agentId: string,
+  messageId: string,
+  options?: RequestInit,
+): Promise<GetMailMessageEvents200> => {
+  return customFetch<GetMailMessageEvents200>(
+    getGetMailMessageEventsUrl(agentId, messageId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMailMessageEventsQueryKey = (
+  agentId: string,
+  messageId: string,
+) => {
+  return [
+    `/api/v1/mail/agents/${agentId}/messages/${messageId}/events`,
+  ] as const;
+};
+
+export const getGetMailMessageEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMailMessageEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  messageId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMailMessageEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetMailMessageEventsQueryKey(agentId, messageId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMailMessageEvents>>
+  > = ({ signal }) =>
+    getMailMessageEvents(agentId, messageId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(agentId && messageId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMailMessageEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMailMessageEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMailMessageEvents>>
+>;
+export type GetMailMessageEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get message lifecycle events
+ */
+
+export function useGetMailMessageEvents<
+  TData = Awaited<ReturnType<typeof getMailMessageEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  messageId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMailMessageEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMailMessageEventsQueryOptions(
+    agentId,
+    messageId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Re-evaluate routing rules for a message
+ */
+export const getRouteMailMessageUrl = (agentId: string, messageId: string) => {
+  return `/api/v1/mail/agents/${agentId}/messages/${messageId}/route`;
+};
+
+export const routeMailMessage = async (
+  agentId: string,
+  messageId: string,
+  options?: RequestInit,
+): Promise<RouteMailMessage200> => {
+  return customFetch<RouteMailMessage200>(
+    getRouteMailMessageUrl(agentId, messageId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRouteMailMessageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof routeMailMessage>>,
+    TError,
+    { agentId: string; messageId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof routeMailMessage>>,
+  TError,
+  { agentId: string; messageId: string },
+  TContext
+> => {
+  const mutationKey = ["routeMailMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof routeMailMessage>>,
+    { agentId: string; messageId: string }
+  > = (props) => {
+    const { agentId, messageId } = props ?? {};
+
+    return routeMailMessage(agentId, messageId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RouteMailMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof routeMailMessage>>
+>;
+
+export type RouteMailMessageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Re-evaluate routing rules for a message
+ */
+export const useRouteMailMessage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof routeMailMessage>>,
+    TError,
+    { agentId: string; messageId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof routeMailMessage>>,
+  TError,
+  { agentId: string; messageId: string },
+  TContext
+> => {
+  return useMutation(getRouteMailMessageMutationOptions(options));
+};
+
+/**
+ * @summary Approve a quarantined message
+ */
+export const getApproveMailMessageUrl = (
+  agentId: string,
+  messageId: string,
+) => {
+  return `/api/v1/mail/agents/${agentId}/messages/${messageId}/approve`;
+};
+
+export const approveMailMessage = async (
+  agentId: string,
+  messageId: string,
+  options?: RequestInit,
+): Promise<SuccessMessage> => {
+  return customFetch<SuccessMessage>(
+    getApproveMailMessageUrl(agentId, messageId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getApproveMailMessageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveMailMessage>>,
+    TError,
+    { agentId: string; messageId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveMailMessage>>,
+  TError,
+  { agentId: string; messageId: string },
+  TContext
+> => {
+  const mutationKey = ["approveMailMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveMailMessage>>,
+    { agentId: string; messageId: string }
+  > = (props) => {
+    const { agentId, messageId } = props ?? {};
+
+    return approveMailMessage(agentId, messageId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveMailMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveMailMessage>>
+>;
+
+export type ApproveMailMessageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Approve a quarantined message
+ */
+export const useApproveMailMessage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveMailMessage>>,
+    TError,
+    { agentId: string; messageId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveMailMessage>>,
+  TError,
+  { agentId: string; messageId: string },
+  TContext
+> => {
+  return useMutation(getApproveMailMessageMutationOptions(options));
+};
+
+/**
+ * @summary Reject a message with bounce notification
+ */
+export const getRejectMailMessageUrl = (agentId: string, messageId: string) => {
+  return `/api/v1/mail/agents/${agentId}/messages/${messageId}/reject`;
+};
+
+export const rejectMailMessage = async (
+  agentId: string,
+  messageId: string,
+  options?: RequestInit,
+): Promise<SuccessMessage> => {
+  return customFetch<SuccessMessage>(
+    getRejectMailMessageUrl(agentId, messageId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRejectMailMessageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectMailMessage>>,
+    TError,
+    { agentId: string; messageId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectMailMessage>>,
+  TError,
+  { agentId: string; messageId: string },
+  TContext
+> => {
+  const mutationKey = ["rejectMailMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectMailMessage>>,
+    { agentId: string; messageId: string }
+  > = (props) => {
+    const { agentId, messageId } = props ?? {};
+
+    return rejectMailMessage(agentId, messageId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectMailMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectMailMessage>>
+>;
+
+export type RejectMailMessageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reject a message with bounce notification
+ */
+export const useRejectMailMessage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectMailMessage>>,
+    TError,
+    { agentId: string; messageId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rejectMailMessage>>,
+  TError,
+  { agentId: string; messageId: string },
+  TContext
+> => {
+  return useMutation(getRejectMailMessageMutationOptions(options));
+};
+
+/**
+ * @summary Assign label to message
+ */
+export const getAssignMailLabelUrl = (
+  agentId: string,
+  messageId: string,
+  labelId: string,
+) => {
+  return `/api/v1/mail/agents/${agentId}/messages/${messageId}/labels/${labelId}`;
+};
+
+export const assignMailLabel = async (
+  agentId: string,
+  messageId: string,
+  labelId: string,
+  options?: RequestInit,
+): Promise<SuccessMessage> => {
+  return customFetch<SuccessMessage>(
+    getAssignMailLabelUrl(agentId, messageId, labelId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAssignMailLabelMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignMailLabel>>,
+    TError,
+    { agentId: string; messageId: string; labelId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof assignMailLabel>>,
+  TError,
+  { agentId: string; messageId: string; labelId: string },
+  TContext
+> => {
+  const mutationKey = ["assignMailLabel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof assignMailLabel>>,
+    { agentId: string; messageId: string; labelId: string }
+  > = (props) => {
+    const { agentId, messageId, labelId } = props ?? {};
+
+    return assignMailLabel(agentId, messageId, labelId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AssignMailLabelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignMailLabel>>
+>;
+
+export type AssignMailLabelMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Assign label to message
+ */
+export const useAssignMailLabel = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignMailLabel>>,
+    TError,
+    { agentId: string; messageId: string; labelId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof assignMailLabel>>,
+  TError,
+  { agentId: string; messageId: string; labelId: string },
+  TContext
+> => {
+  return useMutation(getAssignMailLabelMutationOptions(options));
+};
+
+/**
+ * @summary Remove label from message
+ */
+export const getRemoveMailLabelUrl = (
+  agentId: string,
+  messageId: string,
+  labelId: string,
+) => {
+  return `/api/v1/mail/agents/${agentId}/messages/${messageId}/labels/${labelId}`;
+};
+
+export const removeMailLabel = async (
+  agentId: string,
+  messageId: string,
+  labelId: string,
+  options?: RequestInit,
+): Promise<SuccessMessage> => {
+  return customFetch<SuccessMessage>(
+    getRemoveMailLabelUrl(agentId, messageId, labelId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getRemoveMailLabelMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMailLabel>>,
+    TError,
+    { agentId: string; messageId: string; labelId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeMailLabel>>,
+  TError,
+  { agentId: string; messageId: string; labelId: string },
+  TContext
+> => {
+  const mutationKey = ["removeMailLabel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeMailLabel>>,
+    { agentId: string; messageId: string; labelId: string }
+  > = (props) => {
+    const { agentId, messageId, labelId } = props ?? {};
+
+    return removeMailLabel(agentId, messageId, labelId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveMailLabelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeMailLabel>>
+>;
+
+export type RemoveMailLabelMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove label from message
+ */
+export const useRemoveMailLabel = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMailLabel>>,
+    TError,
+    { agentId: string; messageId: string; labelId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeMailLabel>>,
+  TError,
+  { agentId: string; messageId: string; labelId: string },
+  TContext
+> => {
+  return useMutation(getRemoveMailLabelMutationOptions(options));
+};
+
+/**
+ * @summary List labels for agent inbox
+ */
+export const getListMailLabelsUrl = (agentId: string) => {
+  return `/api/v1/mail/agents/${agentId}/labels`;
+};
+
+export const listMailLabels = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<ListMailLabels200> => {
+  return customFetch<ListMailLabels200>(getListMailLabelsUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMailLabelsQueryKey = (agentId: string) => {
+  return [`/api/v1/mail/agents/${agentId}/labels`] as const;
+};
+
+export const getListMailLabelsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMailLabels>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMailLabels>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMailLabelsQueryKey(agentId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMailLabels>>> = ({
+    signal,
+  }) => listMailLabels(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMailLabels>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMailLabelsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMailLabels>>
+>;
+export type ListMailLabelsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List labels for agent inbox
+ */
+
+export function useListMailLabels<
+  TData = Awaited<ReturnType<typeof listMailLabels>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMailLabels>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMailLabelsQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a custom label
+ */
+export const getCreateMailLabelUrl = (agentId: string) => {
+  return `/api/v1/mail/agents/${agentId}/labels`;
+};
+
+export const createMailLabel = async (
+  agentId: string,
+  createMailLabelInput: CreateMailLabelInput,
+  options?: RequestInit,
+): Promise<CreateMailLabel201> => {
+  return customFetch<CreateMailLabel201>(getCreateMailLabelUrl(agentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createMailLabelInput),
+  });
+};
+
+export const getCreateMailLabelMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMailLabel>>,
+    TError,
+    { agentId: string; data: BodyType<CreateMailLabelInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMailLabel>>,
+  TError,
+  { agentId: string; data: BodyType<CreateMailLabelInput> },
+  TContext
+> => {
+  const mutationKey = ["createMailLabel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMailLabel>>,
+    { agentId: string; data: BodyType<CreateMailLabelInput> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return createMailLabel(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateMailLabelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMailLabel>>
+>;
+export type CreateMailLabelMutationBody = BodyType<CreateMailLabelInput>;
+export type CreateMailLabelMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a custom label
+ */
+export const useCreateMailLabel = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMailLabel>>,
+    TError,
+    { agentId: string; data: BodyType<CreateMailLabelInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMailLabel>>,
+  TError,
+  { agentId: string; data: BodyType<CreateMailLabelInput> },
+  TContext
+> => {
+  return useMutation(getCreateMailLabelMutationOptions(options));
+};
+
+/**
+ * @summary Delete a custom label
+ */
+export const getDeleteMailLabelUrl = (agentId: string, labelId: string) => {
+  return `/api/v1/mail/agents/${agentId}/labels/${labelId}`;
+};
+
+export const deleteMailLabel = async (
+  agentId: string,
+  labelId: string,
+  options?: RequestInit,
+): Promise<SuccessMessage> => {
+  return customFetch<SuccessMessage>(getDeleteMailLabelUrl(agentId, labelId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMailLabelMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMailLabel>>,
+    TError,
+    { agentId: string; labelId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMailLabel>>,
+  TError,
+  { agentId: string; labelId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteMailLabel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMailLabel>>,
+    { agentId: string; labelId: string }
+  > = (props) => {
+    const { agentId, labelId } = props ?? {};
+
+    return deleteMailLabel(agentId, labelId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMailLabelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMailLabel>>
+>;
+
+export type DeleteMailLabelMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a custom label
+ */
+export const useDeleteMailLabel = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMailLabel>>,
+    TError,
+    { agentId: string; labelId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMailLabel>>,
+  TError,
+  { agentId: string; labelId: string },
+  TContext
+> => {
+  return useMutation(getDeleteMailLabelMutationOptions(options));
+};
+
+/**
+ * @summary List webhooks for agent inbox
+ */
+export const getListMailWebhooksUrl = (agentId: string) => {
+  return `/api/v1/mail/agents/${agentId}/webhooks`;
+};
+
+export const listMailWebhooks = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<ListMailWebhooks200> => {
+  return customFetch<ListMailWebhooks200>(getListMailWebhooksUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMailWebhooksQueryKey = (agentId: string) => {
+  return [`/api/v1/mail/agents/${agentId}/webhooks`] as const;
+};
+
+export const getListMailWebhooksQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMailWebhooks>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMailWebhooks>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMailWebhooksQueryKey(agentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMailWebhooks>>
+  > = ({ signal }) => listMailWebhooks(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMailWebhooks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMailWebhooksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMailWebhooks>>
+>;
+export type ListMailWebhooksQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List webhooks for agent inbox
+ */
+
+export function useListMailWebhooks<
+  TData = Awaited<ReturnType<typeof listMailWebhooks>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMailWebhooks>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMailWebhooksQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a webhook
+ */
+export const getCreateMailWebhookUrl = (agentId: string) => {
+  return `/api/v1/mail/agents/${agentId}/webhooks`;
+};
+
+export const createMailWebhook = async (
+  agentId: string,
+  createMailWebhookInput: CreateMailWebhookInput,
+  options?: RequestInit,
+): Promise<CreateMailWebhook201> => {
+  return customFetch<CreateMailWebhook201>(getCreateMailWebhookUrl(agentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createMailWebhookInput),
+  });
+};
+
+export const getCreateMailWebhookMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMailWebhook>>,
+    TError,
+    { agentId: string; data: BodyType<CreateMailWebhookInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMailWebhook>>,
+  TError,
+  { agentId: string; data: BodyType<CreateMailWebhookInput> },
+  TContext
+> => {
+  const mutationKey = ["createMailWebhook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMailWebhook>>,
+    { agentId: string; data: BodyType<CreateMailWebhookInput> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return createMailWebhook(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateMailWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMailWebhook>>
+>;
+export type CreateMailWebhookMutationBody = BodyType<CreateMailWebhookInput>;
+export type CreateMailWebhookMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Create a webhook
+ */
+export const useCreateMailWebhook = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMailWebhook>>,
+    TError,
+    { agentId: string; data: BodyType<CreateMailWebhookInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMailWebhook>>,
+  TError,
+  { agentId: string; data: BodyType<CreateMailWebhookInput> },
+  TContext
+> => {
+  return useMutation(getCreateMailWebhookMutationOptions(options));
+};
+
+/**
+ * @summary Update a webhook
+ */
+export const getUpdateMailWebhookUrl = (agentId: string, webhookId: string) => {
+  return `/api/v1/mail/agents/${agentId}/webhooks/${webhookId}`;
+};
+
+export const updateMailWebhook = async (
+  agentId: string,
+  webhookId: string,
+  updateMailWebhookInput: UpdateMailWebhookInput,
+  options?: RequestInit,
+): Promise<UpdateMailWebhook200> => {
+  return customFetch<UpdateMailWebhook200>(
+    getUpdateMailWebhookUrl(agentId, webhookId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateMailWebhookInput),
+    },
+  );
+};
+
+export const getUpdateMailWebhookMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMailWebhook>>,
+    TError,
+    {
+      agentId: string;
+      webhookId: string;
+      data: BodyType<UpdateMailWebhookInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMailWebhook>>,
+  TError,
+  {
+    agentId: string;
+    webhookId: string;
+    data: BodyType<UpdateMailWebhookInput>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateMailWebhook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMailWebhook>>,
+    {
+      agentId: string;
+      webhookId: string;
+      data: BodyType<UpdateMailWebhookInput>;
+    }
+  > = (props) => {
+    const { agentId, webhookId, data } = props ?? {};
+
+    return updateMailWebhook(agentId, webhookId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMailWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMailWebhook>>
+>;
+export type UpdateMailWebhookMutationBody = BodyType<UpdateMailWebhookInput>;
+export type UpdateMailWebhookMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a webhook
+ */
+export const useUpdateMailWebhook = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMailWebhook>>,
+    TError,
+    {
+      agentId: string;
+      webhookId: string;
+      data: BodyType<UpdateMailWebhookInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMailWebhook>>,
+  TError,
+  {
+    agentId: string;
+    webhookId: string;
+    data: BodyType<UpdateMailWebhookInput>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateMailWebhookMutationOptions(options));
+};
+
+/**
+ * @summary Delete a webhook
+ */
+export const getDeleteMailWebhookUrl = (agentId: string, webhookId: string) => {
+  return `/api/v1/mail/agents/${agentId}/webhooks/${webhookId}`;
+};
+
+export const deleteMailWebhook = async (
+  agentId: string,
+  webhookId: string,
+  options?: RequestInit,
+): Promise<SuccessMessage> => {
+  return customFetch<SuccessMessage>(
+    getDeleteMailWebhookUrl(agentId, webhookId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteMailWebhookMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMailWebhook>>,
+    TError,
+    { agentId: string; webhookId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMailWebhook>>,
+  TError,
+  { agentId: string; webhookId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteMailWebhook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMailWebhook>>,
+    { agentId: string; webhookId: string }
+  > = (props) => {
+    const { agentId, webhookId } = props ?? {};
+
+    return deleteMailWebhook(agentId, webhookId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMailWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMailWebhook>>
+>;
+
+export type DeleteMailWebhookMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a webhook
+ */
+export const useDeleteMailWebhook = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMailWebhook>>,
+    TError,
+    { agentId: string; webhookId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMailWebhook>>,
+  TError,
+  { agentId: string; webhookId: string },
+  TContext
+> => {
+  return useMutation(getDeleteMailWebhookMutationOptions(options));
+};
+
+/**
+ * @summary Search messages with filters
+ */
+export const getSearchMailMessagesUrl = (
+  agentId: string,
+  params?: SearchMailMessagesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/mail/agents/${agentId}/search?${stringifiedParams}`
+    : `/api/v1/mail/agents/${agentId}/search`;
+};
+
+export const searchMailMessages = async (
+  agentId: string,
+  params?: SearchMailMessagesParams,
+  options?: RequestInit,
+): Promise<SearchMailMessages200> => {
+  return customFetch<SearchMailMessages200>(
+    getSearchMailMessagesUrl(agentId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getSearchMailMessagesQueryKey = (
+  agentId: string,
+  params?: SearchMailMessagesParams,
+) => {
+  return [
+    `/api/v1/mail/agents/${agentId}/search`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getSearchMailMessagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchMailMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  params?: SearchMailMessagesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchMailMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSearchMailMessagesQueryKey(agentId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof searchMailMessages>>
+  > = ({ signal }) =>
+    searchMailMessages(agentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchMailMessages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchMailMessagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchMailMessages>>
+>;
+export type SearchMailMessagesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Search messages with filters
+ */
+
+export function useSearchMailMessages<
+  TData = Awaited<ReturnType<typeof searchMailMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  params?: SearchMailMessagesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchMailMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchMailMessagesQueryOptions(
+    agentId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Programmatic message ingestion
+ */
+export const getIngestMailMessageUrl = () => {
+  return `/api/v1/mail/ingest`;
+};
+
+export const ingestMailMessage = async (
+  ingestMailMessageInput: IngestMailMessageInput,
+  options?: RequestInit,
+): Promise<IngestMailMessage201> => {
+  return customFetch<IngestMailMessage201>(getIngestMailMessageUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(ingestMailMessageInput),
+  });
+};
+
+export const getIngestMailMessageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ingestMailMessage>>,
+    TError,
+    { data: BodyType<IngestMailMessageInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof ingestMailMessage>>,
+  TError,
+  { data: BodyType<IngestMailMessageInput> },
+  TContext
+> => {
+  const mutationKey = ["ingestMailMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof ingestMailMessage>>,
+    { data: BodyType<IngestMailMessageInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return ingestMailMessage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IngestMailMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof ingestMailMessage>>
+>;
+export type IngestMailMessageMutationBody = BodyType<IngestMailMessageInput>;
+export type IngestMailMessageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Programmatic message ingestion
+ */
+export const useIngestMailMessage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ingestMailMessage>>,
+    TError,
+    { data: BodyType<IngestMailMessageInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof ingestMailMessage>>,
+  TError,
+  { data: BodyType<IngestMailMessageInput> },
+  TContext
+> => {
+  return useMutation(getIngestMailMessageMutationOptions(options));
 };

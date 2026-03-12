@@ -483,6 +483,379 @@ export interface PaymentLedgerEntry {
   createdAt: string;
 }
 
+export type MailInboxStatus =
+  (typeof MailInboxStatus)[keyof typeof MailInboxStatus];
+
+export const MailInboxStatus = {
+  active: "active",
+  paused: "paused",
+  disabled: "disabled",
+} as const;
+
+export interface MailInbox {
+  id: string;
+  agentId: string;
+  address: string;
+  addressLocalPart: string;
+  addressDomain: string;
+  displayName?: string;
+  status: MailInboxStatus;
+  autoResponderEnabled?: boolean;
+  autoResponderMessage?: string;
+  forwardingAddress?: string;
+  lastMessageAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface UpdateMailInboxInput {
+  displayName?: string;
+  autoResponderEnabled?: boolean;
+  autoResponderMessage?: string;
+  forwardingAddress?: string;
+}
+
+export type MailInboxStatsMessages = {
+  total?: number;
+  unread?: number;
+  inbound?: number;
+  outbound?: number;
+};
+
+export type MailInboxStatsThreads = {
+  total?: number;
+  open?: number;
+};
+
+export interface MailInboxStats {
+  messages?: MailInboxStatsMessages;
+  threads?: MailInboxStatsThreads;
+}
+
+export type MailThreadStatus =
+  (typeof MailThreadStatus)[keyof typeof MailThreadStatus];
+
+export const MailThreadStatus = {
+  open: "open",
+  closed: "closed",
+  archived: "archived",
+} as const;
+
+export interface MailThread {
+  id: string;
+  inboxId: string;
+  subject: string;
+  status: MailThreadStatus;
+  messageCount: number;
+  participants?: string[];
+  lastMessageAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type MailMessageDirection =
+  (typeof MailMessageDirection)[keyof typeof MailMessageDirection];
+
+export const MailMessageDirection = {
+  inbound: "inbound",
+  outbound: "outbound",
+  internal: "internal",
+} as const;
+
+export type MailMessageSenderType =
+  (typeof MailMessageSenderType)[keyof typeof MailMessageSenderType];
+
+export const MailMessageSenderType = {
+  agent: "agent",
+  user: "user",
+  system: "system",
+  external: "external",
+} as const;
+
+export type MailMessageBodyFormat =
+  (typeof MailMessageBodyFormat)[keyof typeof MailMessageBodyFormat];
+
+export const MailMessageBodyFormat = {
+  text: "text",
+  html: "html",
+  markdown: "markdown",
+} as const;
+
+export type MailProvenanceEntryDetails = { [key: string]: unknown };
+
+export interface MailProvenanceEntry {
+  actor: string;
+  action: string;
+  timestamp: string;
+  details?: MailProvenanceEntryDetails;
+}
+
+export type MailMessagePriority =
+  (typeof MailMessagePriority)[keyof typeof MailMessagePriority];
+
+export const MailMessagePriority = {
+  low: "low",
+  normal: "normal",
+  high: "high",
+  urgent: "urgent",
+} as const;
+
+export type MailMessageHeaders = { [key: string]: unknown };
+
+export type MailMessageStructuredPayload = { [key: string]: unknown };
+
+export type MailMessageSpamMetadata = { [key: string]: unknown };
+
+export type MailMessagePaymentMetadata = { [key: string]: unknown };
+
+export type MailMessageMetadata = { [key: string]: unknown };
+
+export interface MailMessage {
+  id: string;
+  threadId: string;
+  inboxId: string;
+  agentId: string;
+  direction: MailMessageDirection;
+  senderType: MailMessageSenderType;
+  senderAgentId?: string;
+  senderUserId?: string;
+  senderAddress?: string;
+  recipientAddress?: string;
+  subject?: string;
+  body: string;
+  bodyFormat?: MailMessageBodyFormat;
+  bodyText?: string;
+  bodyHtml?: string;
+  snippet?: string;
+  headers?: MailMessageHeaders;
+  structuredPayload?: MailMessageStructuredPayload;
+  isRead: boolean;
+  readAt?: string;
+  archivedAt?: string;
+  deliveryStatus?: string;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  senderTrustScore?: number;
+  senderVerified?: boolean;
+  provenanceChain?: MailProvenanceEntry[];
+  priority?: MailMessagePriority;
+  spamMetadata?: MailMessageSpamMetadata;
+  paymentMetadata?: MailMessagePaymentMetadata;
+  originatingTaskId?: string;
+  convertedTaskId?: string;
+  inReplyToId?: string;
+  externalMessageId?: string;
+  metadata?: MailMessageMetadata;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type MailThreadDetail = MailThread & {
+  messages?: MailMessage[];
+  unreadCount?: number;
+};
+
+export type SendMailMessageInputDirection =
+  (typeof SendMailMessageInputDirection)[keyof typeof SendMailMessageInputDirection];
+
+export const SendMailMessageInputDirection = {
+  inbound: "inbound",
+  outbound: "outbound",
+} as const;
+
+export type SendMailMessageInputSenderType =
+  (typeof SendMailMessageInputSenderType)[keyof typeof SendMailMessageInputSenderType];
+
+export const SendMailMessageInputSenderType = {
+  agent: "agent",
+  user: "user",
+  system: "system",
+  external: "external",
+} as const;
+
+export type SendMailMessageInputBodyFormat =
+  (typeof SendMailMessageInputBodyFormat)[keyof typeof SendMailMessageInputBodyFormat];
+
+export const SendMailMessageInputBodyFormat = {
+  text: "text",
+  html: "html",
+  markdown: "markdown",
+} as const;
+
+export type SendMailMessageInputStructuredPayload = { [key: string]: unknown };
+
+export type SendMailMessageInputPriority =
+  (typeof SendMailMessageInputPriority)[keyof typeof SendMailMessageInputPriority];
+
+export const SendMailMessageInputPriority = {
+  low: "low",
+  normal: "normal",
+  high: "high",
+  urgent: "urgent",
+} as const;
+
+export type SendMailMessageInputMetadata = { [key: string]: unknown };
+
+export interface SendMailMessageInput {
+  direction: SendMailMessageInputDirection;
+  senderType: SendMailMessageInputSenderType;
+  senderAddress?: string;
+  recipientAddress?: string;
+  subject?: string;
+  body: string;
+  bodyFormat?: SendMailMessageInputBodyFormat;
+  structuredPayload?: SendMailMessageInputStructuredPayload;
+  inReplyToId?: string;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  senderTrustScore?: number;
+  senderVerified?: boolean;
+  priority?: SendMailMessageInputPriority;
+  metadata?: SendMailMessageInputMetadata;
+}
+
+export type IngestMailMessageInputSenderType =
+  (typeof IngestMailMessageInputSenderType)[keyof typeof IngestMailMessageInputSenderType];
+
+export const IngestMailMessageInputSenderType = {
+  agent: "agent",
+  user: "user",
+  external: "external",
+} as const;
+
+export type IngestMailMessageInputBodyFormat =
+  (typeof IngestMailMessageInputBodyFormat)[keyof typeof IngestMailMessageInputBodyFormat];
+
+export const IngestMailMessageInputBodyFormat = {
+  text: "text",
+  html: "html",
+  markdown: "markdown",
+} as const;
+
+export type IngestMailMessageInputStructuredPayload = {
+  [key: string]: unknown;
+};
+
+export type IngestMailMessageInputPriority =
+  (typeof IngestMailMessageInputPriority)[keyof typeof IngestMailMessageInputPriority];
+
+export const IngestMailMessageInputPriority = {
+  low: "low",
+  normal: "normal",
+  high: "high",
+  urgent: "urgent",
+} as const;
+
+export interface IngestMailMessageInput {
+  recipientAddress: string;
+  senderAddress?: string;
+  senderType: IngestMailMessageInputSenderType;
+  subject?: string;
+  body: string;
+  bodyFormat?: IngestMailMessageInputBodyFormat;
+  structuredPayload?: IngestMailMessageInputStructuredPayload;
+  senderTrustScore?: number;
+  senderVerified?: boolean;
+  priority?: IngestMailMessageInputPriority;
+}
+
+export type MailReplyInputBodyFormat =
+  (typeof MailReplyInputBodyFormat)[keyof typeof MailReplyInputBodyFormat];
+
+export const MailReplyInputBodyFormat = {
+  text: "text",
+  html: "html",
+  markdown: "markdown",
+} as const;
+
+export interface MailReplyInput {
+  body: string;
+  bodyFormat?: MailReplyInputBodyFormat;
+}
+
+export interface MailLabel {
+  id: string;
+  inboxId: string;
+  name: string;
+  color?: string;
+  isSystem: boolean;
+  createdAt: string;
+}
+
+export interface CreateMailLabelInput {
+  name: string;
+  color?: string;
+}
+
+export interface MailAttachment {
+  id: string;
+  messageId: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  url?: string;
+  checksum?: string;
+  createdAt: string;
+}
+
+export type MailEventMetadata = { [key: string]: unknown };
+
+export interface MailEvent {
+  id: string;
+  messageId: string;
+  eventType: string;
+  actorType?: string;
+  actorId?: string;
+  metadata?: MailEventMetadata;
+  createdAt: string;
+}
+
+export type MailWebhookStatus =
+  (typeof MailWebhookStatus)[keyof typeof MailWebhookStatus];
+
+export const MailWebhookStatus = {
+  active: "active",
+  paused: "paused",
+  disabled: "disabled",
+} as const;
+
+export interface MailWebhook {
+  id: string;
+  inboxId: string;
+  agentId: string;
+  url: string;
+  events?: string[];
+  status: MailWebhookStatus;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateMailWebhookInput {
+  url: string;
+  events?: string[];
+  secret?: string;
+}
+
+export type UpdateMailWebhookInputStatus =
+  (typeof UpdateMailWebhookInputStatus)[keyof typeof UpdateMailWebhookInputStatus];
+
+export const UpdateMailWebhookInputStatus = {
+  active: "active",
+  paused: "paused",
+  disabled: "disabled",
+} as const;
+
+export interface UpdateMailWebhookInput {
+  url?: string;
+  events?: string[];
+  secret?: string;
+  status?: UpdateMailWebhookInputStatus;
+}
+
 /**
  * Not authenticated
  */
@@ -630,4 +1003,176 @@ export type GetPaymentLedgerParams = {
 export type GetPaymentLedger200 = {
   entries: PaymentLedgerEntry[];
   total: number;
+};
+
+export type GetMailInbox200 = {
+  inbox?: MailInbox;
+};
+
+export type UpdateMailInbox200 = {
+  inbox?: MailInbox;
+};
+
+export type ListMailThreadsParams = {
+  status?: ListMailThreadsStatus;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListMailThreadsStatus =
+  (typeof ListMailThreadsStatus)[keyof typeof ListMailThreadsStatus];
+
+export const ListMailThreadsStatus = {
+  open: "open",
+  closed: "closed",
+  archived: "archived",
+} as const;
+
+export type ListMailThreads200 = {
+  threads?: MailThread[];
+};
+
+export type GetMailThread200 = {
+  thread?: MailThreadDetail;
+};
+
+export type ReplyToMailThread201 = {
+  message?: MailMessage;
+};
+
+export type ListMailMessagesParams = {
+  direction?: ListMailMessagesDirection;
+  senderType?: ListMailMessagesSenderType;
+  isRead?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListMailMessagesDirection =
+  (typeof ListMailMessagesDirection)[keyof typeof ListMailMessagesDirection];
+
+export const ListMailMessagesDirection = {
+  inbound: "inbound",
+  outbound: "outbound",
+  internal: "internal",
+} as const;
+
+export type ListMailMessagesSenderType =
+  (typeof ListMailMessagesSenderType)[keyof typeof ListMailMessagesSenderType];
+
+export const ListMailMessagesSenderType = {
+  agent: "agent",
+  user: "user",
+  system: "system",
+  external: "external",
+} as const;
+
+export type ListMailMessages200 = {
+  messages?: MailMessage[];
+  total?: number;
+};
+
+export type SendMailMessage201 = {
+  message?: MailMessage;
+};
+
+export type GetMailMessage200 = {
+  message?: MailMessage;
+  labels?: MailLabel[];
+  attachments?: MailAttachment[];
+};
+
+export type MarkMailMessageReadBody = {
+  isRead: boolean;
+};
+
+export type MarkMailMessageRead200 = {
+  message?: MailMessage;
+};
+
+export type ArchiveMailMessage200 = {
+  message?: MailMessage;
+};
+
+export type ConvertMailMessageToTask201 = {
+  taskId?: string;
+};
+
+export type GetMailMessageEvents200 = {
+  events?: MailEvent[];
+};
+
+export type RouteMailMessage200 = {
+  actionsApplied?: number;
+};
+
+export type ListMailLabels200 = {
+  labels?: MailLabel[];
+};
+
+export type CreateMailLabel201 = {
+  label?: MailLabel;
+};
+
+export type ListMailWebhooks200 = {
+  webhooks?: MailWebhook[];
+};
+
+export type CreateMailWebhook201 = {
+  webhook?: MailWebhook;
+};
+
+export type UpdateMailWebhook200 = {
+  webhook?: MailWebhook;
+};
+
+export type SearchMailMessagesParams = {
+  q?: string;
+  direction?: SearchMailMessagesDirection;
+  senderType?: SearchMailMessagesSenderType;
+  isRead?: boolean;
+  senderVerified?: boolean;
+  labelId?: string;
+  labelName?: string;
+  priority?: SearchMailMessagesPriority;
+  limit?: number;
+  offset?: number;
+};
+
+export type SearchMailMessagesDirection =
+  (typeof SearchMailMessagesDirection)[keyof typeof SearchMailMessagesDirection];
+
+export const SearchMailMessagesDirection = {
+  inbound: "inbound",
+  outbound: "outbound",
+  internal: "internal",
+} as const;
+
+export type SearchMailMessagesSenderType =
+  (typeof SearchMailMessagesSenderType)[keyof typeof SearchMailMessagesSenderType];
+
+export const SearchMailMessagesSenderType = {
+  agent: "agent",
+  user: "user",
+  system: "system",
+  external: "external",
+} as const;
+
+export type SearchMailMessagesPriority =
+  (typeof SearchMailMessagesPriority)[keyof typeof SearchMailMessagesPriority];
+
+export const SearchMailMessagesPriority = {
+  low: "low",
+  normal: "normal",
+  high: "high",
+  urgent: "urgent",
+} as const;
+
+export type SearchMailMessages200 = {
+  messages?: MailMessage[];
+  total?: number;
+};
+
+export type IngestMailMessage201 = {
+  message?: MailMessage;
 };

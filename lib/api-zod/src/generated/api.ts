@@ -1289,3 +1289,890 @@ export const GetPaymentLedgerResponse = zod.object({
   ),
   total: zod.number(),
 });
+
+/**
+ * @summary Get or create agent inbox
+ */
+export const GetMailInboxParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const GetMailInboxResponse = zod.object({
+  inbox: zod
+    .object({
+      id: zod.string().uuid(),
+      agentId: zod.string().uuid(),
+      address: zod.string(),
+      addressLocalPart: zod.string(),
+      addressDomain: zod.string(),
+      displayName: zod.string().optional(),
+      status: zod.enum(["active", "paused", "disabled"]),
+      autoResponderEnabled: zod.boolean().optional(),
+      autoResponderMessage: zod.string().optional(),
+      forwardingAddress: zod.string().optional(),
+      lastMessageAt: zod.date().optional(),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Update inbox settings
+ */
+export const UpdateMailInboxParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const UpdateMailInboxBody = zod.object({
+  displayName: zod.string().optional(),
+  autoResponderEnabled: zod.boolean().optional(),
+  autoResponderMessage: zod.string().optional(),
+  forwardingAddress: zod.string().optional(),
+});
+
+export const UpdateMailInboxResponse = zod.object({
+  inbox: zod
+    .object({
+      id: zod.string().uuid(),
+      agentId: zod.string().uuid(),
+      address: zod.string(),
+      addressLocalPart: zod.string(),
+      addressDomain: zod.string(),
+      displayName: zod.string().optional(),
+      status: zod.enum(["active", "paused", "disabled"]),
+      autoResponderEnabled: zod.boolean().optional(),
+      autoResponderMessage: zod.string().optional(),
+      forwardingAddress: zod.string().optional(),
+      lastMessageAt: zod.date().optional(),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Get inbox statistics
+ */
+export const GetMailInboxStatsParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const GetMailInboxStatsResponse = zod.object({
+  messages: zod
+    .object({
+      total: zod.number().optional(),
+      unread: zod.number().optional(),
+      inbound: zod.number().optional(),
+      outbound: zod.number().optional(),
+    })
+    .optional(),
+  threads: zod
+    .object({
+      total: zod.number().optional(),
+      open: zod.number().optional(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary List mail threads
+ */
+export const ListMailThreadsParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const ListMailThreadsQueryParams = zod.object({
+  status: zod.enum(["open", "closed", "archived"]).optional(),
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListMailThreadsResponse = zod.object({
+  threads: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        inboxId: zod.string().uuid(),
+        subject: zod.string(),
+        status: zod.enum(["open", "closed", "archived"]),
+        messageCount: zod.number(),
+        participants: zod.array(zod.string()).optional(),
+        lastMessageAt: zod.date().optional(),
+        createdAt: zod.date(),
+        updatedAt: zod.date().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get thread with messages
+ */
+export const GetMailThreadParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  threadId: zod.coerce.string().uuid(),
+});
+
+export const getMailThreadResponseThreadTwoMessagesItemSenderTrustScoreMin = 0;
+export const getMailThreadResponseThreadTwoMessagesItemSenderTrustScoreMax = 100;
+
+export const GetMailThreadResponse = zod.object({
+  thread: zod
+    .object({
+      id: zod.string().uuid(),
+      inboxId: zod.string().uuid(),
+      subject: zod.string(),
+      status: zod.enum(["open", "closed", "archived"]),
+      messageCount: zod.number(),
+      participants: zod.array(zod.string()).optional(),
+      lastMessageAt: zod.date().optional(),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    })
+    .and(
+      zod.object({
+        messages: zod
+          .array(
+            zod.object({
+              id: zod.string().uuid(),
+              threadId: zod.string().uuid(),
+              inboxId: zod.string().uuid(),
+              agentId: zod.string().uuid(),
+              direction: zod.enum(["inbound", "outbound", "internal"]),
+              senderType: zod.enum(["agent", "user", "system", "external"]),
+              senderAgentId: zod.string().uuid().optional(),
+              senderUserId: zod.string().uuid().optional(),
+              senderAddress: zod.string().optional(),
+              recipientAddress: zod.string().optional(),
+              subject: zod.string().optional(),
+              body: zod.string(),
+              bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
+              bodyText: zod.string().optional(),
+              bodyHtml: zod.string().optional(),
+              snippet: zod.string().optional(),
+              headers: zod.record(zod.string(), zod.unknown()).optional(),
+              structuredPayload: zod
+                .record(zod.string(), zod.unknown())
+                .optional(),
+              isRead: zod.boolean(),
+              readAt: zod.date().optional(),
+              archivedAt: zod.date().optional(),
+              deliveryStatus: zod.string().optional(),
+              senderTrustScore: zod
+                .number()
+                .min(
+                  getMailThreadResponseThreadTwoMessagesItemSenderTrustScoreMin,
+                )
+                .max(
+                  getMailThreadResponseThreadTwoMessagesItemSenderTrustScoreMax,
+                )
+                .optional(),
+              senderVerified: zod.boolean().optional(),
+              provenanceChain: zod
+                .array(
+                  zod.object({
+                    actor: zod.string(),
+                    action: zod.string(),
+                    timestamp: zod.date(),
+                    details: zod.record(zod.string(), zod.unknown()).optional(),
+                  }),
+                )
+                .optional(),
+              priority: zod
+                .enum(["low", "normal", "high", "urgent"])
+                .optional(),
+              spamMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+              paymentMetadata: zod
+                .record(zod.string(), zod.unknown())
+                .optional(),
+              originatingTaskId: zod.string().uuid().optional(),
+              convertedTaskId: zod.string().uuid().optional(),
+              inReplyToId: zod.string().uuid().optional(),
+              externalMessageId: zod.string().optional(),
+              metadata: zod.record(zod.string(), zod.unknown()).optional(),
+              createdAt: zod.date(),
+              updatedAt: zod.date().optional(),
+            }),
+          )
+          .optional(),
+        unreadCount: zod.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Mark all messages in thread as read
+ */
+export const MarkMailThreadReadParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  threadId: zod.coerce.string().uuid(),
+});
+
+export const MarkMailThreadReadResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Reply to a thread
+ */
+export const ReplyToMailThreadParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  threadId: zod.coerce.string().uuid(),
+});
+
+export const ReplyToMailThreadBody = zod.object({
+  body: zod.string(),
+  bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
+});
+
+/**
+ * @summary List messages
+ */
+export const ListMailMessagesParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const ListMailMessagesQueryParams = zod.object({
+  direction: zod.enum(["inbound", "outbound", "internal"]).optional(),
+  senderType: zod.enum(["agent", "user", "system", "external"]).optional(),
+  isRead: zod.coerce.boolean().optional(),
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const listMailMessagesResponseMessagesItemSenderTrustScoreMin = 0;
+export const listMailMessagesResponseMessagesItemSenderTrustScoreMax = 100;
+
+export const ListMailMessagesResponse = zod.object({
+  messages: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        threadId: zod.string().uuid(),
+        inboxId: zod.string().uuid(),
+        agentId: zod.string().uuid(),
+        direction: zod.enum(["inbound", "outbound", "internal"]),
+        senderType: zod.enum(["agent", "user", "system", "external"]),
+        senderAgentId: zod.string().uuid().optional(),
+        senderUserId: zod.string().uuid().optional(),
+        senderAddress: zod.string().optional(),
+        recipientAddress: zod.string().optional(),
+        subject: zod.string().optional(),
+        body: zod.string(),
+        bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
+        bodyText: zod.string().optional(),
+        bodyHtml: zod.string().optional(),
+        snippet: zod.string().optional(),
+        headers: zod.record(zod.string(), zod.unknown()).optional(),
+        structuredPayload: zod.record(zod.string(), zod.unknown()).optional(),
+        isRead: zod.boolean(),
+        readAt: zod.date().optional(),
+        archivedAt: zod.date().optional(),
+        deliveryStatus: zod.string().optional(),
+        senderTrustScore: zod
+          .number()
+          .min(listMailMessagesResponseMessagesItemSenderTrustScoreMin)
+          .max(listMailMessagesResponseMessagesItemSenderTrustScoreMax)
+          .optional(),
+        senderVerified: zod.boolean().optional(),
+        provenanceChain: zod
+          .array(
+            zod.object({
+              actor: zod.string(),
+              action: zod.string(),
+              timestamp: zod.date(),
+              details: zod.record(zod.string(), zod.unknown()).optional(),
+            }),
+          )
+          .optional(),
+        priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+        spamMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+        paymentMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+        originatingTaskId: zod.string().uuid().optional(),
+        convertedTaskId: zod.string().uuid().optional(),
+        inReplyToId: zod.string().uuid().optional(),
+        externalMessageId: zod.string().optional(),
+        metadata: zod.record(zod.string(), zod.unknown()).optional(),
+        createdAt: zod.date(),
+        updatedAt: zod.date().optional(),
+      }),
+    )
+    .optional(),
+  total: zod.number().optional(),
+});
+
+/**
+ * @summary Send a new message
+ */
+export const SendMailMessageParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const sendMailMessageBodySenderTrustScoreMin = 0;
+export const sendMailMessageBodySenderTrustScoreMax = 100;
+
+export const SendMailMessageBody = zod.object({
+  direction: zod.enum(["inbound", "outbound"]),
+  senderType: zod.enum(["agent", "user", "system", "external"]),
+  senderAddress: zod.string().optional(),
+  recipientAddress: zod.string().optional(),
+  subject: zod.string().optional(),
+  body: zod.string(),
+  bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
+  structuredPayload: zod.record(zod.string(), zod.unknown()).optional(),
+  inReplyToId: zod.string().uuid().optional(),
+  senderTrustScore: zod
+    .number()
+    .min(sendMailMessageBodySenderTrustScoreMin)
+    .max(sendMailMessageBodySenderTrustScoreMax)
+    .optional(),
+  senderVerified: zod.boolean().optional(),
+  priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+/**
+ * @summary Get message detail with labels and attachments
+ */
+export const GetMailMessageParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  messageId: zod.coerce.string().uuid(),
+});
+
+export const getMailMessageResponseMessageSenderTrustScoreMin = 0;
+export const getMailMessageResponseMessageSenderTrustScoreMax = 100;
+
+export const GetMailMessageResponse = zod.object({
+  message: zod
+    .object({
+      id: zod.string().uuid(),
+      threadId: zod.string().uuid(),
+      inboxId: zod.string().uuid(),
+      agentId: zod.string().uuid(),
+      direction: zod.enum(["inbound", "outbound", "internal"]),
+      senderType: zod.enum(["agent", "user", "system", "external"]),
+      senderAgentId: zod.string().uuid().optional(),
+      senderUserId: zod.string().uuid().optional(),
+      senderAddress: zod.string().optional(),
+      recipientAddress: zod.string().optional(),
+      subject: zod.string().optional(),
+      body: zod.string(),
+      bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
+      bodyText: zod.string().optional(),
+      bodyHtml: zod.string().optional(),
+      snippet: zod.string().optional(),
+      headers: zod.record(zod.string(), zod.unknown()).optional(),
+      structuredPayload: zod.record(zod.string(), zod.unknown()).optional(),
+      isRead: zod.boolean(),
+      readAt: zod.date().optional(),
+      archivedAt: zod.date().optional(),
+      deliveryStatus: zod.string().optional(),
+      senderTrustScore: zod
+        .number()
+        .min(getMailMessageResponseMessageSenderTrustScoreMin)
+        .max(getMailMessageResponseMessageSenderTrustScoreMax)
+        .optional(),
+      senderVerified: zod.boolean().optional(),
+      provenanceChain: zod
+        .array(
+          zod.object({
+            actor: zod.string(),
+            action: zod.string(),
+            timestamp: zod.date(),
+            details: zod.record(zod.string(), zod.unknown()).optional(),
+          }),
+        )
+        .optional(),
+      priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+      spamMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+      paymentMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+      originatingTaskId: zod.string().uuid().optional(),
+      convertedTaskId: zod.string().uuid().optional(),
+      inReplyToId: zod.string().uuid().optional(),
+      externalMessageId: zod.string().optional(),
+      metadata: zod.record(zod.string(), zod.unknown()).optional(),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    })
+    .optional(),
+  labels: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        inboxId: zod.string().uuid(),
+        name: zod.string(),
+        color: zod.string().optional(),
+        isSystem: zod.boolean(),
+        createdAt: zod.date(),
+      }),
+    )
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        messageId: zod.string().uuid(),
+        filename: zod.string(),
+        contentType: zod.string(),
+        size: zod.number(),
+        url: zod.string().optional(),
+        checksum: zod.string().optional(),
+        createdAt: zod.date(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Mark message read or unread
+ */
+export const MarkMailMessageReadParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  messageId: zod.coerce.string().uuid(),
+});
+
+export const MarkMailMessageReadBody = zod.object({
+  isRead: zod.boolean(),
+});
+
+export const markMailMessageReadResponseMessageSenderTrustScoreMin = 0;
+export const markMailMessageReadResponseMessageSenderTrustScoreMax = 100;
+
+export const MarkMailMessageReadResponse = zod.object({
+  message: zod
+    .object({
+      id: zod.string().uuid(),
+      threadId: zod.string().uuid(),
+      inboxId: zod.string().uuid(),
+      agentId: zod.string().uuid(),
+      direction: zod.enum(["inbound", "outbound", "internal"]),
+      senderType: zod.enum(["agent", "user", "system", "external"]),
+      senderAgentId: zod.string().uuid().optional(),
+      senderUserId: zod.string().uuid().optional(),
+      senderAddress: zod.string().optional(),
+      recipientAddress: zod.string().optional(),
+      subject: zod.string().optional(),
+      body: zod.string(),
+      bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
+      bodyText: zod.string().optional(),
+      bodyHtml: zod.string().optional(),
+      snippet: zod.string().optional(),
+      headers: zod.record(zod.string(), zod.unknown()).optional(),
+      structuredPayload: zod.record(zod.string(), zod.unknown()).optional(),
+      isRead: zod.boolean(),
+      readAt: zod.date().optional(),
+      archivedAt: zod.date().optional(),
+      deliveryStatus: zod.string().optional(),
+      senderTrustScore: zod
+        .number()
+        .min(markMailMessageReadResponseMessageSenderTrustScoreMin)
+        .max(markMailMessageReadResponseMessageSenderTrustScoreMax)
+        .optional(),
+      senderVerified: zod.boolean().optional(),
+      provenanceChain: zod
+        .array(
+          zod.object({
+            actor: zod.string(),
+            action: zod.string(),
+            timestamp: zod.date(),
+            details: zod.record(zod.string(), zod.unknown()).optional(),
+          }),
+        )
+        .optional(),
+      priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+      spamMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+      paymentMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+      originatingTaskId: zod.string().uuid().optional(),
+      convertedTaskId: zod.string().uuid().optional(),
+      inReplyToId: zod.string().uuid().optional(),
+      externalMessageId: zod.string().optional(),
+      metadata: zod.record(zod.string(), zod.unknown()).optional(),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Archive a message
+ */
+export const ArchiveMailMessageParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  messageId: zod.coerce.string().uuid(),
+});
+
+export const archiveMailMessageResponseMessageSenderTrustScoreMin = 0;
+export const archiveMailMessageResponseMessageSenderTrustScoreMax = 100;
+
+export const ArchiveMailMessageResponse = zod.object({
+  message: zod
+    .object({
+      id: zod.string().uuid(),
+      threadId: zod.string().uuid(),
+      inboxId: zod.string().uuid(),
+      agentId: zod.string().uuid(),
+      direction: zod.enum(["inbound", "outbound", "internal"]),
+      senderType: zod.enum(["agent", "user", "system", "external"]),
+      senderAgentId: zod.string().uuid().optional(),
+      senderUserId: zod.string().uuid().optional(),
+      senderAddress: zod.string().optional(),
+      recipientAddress: zod.string().optional(),
+      subject: zod.string().optional(),
+      body: zod.string(),
+      bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
+      bodyText: zod.string().optional(),
+      bodyHtml: zod.string().optional(),
+      snippet: zod.string().optional(),
+      headers: zod.record(zod.string(), zod.unknown()).optional(),
+      structuredPayload: zod.record(zod.string(), zod.unknown()).optional(),
+      isRead: zod.boolean(),
+      readAt: zod.date().optional(),
+      archivedAt: zod.date().optional(),
+      deliveryStatus: zod.string().optional(),
+      senderTrustScore: zod
+        .number()
+        .min(archiveMailMessageResponseMessageSenderTrustScoreMin)
+        .max(archiveMailMessageResponseMessageSenderTrustScoreMax)
+        .optional(),
+      senderVerified: zod.boolean().optional(),
+      provenanceChain: zod
+        .array(
+          zod.object({
+            actor: zod.string(),
+            action: zod.string(),
+            timestamp: zod.date(),
+            details: zod.record(zod.string(), zod.unknown()).optional(),
+          }),
+        )
+        .optional(),
+      priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+      spamMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+      paymentMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+      originatingTaskId: zod.string().uuid().optional(),
+      convertedTaskId: zod.string().uuid().optional(),
+      inReplyToId: zod.string().uuid().optional(),
+      externalMessageId: zod.string().optional(),
+      metadata: zod.record(zod.string(), zod.unknown()).optional(),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Convert message to task
+ */
+export const ConvertMailMessageToTaskParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  messageId: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Get message lifecycle events
+ */
+export const GetMailMessageEventsParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  messageId: zod.coerce.string().uuid(),
+});
+
+export const GetMailMessageEventsResponse = zod.object({
+  events: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        messageId: zod.string().uuid(),
+        eventType: zod.string(),
+        actorType: zod.string().optional(),
+        actorId: zod.string().optional(),
+        metadata: zod.record(zod.string(), zod.unknown()).optional(),
+        createdAt: zod.date(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Re-evaluate routing rules for a message
+ */
+export const RouteMailMessageParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  messageId: zod.coerce.string().uuid(),
+});
+
+export const RouteMailMessageResponse = zod.object({
+  actionsApplied: zod.number().optional(),
+});
+
+/**
+ * @summary Approve a quarantined message
+ */
+export const ApproveMailMessageParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  messageId: zod.coerce.string().uuid(),
+});
+
+export const ApproveMailMessageResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Reject a message with bounce notification
+ */
+export const RejectMailMessageParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  messageId: zod.coerce.string().uuid(),
+});
+
+export const RejectMailMessageResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Assign label to message
+ */
+export const AssignMailLabelParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  messageId: zod.coerce.string().uuid(),
+  labelId: zod.coerce.string().uuid(),
+});
+
+export const AssignMailLabelResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Remove label from message
+ */
+export const RemoveMailLabelParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  messageId: zod.coerce.string().uuid(),
+  labelId: zod.coerce.string().uuid(),
+});
+
+export const RemoveMailLabelResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary List labels for agent inbox
+ */
+export const ListMailLabelsParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const ListMailLabelsResponse = zod.object({
+  labels: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        inboxId: zod.string().uuid(),
+        name: zod.string(),
+        color: zod.string().optional(),
+        isSystem: zod.boolean(),
+        createdAt: zod.date(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Create a custom label
+ */
+export const CreateMailLabelParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const CreateMailLabelBody = zod.object({
+  name: zod.string(),
+  color: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a custom label
+ */
+export const DeleteMailLabelParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  labelId: zod.coerce.string().uuid(),
+});
+
+export const DeleteMailLabelResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary List webhooks for agent inbox
+ */
+export const ListMailWebhooksParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const ListMailWebhooksResponse = zod.object({
+  webhooks: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        inboxId: zod.string().uuid(),
+        agentId: zod.string().uuid(),
+        url: zod.string(),
+        events: zod.array(zod.string()).optional(),
+        status: zod.enum(["active", "paused", "disabled"]),
+        createdAt: zod.date(),
+        updatedAt: zod.date().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Create a webhook
+ */
+export const CreateMailWebhookParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const CreateMailWebhookBody = zod.object({
+  url: zod.string().url(),
+  events: zod.array(zod.string()).optional(),
+  secret: zod.string().optional(),
+});
+
+/**
+ * @summary Update a webhook
+ */
+export const UpdateMailWebhookParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  webhookId: zod.coerce.string().uuid(),
+});
+
+export const UpdateMailWebhookBody = zod.object({
+  url: zod.string().url().optional(),
+  events: zod.array(zod.string()).optional(),
+  secret: zod.string().optional(),
+  status: zod.enum(["active", "paused", "disabled"]).optional(),
+});
+
+export const UpdateMailWebhookResponse = zod.object({
+  webhook: zod
+    .object({
+      id: zod.string().uuid(),
+      inboxId: zod.string().uuid(),
+      agentId: zod.string().uuid(),
+      url: zod.string(),
+      events: zod.array(zod.string()).optional(),
+      status: zod.enum(["active", "paused", "disabled"]),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Delete a webhook
+ */
+export const DeleteMailWebhookParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  webhookId: zod.coerce.string().uuid(),
+});
+
+export const DeleteMailWebhookResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Search messages with filters
+ */
+export const SearchMailMessagesParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const SearchMailMessagesQueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+  direction: zod.enum(["inbound", "outbound", "internal"]).optional(),
+  senderType: zod.enum(["agent", "user", "system", "external"]).optional(),
+  isRead: zod.coerce.boolean().optional(),
+  senderVerified: zod.coerce.boolean().optional(),
+  labelId: zod.coerce.string().uuid().optional(),
+  labelName: zod.coerce.string().optional(),
+  priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const searchMailMessagesResponseMessagesItemSenderTrustScoreMin = 0;
+export const searchMailMessagesResponseMessagesItemSenderTrustScoreMax = 100;
+
+export const SearchMailMessagesResponse = zod.object({
+  messages: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        threadId: zod.string().uuid(),
+        inboxId: zod.string().uuid(),
+        agentId: zod.string().uuid(),
+        direction: zod.enum(["inbound", "outbound", "internal"]),
+        senderType: zod.enum(["agent", "user", "system", "external"]),
+        senderAgentId: zod.string().uuid().optional(),
+        senderUserId: zod.string().uuid().optional(),
+        senderAddress: zod.string().optional(),
+        recipientAddress: zod.string().optional(),
+        subject: zod.string().optional(),
+        body: zod.string(),
+        bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
+        bodyText: zod.string().optional(),
+        bodyHtml: zod.string().optional(),
+        snippet: zod.string().optional(),
+        headers: zod.record(zod.string(), zod.unknown()).optional(),
+        structuredPayload: zod.record(zod.string(), zod.unknown()).optional(),
+        isRead: zod.boolean(),
+        readAt: zod.date().optional(),
+        archivedAt: zod.date().optional(),
+        deliveryStatus: zod.string().optional(),
+        senderTrustScore: zod
+          .number()
+          .min(searchMailMessagesResponseMessagesItemSenderTrustScoreMin)
+          .max(searchMailMessagesResponseMessagesItemSenderTrustScoreMax)
+          .optional(),
+        senderVerified: zod.boolean().optional(),
+        provenanceChain: zod
+          .array(
+            zod.object({
+              actor: zod.string(),
+              action: zod.string(),
+              timestamp: zod.date(),
+              details: zod.record(zod.string(), zod.unknown()).optional(),
+            }),
+          )
+          .optional(),
+        priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+        spamMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+        paymentMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+        originatingTaskId: zod.string().uuid().optional(),
+        convertedTaskId: zod.string().uuid().optional(),
+        inReplyToId: zod.string().uuid().optional(),
+        externalMessageId: zod.string().optional(),
+        metadata: zod.record(zod.string(), zod.unknown()).optional(),
+        createdAt: zod.date(),
+        updatedAt: zod.date().optional(),
+      }),
+    )
+    .optional(),
+  total: zod.number().optional(),
+});
+
+/**
+ * @summary Programmatic message ingestion
+ */
+export const IngestMailMessageBody = zod.object({
+  recipientAddress: zod.string(),
+  senderAddress: zod.string().optional(),
+  senderType: zod.enum(["agent", "user", "external"]),
+  subject: zod.string().optional(),
+  body: zod.string(),
+  bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
+  structuredPayload: zod.record(zod.string(), zod.unknown()).optional(),
+  senderTrustScore: zod.number().optional(),
+  senderVerified: zod.boolean().optional(),
+  priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+});
