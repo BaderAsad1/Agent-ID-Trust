@@ -23,7 +23,7 @@ export default function TheShift() {
           <div className="flex gap-[3vw]">
             <div className="flex flex-col">
               <span className="text-[8vw] font-bold leading-none tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue)' }}>10B+</span>
-              <span className="mt-[1vh] text-[1.6vw] max-w-[18vw]" style={{ color: 'var(--text-secondary)' }}>Autonomous AI agents projected by 2028</span>
+              <span className="mt-[1vh] text-[1.6vw] max-w-[18vw]" style={{ color: 'var(--text-secondary)' }}>Autonomous AI agents projected by 2027</span>
             </div>
             <div className="w-px self-stretch" style={{ background: 'var(--border-subtle)' }} />
             <div className="flex flex-col">
