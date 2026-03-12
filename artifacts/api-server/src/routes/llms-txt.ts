@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
 
-const LLMS_TXT = `# Agent ID
+export const LLMS_TXT = `# Agent ID
 
 > The identity, trust, and marketplace layer for the agent internet.
 
