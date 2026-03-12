@@ -528,10 +528,10 @@ router.post("/agents/:agentId/messages/:messageId/archive", requireAuth, async (
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
-    const message = await mailService.archiveMessage(messageId, agentId);
-    if (!message) throw new AppError(404, "NOT_FOUND", "Message not found or not owned by this agent");
+    const archived = await mailService.archiveMessage(messageId, agentId);
+    if (!archived) throw new AppError(404, "NOT_FOUND", "Message not found or not owned by this agent");
 
-    res.json({ success: true });
+    res.json({ message: "Message archived" });
   } catch (err) {
     next(err);
   }
@@ -544,7 +544,7 @@ router.post("/agents/:agentId/messages/:messageId/route", requireAuth, async (re
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
     await mailService.manuallyRouteMessage(messageId, agentId);
-    res.json({ success: true });
+    res.json({ message: "Message routed" });
   } catch (err) {
     next(err);
   }

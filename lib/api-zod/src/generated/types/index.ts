@@ -14,6 +14,7 @@ export * from "./apiError";
 export * from "./apiErrorDetails";
 export * from "./apiKeyCreated";
 export * from "./apiKeyPublic";
+export * from "./approveMailMessage200";
 export * from "./archiveMailMessage200";
 export * from "./authorizePaymentBody";
 export * from "./checkHandleParams";

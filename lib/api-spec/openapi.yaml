@@ -1644,10 +1644,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    $ref: "#/components/schemas/MailMessage"
+                $ref: "#/components/schemas/SuccessMessage"
 
   /v1/mail/agents/{agentId}/messages/{messageId}/convert-task:
     post:
@@ -1719,10 +1716,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  actionsApplied:
-                    type: integer
+                $ref: "#/components/schemas/SuccessMessage"
 
   /v1/mail/agents/{agentId}/messages/{messageId}/approve:
     post:
@@ -1743,7 +1737,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SuccessMessage"
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/MailMessage"
 
   /v1/mail/agents/{agentId}/messages/{messageId}/reject:
     post:

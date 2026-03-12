@@ -334,7 +334,7 @@ describe('Mail Unit Tests — Service Logic', () => {
 
       const routeRes = await req(`/mail/agents/${agentId}/messages/${messageId}/route`, { method: 'POST' });
       expect(routeRes.status).toBe(200);
-      expect(routeRes.body.success).toBe(true);
+      expect(routeRes.body.message).toBe("Message routed");
     });
 
     it('should retrieve inbox with routing configuration', { timeout: TEST_TIMEOUT }, async () => {
