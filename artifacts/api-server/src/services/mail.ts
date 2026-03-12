@@ -27,6 +27,7 @@ import { signWebhookPayload, deliverOutbound, recordOutboundDeliveryResult } fro
 import { enqueueWebhookDelivery, isWebhookQueueAvailable } from "../workers/webhook-delivery";
 import { encryptSecret, decryptSecret } from "../utils/crypto";
 import { AppError } from "../middlewares/error-handler";
+import { normalizeSubject as normalizeSubjectUtil, evaluateConditionSync, generateSnippet, isPrivateOrLocalUrl } from "./mail-utils";
 
 const MAIL_BASE_DOMAIN = process.env.MAIL_BASE_DOMAIN || "agents.local";
 

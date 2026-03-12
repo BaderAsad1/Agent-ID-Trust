@@ -137,24 +137,81 @@ function AgentSelector({ agents, selected, onChange }: { agents: Agent[]; select
   );
 }
 
-function SearchBar({ onSearch }: { onSearch: (q: string) => void }) {
+interface SearchFilters {
+  q: string;
+  direction?: string;
+  senderType?: string;
+  senderVerified?: string;
+}
+
+function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void }) {
   const [query, setQuery] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [direction, setDirection] = useState('');
+  const [senderType, setSenderType] = useState('');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+
+  const doSearch = () => {
+    const filters: SearchFilters = { q: query };
+    if (direction) filters.direction = direction;
+    if (senderType) filters.senderType = senderType;
+    if (verifiedOnly) filters.senderVerified = 'true';
+    onSearch(filters);
+  };
+
+  const clearAll = () => {
+    setQuery('');
+    setDirection('');
+    setSenderType('');
+    setVerifiedOnly(false);
+    onSearch({ q: '' });
+  };
+
   return (
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-dim)' }} />
-      <input
-        type="text"
-        placeholder="Search messages..."
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') onSearch(query); }}
-        className="w-full pl-9 pr-3 py-2 rounded-lg text-sm"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none', fontFamily: 'var(--font-body)' }}
-      />
-      {query && (
-        <button onClick={() => { setQuery(''); onSearch(''); }} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)' }}>
-          <X className="w-3 h-3" />
-        </button>
+    <div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-dim)' }} />
+        <input
+          type="text"
+          placeholder="Search messages..."
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') doSearch(); }}
+          className="w-full pl-9 pr-20 py-2 rounded-lg text-sm"
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none', fontFamily: 'var(--font-body)' }}
+        />
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <button onClick={() => setShowAdvanced(!showAdvanced)} className="p-1 rounded hover:bg-white/10" style={{ background: 'none', border: 'none', cursor: 'pointer', color: showAdvanced ? 'var(--accent)' : 'var(--text-dim)' }} title="Advanced filters">
+            <Filter className="w-3.5 h-3.5" />
+          </button>
+          {(query || direction || senderType || verifiedOnly) && (
+            <button onClick={clearAll} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)' }}>
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </div>
+      {showAdvanced && (
+        <div className="flex flex-wrap gap-2 mt-2 p-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.1)', border: '1px solid var(--border-color)' }}>
+          <select value={direction} onChange={e => setDirection(e.target.value)} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+            <option value="">Any direction</option>
+            <option value="inbound">Inbound</option>
+            <option value="outbound">Outbound</option>
+            <option value="internal">Internal</option>
+          </select>
+          <select value={senderType} onChange={e => setSenderType(e.target.value)} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+            <option value="">Any sender</option>
+            <option value="agent">Agent</option>
+            <option value="user">User</option>
+            <option value="system">System</option>
+            <option value="external">External</option>
+          </select>
+          <label className="flex items-center gap-1 text-xs cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+            <input type="checkbox" checked={verifiedOnly} onChange={e => setVerifiedOnly(e.target.checked)} />
+            Verified only
+          </label>
+          <button onClick={doSearch} className="text-xs px-3 py-1 rounded cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none' }}>Apply</button>
+        </div>
       )}
     </div>
   );
@@ -203,6 +260,7 @@ function LabelFilter({ labels, activeLabel, onSelect }: { labels: MailLabel[]; a
 }
 
 function ThreadListItem({ thread, onClick }: { thread: MailThread; onClick: () => void }) {
+  const lastMsg = thread.messages?.[thread.messages.length - 1];
   return (
     <button
       onClick={onClick}
@@ -210,8 +268,18 @@ function ThreadListItem({ thread, onClick }: { thread: MailThread; onClick: () =
       style={{ background: thread.unreadCount > 0 ? 'rgba(59,130,246,0.04)' : 'transparent', borderColor: 'var(--border-color)', border: 'none', borderBottom: '1px solid var(--border-color)' }}
     >
       <div className="flex items-start gap-3">
+        {thread.unreadCount > 0 && <span className="mt-2 block w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--accent)' }} />}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-0.5">
+            {lastMsg && (
+              <span className="text-xs truncate" style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
+                {lastMsg.senderAddress || lastMsg.senderType}
+              </span>
+            )}
+            {lastMsg && <SenderBadge type={lastMsg.senderType} />}
+            {lastMsg && <TrustBadge score={lastMsg.senderTrustScore} verified={lastMsg.senderVerified} />}
+          </div>
+          <div className="flex items-center gap-2 mb-0.5">
             <span className={`text-sm truncate ${thread.unreadCount > 0 ? 'font-semibold' : ''}`} style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
               {thread.subject || '(no subject)'}
             </span>
@@ -221,11 +289,15 @@ function ThreadListItem({ thread, onClick }: { thread: MailThread; onClick: () =
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          {lastMsg?.snippet && (
+            <p className="text-xs truncate mb-1" style={{ color: 'var(--text-dim)' }}>{lastMsg.snippet}</p>
+          )}
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{thread.messageCount} message{thread.messageCount !== 1 ? 's' : ''}</span>
             <span className="text-xs capitalize px-1.5 py-0.5 rounded" style={{ color: thread.status === 'open' ? 'var(--success)' : 'var(--text-dim)', background: thread.status === 'open' ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.1)' }}>
               {thread.status}
             </span>
+            {lastMsg?.labels && lastMsg.labels.length > 0 && lastMsg.labels.slice(0, 3).map(l => <LabelChip key={l.id} label={l} />)}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -665,14 +737,22 @@ export function Mail() {
     setError(null);
     try {
       await api.mail.inbox(selectedAgent);
-      const [threadsRes, labelsRes, statsRes] = await Promise.all([
-        api.mail.threads(selectedAgent, activeLabel ? { labelId: activeLabel } : undefined),
+      const [labelsRes, statsRes] = await Promise.all([
         api.mail.labels(selectedAgent),
         api.mail.inboxStats(selectedAgent),
       ]);
-      setThreads(threadsRes.threads);
       setLabels(labelsRes.labels);
       setStats(statsRes);
+
+      if (activeLabel) {
+        const searchRes = await api.mail.search(selectedAgent, { labelId: activeLabel });
+        setMessages(searchRes.messages);
+        setView('search-results');
+      } else {
+        const threadsRes = await api.mail.threads(selectedAgent);
+        setThreads(threadsRes.threads);
+        if (view === 'search-results') setView('threads');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load inbox');
     } finally {
@@ -682,15 +762,21 @@ export function Mail() {
 
   useEffect(() => { loadInbox(); }, [loadInbox]);
 
-  const handleSearch = async (query: string) => {
-    if (!query.trim()) {
+  const handleSearch = async (filters: SearchFilters) => {
+    const hasFilters = filters.q.trim() || filters.direction || filters.senderType || filters.senderVerified;
+    if (!hasFilters) {
       setView('threads');
       loadInbox();
       return;
     }
     setLoading(true);
     try {
-      const res = await api.mail.search(selectedAgent, { q: query });
+      const params: Record<string, string> = {};
+      if (filters.q.trim()) params.q = filters.q.trim();
+      if (filters.direction) params.direction = filters.direction;
+      if (filters.senderType) params.senderType = filters.senderType;
+      if (filters.senderVerified) params.senderVerified = filters.senderVerified;
+      const res = await api.mail.search(selectedAgent, params);
       setMessages(res.messages);
       setView('search-results');
     } catch (e) {
@@ -786,7 +872,7 @@ export function Mail() {
 
       {showFilters && labels.length > 0 && (
         <div className="mb-4 p-3 rounded-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-          <LabelFilter labels={labels} activeLabel={activeLabel} onSelect={(id) => { setActiveLabel(id); setView('threads'); }} />
+          <LabelFilter labels={labels} activeLabel={activeLabel} onSelect={(id) => { setActiveLabel(id); }} />
         </div>
       )}
 
