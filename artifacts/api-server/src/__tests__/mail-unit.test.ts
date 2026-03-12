@@ -610,7 +610,7 @@ describe('Mail Unit Tests — Service Logic', () => {
     });
   });
 
-  describe('Webhook Dispatch', () => {
+  describe('Webhook CRUD & Dispatch', () => {
     it('should register webhook and list it', async () => {
       const createRes = await req(`/mail/agents/${agentId}/webhooks`, {
         method: 'POST',
@@ -729,6 +729,111 @@ describe('Mail Unit Tests — Service Logic', () => {
         expect(statsRes.body.messages).toBeDefined();
         expect(statsRes.body.threads).toBeDefined();
       }
+    });
+  });
+
+  describe('Webhook Dispatch Verification', () => {
+    it('should persist webhook dispatch events when message is sent', { timeout: TEST_TIMEOUT }, async () => {
+      const createWh = await req(`/mail/agents/${agentId}/webhooks`, {
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://dispatch-verify.example.com/hook', events: ['message.received'] }),
+      });
+      expect(createWh.status).toBe(201);
+      const webhookId = createWh.body.webhook.id;
+
+      const sendRes = await req(`/mail/agents/${agentId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ subject: `dispatch-check-${Date.now()}`, body: 'Verify dispatch', bodyFormat: 'text', direction: 'inbound', senderType: 'external' }),
+      });
+      expect(sendRes.status).toBe(201);
+      const messageId = sendRes.body.message.id;
+
+      const eventsRes = await req(`/mail/agents/${agentId}/messages/${messageId}/events`);
+      expect(eventsRes.status).toBe(200);
+      expect(eventsRes.body.events.length).toBeGreaterThanOrEqual(1);
+      const hasReceived = eventsRes.body.events.some((e: { eventType: string }) => e.eventType === 'message.received');
+      expect(hasReceived).toBe(true);
+
+      await req(`/mail/agents/${agentId}/webhooks/${webhookId}`, { method: 'DELETE' });
+    });
+
+    it('should reject webhook with private/SSRF URL', async () => {
+      const res = await req(`/mail/agents/${agentId}/webhooks`, {
+        method: 'POST',
+        body: JSON.stringify({ url: 'http://localhost:9999/hook', events: ['message.received'] }),
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('Full E2E Lifecycle: Ingest → Thread → Label → Route → Convert', () => {
+    it('should complete the full mail lifecycle via ingest', { timeout: 60000 }, async () => {
+      const inboxRes = await req(`/mail/agents/${agentId}/inbox`);
+      const address = inboxRes.body.inbox.address;
+
+      const ingestRes = await req('/mail/ingest', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipientAddress: address,
+          senderAddress: 'lifecycle-test@external.com',
+          senderType: 'external',
+          subject: `E2E Lifecycle ${Date.now()}`,
+          body: 'Full lifecycle test message',
+          bodyFormat: 'text',
+          senderVerified: true,
+          senderTrustScore: 85,
+          priority: 'high',
+        }),
+      });
+      expect(ingestRes.status).toBe(201);
+      const { messageId, threadId } = ingestRes.body;
+      expect(messageId).toBeDefined();
+      expect(threadId).toBeDefined();
+
+      const threadRes = await req(`/mail/agents/${agentId}/threads/${threadId}`);
+      expect(threadRes.status).toBe(200);
+      expect(threadRes.body.thread.messageCount).toBeGreaterThanOrEqual(1);
+
+      const msgRes = await req(`/mail/agents/${agentId}/messages/${messageId}`);
+      expect(msgRes.status).toBe(200);
+      expect(msgRes.body.message.direction).toBe('inbound');
+      expect(msgRes.body.message.senderType).toBe('external');
+      expect(msgRes.body.message.senderVerified).toBe(true);
+      expect(msgRes.body.message.priority).toBe('high');
+
+      const labelsRes = await req(`/mail/agents/${agentId}/labels`);
+      const flaggedLabel = labelsRes.body.labels.find((l: { name: string }) => l.name === 'flagged');
+      expect(flaggedLabel).toBeDefined();
+
+      const assignRes = await req(`/mail/agents/${agentId}/messages/${messageId}/labels/${flaggedLabel.id}`, {
+        method: 'POST',
+      });
+      expect(assignRes.status).toBe(200);
+
+      const msgAfterLabel = await req(`/mail/agents/${agentId}/messages/${messageId}`);
+      expect(msgAfterLabel.body.labels.some((l: { id: string }) => l.id === flaggedLabel.id)).toBe(true);
+
+      const routeRes = await req(`/mail/agents/${agentId}/messages/${messageId}/route`, {
+        method: 'POST',
+      });
+      expect(routeRes.status).toBe(200);
+
+      const convertRes = await req(`/mail/agents/${agentId}/messages/${messageId}/convert-task`, {
+        method: 'POST',
+      });
+      expect(convertRes.status).toBe(201);
+      expect(convertRes.body.taskId).toBeDefined();
+      const taskId = convertRes.body.taskId;
+
+      const msgAfterConvert = await req(`/mail/agents/${agentId}/messages/${messageId}`);
+      expect(msgAfterConvert.body.message.convertedTaskId).toBe(taskId);
+
+      const eventsRes = await req(`/mail/agents/${agentId}/messages/${messageId}/events`);
+      expect(eventsRes.status).toBe(200);
+      const eventTypes = eventsRes.body.events.map((e: { eventType: string }) => e.eventType);
+      expect(eventTypes).toContain('message.received');
+      expect(eventTypes).toContain('label.assigned');
+      expect(eventTypes).toContain('message.converted_to_task');
     });
   });
 });

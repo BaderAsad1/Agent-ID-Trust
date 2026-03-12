@@ -6,7 +6,7 @@ import {
   FileText, Filter, X, Loader2, CheckSquare, Eye, EyeOff, Code, ChevronDown, Settings
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
-import { api, type Agent, type MailThread, type MailMessage, type MailLabel, type MailEvent, type InboxStats, type MailInbox, type RoutingRule } from './api';
+import { api, type Agent, type MailThread, type MailMessage, type MailLabel, type MailEvent, type InboxStats, type MailInbox, type RoutingRule, type MailAttachment } from './api';
 import { Identicon, GlassCard, PrimaryButton, CardSkeleton, ListSkeleton, EmptyState } from './components';
 
 function sanitizeHtml(html: string): string {
@@ -213,6 +213,11 @@ interface SearchFilters {
   direction?: string;
   senderType?: string;
   senderVerified?: string;
+  afterDate?: string;
+  beforeDate?: string;
+  minTrustScore?: string;
+  priority?: string;
+  labelId?: string;
 }
 
 function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void }) {
@@ -221,12 +226,22 @@ function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void })
   const [direction, setDirection] = useState('');
   const [senderType, setSenderType] = useState('');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [afterDate, setAfterDate] = useState('');
+  const [beforeDate, setBeforeDate] = useState('');
+  const [minTrustScore, setMinTrustScore] = useState('');
+  const [priority, setPriority] = useState('');
+
+  const hasFilters = query || direction || senderType || verifiedOnly || afterDate || beforeDate || minTrustScore || priority;
 
   const doSearch = () => {
     const filters: SearchFilters = { q: query };
     if (direction) filters.direction = direction;
     if (senderType) filters.senderType = senderType;
     if (verifiedOnly) filters.senderVerified = 'true';
+    if (afterDate) filters.afterDate = afterDate;
+    if (beforeDate) filters.beforeDate = beforeDate;
+    if (minTrustScore) filters.minTrustScore = minTrustScore;
+    if (priority) filters.priority = priority;
     onSearch(filters);
   };
 
@@ -235,6 +250,10 @@ function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void })
     setDirection('');
     setSenderType('');
     setVerifiedOnly(false);
+    setAfterDate('');
+    setBeforeDate('');
+    setMinTrustScore('');
+    setPriority('');
     onSearch({ q: '' });
   };
 
@@ -244,7 +263,7 @@ function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void })
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-dim)' }} />
         <input
           type="text"
-          placeholder="Search messages..."
+          placeholder="Search by subject, body, or sender..."
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') doSearch(); }}
@@ -255,7 +274,7 @@ function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void })
           <button onClick={() => setShowAdvanced(!showAdvanced)} className="p-1 rounded hover:bg-white/10" style={{ background: 'none', border: 'none', cursor: 'pointer', color: showAdvanced ? 'var(--accent)' : 'var(--text-dim)' }} title="Advanced filters">
             <Filter className="w-3.5 h-3.5" />
           </button>
-          {(query || direction || senderType || verifiedOnly) && (
+          {hasFilters && (
             <button onClick={clearAll} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)' }}>
               <X className="w-3 h-3" />
             </button>
@@ -277,10 +296,29 @@ function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void })
             <option value="system">System</option>
             <option value="external">External</option>
           </select>
+          <select value={priority} onChange={e => setPriority(e.target.value)} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+            <option value="">Any priority</option>
+            <option value="low">Low</option>
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
           <label className="flex items-center gap-1 text-xs cursor-pointer" style={{ color: 'var(--text-muted)' }}>
             <input type="checkbox" checked={verifiedOnly} onChange={e => setVerifiedOnly(e.target.checked)} />
             Verified only
           </label>
+          <div className="flex items-center gap-1">
+            <label className="text-xs" style={{ color: 'var(--text-dim)' }}>After:</label>
+            <input type="date" value={afterDate} onChange={e => setAfterDate(e.target.value)} className="text-xs px-1.5 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+          </div>
+          <div className="flex items-center gap-1">
+            <label className="text-xs" style={{ color: 'var(--text-dim)' }}>Before:</label>
+            <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} className="text-xs px-1.5 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+          </div>
+          <div className="flex items-center gap-1">
+            <label className="text-xs" style={{ color: 'var(--text-dim)' }}>Min trust:</label>
+            <input type="number" min="0" max="100" value={minTrustScore} onChange={e => setMinTrustScore(e.target.value)} className="text-xs px-1.5 py-1 rounded w-16" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} placeholder="0-100" />
+          </div>
           <button onClick={doSearch} className="text-xs px-3 py-1 rounded cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none' }}>Apply</button>
         </div>
       )}
@@ -468,7 +506,7 @@ function ProvenanceTimeline({ chain }: { chain: Array<{ actor: string; action: s
   );
 }
 
-function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAttachments, onBack, onRefresh }: { message: MailMessage; agentId: string; labels?: MailLabel[]; attachments?: { id: string; filename: string; contentType: string; size: number; url?: string }[]; onBack: () => void; onRefresh: () => void }) {
+function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAttachments, onBack, onRefresh }: { message: MailMessage; agentId: string; labels?: MailLabel[]; attachments?: MailAttachment[]; onBack: () => void; onRefresh: () => void }) {
   const [events, setEvents] = useState<MailEvent[]>([]);
   const [showEvents, setShowEvents] = useState(false);
   const [replyBody, setReplyBody] = useState('');
@@ -576,7 +614,7 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
                 <span key={a.id} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
                   <Paperclip className="w-3 h-3" />
                   {a.filename}
-                  {a.size && <span style={{ color: 'var(--text-dim)' }}>({(a.size / 1024).toFixed(1)}KB)</span>}
+                  {a.sizeBytes && <span style={{ color: 'var(--text-dim)' }}>({(a.sizeBytes / 1024).toFixed(1)}KB)</span>}
                 </span>
               ))}
             </div>
@@ -787,7 +825,7 @@ export function Mail() {
   const [selectedThread, setSelectedThread] = useState<MailThread | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<MailMessage | null>(null);
   const [messageLabels, setMessageLabels] = useState<MailLabel[]>([]);
-  const [messageAttachments, setMessageAttachments] = useState<{ id: string; filename: string; contentType: string; size: number; url?: string }[]>([]);
+  const [messageAttachments, setMessageAttachments] = useState<MailAttachment[]>([]);
   const [labels, setLabels] = useState<MailLabel[]>([]);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
   const [stats, setStats] = useState<InboxStats | null>(null);
@@ -854,7 +892,7 @@ export function Mail() {
   useEffect(() => { loadInbox(); }, [loadInbox]);
 
   const handleSearch = async (filters: SearchFilters) => {
-    const hasFilters = filters.q.trim() || filters.direction || filters.senderType || filters.senderVerified;
+    const hasFilters = filters.q.trim() || filters.direction || filters.senderType || filters.senderVerified || filters.afterDate || filters.beforeDate || filters.minTrustScore || filters.priority || filters.labelId;
     if (!hasFilters) {
       setView('threads');
       loadInbox();
@@ -867,6 +905,11 @@ export function Mail() {
       if (filters.direction) params.direction = filters.direction;
       if (filters.senderType) params.senderType = filters.senderType;
       if (filters.senderVerified) params.senderVerified = filters.senderVerified;
+      if (filters.afterDate) params.afterDate = filters.afterDate;
+      if (filters.beforeDate) params.beforeDate = filters.beforeDate;
+      if (filters.minTrustScore) params.minTrustScore = filters.minTrustScore;
+      if (filters.priority) params.priority = filters.priority;
+      if (filters.labelId) params.labelId = filters.labelId;
       const res = await api.mail.search(selectedAgent, params);
       setMessages(res.messages);
       setView('search-results');
