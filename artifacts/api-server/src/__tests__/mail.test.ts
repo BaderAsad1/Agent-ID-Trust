@@ -120,6 +120,17 @@ describe('Agent Mail Integration Tests', () => {
       expect(res.body.message.body).toBeDefined();
       expect(res.body.labels).toBeDefined();
       expect(res.body.attachments).toBeDefined();
+      expect(Array.isArray(res.body.attachments)).toBe(true);
+      if (res.body.attachments.length > 0) {
+        const att = res.body.attachments[0];
+        expect(att).toHaveProperty('filename');
+        expect(att).toHaveProperty('contentType');
+        expect(att).toHaveProperty('size');
+        expect(att).not.toHaveProperty('fileName');
+        expect(att).not.toHaveProperty('mimeType');
+        expect(att).not.toHaveProperty('sizeBytes');
+        expect(att).not.toHaveProperty('storageUrl');
+      }
     });
 
     it('should send a new message', async () => {

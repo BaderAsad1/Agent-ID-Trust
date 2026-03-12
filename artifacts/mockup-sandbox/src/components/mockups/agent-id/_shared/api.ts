@@ -576,9 +576,10 @@ export interface MailAttachment {
   id: string;
   messageId: string;
   filename: string;
-  mimeType: string;
-  sizeBytes?: number;
-  storageUrl?: string;
+  contentType: string;
+  size: number;
+  url?: string;
+  checksum?: string;
   createdAt: string;
 }
 

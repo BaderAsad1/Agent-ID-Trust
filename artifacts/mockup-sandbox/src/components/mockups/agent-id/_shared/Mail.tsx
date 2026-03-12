@@ -614,7 +614,7 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
                 <span key={a.id} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
                   <Paperclip className="w-3 h-3" />
                   {a.filename}
-                  {a.sizeBytes && <span style={{ color: 'var(--text-dim)' }}>({(a.sizeBytes / 1024).toFixed(1)}KB)</span>}
+                  {a.size > 0 && <span style={{ color: 'var(--text-dim)' }}>({(a.size / 1024).toFixed(1)}KB)</span>}
                 </span>
               ))}
             </div>

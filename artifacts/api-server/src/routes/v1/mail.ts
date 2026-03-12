@@ -186,10 +186,21 @@ router.get("/agents/:agentId/messages/:messageId", requireAuth, async (req, res,
       throw new AppError(404, "NOT_FOUND", "Message not found");
     }
 
-    const [labels, attachments] = await Promise.all([
+    const [labels, rawAttachments] = await Promise.all([
       mailService.getMessageLabels(messageId),
       mailService.getMessageAttachments(messageId),
     ]);
+
+    const attachments = rawAttachments.map(a => ({
+      id: a.id,
+      messageId: a.messageId,
+      filename: a.fileName,
+      contentType: a.mimeType,
+      size: a.sizeBytes,
+      url: a.storageUrl,
+      checksum: a.checksum,
+      createdAt: a.createdAt,
+    }));
 
     res.json({ message, labels, attachments });
   } catch (err) {
