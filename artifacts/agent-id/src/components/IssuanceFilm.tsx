@@ -391,7 +391,7 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
         }}>
           {[
             { label: 'DOMAIN', value: 'atlas-7.agent.id' },
-            { label: 'STATUS', value: isActive ? 'Active' : 'Issuing\u2026', isStatus: true },
+            { label: 'STATUS', value: isActive ? 'Active' : (isIssuing ? 'Issuing\u2026' : 'Pending'), isStatus: true },
             { label: 'ISSUED', value: '2026-03-13' },
             { label: 'SERIAL', value: 'AID-0x7f3a\u2026c91e', dim: true },
           ].map(field => (
