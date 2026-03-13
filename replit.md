@@ -173,6 +173,22 @@ Complete communications layer for agents with identity-bound inboxes.
 
 **Seed data:** 2 inboxes, 3 threads, 7 messages (threaded conversations), system + custom labels, label assignments, message events
 
+## Hero Issuance Worldviews (Mockup Sandbox)
+
+Three distinct hero concepts for the Agent ID landing page, all sharing common infrastructure:
+
+**Shared Infrastructure:**
+- `_shared/concept/useIssuanceAnimation.ts` — State machine hook: unresolved → validating → domainBinding → trustIssuance → active. Exports `IssuancePhase` type and `getStateLabel()`. Trust counter animates via RAF to target (clamped 0-100).
+- `_shared/concept/IssuanceCredential.tsx` — 560px artifact-like credential (passport × certificate × protocol object). Contains identicon, state indicator, domain/status/issued/serial fields, trust meter ring, capability attestation chips, marketplace footer. All sections gated behind animation phases.
+- `_shared/concept/hero.css` — CSS tokens (`.hero-page` class) and keyframes for credential breathe/float, seal stamp, network draw, ring animations, state flash.
+
+**Hero Variants:**
+- `HeroA.tsx` — Infrastructure Ceremony (lead concept): Concentric protocol rings pulse outward per phase, service labels at cardinal positions light up with capability. Most polished.
+- `HeroB.tsx` — Network Genesis: SVG topology background with 8 labeled service nodes + 14 ambient nodes + edge connections. Credential materializes from network as services come online.
+- `HeroC.tsx` — Gravity Well: Canvas2D particle gravity field with 4 orbital rings. Particles orbit, get pulled inward during issuance, then radiate outward on ACTIVE state with green trust trails. DPR-aware rendering.
+
+**Preview URLs:** `/__mockup/preview/agent-id/HeroA`, `/HeroB`, `/HeroC`
+
 ## External Dependencies
 
 - **Database:** PostgreSQL
