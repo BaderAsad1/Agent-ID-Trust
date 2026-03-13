@@ -1,24 +1,24 @@
 :root {
-  --bg-base: #07090D;
-  --bg-surface: #0C1017;
-  --bg-elevated: #12161E;
-  --graphite: #1A1F2B;
-  --accent: #3B82F6;
-  --accent-glow: #60A5FA;
-  --edge-highlight: rgba(59, 130, 246, 0.12);
-  --text-primary: #F1F5F9;
-  --text-muted: #8899AE;
-  --text-dim: #3E4C5E;
-  --border-color: #1A2030;
-  --border-focus: #3B82F6;
-  --success: #10B981;
+  --bg-base: #050711;
+  --bg-surface: #0C0F1E;
+  --bg-elevated: #131729;
+  --graphite: #1A1F2E;
+  --accent: #4f7df3;
+  --accent-glow: #7c9df5;
+  --edge-highlight: rgba(79, 125, 243, 0.12);
+  --text-primary: #e8e8f0;
+  --text-muted: #8690a8;
+  --text-dim: #3a4258;
+  --border-color: #1a1f30;
+  --border-focus: #4f7df3;
+  --success: #34d399;
   --warning: #F59E0B;
   --danger: #EF4444;
-  --marketplace: #8B5CF6;
-  --marketplace-glow: #A78BFA;
+  --marketplace: #7c5bf5;
+  --marketplace-glow: #a78bfa;
   --domain: #06B6D4;
   --domain-bg: rgba(6, 182, 212, 0.12);
-  --font-display: 'Geist', sans-serif;
+  --font-display: 'Bricolage Grotesque', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
@@ -62,8 +62,8 @@
   100% { transform: translate(40px, 40px); }
 }
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 24px rgba(59,130,246,0.35), 0 0 48px rgba(59,130,246,0.1); }
-  50% { box-shadow: 0 0 32px rgba(59,130,246,0.55), 0 0 64px rgba(59,130,246,0.2); }
+  0%, 100% { box-shadow: 0 0 24px rgba(79,125,243,0.35), 0 0 48px rgba(79,125,243,0.1); }
+  50% { box-shadow: 0 0 32px rgba(79,125,243,0.55), 0 0 64px rgba(79,125,243,0.2); }
 }
 @keyframes marquee {
   0% { transform: translateX(0); }
@@ -131,12 +131,12 @@
 .id-object {
   position: relative;
   background: linear-gradient(145deg, #0C1018 0%, #111824 40%, #0D1320 70%, #0C1018 100%);
-  border: 1px solid rgba(59,130,246,0.18);
+  border: 1px solid rgba(79,125,243,0.18);
   border-radius: 20px;
   overflow: hidden;
   perspective: 800px;
   box-shadow:
-    0 0 0 1px rgba(59,130,246,0.05),
+    0 0 0 1px rgba(79,125,243,0.05),
     0 4px 24px rgba(0,0,0,0.5),
     0 8px 48px rgba(0,0,0,0.3),
     inset 0 1px 0 rgba(255,255,255,0.04);
@@ -147,20 +147,20 @@
   inset: 0;
   border-radius: 20px;
   background:
-    linear-gradient(145deg, rgba(59,130,246,0.06) 0%, transparent 40%, rgba(139,92,246,0.04) 100%),
+    linear-gradient(145deg, rgba(79,125,243,0.06) 0%, transparent 40%, rgba(139,92,246,0.04) 100%),
     repeating-linear-gradient(
       90deg,
       transparent,
       transparent 29px,
-      rgba(59,130,246,0.015) 29px,
-      rgba(59,130,246,0.015) 30px
+      rgba(79,125,243,0.015) 29px,
+      rgba(79,125,243,0.015) 30px
     ),
     repeating-linear-gradient(
       0deg,
       transparent,
       transparent 29px,
-      rgba(59,130,246,0.015) 29px,
-      rgba(59,130,246,0.015) 30px
+      rgba(79,125,243,0.015) 29px,
+      rgba(79,125,243,0.015) 30px
     );
   pointer-events: none;
 }
@@ -169,7 +169,7 @@
   position: absolute;
   left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent 5%, rgba(59,130,246,0.5) 30%, rgba(139,92,246,0.4) 50%, rgba(6,182,212,0.5) 70%, transparent 95%);
+  background: linear-gradient(90deg, transparent 5%, rgba(79,125,243,0.5) 30%, rgba(139,92,246,0.4) 50%, rgba(6,182,212,0.5) 70%, transparent 95%);
   animation: scan-line 4s ease-in-out infinite;
   pointer-events: none;
   filter: blur(0.5px);
@@ -187,7 +187,7 @@
   background: linear-gradient(
     125deg,
     transparent 20%,
-    rgba(59,130,246,0.04) 30%,
+    rgba(79,125,243,0.04) 30%,
     rgba(139,92,246,0.05) 38%,
     rgba(6,182,212,0.04) 46%,
     transparent 55%
@@ -202,7 +202,7 @@
   height: 18px;
   pointer-events: none;
   z-index: 3;
-  border: 1px solid rgba(59,130,246,0.2);
+  border: 1px solid rgba(79,125,243,0.2);
   border-radius: 0;
 }
 .id-object-corner.top-right {
@@ -225,7 +225,7 @@
   height: 20px;
   border-radius: 3px;
   background: linear-gradient(135deg, #1E293B 0%, #334155 50%, #1E293B 100%);
-  border: 1px solid rgba(59,130,246,0.2);
+  border: 1px solid rgba(79,125,243,0.2);
   position: relative;
   overflow: hidden;
 }
@@ -233,7 +233,7 @@
   content: '';
   position: absolute;
   inset: 3px;
-  border: 0.5px solid rgba(59,130,246,0.15);
+  border: 0.5px solid rgba(79,125,243,0.15);
   border-radius: 1px;
 }
 .id-object-chip::after {
@@ -243,7 +243,7 @@
   left: 3px;
   right: 3px;
   height: 0.5px;
-  background: rgba(59,130,246,0.12);
+  background: rgba(79,125,243,0.12);
 }
 
 .section-sep {

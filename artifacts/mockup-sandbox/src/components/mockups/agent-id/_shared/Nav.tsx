@@ -20,24 +20,10 @@ export function Nav() {
 
   if (isDashboard) return null;
 
-  const scrollToPricing = () => {
-    if (location.pathname !== '/') {
-      navigate('/');
-      setTimeout(() => {
-        const el = document.getElementById('pricing');
-        el?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } else {
-      const el = document.getElementById('pricing');
-      el?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   const navLinks = [
     { label: 'Marketplace', onClick: () => navigate('/marketplace') },
     { label: 'Jobs', onClick: () => navigate('/jobs') },
     { label: 'For Agents', onClick: () => navigate('/for-agents'), highlight: true },
-    { label: 'Pricing', onClick: scrollToPricing },
   ];
 
   return (
@@ -45,32 +31,46 @@ export function Nav() {
       <nav
         className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
         style={{
-          background: scrolled ? 'rgba(8,12,16,0.9)' : 'transparent',
-          backdropFilter: scrolled ? 'blur(16px)' : 'none',
-          borderBottom: scrolled ? '1px solid var(--border-color)' : '1px solid transparent',
+          background: scrolled ? 'rgba(5,7,17,0.85)' : 'rgba(5,7,17,0.5)',
+          backdropFilter: 'blur(20px) saturate(1.8)',
+          borderBottom: '1px solid rgba(255,255,255,0.04)',
+          height: 56,
         }}
       >
-        <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-[1200px] mx-auto px-6 md:px-12 h-full flex items-center justify-between">
           <button
             onClick={() => navigate('/')}
-            className="cursor-pointer"
-            style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontSize: '13px', letterSpacing: '0.1em', background: 'none', border: 'none' }}
+            className="cursor-pointer flex items-center gap-2"
+            style={{ background: 'none', border: 'none' }}
             aria-label="Home"
           >
-            AGENT ID
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: 'var(--accent)',
+              boxShadow: '0 0 10px rgba(79,125,243,0.4)',
+              display: 'inline-block',
+            }} />
+            <span style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 15, fontWeight: 700, color: 'var(--text-primary)',
+              letterSpacing: '-0.01em',
+            }}>Agent ID</span>
           </button>
 
-          <div className="hidden md:flex items-center gap-7">
+          <div className="hidden md:flex items-center gap-8">
             {navLinks.map(l => (
               <button
                 key={l.label}
                 onClick={l.onClick}
                 className="text-sm transition-colors cursor-pointer hover:opacity-80"
                 style={{
-                  color: l.highlight ? 'var(--accent)' : 'var(--text-muted)',
+                  color: l.highlight ? 'var(--accent)' : 'rgba(232,232,240,0.45)',
                   background: 'none',
                   border: 'none',
                   fontFamily: 'var(--font-body)',
+                  fontWeight: 500,
+                  fontSize: 13,
+                  letterSpacing: '0.01em',
                 }}
                 aria-label={l.label}
               >
@@ -84,14 +84,21 @@ export function Nav() {
               <>
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="px-4 py-2 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
-                  style={{ color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border-color)', fontFamily: 'var(--font-body)' }}
+                  className="px-4 py-1.5 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
+                  style={{
+                    color: 'rgba(232,232,240,0.45)',
+                    background: 'transparent',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 13,
+                    borderRadius: 8,
+                  }}
                   aria-label="Dashboard"
                 >Dashboard</button>
                 <button
                   onClick={() => { logout(); navigate('/'); }}
-                  className="px-4 py-2 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
-                  style={{ color: 'var(--text-dim)', background: 'transparent', border: 'none', fontFamily: 'var(--font-body)' }}
+                  className="px-3 py-1.5 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
+                  style={{ color: 'rgba(232,232,240,0.3)', background: 'transparent', border: 'none', fontFamily: 'var(--font-body)', fontSize: 13 }}
                   aria-label="Sign Out"
                 >Sign Out</button>
               </>
@@ -99,16 +106,29 @@ export function Nav() {
               <>
                 <button
                   onClick={() => navigate('/sign-in')}
-                  className="px-4 py-2 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
-                  style={{ color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border-color)', fontFamily: 'var(--font-body)' }}
+                  className="px-4 py-1.5 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
+                  style={{
+                    color: 'rgba(232,232,240,0.45)',
+                    background: 'transparent',
+                    border: 'none',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 13,
+                  }}
                   aria-label="Sign In"
                 >Sign In</button>
                 <button
                   onClick={() => navigate('/start')}
-                  className="px-5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer hover:scale-[1.02]"
-                  style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }}
-                  aria-label="Register Agent"
-                >Register Agent</button>
+                  className="px-5 py-1.5 text-sm font-semibold rounded-lg transition-all cursor-pointer hover:scale-[1.02]"
+                  style={{
+                    background: 'rgba(79,125,243,0.15)',
+                    color: '#fff',
+                    border: '1px solid rgba(79,125,243,0.25)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 13,
+                    borderRadius: 8,
+                  }}
+                  aria-label="Register"
+                >Register</button>
               </>
             )}
           </div>
@@ -138,16 +158,16 @@ export function Nav() {
                 aria-label={l.label}
               >{l.label}</button>
             ))}
-            <div className="border-t pt-4 mt-2 flex flex-col gap-3" style={{ borderColor: 'var(--border-color)' }}>
+            <div className="border-t pt-4 mt-2 flex flex-col gap-3" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
               {userId ? (
                 <>
-                  <button onClick={() => { navigate('/dashboard'); setMobileOpen(false); }} className="py-3 text-center rounded-lg border cursor-pointer" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-color)', background: 'none' }} aria-label="Dashboard">Dashboard</button>
+                  <button onClick={() => { navigate('/dashboard'); setMobileOpen(false); }} className="py-3 text-center rounded-lg border cursor-pointer" style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.08)', background: 'none' }} aria-label="Dashboard">Dashboard</button>
                   <button onClick={() => { logout(); navigate('/'); setMobileOpen(false); }} className="py-3 text-center rounded-lg cursor-pointer" style={{ color: 'var(--text-dim)', background: 'none', border: 'none' }} aria-label="Sign Out">Sign Out</button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => { navigate('/sign-in'); setMobileOpen(false); }} className="py-3 text-center rounded-lg border cursor-pointer" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-color)', background: 'none', fontFamily: 'var(--font-body)' }} aria-label="Sign In">Sign In</button>
-                  <button onClick={() => { navigate('/start'); setMobileOpen(false); }} className="py-3 text-center rounded-lg font-medium cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }} aria-label="Register Agent">Register Agent</button>
+                  <button onClick={() => { navigate('/sign-in'); setMobileOpen(false); }} className="py-3 text-center rounded-lg border cursor-pointer" style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.08)', background: 'none', fontFamily: 'var(--font-body)' }} aria-label="Sign In">Sign In</button>
+                  <button onClick={() => { navigate('/start'); setMobileOpen(false); }} className="py-3 text-center rounded-lg font-medium cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }} aria-label="Register">Register</button>
                 </>
               )}
             </div>
