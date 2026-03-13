@@ -42,7 +42,7 @@ export function ConceptPage({ theme, heroBackground }: ConceptPageProps) {
         background: 'transparent',
         filter: `url(#${grainId})`,
         opacity: 'var(--grain-opacity)',
-        mixBlendMode: 'var(--grain-blend)' as any,
+        mixBlendMode: theme === 'dark' ? 'overlay' : 'multiply',
       }} />
 
       <nav style={{

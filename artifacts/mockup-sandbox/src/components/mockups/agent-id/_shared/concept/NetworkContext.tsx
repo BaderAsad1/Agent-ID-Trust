@@ -84,7 +84,7 @@ export function NetworkContext({ phase }: { phase: AnimationPhase }) {
             }}
           />
           <text
-            x={cx + n.x} y={cx ? cy + n.y + 14 : cy + n.y + 14}
+            x={cx + n.x} y={cy + n.y + 14}
             textAnchor="middle"
             fontSize="8"
             fontFamily="var(--font-mono)"

@@ -264,19 +264,34 @@ export function AgentCredential({ phase }: { phase: AnimationPhase }) {
 
       <div style={{
         borderTop: '1px solid var(--credential-divider)',
-        padding: '10px 28px 14px',
+        padding: '12px 28px 14px',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         opacity: phase.capabilities ? 1 : 0,
-        transition: 'opacity 0.4s ease 0.2s',
+        transform: phase.capabilities ? 'translateY(0)' : 'translateY(8px)',
+        transition: 'opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s',
       }}>
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 8,
-          color: 'var(--text-label)', letterSpacing: '0.08em',
-        }}>ROUTABLE &middot; BILLABLE &middot; ADDRESSABLE</span>
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 8,
-          color: 'var(--text-label)', letterSpacing: '0.08em',
-        }}>v1.0</span>
+        <div>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 8, fontWeight: 600,
+            letterSpacing: '0.12em', textTransform: 'uppercase',
+            color: 'var(--text-label)', marginBottom: 3,
+          }}>MARKETPLACE</div>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 11,
+            color: 'var(--text-secondary)',
+          }}>Listed &middot; 4.9 &#9733;</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 8, fontWeight: 600,
+            letterSpacing: '0.12em', textTransform: 'uppercase',
+            color: 'var(--text-label)', marginBottom: 3,
+          }}>ROUTING</div>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 11,
+            color: 'var(--trust-green)',
+          }}>Addressable</div>
+        </div>
       </div>
     </div>
   );

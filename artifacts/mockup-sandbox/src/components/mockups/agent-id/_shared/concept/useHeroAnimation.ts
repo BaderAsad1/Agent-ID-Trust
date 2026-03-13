@@ -46,16 +46,16 @@ export function useHeroAnimation(targetTrust = 94) {
       timers.push(setTimeout(fn, ms));
     };
 
-    t(() => set({ frame: true }), 300);
-    t(() => set({ emblem: true }), 900);
-    t(() => set({ identity: true }), 1400);
-    t(() => set({ handle: true }), 1800);
-    t(() => set({ domain: true }), 2100);
-    t(() => set({ verification: true }), 2500);
+    t(() => set({ frame: true }), 200);
+    t(() => set({ emblem: true }), 700);
+    t(() => set({ identity: true }), 1100);
+    t(() => set({ handle: true }), 1400);
+    t(() => set({ domain: true }), 1650);
+    t(() => set({ verification: true }), 2000);
     t(() => {
       set({ trustRing: true });
       const start = performance.now();
-      const duration = 1400;
+      const duration = 1200;
       const animate = (now: number) => {
         const elapsed = now - start;
         const progress = Math.min(elapsed / duration, 1);
@@ -69,10 +69,10 @@ export function useHeroAnimation(targetTrust = 94) {
         }
       };
       rafRef.current = requestAnimationFrame(animate);
-    }, 2900);
-    t(() => set({ network: true }), 3400);
-    t(() => set({ capabilities: true }), 3900);
-    t(() => set({ alive: true }), 4500);
+    }, 2300);
+    t(() => set({ network: true }), 2800);
+    t(() => set({ capabilities: true }), 3200);
+    t(() => set({ alive: true }), 3800);
 
     return () => {
       mountedRef.current = false;

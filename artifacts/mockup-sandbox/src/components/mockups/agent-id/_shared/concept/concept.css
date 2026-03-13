@@ -120,7 +120,6 @@
   --chip-border: rgba(255, 255, 255, 0.06);
   --nav-bg: rgba(5, 7, 17, 0.85);
   --grain-opacity: 0.025;
-  --grain-blend: overlay;
   --section-border: rgba(255, 255, 255, 0.04);
   --pricing-highlight-bg: rgba(79, 125, 243, 0.05);
   --pricing-highlight-border: rgba(79, 125, 243, 0.2);
@@ -161,7 +160,6 @@
   --chip-border: rgba(0, 0, 0, 0.05);
   --nav-bg: rgba(248, 247, 244, 0.88);
   --grain-opacity: 0.015;
-  --grain-blend: multiply;
   --section-border: rgba(0, 0, 0, 0.04);
   --pricing-highlight-bg: rgba(59, 93, 231, 0.035);
   --pricing-highlight-border: rgba(59, 93, 231, 0.15);
