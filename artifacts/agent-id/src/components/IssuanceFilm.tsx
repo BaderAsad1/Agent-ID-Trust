@@ -751,7 +751,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
             {ANATOMY_LAYERS.map((layer, i) => {
               const progress = stagger(i);
               return (
-                <div key={layer.id} style={{
+                <div key={layer.id} className="anatomy-card-row" style={{
                   position: 'absolute',
                   left: 20, right: 20,
                   top: `${(i * 13.5) + 3}%`,
@@ -810,46 +810,75 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
 
       <style>{`
         @media (max-width: 768px) {
+          /* Break out of the 100vh sticky clipping box entirely */
+          .anatomy-section-outer {
+            min-height: auto !important;
+          }
+          .anatomy-sticky-container {
+            position: relative !important;
+            height: auto !important;
+            overflow: visible !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+          /* Force all JS-animated elements fully visible */
+          .anatomy-title {
+            opacity: 1 !important;
+            transform: none !important;
+          }
+          .anatomy-card-row {
+            opacity: 1 !important;
+            transform: none !important;
+          }
+          .anatomy-layer-item {
+            opacity: 1 !important;
+            transform: none !important;
+            margin-bottom: 14px !important;
+            padding-left: 14px !important;
+          }
+          /* Natural-height wrapper, scrolls normally */
           .anatomy-wrapper {
-            padding: 56px 20px 20px !important;
+            height: auto !important;
+            padding: 64px 20px 48px !important;
             justify-content: flex-start !important;
+            align-items: flex-start !important;
           }
-          .anatomy-wrapper .anatomy-title {
-            margin-bottom: 10px !important;
+          .anatomy-title {
+            margin-bottom: 20px !important;
           }
-          .anatomy-wrapper .anatomy-title h2 {
-            margin-bottom: 6px !important;
+          .anatomy-title h2 {
+            font-size: 26px !important;
+            margin-bottom: 8px !important;
           }
-          .anatomy-wrapper .anatomy-title p {
-            font-size: 13px !important;
-            line-height: 1.4 !important;
+          .anatomy-title p {
+            font-size: 14px !important;
+            line-height: 1.5 !important;
           }
           .anatomy-content {
             flex-direction: column !important;
-            gap: 12px !important;
+            gap: 20px !important;
+            overflow: visible !important;
+            height: auto !important;
           }
           .anatomy-credential {
             flex: none !important;
             width: 100% !important;
-            height: 160px !important;
-            max-height: 160px !important;
+            height: 200px !important;
+            max-height: 200px !important;
           }
           .anatomy-layers {
-            overflow-y: auto !important;
-            flex: 1 !important;
+            flex: none !important;
+            overflow: visible !important;
+            height: auto !important;
             min-height: 0 !important;
           }
-          .anatomy-layer-item {
-            margin-bottom: 6px !important;
-            padding-left: 12px !important;
-          }
           .anatomy-layer-label {
-            font-size: 9px !important;
-            margin-bottom: 1px !important;
+            font-size: 10px !important;
+            margin-bottom: 4px !important;
           }
           .anatomy-layer-desc {
-            font-size: 12px !important;
-            line-height: 1.3 !important;
+            font-size: 13px !important;
+            line-height: 1.5 !important;
           }
         }
       `}</style>
@@ -1712,11 +1741,11 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} style={{
+      <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} className="anatomy-section-outer" style={{
         position: 'relative',
         minHeight: '300vh',
       }}>
-        <div style={{
+        <div className="anatomy-sticky-container" style={{
           position: 'sticky',
           top: 0,
           height: '100vh',
