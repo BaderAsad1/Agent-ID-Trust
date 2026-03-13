@@ -1,0 +1,243 @@
+You are Replit Agent 4 acting as a world-class creative director, motion designer, and front-end design engineer.
+
+Build ONE standalone landing page concept for Agent ID inside canvas preview.
+
+This is a pure design/prototype pass.
+Do NOT waste time on testing, backend work, production hardening, or nonessential engineering.
+Focus only on creating a breathtaking, highly polished landing page concept with exceptional motion and visual storytelling.
+
+Agent ID is:
+“Identity, Trust, and Routing for the Agent Internet.”
+
+Core product idea:
+Every AI agent gets a verified handle, domain/address, cryptographic ownership proof, capability manifest, task inbox, signed activity logs, trust state, and commercial readiness.
+
+CRITICAL CREATIVE DIRECTION
+
+This page must feel like:
+- Apple unveiling a new category
+- Stripe unveiling a new infrastructure primitive
+- a future $100B company
+- a product reveal, not a startup landing page
+
+Do NOT build:
+- a generic SaaS page
+- a centered headline with a little card underneath
+- terminal/CLI hero
+- dashboard screenshot hero
+- repetitive cards
+- random floating dots
+- glowing AI blob backgrounds
+- generic particles
+- “nice startup page” energy
+
+This concept is called:
+
+THE ISSUANCE FILM
+
+BIG IDEA
+
+The entire landing page should feel like an identity credential being issued in real time.
+
+Not a UI card appearing.
+Not a dashboard widget.
+A formal digital issuance event.
+
+The hero object is a large, premium, dimensional Agent ID credential artifact.
+It should feel like a hybrid of:
+- passport
+- certificate
+- trust credential
+- cryptographic identity object
+- internet-native access artifact
+
+The page should tell a visual story:
+unresolved → validating → binding → issuing → active
+
+LAYOUT DIRECTION
+
+This should NOT feel like a normal website first.
+It should feel like a cinematic product reveal that happens to live in a browser.
+
+Page structure:
+1. Hero issuance scene
+2. Zoomed-in credential anatomy section
+3. “What identity unlocks” section
+4. Refined CTA section
+
+HERO DIRECTION
+
+The hero must dominate the experience.
+
+Start with an elegant dark field — not empty black, but a carefully lit environment with subtle material depth.
+The Agent ID artifact should form in the center at large scale.
+
+No terminal.
+No code block.
+No small widget.
+
+Instead:
+- a faint outline or chassis emerges
+- edge lighting traces the credential frame
+- identity text is inscribed
+- trust ring resolves
+- verification seal stamps or locks in
+- domain/address binds
+- capability attestations appear with premium motion
+- a subtle activation pulse radiates outward
+
+The object should end in a calm, fully issued state.
+
+Headline should support the artifact, not overpower it.
+
+Possible tone:
+- The identity primitive for the autonomous internet.
+- Every agent needs an identity.
+- Before agents can act, they need a credential.
+
+The subheadline should be brief, serious, and non-generic.
+No stack language. No “DNS + OAuth + Stripe.”
+No startup fluff.
+
+MOTION DIRECTION
+
+This concept must feel like a product film.
+
+Use:
+- scroll-linked scale transitions
+- slow cinematic zoom
+- parallax layers with restraint
+- reveal-by-inscription
+- seal lock-in
+- trust ring activation
+- elegant opacity/blur transitions
+- section reveals that feel editorial, not template-like
+
+Motion should feel:
+- expensive
+- deliberate
+- smooth
+- inevitable
+- not playful
+- not gimmicky
+
+As the user scrolls:
+- the hero object can slightly scale and settle
+- the camera can subtly push in
+- the credential can move into an exploded anatomy section
+- components can separate and label themselves
+- later sections can reconnect those components to inbox, routing, trust, and payments
+
+Do NOT use:
+- random floating particles
+- dots drifting in space
+- fake sci-fi HUD clutter
+- cheesy neon effects
+- crypto aesthetics
+- obvious Framer-template tropes
+
+VISUAL LANGUAGE
+
+Dark mode only.
+
+Use:
+- near-black / graphite / midnight blue base
+- electric blue / cyan trust accents
+- subtle emerald for verified/active states
+- premium off-white typography
+- extremely refined shadow and edge lighting
+- slight material layering
+- soft noise/grain overlay
+- large clean negative space
+
+Typography:
+- world-class display typography
+- confident, monumental headline
+- minimal supporting text
+- no clutter
+
+COMPONENT FEEL
+
+The credential must NOT feel like a card.
+It must feel like an object.
+
+Include elements like:
+- serial / registry line
+- verification seal
+- trust ring
+- identity spine
+- address/domain field
+- attestation chips that feel more like stamped capabilities than UI tags
+- subtle issuance metadata
+
+SUPPORTING SECTION 1 — CREDENTIAL ANATOMY
+
+As the user scrolls, the issued credential transitions into an exploded anatomy view.
+
+The credential separates into layers or highlighted zones:
+- identity
+- proof
+- address
+- trust
+- capabilities
+- routing readiness
+- inbox / messaging
+- payments / marketplace readiness
+
+This should feel editorial and museum-quality, not like feature cards.
+
+SUPPORTING SECTION 2 — WHAT IDENTITY UNLOCKS
+
+This section should show system-level consequence:
+- inbox becomes active
+- routing becomes possible
+- trust becomes inspectable
+- marketplace eligibility unlocks
+- payments can be authorized
+
+Do not render these as generic icon cards.
+Use cleaner visual storytelling:
+- connected modules
+- horizontal reveal panels
+- layered surfaces
+- subtle animated transitions
+
+CTA SECTION
+
+Minimal, strong, expensive.
+No “Get Started.”
+Use stronger CTA language like:
+- Claim Your Agent ID
+- Register an Agent
+- Explore Agent ID
+
+REPLIT IMPLEMENTATION RULES
+
+This is a canvas-first concept build.
+Do NOT modify the main production landing page.
+Build a self-contained preview page.
+
+Before building, briefly output:
+1. your interpretation of the concept
+2. section structure
+3. motion strategy
+
+Then build immediately.
+
+Do not spend time on tests.
+Do not spend time on backend.
+Do not spend time on unnecessary engineering.
+Design and motion quality are the priority.
+
+QUALITY BAR
+
+The result must feel like:
+- a category-defining reveal
+- a homepage people remember
+- a new internet primitive being introduced
+- not a polished startup template
+
+Push beyond safe choices.
+Do not be simple.
+Do not be generic.
+Do not use random floating dots.
