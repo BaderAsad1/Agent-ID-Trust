@@ -264,7 +264,7 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
   return (
     <div style={{
       position: 'relative',
-      width: 640, maxWidth: '92vw',
+      width: 520, maxWidth: '88vw',
       borderRadius: 22,
       border: `1px solid ${isActive ? 'rgba(52,211,153,0.12)' : 'rgba(79,125,243,0.14)'}`,
       background: 'rgba(12, 15, 30, 0.97)',
@@ -606,27 +606,27 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
   return (
     <div style={{
       position: 'relative',
-      padding: '160px 80px',
-      maxWidth: 1200,
+      padding: '80px 60px',
+      maxWidth: 1100,
       margin: '0 auto',
     }}>
       <div style={{
         textAlign: 'center',
-        marginBottom: 100,
+        marginBottom: 60,
         opacity: titleOpacity,
         transform: `translateY(${titleTranslateY}px)`,
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
           letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
-          marginBottom: 20,
+          marginBottom: 16,
         }}>CREDENTIAL ANATOMY</div>
         <h2 style={{
           fontFamily: "'Bricolage Grotesque', sans-serif",
-          fontSize: 'clamp(40px, 5vw, 68px)',
-          fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.05,
+          fontSize: 'clamp(32px, 4vw, 52px)',
+          fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1,
           color: '#e8e8f0',
-          marginBottom: 22,
+          marginBottom: 18,
         }}>
           Seven layers.{' '}
           <span style={{
@@ -740,8 +740,8 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
   return (
     <div style={{
       position: 'relative',
-      padding: '160px 80px',
-      maxWidth: 1200,
+      padding: '80px 60px',
+      maxWidth: 1100,
       margin: '0 auto',
     }}>
       <div style={{
@@ -753,21 +753,21 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
 
       <div style={{
         textAlign: 'center',
-        marginBottom: 100,
+        marginBottom: 60,
         opacity: titleOpacity,
         transform: `translateY(${titleTranslateY}px)`,
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
           letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
-          marginBottom: 20,
+          marginBottom: 16,
         }}>SYSTEM CONSEQUENCES</div>
         <h2 style={{
           fontFamily: "'Bricolage Grotesque', sans-serif",
-          fontSize: 'clamp(40px, 5vw, 68px)',
-          fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.05,
+          fontSize: 'clamp(32px, 4vw, 52px)',
+          fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1,
           color: '#e8e8f0',
-          marginBottom: 22,
+          marginBottom: 18,
         }}>
           What identity{' '}
           <span style={{
@@ -898,8 +898,8 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
 
       <h2 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(48px, 6vw, 80px)',
-        fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1.0,
+        fontSize: 'clamp(36px, 5vw, 60px)',
+        fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1.05,
         color: '#e8e8f0',
         marginBottom: 24,
       }}>
@@ -1032,20 +1032,20 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
       zIndex: 10, pointerEvents: 'none',
     }}>
       <div style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600,
-        letterSpacing: '0.28em', color: '#4f7df3',
-        marginBottom: 32,
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
+        letterSpacing: '0.22em', color: '#4f7df3',
+        marginBottom: 20,
         opacity: subtitleOpacity,
         transform: `translateY(${titleY * 0.5}px)`,
       }}>INTRODUCING</div>
 
       <h1 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(100px, 15vw, 200px)',
-        fontWeight: 800, letterSpacing: '-0.045em', lineHeight: 0.88,
+        fontSize: 'clamp(64px, 9vw, 120px)',
+        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 0.92,
         color: '#e8e8f0',
         textAlign: 'center',
-        margin: '0 0 40px',
+        margin: '0 0 24px',
         opacity: titleOpacity,
         transform: `scale(${titleScale}) translateY(${titleY}px)`,
       }}>
@@ -1054,11 +1054,11 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
 
       <p style={{
         fontFamily: "'Inter', sans-serif",
-        fontSize: 'clamp(20px, 2.4vw, 28px)',
-        fontWeight: 400, lineHeight: 1.45,
+        fontSize: 'clamp(17px, 1.8vw, 22px)',
+        fontWeight: 400, lineHeight: 1.5,
         color: 'rgba(232,232,240,0.5)',
         textAlign: 'center',
-        maxWidth: 620, margin: '0 auto 0',
+        maxWidth: 520, margin: '0 auto 0',
         opacity: subtitleOpacity,
         transform: `translateY(${titleY * 0.3}px)`,
       }}>
@@ -1066,20 +1066,20 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
       </p>
 
       <div style={{
-        marginTop: 52,
-        display: 'flex', gap: 20, alignItems: 'center',
+        marginTop: 36,
+        display: 'flex', gap: 16, alignItems: 'center',
         opacity: subtitleOpacity,
         transform: `translateY(${titleY * 0.2}px)`,
       }}>
         <span onClick={() => onNavigate?.('/start')} style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 17, fontWeight: 600,
+          fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 600,
           color: '#fff', background: '#4f7df3',
-          borderRadius: 14, padding: '16px 44px', cursor: 'pointer',
+          borderRadius: 12, padding: '13px 32px', cursor: 'pointer',
           boxShadow: '0 4px 24px rgba(79,125,243,0.3)',
           pointerEvents: 'auto',
         }}>Register an Agent</span>
         <span style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 17, fontWeight: 500,
+          fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 500,
           color: 'rgba(232,232,240,0.6)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 8,
         }}>Learn more <span style={{ fontSize: 20 }}>&darr;</span></span>
