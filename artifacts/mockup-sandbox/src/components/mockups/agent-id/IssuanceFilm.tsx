@@ -962,12 +962,161 @@ function CTASection({ ctaProgress }: { ctaProgress: number }) {
   );
 }
 
+function NavBar({ opacity }: { opacity: number }) {
+  return (
+    <nav style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0 48px', height: 56,
+      background: 'rgba(5,7,17,0.7)',
+      backdropFilter: 'blur(20px) saturate(1.8)',
+      borderBottom: '1px solid rgba(255,255,255,0.04)',
+      opacity,
+      transition: 'opacity 0.3s ease',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{
+          width: 7, height: 7, borderRadius: '50%',
+          background: '#4f7df3',
+          boxShadow: '0 0 10px rgba(79,125,243,0.4)',
+        }} />
+        <span style={{
+          fontFamily: "'Bricolage Grotesque', sans-serif",
+          fontSize: 15, fontWeight: 700, color: '#e8e8f0',
+          letterSpacing: '-0.01em',
+        }}>Agent ID</span>
+      </div>
+      <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+        {['Protocol', 'Registry', 'Trust', 'Docs'].map(link => (
+          <span key={link} style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 13,
+            color: 'rgba(232,232,240,0.45)', cursor: 'pointer',
+            fontWeight: 500, letterSpacing: '0.01em',
+          }}>{link}</span>
+        ))}
+        <span style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
+          color: '#fff', background: 'rgba(79,125,243,0.15)',
+          border: '1px solid rgba(79,125,243,0.25)',
+          borderRadius: 8, padding: '7px 18px', cursor: 'pointer',
+        }}>Register</span>
+      </div>
+    </nav>
+  );
+}
+
+function HeroOpening({ progress }: { progress: number }) {
+  const titleVisible = progress < 0.12;
+  const titleOpacity = titleVisible ? lerp(1, 0, progress / 0.12) : 0;
+  const titleScale = lerp(1, 0.92, Math.min(1, progress / 0.15));
+  const titleY = lerp(0, -60, Math.min(1, progress / 0.15));
+
+  const subtitleOpacity = progress < 0.08 ? lerp(1, 0, progress / 0.08) : 0;
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      zIndex: 10, pointerEvents: 'none',
+    }}>
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
+        letterSpacing: '0.22em', color: '#4f7df3',
+        marginBottom: 28,
+        opacity: subtitleOpacity,
+        transform: `translateY(${titleY * 0.5}px)`,
+      }}>INTRODUCING</div>
+
+      <h1 style={{
+        fontFamily: "'Bricolage Grotesque', sans-serif",
+        fontSize: 'clamp(72px, 10vw, 140px)',
+        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 0.95,
+        color: '#e8e8f0',
+        textAlign: 'center',
+        margin: '0 0 32px',
+        opacity: titleOpacity,
+        transform: `scale(${titleScale}) translateY(${titleY}px)`,
+      }}>
+        Agent ID
+      </h1>
+
+      <p style={{
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 'clamp(18px, 2vw, 24px)',
+        fontWeight: 400, lineHeight: 1.5,
+        color: 'rgba(232,232,240,0.5)',
+        textAlign: 'center',
+        maxWidth: 560, margin: '0 auto 0',
+        opacity: subtitleOpacity,
+        transform: `translateY(${titleY * 0.3}px)`,
+      }}>
+        Identity, trust, and routing for the autonomous internet.
+      </p>
+
+      <div style={{
+        marginTop: 48,
+        display: 'flex', gap: 16, alignItems: 'center',
+        opacity: subtitleOpacity,
+        transform: `translateY(${titleY * 0.2}px)`,
+      }}>
+        <span style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 16, fontWeight: 600,
+          color: '#fff', background: '#4f7df3',
+          borderRadius: 12, padding: '14px 36px', cursor: 'pointer',
+          boxShadow: '0 4px 24px rgba(79,125,243,0.3)',
+        }}>Register an Agent</span>
+        <span style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 16, fontWeight: 500,
+          color: 'rgba(232,232,240,0.6)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>Watch the film <span style={{ fontSize: 18 }}>&darr;</span></span>
+      </div>
+    </div>
+  );
+}
+
+function PhaseLabel({ state, progress }: { state: IssuanceCeremonyState; progress: number }) {
+  const visible = progress > 0.1;
+  return (
+    <div style={{
+      position: 'absolute', top: 32, left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 20,
+      display: 'flex', alignItems: 'center', gap: 10,
+      opacity: visible ? 1 : 0,
+      transition: 'opacity 0.6s ease',
+    }}>
+      <div style={{
+        width: 6, height: 6, borderRadius: '50%',
+        background: state === 'active' ? '#34d399' : '#4f7df3',
+        boxShadow: state === 'active' ? '0 0 12px rgba(52,211,153,0.5)' : '0 0 8px rgba(79,125,243,0.4)',
+        transition: 'all 0.5s ease',
+      }} />
+      <span style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 10, fontWeight: 600,
+        letterSpacing: '0.16em',
+        color: state === 'active' ? '#34d399' : 'rgba(232,232,240,0.35)',
+        transition: 'color 0.5s ease',
+      }}>{CEREMONY_LABELS[state]}</span>
+    </div>
+  );
+}
+
 export default function IssuanceFilm() {
   const sectionRefs = useSectionRefs();
   const scroll = useScrollFilm(sectionRefs);
 
   const heroScale = lerp(1, 1.06, scroll.heroProgress);
   const heroOpacity = scroll.heroProgress > 0.85 ? lerp(1, 0, (scroll.heroProgress - 0.85) / 0.15) : 1;
+  const ceremonyState = getIssuanceCeremonyState(scroll.heroProgress);
+  const navOpacity = scroll.heroProgress > 0.06 ? 1 : lerp(0.4, 1, scroll.heroProgress / 0.06);
+
+  const credentialScale = scroll.heroProgress < 0.08
+    ? lerp(0.7, 1, scroll.heroProgress / 0.08)
+    : 1;
+  const credentialOpacity = scroll.heroProgress < 0.06 ? 0 : lerp(0, 1, (scroll.heroProgress - 0.06) / 0.06);
 
   return (
     <div style={{
@@ -977,10 +1126,11 @@ export default function IssuanceFilm() {
       WebkitFontSmoothing: 'antialiased',
     } as CSSProperties}>
       <GrainOverlay />
+      <NavBar opacity={navOpacity} />
 
       <section ref={sectionRefs.hero as React.RefObject<HTMLElement>} style={{
         position: 'relative',
-        height: '280vh',
+        height: '350vh',
       }}>
         <div style={{
           position: 'sticky',
@@ -1001,46 +1151,15 @@ export default function IssuanceFilm() {
             <HeroIssuanceRings heroProgress={scroll.heroProgress} />
           </div>
 
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)',
-            fontFamily: "'Bricolage Grotesque', sans-serif",
-            fontSize: 'clamp(120px, 16vw, 220px)',
-            fontWeight: 800,
-            color: 'transparent',
-            WebkitTextStroke: '1px rgba(255,255,255,0.015)',
-            letterSpacing: '-0.02em',
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none', userSelect: 'none',
-            opacity: lerp(0.6, 0.15, scroll.heroProgress),
-          }}>AGENT ID</div>
+          <HeroOpening progress={scroll.heroProgress} />
 
-          <div style={{
-            opacity: scroll.heroProgress < 0.05 ? lerp(1, 0, scroll.heroProgress / 0.05) : 0,
-            transform: `translateY(${lerp(0, -20, Math.min(1, scroll.heroProgress / 0.1))}px)`,
-            textAlign: 'center',
-            position: 'absolute',
-            top: '18%',
-            zIndex: 10,
-          }}>
-            <div style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-              letterSpacing: '0.18em', color: '#4f7df3',
-              marginBottom: 16,
-            }}>THE ISSUANCE</div>
-            <h1 style={{
-              fontFamily: "'Bricolage Grotesque', sans-serif",
-              fontSize: 'clamp(28px, 3.5vw, 44px)',
-              fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15,
-              color: '#e8e8f0',
-            }}>
-              Watch a credential come alive.
-            </h1>
-          </div>
+          <PhaseLabel state={ceremonyState} progress={scroll.heroProgress} />
 
           <div style={{
             position: 'relative', zIndex: 5,
-            opacity: heroOpacity,
+            opacity: credentialOpacity * heroOpacity,
+            transform: `scale(${credentialScale})`,
+            transition: 'transform 0.8s cubic-bezier(0.16,1,0.3,1)',
           }}>
             <FilmCredential heroProgress={scroll.heroProgress} />
           </div>
@@ -1048,17 +1167,17 @@ export default function IssuanceFilm() {
           <div style={{
             position: 'absolute', bottom: 40,
             textAlign: 'center',
-            opacity: scroll.heroProgress < 0.04 ? 1 : 0,
+            opacity: scroll.heroProgress < 0.03 ? 1 : 0,
             transition: 'opacity 0.5s ease',
           }}>
             <div style={{
               fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
               color: 'rgba(232,232,240,0.25)', letterSpacing: '0.1em',
               marginBottom: 8,
-            }}>SCROLL TO ISSUE</div>
+            }}>SCROLL</div>
             <div style={{
-              width: 1, height: 24, margin: '0 auto',
-              background: 'linear-gradient(180deg, rgba(79,125,243,0.3), transparent)',
+              width: 1, height: 30, margin: '0 auto',
+              background: 'linear-gradient(180deg, rgba(79,125,243,0.4), transparent)',
             }} />
           </div>
         </div>
