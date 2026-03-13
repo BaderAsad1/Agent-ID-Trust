@@ -221,16 +221,30 @@ function VerificationSeal({ visible }: { visible: boolean }) {
       transform: visible ? 'scale(1) rotate(0deg)' : 'scale(2.2) rotate(-20deg)',
       transition: 'opacity 0.5s ease, transform 0.7s cubic-bezier(0.34,1.56,0.64,1)',
     }}>
-      <svg viewBox="0 0 64 64" width="64" height="64">
-        <circle cx="32" cy="32" r="30" fill="none" stroke="#4f7df3"
-          strokeWidth="1.5" strokeDasharray="3 2.5" opacity="0.3" />
-        <circle cx="32" cy="32" r="22" fill="rgba(79,125,243,0.12)"
-          stroke="#4f7df3" strokeWidth="0.5" opacity="0.5" />
-        <path d="M32 17l3.2 6.2 6.8 1-5 4.8 1.2 6.8L32 32.5l-6.2 3.3 1.2-6.8-5-4.8 6.8-1z"
-          fill="#4f7df3" opacity="0.6" />
-        <text x="32" y="47" textAnchor="middle" fontSize="5.5"
-          fontFamily="'JetBrains Mono', monospace" fill="rgba(232,232,240,0.35)" fontWeight="600"
-          letterSpacing="0.08em">VERIFIED</text>
+      <svg viewBox="0 0 64 64" width="64" height="64" fill="none">
+        <rect x="12" y="8" width="40" height="52" rx="4"
+          fill="rgba(79,125,243,0.08)" stroke="#4f7df3" strokeWidth="1.2" opacity="0.7" />
+        <rect x="12" y="8" width="40" height="14" rx="4"
+          fill="rgba(79,125,243,0.18)" />
+        <rect x="14" y="8" width="36" height="14" rx="3"
+          fill="rgba(79,125,243,0.15)" />
+        <circle cx="27" cy="36" r="6.5"
+          fill="rgba(79,125,243,0.12)" stroke="#4f7df3" strokeWidth="0.8" opacity="0.6" />
+        <rect x="22" y="44" width="10" height="1.5" rx="0.75"
+          fill="#4f7df3" opacity="0.35" />
+        <rect x="22" y="47" width="10" height="1.5" rx="0.75"
+          fill="#4f7df3" opacity="0.25" />
+        <rect x="37" y="30" width="10" height="1.5" rx="0.75"
+          fill="rgba(232,232,240,0.15)" />
+        <rect x="37" y="34" width="8" height="1.5" rx="0.75"
+          fill="rgba(232,232,240,0.1)" />
+        <rect x="37" y="38" width="10" height="1.5" rx="0.75"
+          fill="rgba(232,232,240,0.15)" />
+        <rect x="37" y="42" width="6" height="1.5" rx="0.75"
+          fill="rgba(232,232,240,0.1)" />
+        <text x="32" y="18" textAnchor="middle" fontSize="5"
+          fontFamily="'JetBrains Mono', monospace" fill="rgba(232,232,240,0.5)" fontWeight="700"
+          letterSpacing="0.12em">PASSPORT</text>
       </svg>
     </div>
   );
