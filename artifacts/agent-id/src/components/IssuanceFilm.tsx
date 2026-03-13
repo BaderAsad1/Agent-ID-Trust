@@ -761,7 +761,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
         </p>
       </div>
 
-      <div style={{
+      <div className="anatomy-content" style={{
         display: 'flex',
         gap: 'clamp(24px, 4vw, 80px)',
         alignItems: 'flex-start',
@@ -769,7 +769,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
         minHeight: 0,
         overflow: 'hidden',
       }}>
-        <div style={{
+        <div className="anatomy-credential" style={{
           flex: '0 0 clamp(200px, 25vw, 320px)',
           position: 'relative',
           height: '100%',
@@ -817,7 +817,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
           </div>
         </div>
 
-        <div style={{ flex: 1, paddingTop: 0, overflow: 'hidden' }}>
+        <div className="anatomy-layers" style={{ flex: 1, paddingTop: 0, overflow: 'hidden' }}>
           {ANATOMY_LAYERS.map((layer, i) => {
             const progress = stagger(i);
             return (
@@ -843,6 +843,24 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
           })}
         </div>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .anatomy-content {
+            flex-direction: column !important;
+            gap: 20px !important;
+          }
+          .anatomy-credential {
+            flex: none !important;
+            width: 100% !important;
+            height: 200px !important;
+            max-height: 200px !important;
+          }
+          .anatomy-layers {
+            overflow: auto !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -862,7 +880,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
   const spineOpacity = Math.min(1, unlocksProgress / 0.15);
 
   return (
-    <div style={{
+    <div className="activation-wrapper" style={{
       position: 'relative',
       padding: 'clamp(24px, 4vh, 60px) clamp(24px, 4vw, 60px)',
       maxWidth: 900,
@@ -914,7 +932,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
         flexDirection: 'column',
         justifyContent: 'center',
       }}>
-        <div style={{
+        <div className="activation-spine" style={{
           position: 'absolute',
           left: '50%',
           top: 0,
@@ -925,7 +943,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
           transition: 'background 0.5s ease',
         }} />
 
-        <div style={{
+        <div className="activation-origin" style={{
           position: 'absolute',
           left: '50%',
           top: '10%',
@@ -939,7 +957,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
           zIndex: 2,
         }} />
 
-        <div style={{
+        <div className="activation-channels" style={{
           display: 'flex',
           flexDirection: 'column',
           gap: 'clamp(6px, 1.2vh, 16px)',
@@ -951,13 +969,13 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
             const isLeft = i % 2 === 0;
 
             return (
-              <div key={ch.id} style={{
+              <div key={ch.id} className="activation-channel-row" style={{
                 display: 'flex',
                 alignItems: 'center',
                 position: 'relative',
                 height: 'clamp(52px, 8vh, 72px)',
               }}>
-                <div style={{
+                <div className="activation-node" style={{
                   position: 'absolute',
                   left: '50%',
                   top: '50%',
@@ -973,7 +991,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
 
                 {isLeft ? (
                   <>
-                    <div style={{
+                    <div className="activation-card-left" style={{
                       flex: 1,
                       display: 'flex',
                       justifyContent: 'flex-end',
@@ -1010,7 +1028,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
                       </div>
                     </div>
 
-                    <div style={{
+                    <div className="activation-line" style={{
                       position: 'absolute',
                       right: '50%',
                       top: '50%',
@@ -1022,13 +1040,13 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
                       marginRight: 6,
                     }} />
 
-                    <div style={{ flex: 1 }} />
+                    <div className="activation-spacer" style={{ flex: 1 }} />
                   </>
                 ) : (
                   <>
-                    <div style={{ flex: 1 }} />
+                    <div className="activation-spacer" style={{ flex: 1 }} />
 
-                    <div style={{
+                    <div className="activation-line" style={{
                       position: 'absolute',
                       left: '50%',
                       top: '50%',
@@ -1040,7 +1058,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
                       marginLeft: 6,
                     }} />
 
-                    <div style={{
+                    <div className="activation-card-right" style={{
                       flex: 1,
                       display: 'flex',
                       justifyContent: 'flex-start',
@@ -1083,6 +1101,50 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
           })}
         </div>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .activation-wrapper {
+            height: auto !important;
+            min-height: 100vh;
+            padding-top: clamp(32px, 6vh, 60px) !important;
+            padding-bottom: clamp(32px, 6vh, 60px) !important;
+          }
+          .activation-spine {
+            left: 16px !important;
+            transform: none !important;
+          }
+          .activation-origin {
+            left: 16px !important;
+            transform: translate(-50%, -50%) !important;
+          }
+          .activation-node {
+            left: 16px !important;
+          }
+          .activation-line {
+            display: none !important;
+          }
+          .activation-spacer {
+            display: none !important;
+          }
+          .activation-channel-row {
+            height: auto !important;
+            min-height: 56px;
+          }
+          .activation-card-left,
+          .activation-card-right {
+            flex: 1 !important;
+            justify-content: flex-start !important;
+            padding-left: 40px !important;
+            padding-right: 0 !important;
+          }
+          .activation-card-left > div,
+          .activation-card-right > div {
+            text-align: left !important;
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -1192,51 +1254,124 @@ interface NavProps {
 }
 
 function NavBar({ opacity, onNavigate }: NavProps) {
-  const nav = (path: string) => onNavigate?.(path);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const nav = (path: string) => {
+    setMenuOpen(false);
+    onNavigate?.(path);
+  };
   return (
-    <nav style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 48px', height: 56,
-      background: 'rgba(5,7,17,0.7)',
-      backdropFilter: 'blur(20px) saturate(1.8)',
-      borderBottom: '1px solid rgba(255,255,255,0.04)',
-      opacity,
-      transition: 'opacity 0.3s ease',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => nav('/')}>
-        <div style={{
-          width: 7, height: 7, borderRadius: '50%',
-          background: '#4f7df3',
-          boxShadow: '0 0 10px rgba(79,125,243,0.4)',
-        }} />
-        <span style={{
-          fontFamily: "'Bricolage Grotesque', sans-serif",
-          fontSize: 15, fontWeight: 700, color: '#e8e8f0',
-          letterSpacing: '-0.01em',
-        }}>Agent ID</span>
-      </div>
-      <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-        {[
-          { label: 'Marketplace', path: '/marketplace' },
-          { label: 'Jobs', path: '/jobs' },
-          { label: 'For Agents', path: '/for-agents' },
-          { label: 'Docs', path: '/docs' },
-        ].map(link => (
-          <span key={link.label} onClick={() => nav(link.path)} style={{
-            fontFamily: "'Inter', sans-serif", fontSize: 13, cursor: 'pointer',
-            color: 'rgba(232,232,240,0.5)',
-            fontWeight: 500, letterSpacing: '0.01em',
-          }}>{link.label}</span>
-        ))}
-        <span onClick={() => nav('/start')} style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
-          color: '#fff', background: 'rgba(79,125,243,0.15)',
-          border: '1px solid rgba(79,125,243,0.25)',
-          borderRadius: 8, padding: '7px 18px', cursor: 'pointer',
-        }}>Register</span>
-      </div>
-    </nav>
+    <>
+      <nav style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 clamp(16px, 4vw, 48px)', height: 56,
+        background: 'rgba(5,7,17,0.7)',
+        backdropFilter: 'blur(20px) saturate(1.8)',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        opacity,
+        transition: 'opacity 0.3s ease',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => nav('/')}>
+          <div style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: '#4f7df3',
+            boxShadow: '0 0 10px rgba(79,125,243,0.4)',
+          }} />
+          <span style={{
+            fontFamily: "'Bricolage Grotesque', sans-serif",
+            fontSize: 15, fontWeight: 700, color: '#e8e8f0',
+            letterSpacing: '-0.01em',
+          }}>Agent ID</span>
+        </div>
+
+        <div className="nav-links-desktop" style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+          {[
+            { label: 'Marketplace', path: '/marketplace' },
+            { label: 'Jobs', path: '/jobs' },
+            { label: 'For Agents', path: '/for-agents' },
+            { label: 'Docs', path: '/docs' },
+          ].map(link => (
+            <span key={link.label} onClick={() => nav(link.path)} style={{
+              fontFamily: "'Inter', sans-serif", fontSize: 13, cursor: 'pointer',
+              color: 'rgba(232,232,240,0.5)',
+              fontWeight: 500, letterSpacing: '0.01em',
+            }}>{link.label}</span>
+          ))}
+          <span onClick={() => nav('/start')} style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
+            color: '#fff', background: 'rgba(79,125,243,0.15)',
+            border: '1px solid rgba(79,125,243,0.25)',
+            borderRadius: 8, padding: '7px 18px', cursor: 'pointer',
+          }}>Register</span>
+        </div>
+
+        <button
+          className="nav-menu-btn"
+          onClick={() => setMenuOpen(!menuOpen)}
+          style={{
+            display: 'none',
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: 8,
+            color: 'rgba(232,232,240,0.6)',
+          }}
+          aria-label="Menu"
+        >
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            {menuOpen ? (
+              <>
+                <line x1="5" y1="5" x2="17" y2="17" />
+                <line x1="17" y1="5" x2="5" y2="17" />
+              </>
+            ) : (
+              <>
+                <line x1="3" y1="6" x2="19" y2="6" />
+                <line x1="3" y1="11" x2="19" y2="11" />
+                <line x1="3" y1="16" x2="19" y2="16" />
+              </>
+            )}
+          </svg>
+        </button>
+      </nav>
+
+      {menuOpen && (
+        <div className="nav-mobile-menu" style={{
+          position: 'fixed', top: 56, left: 0, right: 0, bottom: 0,
+          zIndex: 99,
+          background: 'rgba(5,7,17,0.95)',
+          backdropFilter: 'blur(20px)',
+          display: 'flex', flexDirection: 'column',
+          padding: '32px 24px',
+          gap: 8,
+        }}>
+          {[
+            { label: 'Marketplace', path: '/marketplace' },
+            { label: 'Jobs', path: '/jobs' },
+            { label: 'For Agents', path: '/for-agents' },
+            { label: 'Docs', path: '/docs' },
+          ].map(link => (
+            <span key={link.label} onClick={() => nav(link.path)} style={{
+              fontFamily: "'Inter', sans-serif", fontSize: 16, cursor: 'pointer',
+              color: 'rgba(232,232,240,0.6)',
+              fontWeight: 500, padding: '12px 0',
+              borderBottom: '1px solid rgba(255,255,255,0.04)',
+            }}>{link.label}</span>
+          ))}
+          <span onClick={() => nav('/start')} style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 600,
+            color: '#fff', background: '#4f7df3',
+            borderRadius: 10, padding: '14px 0', cursor: 'pointer',
+            textAlign: 'center', marginTop: 16,
+          }}>Register an Agent</span>
+        </div>
+      )}
+
+      <style>{`
+        @media (max-width: 768px) {
+          .nav-links-desktop { display: none !important; }
+          .nav-menu-btn { display: flex !important; }
+        }
+      `}</style>
+    </>
   );
 }
 
@@ -1416,6 +1551,7 @@ function IssuanceMomentFlash({ active }: { active: boolean }) {
       return () => clearTimeout(timer);
     }
     if (!active) prevActive.current = false;
+    return undefined;
   }, [active]);
 
   return (
@@ -1587,10 +1723,11 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <footer style={{
+      <footer className="film-footer" style={{
         borderTop: '1px solid rgba(255,255,255,0.04)',
-        padding: '40px 80px',
+        padding: 'clamp(24px, 4vh, 40px) clamp(20px, 5vw, 80px)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        flexWrap: 'wrap', gap: 16,
       }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -1599,7 +1736,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           </div>
           <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)' }}>Identity, Trust, and Routing for the Agent Internet.</div>
         </div>
-        <div style={{ display: 'flex', gap: 20 }}>
+        <div style={{ display: 'flex', gap: 'clamp(12px, 2vw, 20px)', flexWrap: 'wrap' }}>
           {['Protocol', 'Registry', 'Documentation', 'GitHub'].map(link => (
             <span key={link} style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)', cursor: 'pointer' }}>{link}</span>
           ))}
