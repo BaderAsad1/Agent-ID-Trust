@@ -560,12 +560,14 @@ function HeroIssuanceRings({ heroProgress }: { heroProgress: number }) {
       ringRadii.forEach((r, i) => {
         const threshold = 0.08 + i * 0.15;
         const ringActive = p > threshold;
-        const baseOpacity = ringActive ? 0.14 : (p > 0.05 ? 0.03 : 0);
+        const dormantOpacity = 0.025 - i * 0.005;
+        const baseOpacity = ringActive ? 0.14 : (p > 0.05 ? 0.03 : Math.max(0, dormantOpacity));
         if (baseOpacity <= 0) return;
 
+        const dormantBreathe = !ringActive && p <= 0.05 ? Math.sin(t * 0.3 + i * 0.8) * 0.008 : 0;
         const breathe = isActive
           ? Math.sin(t * 0.7 + i * 0.6) * 0.04
-          : (isIssuing ? Math.sin(t * 1.5 + i * 0.4) * 0.06 : 0);
+          : (isIssuing ? Math.sin(t * 1.5 + i * 0.4) * 0.06 : dormantBreathe);
         const opacity = baseOpacity + breathe;
 
         ctx!.beginPath();
@@ -1348,13 +1350,130 @@ function SystemResolvingText({ progress }: { progress: number }) {
   );
 }
 
-function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: (path: string) => void }) {
-  const titleVisible = progress < 0.10;
-  const titleOpacity = titleVisible ? lerp(1, 0, progress / 0.10) : 0;
-  const titleScale = lerp(1, 0.92, Math.min(1, progress / 0.12));
-  const titleY = lerp(0, -80, Math.min(1, progress / 0.12));
+function CredentialSilhouette({ progress }: { progress: number }) {
+  const silhouetteOpacity = progress < 0.06 ? lerp(0.45, 0.6, Math.min(1, progress / 0.06))
+    : lerp(0.6, 0, Math.min(1, (progress - 0.06) / 0.08));
+  if (silhouetteOpacity <= 0) return null;
 
-  const subtitleOpacity = progress < 0.07 ? lerp(1, 0, progress / 0.07) : 0;
+  const GHOST_FIELDS = [
+    { w: '45%' }, { w: '60%' }, { w: '38%' }, { w: '52%' },
+    { w: '44%' }, { w: '35%' }, { w: '48%' },
+  ];
+
+  return (
+    <div style={{
+      position: 'absolute',
+      width: 420, maxWidth: '80vw',
+      top: '50%', left: '50%',
+      transform: `translate(-50%, -50%) scale(${lerp(0.96, 1, Math.min(1, progress / 0.1))})`,
+      opacity: silhouetteOpacity,
+      zIndex: 3,
+      pointerEvents: 'none',
+    }}>
+      <div style={{
+        borderRadius: 22,
+        border: '1px solid rgba(79,125,243,0.06)',
+        background: 'rgba(8,10,22,0.4)',
+        padding: '28px 32px 24px',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+          background: 'linear-gradient(90deg, transparent 20%, rgba(79,125,243,0.12) 50%, transparent 80%)',
+        }} />
+        <div style={{
+          position: 'absolute', top: 0, left: 0, bottom: 0, width: 2,
+          background: 'linear-gradient(180deg, rgba(79,125,243,0.08), transparent 60%)',
+        }} />
+
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 600,
+          letterSpacing: '0.18em', color: 'rgba(232,232,240,0.08)',
+          marginBottom: 20,
+        }}>AGENT IDENTITY CREDENTIAL</div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 10,
+            border: '1px solid rgba(79,125,243,0.06)',
+            background: 'rgba(79,125,243,0.02)',
+          }} />
+          <div style={{ flex: 1 }}>
+            <div style={{
+              height: 10, width: '55%', borderRadius: 3,
+              background: 'rgba(232,232,240,0.04)', marginBottom: 8,
+            }} />
+            <div style={{
+              height: 7, width: '40%', borderRadius: 3,
+              background: 'rgba(79,125,243,0.04)',
+            }} />
+          </div>
+        </div>
+
+        <div style={{
+          borderTop: '1px solid rgba(255,255,255,0.02)',
+          paddingTop: 16,
+          display: 'flex', flexDirection: 'column', gap: 10,
+        }}>
+          {GHOST_FIELDS.map((f, i) => (
+            <div key={i} style={{
+              height: 6, width: f.w, borderRadius: 3,
+              background: `rgba(232,232,240,${0.03 - i * 0.002})`,
+            }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RegistryField({ progress }: { progress: number }) {
+  const fieldOpacity = progress < 0.08 ? 1 : lerp(1, 0, (progress - 0.08) / 0.06);
+  if (fieldOpacity <= 0) return null;
+
+  return (
+    <div style={{
+      marginBottom: 32,
+      opacity: fieldOpacity,
+      transform: `translateY(${lerp(0, -20, Math.min(1, progress / 0.12))}px)`,
+    }}>
+      <div style={{
+        display: 'inline-flex', alignItems: 'center',
+        background: 'rgba(79,125,243,0.04)',
+        border: '1px solid rgba(79,125,243,0.08)',
+        borderRadius: 10, padding: '10px 20px',
+        gap: 2,
+      }}>
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 'clamp(14px, 1.6vw, 18px)', fontWeight: 500,
+          color: 'rgba(232,232,240,0.25)',
+          letterSpacing: '0.02em',
+        }}>agent.id/</span>
+        <span className="registry-cursor" style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 'clamp(14px, 1.6vw, 18px)', fontWeight: 500,
+          color: '#4f7df3',
+          letterSpacing: '0.02em',
+        }}>_</span>
+      </div>
+      <style>{`
+        @keyframes cursor-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+        .registry-cursor {
+          animation: cursor-blink 1.1s step-end infinite;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: (path: string) => void }) {
+  const contentOpacity = progress < 0.08 ? 1 : lerp(1, 0, (progress - 0.08) / 0.06);
+  const contentY = lerp(0, -60, Math.min(1, progress / 0.12));
 
   return (
     <div style={{
@@ -1362,59 +1481,86 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       zIndex: 10, pointerEvents: 'none',
+      padding: '0 clamp(20px, 5vw, 60px)',
     }}>
       <div style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
-        letterSpacing: '0.22em', color: '#4f7df3',
-        marginBottom: 20,
-        opacity: subtitleOpacity,
-        transform: `translateY(${titleY * 0.5}px)`,
-      }}>INTRODUCING</div>
+        display: 'flex', alignItems: 'center', gap: 8,
+        marginBottom: 28,
+        opacity: contentOpacity,
+        transform: `translateY(${contentY * 0.3}px)`,
+      }}>
+        <div className="dormant-dot" style={{
+          width: 6, height: 6, borderRadius: '50%',
+          background: '#4f7df3',
+          boxShadow: '0 0 10px rgba(79,125,243,0.4)',
+        }} />
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+        }}>UNRESOLVED</span>
+        <style>{`
+          @keyframes dormant-pulse {
+            0%, 100% { opacity: 0.5; box-shadow: 0 0 8px rgba(79,125,243,0.2); }
+            50% { opacity: 1; box-shadow: 0 0 14px rgba(79,125,243,0.5); }
+          }
+          .dormant-dot {
+            animation: dormant-pulse 2.8s ease-in-out infinite;
+          }
+        `}</style>
+      </div>
+
+      <RegistryField progress={progress} />
 
       <h1 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(64px, 9vw, 120px)',
-        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 0.92,
+        fontSize: 'clamp(28px, 4vw, 52px)',
+        fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15,
         color: '#e8e8f0',
         textAlign: 'center',
-        margin: '0 0 24px',
-        opacity: titleOpacity,
-        transform: `scale(${titleScale}) translateY(${titleY}px)`,
+        margin: '0 0 16px',
+        maxWidth: 600,
+        opacity: contentOpacity,
+        transform: `translateY(${contentY}px)`,
       }}>
-        Agent ID
+        Every agent needs a verifiable identity.{' '}
+        <span style={{
+          color: 'rgba(232,232,240,0.3)',
+          fontWeight: 500,
+        }}>This is where one begins.</span>
       </h1>
 
       <p style={{
         fontFamily: "'Inter', sans-serif",
-        fontSize: 'clamp(17px, 1.8vw, 22px)',
-        fontWeight: 400, lineHeight: 1.5,
-        color: 'rgba(232,232,240,0.5)',
+        fontSize: 'clamp(13px, 1.4vw, 16px)',
+        fontWeight: 400, lineHeight: 1.6,
+        color: 'rgba(232,232,240,0.3)',
         textAlign: 'center',
-        maxWidth: 520, margin: '0 auto 0',
-        opacity: subtitleOpacity,
-        transform: `translateY(${titleY * 0.3}px)`,
+        maxWidth: 440, margin: '0 auto',
+        opacity: contentOpacity * 0.8,
+        transform: `translateY(${contentY * 0.5}px)`,
       }}>
-        Identity, trust, and routing for the autonomous internet.
+        DNS, OAuth, and payments — unified into a single cryptographic credential for autonomous agents.
       </p>
 
       <div style={{
-        marginTop: 36,
-        display: 'flex', gap: 16, alignItems: 'center',
-        opacity: subtitleOpacity,
-        transform: `translateY(${titleY * 0.2}px)`,
+        marginTop: 32,
+        opacity: contentOpacity * 0.7,
+        transform: `translateY(${contentY * 0.3}px)`,
       }}>
         <span onClick={() => onNavigate?.('/start')} style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 600,
-          color: '#fff', background: '#4f7df3',
-          borderRadius: 12, padding: '13px 32px', cursor: 'pointer',
-          boxShadow: '0 4px 24px rgba(79,125,243,0.3)',
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
+          letterSpacing: '0.1em',
+          color: 'rgba(232,232,240,0.35)',
+          cursor: 'pointer',
           pointerEvents: 'auto',
-        }}>Register an Agent</span>
-        <span style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 500,
-          color: 'rgba(232,232,240,0.6)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 8,
-        }}>Learn more <span style={{ fontSize: 20 }}>&darr;</span></span>
+        }}>
+          <span style={{
+            width: 4, height: 4, borderRadius: '50%',
+            background: 'rgba(79,125,243,0.4)',
+          }} />
+          BEGIN ISSUANCE
+        </span>
       </div>
     </div>
   );
@@ -1528,6 +1674,8 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           </div>
 
           <IssuanceMomentFlash active={ceremonyState === 'active'} />
+
+          <CredentialSilhouette progress={scroll.heroProgress} />
 
           <HeroOpening progress={scroll.heroProgress} onNavigate={onNavigate} />
 
