@@ -679,7 +679,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
   const titleTranslateY = lerp(40, 0, Math.min(1, anatomyProgress / 0.12));
 
   return (
-    <div style={{
+    <div className="anatomy-wrapper" style={{
       position: 'relative',
       padding: 'clamp(24px, 4vh, 80px) clamp(24px, 4vw, 60px)',
       maxWidth: 1100,
@@ -808,18 +808,33 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
 
       <style>{`
         @media (max-width: 768px) {
+          .anatomy-section-outer {
+            min-height: auto !important;
+          }
+          .anatomy-sticky {
+            position: relative !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          .anatomy-wrapper {
+            height: auto !important;
+            min-height: auto !important;
+            padding-top: clamp(32px, 6vh, 60px) !important;
+            padding-bottom: clamp(32px, 6vh, 60px) !important;
+          }
           .anatomy-content {
             flex-direction: column !important;
-            gap: 20px !important;
+            gap: 16px !important;
+            overflow: visible !important;
           }
           .anatomy-credential {
             flex: none !important;
             width: 100% !important;
-            height: 200px !important;
-            max-height: 200px !important;
+            height: 180px !important;
+            max-height: 180px !important;
           }
           .anatomy-layers {
-            overflow: auto !important;
+            overflow: visible !important;
           }
         }
       `}</style>
@@ -1536,11 +1551,11 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} style={{
+      <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} className="anatomy-section-outer" style={{
         position: 'relative',
         minHeight: '300vh',
       }}>
-        <div style={{
+        <div className="anatomy-sticky" style={{
           position: 'sticky',
           top: 0,
           height: '100vh',
