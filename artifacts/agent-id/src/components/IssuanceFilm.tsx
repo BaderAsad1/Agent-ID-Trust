@@ -217,41 +217,6 @@ function TrustRing({ score, visible, active }: { score: number; visible: boolean
   );
 }
 
-function VerificationSeal({ visible }: { visible: boolean }) {
-  return (
-    <div style={{
-      position: 'absolute', top: 56, right: 28,
-      width: 56, height: 56,
-      opacity: visible ? 1 : 0,
-      transform: visible ? 'scale(1) rotate(0deg)' : 'scale(2.2) rotate(-20deg)',
-      transition: 'opacity 0.5s ease, transform 0.7s cubic-bezier(0.34,1.56,0.64,1)',
-    }}>
-      <svg viewBox="0 0 56 56" width="56" height="56" fill="none">
-        <rect x="8" y="4" width="40" height="48" rx="3.5"
-          fill="rgba(79,125,243,0.06)" stroke="#4f7df3" strokeWidth="1" opacity="0.6" />
-        <rect x="8" y="4" width="40" height="12" rx="3.5"
-          fill="rgba(79,125,243,0.14)" />
-        <circle cx="23" cy="30" r="6"
-          fill="rgba(79,125,243,0.1)" stroke="#4f7df3" strokeWidth="0.7" opacity="0.5" />
-        <rect x="18" y="38" width="10" height="1.2" rx="0.6"
-          fill="#4f7df3" opacity="0.3" />
-        <rect x="18" y="41" width="10" height="1.2" rx="0.6"
-          fill="#4f7df3" opacity="0.2" />
-        <rect x="33" y="24" width="10" height="1.2" rx="0.6"
-          fill="rgba(232,232,240,0.12)" />
-        <rect x="33" y="28" width="8" height="1.2" rx="0.6"
-          fill="rgba(232,232,240,0.08)" />
-        <rect x="33" y="32" width="10" height="1.2" rx="0.6"
-          fill="rgba(232,232,240,0.12)" />
-        <rect x="33" y="36" width="6" height="1.2" rx="0.6"
-          fill="rgba(232,232,240,0.08)" />
-        <text x="28" y="13" textAnchor="middle" fontSize="4.5"
-          fontFamily="'JetBrains Mono', monospace" fill="rgba(232,232,240,0.45)" fontWeight="700"
-          letterSpacing="0.1em">PASSPORT</text>
-      </svg>
-    </div>
-  );
-}
 
 const ATTESTATION_CHIPS = [
   { label: 'Code Execution', icon: '\u25B8' },
@@ -322,7 +287,6 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
   const identityVisible = heroProgress > 0.12;
   const handleVisible = heroProgress > 0.18;
   const domainVisible = heroProgress > 0.30;
-  const verificationVisible = heroProgress > 0.40;
   const trustVisible = heroProgress > 0.50;
   const capsVisible = heroProgress > 0.60;
   const marketplaceVisible = heroProgress > 0.70;
@@ -382,8 +346,6 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
             : 'linear-gradient(180deg, rgba(79,125,243,0.2), rgba(79,125,243,0.05) 40%, transparent 80%)'),
         transition: 'background 1s ease',
       }} />
-
-      <VerificationSeal visible={verificationVisible} />
 
       <div style={{ padding: '14px 36px 0' }}>
         <div style={{
