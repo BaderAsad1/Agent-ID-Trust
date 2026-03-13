@@ -1216,124 +1216,45 @@ interface NavProps {
 }
 
 function NavBar({ opacity, onNavigate }: NavProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const nav = (path: string) => {
-    setMenuOpen(false);
-    onNavigate?.(path);
-  };
+  const nav = (path: string) => onNavigate?.(path);
   return (
-    <>
-      <nav style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 clamp(16px, 4vw, 48px)', height: 56,
-        background: 'rgba(5,7,17,0.7)',
-        backdropFilter: 'blur(20px) saturate(1.8)',
-        borderBottom: '1px solid rgba(255,255,255,0.04)',
-        opacity,
-        transition: 'opacity 0.3s ease',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => nav('/')}>
-          <div style={{
-            width: 7, height: 7, borderRadius: '50%',
-            background: '#4f7df3',
-            boxShadow: '0 0 10px rgba(79,125,243,0.4)',
-          }} />
-          <span style={{
-            fontFamily: "'Bricolage Grotesque', sans-serif",
-            fontSize: 15, fontWeight: 700, color: '#e8e8f0',
-            letterSpacing: '-0.01em',
-          }}>Agent ID</span>
-        </div>
+    <nav style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0 clamp(16px, 4vw, 48px)', height: 56,
+      background: 'rgba(5,7,17,0.7)',
+      backdropFilter: 'blur(20px) saturate(1.8)',
+      borderBottom: '1px solid rgba(255,255,255,0.04)',
+      opacity,
+      transition: 'opacity 0.3s ease',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => nav('/')}>
+        <div style={{
+          width: 7, height: 7, borderRadius: '50%',
+          background: '#4f7df3',
+          boxShadow: '0 0 10px rgba(79,125,243,0.4)',
+        }} />
+        <span style={{
+          fontFamily: "'Bricolage Grotesque', sans-serif",
+          fontSize: 15, fontWeight: 700, color: '#e8e8f0',
+          letterSpacing: '-0.01em',
+        }}>Agent ID</span>
+      </div>
 
-        <div className="nav-links-desktop" style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-          {[
-            { label: 'Marketplace', path: '/marketplace' },
-            { label: 'Jobs', path: '/jobs' },
-            { label: 'For Agents', path: '/for-agents' },
-            { label: 'Docs', path: '/docs' },
-          ].map(link => (
-            <span key={link.label} onClick={() => nav(link.path)} style={{
-              fontFamily: "'Inter', sans-serif", fontSize: 13, cursor: 'pointer',
-              color: 'rgba(232,232,240,0.5)',
-              fontWeight: 500, letterSpacing: '0.01em',
-            }}>{link.label}</span>
-          ))}
-          <span onClick={() => nav('/start')} style={{
-            fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
-            color: '#fff', background: 'rgba(79,125,243,0.15)',
-            border: '1px solid rgba(79,125,243,0.25)',
-            borderRadius: 8, padding: '7px 18px', cursor: 'pointer',
-          }}>Register</span>
-        </div>
-
-        <button
-          className="nav-menu-btn"
-          onClick={() => setMenuOpen(!menuOpen)}
-          style={{
-            display: 'none',
-            background: 'none', border: 'none', cursor: 'pointer',
-            padding: 8,
-            color: 'rgba(232,232,240,0.6)',
-          }}
-          aria-label="Menu"
-        >
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            {menuOpen ? (
-              <>
-                <line x1="5" y1="5" x2="17" y2="17" />
-                <line x1="17" y1="5" x2="5" y2="17" />
-              </>
-            ) : (
-              <>
-                <line x1="3" y1="6" x2="19" y2="6" />
-                <line x1="3" y1="11" x2="19" y2="11" />
-                <line x1="3" y1="16" x2="19" y2="16" />
-              </>
-            )}
-          </svg>
-        </button>
-      </nav>
-
-      {menuOpen && (
-        <div className="nav-mobile-menu" style={{
-          position: 'fixed', top: 56, left: 0, right: 0, bottom: 0,
-          zIndex: 99,
-          background: 'rgba(5,7,17,0.95)',
-          backdropFilter: 'blur(20px)',
-          display: 'flex', flexDirection: 'column',
-          padding: '32px 24px',
-          gap: 8,
-        }}>
-          {[
-            { label: 'Marketplace', path: '/marketplace' },
-            { label: 'Jobs', path: '/jobs' },
-            { label: 'For Agents', path: '/for-agents' },
-            { label: 'Docs', path: '/docs' },
-          ].map(link => (
-            <span key={link.label} onClick={() => nav(link.path)} style={{
-              fontFamily: "'Inter', sans-serif", fontSize: 16, cursor: 'pointer',
-              color: 'rgba(232,232,240,0.6)',
-              fontWeight: 500, padding: '12px 0',
-              borderBottom: '1px solid rgba(255,255,255,0.04)',
-            }}>{link.label}</span>
-          ))}
-          <span onClick={() => nav('/start')} style={{
-            fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 600,
-            color: '#fff', background: '#4f7df3',
-            borderRadius: 10, padding: '14px 0', cursor: 'pointer',
-            textAlign: 'center', marginTop: 16,
-          }}>Register an Agent</span>
-        </div>
-      )}
-
-      <style>{`
-        @media (max-width: 768px) {
-          .nav-links-desktop { display: none !important; }
-          .nav-menu-btn { display: flex !important; }
-        }
-      `}</style>
-    </>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <span onClick={() => nav('/login')} style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 500,
+          color: 'rgba(232,232,240,0.5)', cursor: 'pointer',
+          letterSpacing: '0.01em',
+        }}>Log in</span>
+        <span onClick={() => nav('/start')} style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
+          color: '#fff', background: 'rgba(79,125,243,0.15)',
+          border: '1px solid rgba(79,125,243,0.25)',
+          borderRadius: 8, padding: '7px 18px', cursor: 'pointer',
+        }}>Register</span>
+      </div>
+    </nav>
   );
 }
 
