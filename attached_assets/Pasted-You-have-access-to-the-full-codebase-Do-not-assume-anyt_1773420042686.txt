@@ -1,0 +1,95 @@
+You have access to the full codebase. Do not assume anything about what was intended. Read what exists, evaluate it on its own merits, and report honestly. Do not fix anything yet. When the audit is complete, present your findings and wait for instruction before touching a single file.
+
+YOUR JOB
+Treat this as a cold audit. You are a senior engineer and product designer who has never seen this codebase before. Your goal is to understand what was built, identify everything that is broken, weak, incomplete, or below production standard, and deliver a clear prioritized report.
+
+STEP 1 — UNDERSTAND THE CODEBASE
+Before auditing anything, map what exists:
+
+What is this product and what does it do?
+What is the full file and folder structure?
+What is the tech stack — frontend framework, backend framework, database, ORM, queue system, third-party services?
+What environment variables are referenced? Which appear to be missing or unset?
+What routes exist on the frontend?
+What API endpoints exist on the backend?
+What database tables and relations exist?
+What background jobs or queues exist?
+What third-party integrations are wired up?
+
+Write this up as a Codebase Map before proceeding to any audit section.
+
+STEP 2 — VISUAL DESIGN AUDIT
+Walk every frontend route. For each page evaluate:
+
+Does the visual design feel world-class or generic?
+Is the typography consistent — fonts, weights, sizes, line heights?
+Is the color system consistent across all pages and components?
+Are there any unstyled elements, broken layouts, or placeholder styles?
+Are animations and transitions present where expected? Do they feel polished or unfinished?
+Are there any layout issues at mobile, tablet, or desktop breakpoints?
+Are there loading states, empty states, and error states designed — or are they raw/missing?
+Does the overall aesthetic feel intentional and cohesive, or assembled from parts?
+
+Flag every visual defect with the exact component or route where it lives.
+
+STEP 3 — COPY & MESSAGING AUDIT
+Read every piece of text on every page. Evaluate:
+
+Is there any placeholder text (Lorem ipsum, "Coming soon", "TODO", "Insert X")? Flag every instance with exact location.
+Is the messaging consistent in voice and tone throughout, or does it shift register between pages?
+Are CTAs clear and action-oriented?
+Are there any contradictions between what the product claims to do and what the UI actually shows?
+Is the onboarding copy clear enough that a new visitor would understand the product in under 10 seconds?
+
+
+STEP 4 — UX FLOW & CONVERSION AUDIT
+Trace every user path through the product:
+
+What is the primary conversion flow from landing to completing the core action?
+How many steps does it take?
+Are there any dead ends, broken links, or missing next steps?
+Are form validation and error states present and readable?
+Are there any points where a user would likely drop off or be confused?
+Is there a clear post-conversion state — does the user know what happened and what to do next?
+Are both registration paths present and functional — human wizard and programmatic API?
+Is the API path documented clearly enough for a developer to use without help?
+
+
+STEP 5 — TECHNICAL & CODE QUALITY AUDIT
+Read the codebase for correctness, security, and maintainability:
+
+Are there any console errors, unhandled promise rejections, or runtime warnings?
+Are there hardcoded secrets, API keys, or environment values in the code?
+Are API endpoints validating and sanitizing inputs before they reach the database?
+Are protected routes actually protected — can unauthenticated requests reach private data?
+Are there any obvious N+1 query issues or missing database indexes?
+Are background jobs and queues processing correctly, or are there stuck or failed states?
+Are third-party integrations (payments, email, DNS, caching) wired up end-to-end or partially stubbed?
+Is error handling present throughout, or are there silent failures?
+Is there dead code, unused imports, or commented-out blocks that should be cleaned?
+Are environment variables handled correctly and kept out of version control?
+
+
+STEP 6 — GAPS & MISSING PIECES
+Beyond what's broken, identify what's simply not there yet:
+
+What features appear to be stubbed or incomplete?
+What pages or routes are missing that the product clearly needs?
+What backend functionality is referenced in the frontend but not yet built?
+What would block this from being shown to an investor or early user today?
+
+
+OUTPUT FORMAT
+Deliver the audit in this exact structure:
+CODEBASE MAP
+What exists, what the stack is, what routes and endpoints are present.
+FINDINGS
+Every issue found, using this format:
+[CRITICAL / MODERATE / MINOR] — Section — Location
+Description of the problem.
+SPRINT PRIORITY LIST
+The top 10 issues ranked by impact. These are what get fixed first.
+GAPS LIST
+Things that are missing entirely, separate from things that are broken.
+
+Do not fix anything. Do not make assumptions about intent. When this report is complete, stop and wait for instruction.
