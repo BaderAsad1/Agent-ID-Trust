@@ -8,5 +8,6 @@ export const modules: ModuleMap = {
   "./components/mockups/agent-id/HeroB.tsx": () => import("../components/mockups/agent-id/HeroB.tsx"),
   "./components/mockups/agent-id/HomeGrid.tsx": () => import("../components/mockups/agent-id/HomeGrid.tsx"),
   "./components/mockups/agent-id/HomeOrb.tsx": () => import("../components/mockups/agent-id/HomeOrb.tsx"),
-  "./components/mockups/agent-id/HomeSignal.tsx": () => import("../components/mockups/agent-id/HomeSignal.tsx")
+  "./components/mockups/agent-id/HomeSignal.tsx": () => import("../components/mockups/agent-id/HomeSignal.tsx"),
+  "./components/mockups/agent-id/IssuanceFilm.tsx": () => import("../components/mockups/agent-id/IssuanceFilm.tsx")
 };
