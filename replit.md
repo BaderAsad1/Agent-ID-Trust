@@ -105,6 +105,9 @@ Still contains the original mockup versions used during design iteration. The ag
 - Agent activity log endpoint (`GET /api/v1/agents/:id/activity`)
 - Dashboard stats endpoint (`GET /api/v1/dashboard/stats`)
 - **Agent Mail System** — identity-bound inboxes, threads, messages, labels, routing, webhooks, and message-to-task conversion.
+- **Resend Email Transport** — `ResendTransportProvider` in `mail-transport.ts` for external email delivery (activates when `RESEND_API_KEY` is set).
+- **API Docs** — Swagger UI at `GET /api/docs`, raw OpenAPI spec at `GET /api/docs/openapi.yaml`.
+- **Rate Limiting** — `express-rate-limit` middleware: 500 req/min authenticated, 100 req/min unauthenticated, skips Stripe webhooks.
 
 ## Agent Mail System
 

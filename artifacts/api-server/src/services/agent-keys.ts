@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentKeysTable, type AgentKey } from "@workspace/db/schema";
+import { agentKeysTable, agentsTable, usersTable, type AgentKey } from "@workspace/db/schema";
 
 export interface CreateAgentKeyInput {
   agentId: string;
@@ -31,6 +31,19 @@ export async function createAgentKey(
       use: input.use || "sig",
     })
     .returning();
+
+  try {
+    const agent = await db.query.agentsTable.findFirst({ where: eq(agentsTable.id, input.agentId) });
+    if (agent) {
+      const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, agent.userId) });
+      if (user?.email) {
+        const { sendCredentialIssuedEmail } = await import("./email");
+        await sendCredentialIssuedEmail(user.email, agent.handle, input.keyType);
+      }
+    }
+  } catch (err) {
+    console.error(`[agent-keys] Failed to send credential email:`, err instanceof Error ? err.message : err);
+  }
 
   return key;
 }

@@ -65,7 +65,8 @@ async function deleteExistingRecords(
         ),
       );
     }
-  } catch {
+  } catch (err) {
+    console.warn(`[domain-worker] Failed to delete existing DNS records for ${fqdn}:`, err instanceof Error ? err.message : String(err));
   }
 }
 

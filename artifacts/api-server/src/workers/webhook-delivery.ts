@@ -90,6 +90,15 @@ export function initWebhookDeliveryWorker(): void {
     if (!job) return;
     const { webhookId, webhookUrl, messageId } = job.data;
 
+    console.error("[webhook-worker] Delivery failed", {
+      webhookId,
+      destinationUrl: webhookUrl,
+      messageId,
+      attempt: job.attemptsMade,
+      maxAttempts: MAX_ATTEMPTS,
+      error: err.message,
+    });
+
     if (job.attemptsMade >= MAX_ATTEMPTS) {
       await db
         .update(inboxWebhooksTable)

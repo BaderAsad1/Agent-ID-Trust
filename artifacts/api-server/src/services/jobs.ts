@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, ilike, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, ilike, gte, lte, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   jobPostsTable,
@@ -335,21 +335,26 @@ export async function expireJobs(): Promise<number> {
     )
     .returning({ id: jobPostsTable.id, posterUserId: jobPostsTable.posterUserId, title: jobPostsTable.title });
 
-  for (const job of result) {
+  if (result.length > 0) {
+    const expiredJobIds = result.map((j) => j.id);
     await db
       .update(jobProposalsTable)
       .set({ status: "rejected", updatedAt: now })
       .where(
         and(
-          eq(jobProposalsTable.jobId, job.id),
+          inArray(jobProposalsTable.jobId, expiredJobIds),
           eq(jobProposalsTable.status, "pending"),
         ),
       );
 
-    await logJobEvent(job.posterUserId, "job.expired", {
-      jobId: job.id,
-      title: job.title,
-    });
+    await Promise.all(
+      result.map((job) =>
+        logJobEvent(job.posterUserId, "job.expired", {
+          jobId: job.id,
+          title: job.title,
+        }),
+      ),
+    );
   }
 
   return result.length;

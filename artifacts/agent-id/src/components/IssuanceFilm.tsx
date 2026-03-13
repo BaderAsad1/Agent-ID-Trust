@@ -1308,7 +1308,7 @@ function NavBar({ opacity, onNavigate }: NavProps) {
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <span onClick={() => nav('/login')} style={{
+        <span onClick={() => nav('/sign-in')} style={{
           fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 500,
           color: 'rgba(232,232,240,0.5)', cursor: 'pointer',
           letterSpacing: '0.01em',

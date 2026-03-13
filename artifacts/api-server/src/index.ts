@@ -18,6 +18,26 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+import { isRedisConfigured } from "./lib/redis";
+
+if (!isRedisConfigured()) {
+  console.warn(
+    [
+      "",
+      "┌─────────────────────────────────────────────────────────┐",
+      "│  REDIS_URL is not set                                   │",
+      "│                                                         │",
+      "│  The following features are disabled:                    │",
+      "│    • BullMQ webhook delivery queue (in-process fallback) │",
+      "│    • Domain provisioning background worker               │",
+      "│                                                         │",
+      "│  Set REDIS_URL in your environment to enable them.       │",
+      "└─────────────────────────────────────────────────────────┘",
+      "",
+    ].join("\n"),
+  );
+}
+
 startDomainWorker();
 initWebhookDeliveryWorker();
 
@@ -38,6 +58,10 @@ function startJobExpiryRunner() {
 }
 
 startJobExpiryRunner();
+
+if (!process.env.RESEND_API_KEY) {
+  console.warn("[email] RESEND_API_KEY is not set — external email delivery is disabled. Set it to enable outbound emails via Resend.");
+}
 
 const server = app.listen(port, () => {
   console.log(`Server listening on port ${port}`);

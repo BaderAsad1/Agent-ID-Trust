@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
 import { api, type Agent, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job } from '@/lib/api';
+import { formatPrice } from '@/lib/pricing';
 import { Mail } from '@/pages/Mail';
 
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
@@ -26,7 +27,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry?: () => voi
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+    <div className="min-h-screen" data-mobile-compact style={{ background: 'var(--bg-base)' }}>
       <div className="hidden md:block"><Sidebar /></div>
       <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
       <div className="md:ml-60">
@@ -41,13 +42,119 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+function VerifyAgentModal({ agent, onClose, onVerified }: { agent: Agent; onClose: () => void; onVerified: () => void }) {
+  const [step, setStep] = useState<'idle' | 'initiated' | 'completing' | 'done' | 'error'>('idle');
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [signature, setSignature] = useState('');
+  const [kid, setKid] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleInitiate = async () => {
+    setStep('initiated');
+    setErrorMsg('');
+    try {
+      const result = await api.agents.verify.initiate(agent.id, 'key_challenge');
+      setChallenge((result as { challenge: string }).challenge);
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : 'Failed to initiate verification');
+      setStep('error');
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!challenge || !signature.trim() || !kid.trim()) return;
+    setStep('completing');
+    setErrorMsg('');
+    try {
+      await api.agents.verify.complete(agent.id, { challenge, signature: signature.trim(), kid: kid.trim() });
+      setStep('done');
+      setTimeout(() => { onVerified(); onClose(); }, 1500);
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : 'Verification failed');
+      setStep('error');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+      <div className="w-full max-w-md rounded-2xl p-6 relative" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
+        <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }} aria-label="Close"><X className="w-5 h-5" /></button>
+        <div className="flex items-center gap-3 mb-4">
+          <ShieldCheck className="w-6 h-6" style={{ color: 'var(--accent)' }} />
+          <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Verify {agent.displayName}</h3>
+        </div>
+
+        {step === 'idle' && (
+          <div>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Prove ownership of this agent by signing a cryptographic challenge with your registered key.</p>
+            <ol className="text-xs space-y-1 mb-4 list-decimal pl-4" style={{ color: 'var(--text-dim)' }}>
+              <li>Click "Start Verification" to receive a challenge token</li>
+              <li>Sign the token with your agent's private key using Ed25519</li>
+              <li>Paste the base64-encoded signature and your Key ID below</li>
+            </ol>
+            <PrimaryButton onClick={handleInitiate}>Start Verification</PrimaryButton>
+          </div>
+        )}
+
+        {step === 'initiated' && challenge && (
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Challenge Token</label>
+              <div className="p-2 rounded-lg text-xs break-all" style={{ background: 'var(--bg-base)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{challenge}</div>
+            </div>
+            <div>
+              <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Sign with your private key (Node.js)</label>
+              <pre className="p-2 rounded-lg text-[10px] overflow-x-auto whitespace-pre" style={{ background: 'var(--bg-base)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{`const crypto = require("crypto");
+const privateKey = fs.readFileSync("ed25519.pem");
+const sig = crypto.sign(null, Buffer.from("${challenge}"), privateKey);
+console.log(sig.toString("base64"));`}</pre>
+            </div>
+            <div>
+              <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Key ID (kid)</label>
+              <input value={kid} onChange={e => setKid(e.target.value)} placeholder="Your registered key ID" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+            </div>
+            <div>
+              <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Signature</label>
+              <textarea value={signature} onChange={e => setSignature(e.target.value)} placeholder="Paste your signed challenge here" rows={3} className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }} />
+            </div>
+            <PrimaryButton onClick={handleComplete} disabled={!signature.trim() || !kid.trim()}>Complete Verification</PrimaryButton>
+          </div>
+        )}
+
+        {step === 'initiated' && !challenge && (
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Initiating challenge...</p>
+        )}
+
+        {step === 'completing' && (
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Verifying signature...</p>
+        )}
+
+        {step === 'done' && (
+          <div className="text-center py-4">
+            <CheckCircle className="w-10 h-10 mx-auto mb-2" style={{ color: 'var(--success)' }} />
+            <p className="text-sm font-semibold" style={{ color: 'var(--success)' }}>Agent verified successfully!</p>
+          </div>
+        )}
+
+        {step === 'error' && (
+          <div>
+            <p className="text-sm mb-3" style={{ color: 'var(--danger)' }}>{errorMsg}</p>
+            <PrimaryButton variant="ghost" onClick={() => setStep('idle')}>Try Again</PrimaryButton>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Overview() {
   const navigate = useNavigate();
-  const { agents } = useAuth();
+  const { agents, refreshAgents } = useAuth();
   const [stats, setStats] = useState<Record<string, unknown> | null>(null);
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [verifyingAgent, setVerifyingAgent] = useState<Agent | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -121,6 +228,11 @@ function Overview() {
               </div>
               <div className="flex gap-2 mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
                 <PrimaryButton variant="ghost" onClick={() => navigate(`/${agent.handle}`)}>View Profile</PrimaryButton>
+                {agent.verificationStatus !== 'verified' && (
+                  <PrimaryButton variant="ghost" onClick={() => setVerifyingAgent(agent)}>
+                    <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Verify
+                  </PrimaryButton>
+                )}
                 <PrimaryButton variant="ghost">Edit</PrimaryButton>
               </div>
             </GlassCard>
@@ -142,6 +254,9 @@ function Overview() {
             ))}
           </div>
         </GlassCard>
+      )}
+      {verifyingAgent && (
+        <VerifyAgentModal agent={verifyingAgent} onClose={() => setVerifyingAgent(null)} onVerified={() => { fetchData(); refreshAgents(); }} />
       )}
     </div>
   );
@@ -269,6 +384,109 @@ function ActivityLogPage() {
   );
 }
 
+function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id: string; handle: string; displayName: string }>; onCreated: () => void; onCancel: () => void }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Code');
+  const [priceAmount, setPriceAmount] = useState('');
+  const [priceType, setPriceType] = useState<'fixed' | 'per_task' | 'hourly'>('per_task');
+  const [tags, setTags] = useState('');
+  const [isAvailable, setIsAvailable] = useState(false);
+  const [agentId, setAgentId] = useState(agents[0]?.id || '');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !priceAmount || !agentId) { setError('Fill in all required fields'); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const capabilities = tags.split(',').map(t => t.trim()).filter(Boolean);
+      const listing = await api.marketplace.listings.create({
+        agentId,
+        title: title.trim(),
+        description,
+        category,
+        priceAmount,
+        priceType,
+        capabilities,
+      });
+      if (isAvailable && listing?.id) {
+        try {
+          await api.marketplace.listings.update(listing.id, { status: 'active' });
+        } catch (pubErr) {
+          console.warn('[listing] Created as draft but failed to publish:', pubErr instanceof Error ? pubErr.message : pubErr);
+          setError('Listing created as draft. Publishing failed — activate it from the listings table.');
+        }
+      }
+      onCreated();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to create listing');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <GlassCard className="!p-6 mb-6">
+      <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>New Listing</h3>
+      {error && <div className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}><AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}</div>}
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Agent</label>
+          <select value={agentId} onChange={e => setAgentId(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+            {agents.map(a => <option key={a.id} value={a.id}>{a.displayName} (@{a.handle})</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Title *</label>
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Research Assistant" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+        </div>
+        <div>
+          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Description</label>
+          <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Describe what your agent can do..." className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+        </div>
+        <div>
+          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Capability Tags</label>
+          <input value={tags} onChange={e => setTags(e.target.value)} placeholder="research, web-search, coding (comma-separated)" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Category</label>
+            <select value={category} onChange={e => setCategory(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+              {['Research', 'Code', 'Data', 'Support', 'Content', 'Custom'].map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Pricing Model</label>
+            <select value={priceType} onChange={e => setPriceType(e.target.value as 'fixed' | 'per_task' | 'hourly')} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+              <option value="per_task">Per Task</option>
+              <option value="hourly">Hourly</option>
+              <option value="fixed">Fixed Price</option>
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Price ($) *</label>
+            <input type="number" value={priceAmount} onChange={e => setPriceAmount(e.target.value)} placeholder="0.00" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          </div>
+          <div className="flex items-end pb-1">
+            <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: 'var(--text-muted)' }}>
+              <input type="checkbox" checked={isAvailable} onChange={e => setIsAvailable(e.target.checked)} className="w-4 h-4 rounded" />
+              Publish immediately
+            </label>
+          </div>
+        </div>
+        <div className="flex gap-3 pt-2">
+          <PrimaryButton variant="purple" onClick={handleSubmit} disabled={submitting}>{submitting ? 'Creating...' : 'Create Listing'}</PrimaryButton>
+          <PrimaryButton variant="ghost" onClick={onCancel}>Cancel</PrimaryButton>
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
 function MarketplaceDashboard() {
   const navigate = useNavigate();
   const { agents } = useAuth();
@@ -277,6 +495,7 @@ function MarketplaceDashboard() {
   const [myListings, setMyListings] = useState<Listing[]>([]);
   const [matchingJobs, setMatchingJobs] = useState<Job[]>([]);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -314,8 +533,9 @@ function MarketplaceDashboard() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>My Listings</h2>
-            <PrimaryButton variant="purple">Create New Listing</PrimaryButton>
+            <PrimaryButton variant="purple" onClick={() => setShowCreateForm(true)} disabled={agents.length === 0}>Create New Listing</PrimaryButton>
           </div>
+          {showCreateForm && <CreateListingForm agents={agents} onCreated={() => { setShowCreateForm(false); fetchData(); }} onCancel={() => setShowCreateForm(false)} />}
           {myListings.length === 0 ? (
             <EmptyState icon={<DollarSign className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No listings yet" description="Create a marketplace listing to start earning." />
           ) : (
@@ -333,7 +553,7 @@ function MarketplaceDashboard() {
                     {myListings.map(l => (
                       <tr key={l.id} className="border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
                         <td className="py-3 px-3" style={{ color: 'var(--text-primary)' }}>{l.title}</td>
-                        <td className="py-3 px-3" style={{ color: 'var(--text-primary)' }}>${l.priceAmount}/{l.priceUnit}</td>
+                        <td className="py-3 px-3" style={{ color: 'var(--text-primary)' }}>{formatPrice(l.priceAmount, l.priceType)}</td>
                         <td className="py-3 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: l.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: l.status === 'active' ? 'var(--success)' : 'var(--warning)' }}>{l.status}</span></td>
                         <td className="py-3 px-3"><StarRating rating={Number(l.avgRating || 0)} /></td>
                         <td className="py-3 px-3">
@@ -490,9 +710,14 @@ function DomainDashboard() {
 }
 
 function SettingsPage() {
+  const navigate = useNavigate();
   const { userId, agents } = useAuth();
   const [apiKeys, setApiKeys] = useState<Array<{ id: string; prefix: string; label: string; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [newKeyLabel, setNewKeyLabel] = useState('');
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     api.users.apiKeys.list()
@@ -501,10 +726,39 @@ function SettingsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handleCreateKey = async () => {
+    if (!newKeyLabel.trim()) return;
+    setCreatingKey(true);
+    try {
+      const result = await api.users.apiKeys.create(newKeyLabel.trim());
+      setApiKeys(prev => [...prev, { id: result.id, prefix: result.prefix, label: result.label, createdAt: new Date().toISOString() }]);
+      setNewKeyValue(result.key);
+      setNewKeyLabel('');
+    } catch (e: unknown) {
+      console.error("[Settings] API key creation failed:", e instanceof Error ? e.message : e);
+    }
+    finally { setCreatingKey(false); }
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Settings</h1>
       <div className="space-y-6">
+        <GlassCard>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Current Plan</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Starter</div>
+              <div className="text-sm" style={{ color: 'var(--text-dim)' }}>{agents.length} of 1 agent used</div>
+            </div>
+            <PrimaryButton onClick={() => navigate('/pricing')}>Upgrade Plan</PrimaryButton>
+          </div>
+          <div className="text-xs space-y-1" style={{ color: 'var(--text-dim)' }}>
+            <div>Agent limit: 1</div>
+            <div>Trust score: Basic</div>
+            <div>Support: Community</div>
+          </div>
+        </GlassCard>
         <GlassCard>
           <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Account</h3>
           <div className="space-y-4">
@@ -518,6 +772,16 @@ function SettingsPage() {
         </GlassCard>
         <GlassCard>
           <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>API Keys</h3>
+          <div className="flex gap-2 mb-4">
+            <input value={newKeyLabel} onChange={e => setNewKeyLabel(e.target.value)} placeholder="Key label (e.g. production)" className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+            <PrimaryButton variant="ghost" onClick={handleCreateKey} disabled={creatingKey || !newKeyLabel.trim()}>{creatingKey ? 'Creating...' : 'Create Key'}</PrimaryButton>
+          </div>
+          {newKeyValue && (
+            <div className="p-3 rounded-lg mb-4 text-sm" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--success)' }}>
+              <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Copy this key now — it won't be shown again:</div>
+              <code style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{newKeyValue}</code>
+            </div>
+          )}
           {loading ? (
             <ListSkeleton rows={2} />
           ) : apiKeys.length === 0 ? (
@@ -535,7 +799,17 @@ function SettingsPage() {
           )}
         </GlassCard>
         <div className="pt-4">
-          <PrimaryButton variant="danger">Delete Account</PrimaryButton>
+          {showDeleteConfirm ? (
+            <GlassCard className="!p-4">
+              <p className="text-sm mb-3" style={{ color: 'var(--text-primary)' }}>Are you sure you want to delete your account? This action cannot be undone.</p>
+              <div className="flex gap-3">
+                <PrimaryButton variant="danger" onClick={async () => { try { await api.users.deleteAccount(); window.location.href = '/'; } catch (e) { alert(e instanceof Error ? e.message : 'Failed to delete account. Please try again.'); } }}>Confirm Delete</PrimaryButton>
+                <PrimaryButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</PrimaryButton>
+              </div>
+            </GlassCard>
+          ) : (
+            <PrimaryButton variant="danger" onClick={() => setShowDeleteConfirm(true)}>Delete Account</PrimaryButton>
+          )}
         </div>
       </div>
     </div>

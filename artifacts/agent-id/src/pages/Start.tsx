@@ -88,7 +88,7 @@ export function Start() {
   const [listOnMarketplace, setListOnMarketplace] = useState(true);
   const [serviceTitle, setServiceTitle] = useState('');
   const [price, setPrice] = useState('');
-  const [priceUnit, setPriceUnit] = useState('task');
+  const [priceType, setPriceType] = useState('per_task');
   const [delivery, setDelivery] = useState('');
   const [deliveryUnit, setDeliveryUnit] = useState('hours');
   const [pitch, setPitch] = useState('');
@@ -154,7 +154,7 @@ export function Start() {
             title: serviceTitle,
             description: pitch || description || serviceTitle,
             priceAmount: price,
-            priceUnit,
+            priceType,
             deliveryTime: delivery ? `${delivery} ${deliveryUnit}` : '24 hours',
             category: selectedCaps[0] || 'Custom',
             capabilities: selectedCaps,
@@ -417,12 +417,13 @@ export function Start() {
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Per</label>
                     <select
-                      value={priceUnit} onChange={e => setPriceUnit(e.target.value)}
+                      value={priceType} onChange={e => setPriceType(e.target.value)}
                       className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none"
                       style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
                     >
-                      <option value="task">task</option>
-                      <option value="hour">hour</option>
+                      <option value="per_task">per task</option>
+                      <option value="hourly">per hour</option>
+                      <option value="fixed">fixed</option>
                     </select>
                   </div>
                 </div>

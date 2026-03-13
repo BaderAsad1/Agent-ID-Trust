@@ -10,6 +10,8 @@ import { Marketplace } from '@/pages/Marketplace';
 import { MarketplaceListing } from '@/pages/MarketplaceListing';
 import { JobBoard, JobDetail } from '@/pages/Jobs';
 import { ForAgents } from '@/pages/ForAgents';
+import { Pricing } from '@/pages/Pricing';
+import { NotFound } from '@/pages/NotFound';
 import { Mail } from '@/pages/Mail';
 import IssuanceFilm from '@/components/IssuanceFilm';
 import type { ReactNode } from 'react';
@@ -49,6 +51,7 @@ function AppContent() {
         <Route path="/start" element={<Start />} />
         <Route path="/sign-in" element={<SignIn />} />
         <Route path="/for-agents" element={<ForAgents />} />
+        <Route path="/pricing" element={<Pricing />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/marketplace" element={<Marketplace />} />
@@ -56,6 +59,7 @@ function AppContent() {
         <Route path="/jobs" element={<JobBoard />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/:handle" element={<AgentProfile />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
   );

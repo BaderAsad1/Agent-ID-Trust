@@ -1,6 +1,6 @@
 import { eq, and, ilike } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, type Agent } from "@workspace/db/schema";
+import { agentsTable, usersTable, type Agent } from "@workspace/db/schema";
 
 export interface CreateAgentInput {
   userId: string;
@@ -88,6 +88,16 @@ export async function createAgent(input: CreateAgentInput): Promise<Agent> {
     await provisionInboxForAgent(agent.id);
   } catch (err) {
     console.error(`[agents] Failed to provision inbox for agent ${agent.id}:`, err instanceof Error ? err.message : err);
+  }
+
+  try {
+    const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, input.userId) });
+    if (user?.email) {
+      const { sendAgentRegisteredEmail } = await import("./email");
+      await sendAgentRegisteredEmail(user.email, agent.handle, agent.displayName);
+    }
+  } catch (err) {
+    console.error(`[agents] Failed to send registration email for agent ${agent.id}:`, err instanceof Error ? err.message : err);
   }
 
   return agent;

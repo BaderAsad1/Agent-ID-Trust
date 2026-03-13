@@ -5,6 +5,7 @@ import {
   marketplaceListingsTable,
   payoutLedgerTable,
   paymentLedgerTable,
+  usersTable,
   type MarketplaceOrder,
 } from "@workspace/db/schema";
 import { submitTask } from "./tasks";
@@ -75,6 +76,16 @@ export async function createOrder(
       source: "marketplace",
     },
   });
+
+  try {
+    const seller = await db.query.usersTable.findFirst({ where: eq(usersTable.id, listing.userId) });
+    if (seller?.email) {
+      const { sendMarketplaceOrderEmail } = await import("./email");
+      await sendMarketplaceOrderEmail(seller.email, listing.title, priceAmount.toFixed(2));
+    }
+  } catch (err) {
+    console.error(`[orders] Failed to send order email:`, err instanceof Error ? err.message : err);
+  }
 
   return { success: true, order };
 }

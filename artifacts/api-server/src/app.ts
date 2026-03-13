@@ -7,6 +7,7 @@ import { replitAuth } from "./middlewares/replit-auth";
 import { apiKeyAuth } from "./middlewares/api-key-auth";
 import { errorHandler } from "./middlewares/error-handler";
 import { cliDetect, cliMarkdownRoot } from "./middlewares/cli-markdown";
+import { apiRateLimiter } from "./middlewares/rate-limit";
 
 const app: Express = express();
 
@@ -34,6 +35,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(replitAuth);
 app.use(apiKeyAuth);
+app.use("/api", apiRateLimiter);
 
 app.use("/api", router);
 

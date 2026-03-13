@@ -10,6 +10,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -64,6 +65,7 @@ export const agentsTable = pgTable(
   },
   (table) => [
     uniqueIndex("agents_handle_idx").on(table.handle),
+    index("agents_handle_lower_idx").on(sql`lower(${table.handle})`),
     index("agents_user_id_idx").on(table.userId),
     index("agents_status_idx").on(table.status),
     index("agents_verification_status_idx").on(table.verificationStatus),

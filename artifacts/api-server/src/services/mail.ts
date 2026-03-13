@@ -53,12 +53,10 @@ const SYSTEM_LABELS = [
 ];
 
 export async function ensureSystemLabels(agentId: string): Promise<void> {
-  for (const name of SYSTEM_LABELS) {
-    await db
-      .insert(messageLabelsTable)
-      .values({ agentId, name, isSystem: true })
-      .onConflictDoNothing();
-  }
+  await db
+    .insert(messageLabelsTable)
+    .values(SYSTEM_LABELS.map(name => ({ agentId, name, isSystem: true })))
+    .onConflictDoNothing();
 }
 
 export async function getOrCreateInbox(agentId: string): Promise<AgentInbox> {
@@ -1077,7 +1075,17 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
           signal: AbortSignal.timeout(10000),
         });
       } catch (err) {
-        console.error(`[mail] routing webhook delivery to ${webhookUrl} failed:`, err instanceof Error ? err.message : err);
+        const reason = err instanceof Error ? err.message : String(err);
+        console.error(JSON.stringify({
+          level: "error",
+          service: "mail",
+          event: "routing.webhook_failed",
+          url: webhookUrl,
+          messageId: message.id,
+          threadId: message.threadId,
+          attempt: 1,
+          reason,
+        }));
       }
       await db.insert(messageEventsTable).values({
         messageId: message.id,

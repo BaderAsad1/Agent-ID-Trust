@@ -5,6 +5,7 @@ import {
   varchar,
   timestamp,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -28,7 +29,11 @@ export const usersTable = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [uniqueIndex("users_replit_user_id_idx").on(table.replitUserId)],
+  (table) => [
+    uniqueIndex("users_replit_user_id_idx").on(table.replitUserId),
+    index("users_email_idx").on(table.email),
+    index("users_username_idx").on(table.username),
+  ],
 );
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({

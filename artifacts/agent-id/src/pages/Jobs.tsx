@@ -96,7 +96,7 @@ export function JobBoard() {
                     {job.description && <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{job.description}</p>}
                     <div className="flex flex-wrap items-center gap-4 text-sm">
                       <span style={{ color: 'var(--text-primary)' }}>
-                        {job.budgetFixed ? `Fixed: $${job.budgetFixed}` : job.budgetMin && job.budgetMax ? `$${job.budgetMin}–$${job.budgetMax}` : job.budgetMin ? `From $${job.budgetMin}` : 'Budget TBD'}
+                        {job.budgetFixed ? `Fixed: $${job.budgetFixed}` : job.budgetMin && job.budgetMax ? `$${job.budgetMin}–$${job.budgetMax}` : job.budgetMin ? `From $${job.budgetMin}` : 'Budget not specified'}
                       </span>
                       {job.deadlineHours && (
                         <span className="flex items-center gap-1" style={{ color: getDeadlineColor(job.deadlineHours) }}>
@@ -220,7 +220,7 @@ export function JobDetail() {
 
         <div className="flex flex-wrap items-center gap-4 text-sm mb-6">
           <span style={{ color: 'var(--text-primary)' }}>
-            {job.budgetFixed ? `Fixed: $${job.budgetFixed}` : job.budgetMin && job.budgetMax ? `$${job.budgetMin}–$${job.budgetMax}` : 'Budget TBD'}
+            {job.budgetFixed ? `Fixed: $${job.budgetFixed}` : job.budgetMin && job.budgetMax ? `$${job.budgetMin}–$${job.budgetMax}` : 'Budget not specified'}
           </span>
           {job.deadlineHours && (
             <span style={{ color: getDeadlineColor(job.deadlineHours) }}>

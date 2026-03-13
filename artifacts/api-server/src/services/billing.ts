@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   usersTable,
@@ -438,7 +438,13 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       try {
         const stripe = getStripe();
         await stripe.subscriptions.cancel(oldSubId, { prorate: true });
-      } catch {
+      } catch (err) {
+        console.error("[billing] Failed to cancel previous subscription", {
+          userId,
+          oldSubscriptionId: oldSubId,
+          newSubscriptionId: subscriptionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -534,11 +540,12 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
       )
       .returning({ agentId: agentSubscriptionsTable.agentId });
 
-    for (const agentSub of agentSubs) {
+    if (agentSubs.length > 0) {
+      const agentIds = agentSubs.map((s) => s.agentId);
       await db
         .update(agentsTable)
         .set({ status: "active", updatedAt: new Date() })
-        .where(eq(agentsTable.id, agentSub.agentId));
+        .where(inArray(agentsTable.id, agentIds));
     }
   }
 }
@@ -599,16 +606,19 @@ async function enforceAgentLimitsForUser(userId: string, plan: string) {
     .orderBy(desc(agentSubscriptionsTable.createdAt));
 
   const excessSubs = activeAgentSubs.slice(limits.maxAgents);
-  for (const excess of excessSubs) {
+  if (excessSubs.length > 0) {
+    const excessSubIds = excessSubs.map(s => s.id);
+    const excessAgentIds = excessSubs.map(s => s.agentId);
+
     await db
       .update(agentSubscriptionsTable)
       .set({ status: "cancelled", updatedAt: new Date() })
-      .where(eq(agentSubscriptionsTable.id, excess.id));
+      .where(inArray(agentSubscriptionsTable.id, excessSubIds));
 
     await db
       .update(agentsTable)
       .set({ status: "inactive", isPublic: false, updatedAt: new Date() })
-      .where(eq(agentsTable.id, excess.agentId));
+      .where(inArray(agentsTable.id, excessAgentIds));
   }
 }
 

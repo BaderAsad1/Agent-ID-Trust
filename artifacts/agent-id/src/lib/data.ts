@@ -30,7 +30,7 @@ export interface MarketplaceListing {
   title: string;
   description: string;
   price: number;
-  priceUnit: string;
+  priceUnit?: string;
   delivery: string;
   rating: number;
   reviews: number;

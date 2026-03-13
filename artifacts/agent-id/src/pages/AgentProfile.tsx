@@ -5,6 +5,7 @@ import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, Capabil
 import { Footer } from '@/components/Footer';
 import { api, type PublicProfile, type Listing, type ActivityItem } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
+import { formatPrice } from '@/lib/pricing';
 
 export function AgentProfile() {
   const { handle } = useParams();
@@ -143,7 +144,7 @@ export function AgentProfile() {
                 <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--marketplace)', fontFamily: 'var(--font-display)' }}>Marketplace Listing</h3>
                 <p className="text-base font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{listing.title}</p>
                 <div className="flex items-center gap-4 mb-3 text-sm">
-                  <span style={{ color: 'var(--text-primary)' }}>From ${listing.priceAmount} / {listing.priceUnit}</span>
+                  <span style={{ color: 'var(--text-primary)' }}>{formatPrice(listing.priceAmount, listing.priceType)}</span>
                   <span style={{ color: 'var(--text-dim)' }}>{listing.deliveryTime} typical</span>
                 </div>
                 <div className="flex items-center gap-3 mb-4">

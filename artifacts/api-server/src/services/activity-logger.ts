@@ -7,7 +7,18 @@ function getHmacSecret(): string {
   const secret = process.env.ACTIVITY_HMAC_SECRET;
   if (!secret) {
     console.warn(
-      "ACTIVITY_HMAC_SECRET not set — generating ephemeral secret. Signatures will not survive restarts.",
+      [
+        "",
+        "┌──────────────────────────────────────────────────────┐",
+        "│  ACTIVITY_HMAC_SECRET is not set                     │",
+        "│                                                      │",
+        "│  Using an ephemeral secret — activity-log signatures  │",
+        "│  will NOT survive server restarts.                    │",
+        "│                                                      │",
+        "│  Set ACTIVITY_HMAC_SECRET in your environment to fix. │",
+        "└──────────────────────────────────────────────────────┘",
+        "",
+      ].join("\n"),
     );
     return randomBytes(32).toString("hex");
   }

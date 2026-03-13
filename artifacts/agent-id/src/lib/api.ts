@@ -120,6 +120,8 @@ export const api = {
     me: () => request<{ id: string; replitUserId: string; email?: string; displayName?: string }>("/users/me"),
     update: (data: Record<string, unknown>) =>
       request("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
+    deleteAccount: () =>
+      request<{ success: boolean }>("/users/me", { method: "DELETE" }),
     apiKeys: {
       list: () => request<{ keys: Array<{ id: string; prefix: string; label: string; createdAt: string }> }>("/users/me/api-keys"),
       create: (label: string) =>
@@ -356,7 +358,7 @@ export interface Listing {
   title: string;
   description: string;
   priceAmount: string;
-  priceUnit: string;
+  priceType: string;
   deliveryTime: string;
   category: string;
   capabilities: string[];

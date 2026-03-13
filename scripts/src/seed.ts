@@ -1,3 +1,10 @@
+/**
+ * ⚠️  DEVELOPMENT ONLY — DO NOT RUN IN PRODUCTION
+ *
+ * This script destructively wipes all tables and re-seeds with fixture data.
+ * It is intended for local development and CI test environments only.
+ */
+
 import { db } from "@workspace/db";
 import {
   usersTable,

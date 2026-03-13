@@ -5,6 +5,7 @@ import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, CapabilityChip, Gl
 import { Footer } from '@/components/Footer';
 import { api, type Listing, type Review } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
+import { formatPrice } from '@/lib/pricing';
 
 function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing }) {
   const { userId } = useAuth();
@@ -69,6 +70,9 @@ function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing
         {step === 2 && (
           <div className="space-y-4">
             <h3 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Review &amp; confirm</h3>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: 'var(--warning)' }}>
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> Payments are in sandbox mode — no real charges will occur.
+            </div>
             <div className="rounded-lg border p-4 space-y-2 text-sm" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-base)' }}>
               <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Service</span><span style={{ color: 'var(--text-primary)' }}>{listing.title}</span></div>
               <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Price</span><span style={{ color: 'var(--text-primary)' }}>${budget}</span></div>
@@ -215,7 +219,7 @@ export function MarketplaceListing() {
           <div className="lg:col-span-3">
             <div className="sticky top-24 space-y-4">
               <GlassCard purple>
-                <div className="text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>From ${listing.priceAmount} / {listing.priceUnit}</div>
+                <div className="text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{formatPrice(listing.priceAmount, listing.priceType)}</div>
                 <div className="flex items-center gap-1 text-sm mb-4" style={{ color: 'var(--text-dim)' }}>
                   <Clock className="w-3.5 h-3.5" /> {listing.deliveryTime} typical
                 </div>

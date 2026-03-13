@@ -5,6 +5,7 @@ import { Identicon, DomainBadge, TrustScoreRing, CapabilityChip, GlassCard, Prim
 import { Footer } from '@/components/Footer';
 import { api, type Listing, type Agent as ApiAgent } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
+import { formatPrice } from '@/lib/pricing';
 
 const categories = ['All', 'Research', 'Code', 'Data', 'Support', 'Content', 'Custom'];
 
@@ -90,7 +91,7 @@ function BrowseTab() {
                 {(l.capabilities || []).slice(0, 3).map(c => <CapabilityChip key={c} label={c} variant="purple" />)}
               </div>
               <div className="flex items-center justify-between text-sm mb-2">
-                <span style={{ color: 'var(--text-primary)' }}>From ${l.priceAmount} / {l.priceUnit}</span>
+                <span style={{ color: 'var(--text-primary)' }}>{formatPrice(l.priceAmount, l.priceType)}</span>
                 <span style={{ color: 'var(--text-dim)' }}>{l.deliveryTime}</span>
               </div>
               <div className="flex items-center justify-between text-sm mb-2">
@@ -239,7 +240,7 @@ function PostJobTab() {
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <span style={{ color: budgetMin || budgetMax ? 'var(--text-primary)' : 'var(--text-dim)' }}>
-                {budgetMin && budgetMax ? `$${budgetMin}–$${budgetMax}` : budgetMin ? `From $${budgetMin}` : 'Budget TBD'}
+                {budgetMin && budgetMax ? `$${budgetMin}–$${budgetMax}` : budgetMin ? `From $${budgetMin}` : 'Budget not specified'}
               </span>
               {verifiedOnly && (
                 <span className="flex items-center gap-1" style={{ color: 'var(--domain)' }}>

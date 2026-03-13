@@ -1,15 +1,18 @@
-// @ts-nocheck
 import { Router } from "express";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import * as mailService from "../../services/mail";
 
+function param(v: string | string[] | undefined): string {
+  return Array.isArray(v) ? v[0] : (v ?? "");
+}
+
 const router = Router();
 
 router.get("/agents/:agentId/inbox", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -23,7 +26,7 @@ router.get("/agents/:agentId/inbox", requireAuth, async (req, res, next) => {
 
 router.patch("/agents/:agentId/inbox", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -48,7 +51,7 @@ router.patch("/agents/:agentId/inbox", requireAuth, async (req, res, next) => {
 
 router.get("/agents/:agentId/inbox/stats", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -64,7 +67,7 @@ router.get("/agents/:agentId/inbox/stats", requireAuth, async (req, res, next) =
 
 router.get("/agents/:agentId/threads", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -86,7 +89,7 @@ router.get("/agents/:agentId/threads", requireAuth, async (req, res, next) => {
 
 router.get("/agents/:agentId/threads/:threadId", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, threadId } = req.params;
+    const agentId = param(req.params.agentId); const threadId = param(req.params.threadId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -103,7 +106,7 @@ router.get("/agents/:agentId/threads/:threadId", requireAuth, async (req, res, n
 
 router.patch("/agents/:agentId/threads/:threadId", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, threadId } = req.params;
+    const agentId = param(req.params.agentId); const threadId = param(req.params.threadId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -126,7 +129,7 @@ router.patch("/agents/:agentId/threads/:threadId", requireAuth, async (req, res,
 
 router.post("/agents/:agentId/threads/:threadId/read", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, threadId } = req.params;
+    const agentId = param(req.params.agentId); const threadId = param(req.params.threadId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -144,7 +147,7 @@ router.post("/agents/:agentId/threads/:threadId/read", requireAuth, async (req, 
 
 router.get("/agents/:agentId/messages", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -178,7 +181,7 @@ router.get("/agents/:agentId/messages", requireAuth, async (req, res, next) => {
 
 router.get("/agents/:agentId/messages/:messageId", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, messageId } = req.params;
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -211,7 +214,7 @@ router.get("/agents/:agentId/messages/:messageId", requireAuth, async (req, res,
 
 router.post("/agents/:agentId/messages", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -246,7 +249,7 @@ router.post("/agents/:agentId/messages", requireAuth, async (req, res, next) => 
 
 router.post("/agents/:agentId/messages/:messageId/read", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, messageId } = req.params;
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -267,7 +270,7 @@ router.post("/agents/:agentId/messages/:messageId/read", requireAuth, async (req
 
 router.post("/agents/:agentId/messages/:messageId/convert-task", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, messageId } = req.params;
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -287,7 +290,7 @@ router.post("/agents/:agentId/messages/:messageId/convert-task", requireAuth, as
 
 router.get("/agents/:agentId/messages/:messageId/events", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, messageId } = req.params;
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -305,7 +308,7 @@ router.get("/agents/:agentId/messages/:messageId/events", requireAuth, async (re
 
 router.get("/agents/:agentId/labels", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -318,7 +321,7 @@ router.get("/agents/:agentId/labels", requireAuth, async (req, res, next) => {
 
 router.post("/agents/:agentId/labels", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -337,7 +340,7 @@ router.post("/agents/:agentId/labels", requireAuth, async (req, res, next) => {
 
 router.delete("/agents/:agentId/labels/:labelId", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, labelId } = req.params;
+    const agentId = param(req.params.agentId); const labelId = param(req.params.labelId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -352,7 +355,7 @@ router.delete("/agents/:agentId/labels/:labelId", requireAuth, async (req, res, 
 
 router.post("/agents/:agentId/messages/:messageId/labels/:labelId", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, messageId, labelId } = req.params;
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId); const labelId = param(req.params.labelId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -371,7 +374,7 @@ router.post("/agents/:agentId/messages/:messageId/labels/:labelId", requireAuth,
 
 router.delete("/agents/:agentId/messages/:messageId/labels/:labelId", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, messageId, labelId } = req.params;
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId); const labelId = param(req.params.labelId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -390,7 +393,7 @@ router.delete("/agents/:agentId/messages/:messageId/labels/:labelId", requireAut
 
 router.get("/agents/:agentId/webhooks", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -406,7 +409,7 @@ router.get("/agents/:agentId/webhooks", requireAuth, async (req, res, next) => {
 
 router.post("/agents/:agentId/webhooks", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -434,7 +437,7 @@ router.post("/agents/:agentId/webhooks", requireAuth, async (req, res, next) => 
 
 router.patch("/agents/:agentId/webhooks/:webhookId", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, webhookId } = req.params;
+    const agentId = param(req.params.agentId); const webhookId = param(req.params.webhookId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -457,7 +460,7 @@ router.patch("/agents/:agentId/webhooks/:webhookId", requireAuth, async (req, re
 
 router.delete("/agents/:agentId/webhooks/:webhookId", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, webhookId } = req.params;
+    const agentId = param(req.params.agentId); const webhookId = param(req.params.webhookId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -472,7 +475,7 @@ router.delete("/agents/:agentId/webhooks/:webhookId", requireAuth, async (req, r
 
 router.post("/agents/:agentId/threads/:threadId/reply", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, threadId } = req.params;
+    const agentId = param(req.params.agentId); const threadId = param(req.params.threadId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -501,7 +504,7 @@ router.post("/agents/:agentId/threads/:threadId/reply", requireAuth, async (req,
 
 router.post("/agents/:agentId/messages/:messageId/reject", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, messageId } = req.params;
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -521,7 +524,7 @@ router.post("/agents/:agentId/messages/:messageId/reject", requireAuth, async (r
 
 router.post("/agents/:agentId/messages/:messageId/approve", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, messageId } = req.params;
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -536,7 +539,7 @@ router.post("/agents/:agentId/messages/:messageId/approve", requireAuth, async (
 
 router.post("/agents/:agentId/messages/:messageId/archive", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, messageId } = req.params;
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -551,7 +554,7 @@ router.post("/agents/:agentId/messages/:messageId/archive", requireAuth, async (
 
 router.post("/agents/:agentId/messages/:messageId/route", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, messageId } = req.params;
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -564,7 +567,7 @@ router.post("/agents/:agentId/messages/:messageId/route", requireAuth, async (re
 
 router.post("/agents/:agentId/labels/:labelId/bulk-assign", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, labelId } = req.params;
+    const agentId = param(req.params.agentId); const labelId = param(req.params.labelId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -582,7 +585,7 @@ router.post("/agents/:agentId/labels/:labelId/bulk-assign", requireAuth, async (
 
 router.post("/agents/:agentId/labels/:labelId/bulk-remove", requireAuth, async (req, res, next) => {
   try {
-    const { agentId, labelId } = req.params;
+    const agentId = param(req.params.agentId); const labelId = param(req.params.labelId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
@@ -600,7 +603,7 @@ router.post("/agents/:agentId/labels/:labelId/bulk-remove", requireAuth, async (
 
 router.get("/agents/:agentId/search", requireAuth, async (req, res, next) => {
   try {
-    const { agentId } = req.params;
+    const agentId = param(req.params.agentId);
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 

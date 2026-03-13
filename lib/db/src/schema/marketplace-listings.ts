@@ -53,6 +53,8 @@ export const marketplaceListingsTable = pgTable(
     index("marketplace_listings_category_idx").on(table.category),
     index("marketplace_listings_status_idx").on(table.status),
     index("marketplace_listings_featured_idx").on(table.featured),
+    index("marketplace_listings_cat_status_created_idx").on(table.category, table.status, table.createdAt),
+    index("marketplace_listings_cat_status_rating_idx").on(table.category, table.status, table.avgRating),
   ],
 );
 

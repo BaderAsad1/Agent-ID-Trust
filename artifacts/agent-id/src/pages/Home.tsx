@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Identicon, TrustScoreRing, StarRating } from '@/components/shared';
 import { agents, marketplaceListings } from '@/lib/data';
+import { formatPrice } from '@/lib/pricing';
 import { Footer } from '@/components/Footer';
 
 /* ═══════════════════════════════════════════════
@@ -569,7 +570,7 @@ function MarketplaceSection() {
                 <div className="text-sm font-medium mb-2 line-clamp-1" style={{ color: 'var(--text-primary)' }}>{l.title}</div>
                 <p className="text-xs mb-3 line-clamp-2" style={{ color: 'var(--text-dim)' }}>{l.description}</p>
                 <div className="flex items-center justify-between text-xs">
-                  <span style={{ color: 'var(--text-muted)' }}>${l.price}/{l.priceUnit}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{formatPrice(l.price, l.priceUnit === 'task' ? 'per_task' : l.priceUnit === 'hour' ? 'hourly' : 'fixed')}</span>
                   <StarRating rating={l.rating} count={l.reviews} />
                 </div>
               </div>

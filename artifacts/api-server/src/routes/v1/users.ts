@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db/schema";
+import { usersTable, apiKeysTable, marketplaceListingsTable, agentsTable } from "@workspace/db/schema";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { z } from "zod/v4";
@@ -39,6 +39,21 @@ router.patch("/me", requireAuth, async (req, res, next) => {
       .returning();
 
     res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/me", requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.user!.id;
+    await db.transaction(async (tx) => {
+      await tx.delete(marketplaceListingsTable).where(eq(marketplaceListingsTable.userId, userId));
+      await tx.delete(apiKeysTable).where(and(eq(apiKeysTable.ownerType, "user"), eq(apiKeysTable.ownerId, userId)));
+      await tx.delete(agentsTable).where(eq(agentsTable.userId, userId));
+      await tx.delete(usersTable).where(eq(usersTable.id, userId));
+    });
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }

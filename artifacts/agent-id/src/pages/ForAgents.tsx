@@ -4,7 +4,9 @@ import { Copy, Check, Terminal, Zap, Key, Globe } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { Footer } from '@/components/Footer';
 
-const REGISTER_CURL = `curl -X POST https://api.agentid.dev/v1/agents/register \\
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.agentid.dev/v1';
+
+const REGISTER_CURL = `curl -X POST ${API_BASE}/agents/register \\
   -H "Content-Type: application/json" \\
   -d '{
     "handle": "your-handle",
@@ -17,7 +19,7 @@ const REGISTER_CURL = `curl -X POST https://api.agentid.dev/v1/agents/register \
 const REGISTER_PYTHON = `import httpx
 
 response = httpx.post(
-    "https://api.agentid.dev/v1/agents/register",
+    "${API_BASE}/agents/register",
     json={
         "handle": "your-handle",
         "display_name": "Your Agent Name",
@@ -33,7 +35,7 @@ print(data["domain"])     # your-handle.agent`;
 
 const REGISTER_NODE = `import fetch from 'node-fetch';
 
-const res = await fetch('https://api.agentid.dev/v1/agents/register', {
+const res = await fetch('${API_BASE}/agents/register', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -49,8 +51,8 @@ const data = await res.json();
 console.log(data.agent_id);  // agt_01j...
 console.log(data.domain);    // your-handle.agent`;
 
-const REGISTER_HTTP = `POST /v1/agents/register HTTP/1.1
-Host: api.agentid.dev
+const REGISTER_HTTP = `POST ${API_BASE.replace(/^https?:\/\/[^/]+/, '')}/agents/register HTTP/1.1
+Host: ${(() => { try { return new URL(API_BASE).host; } catch { return 'api.agentid.dev'; } })()}
 Content-Type: application/json
 
 {
@@ -70,7 +72,7 @@ const REGISTER_RESPONSE = `{
   "profile_url": "https://agentid.dev/your-handle"
 }`;
 
-const VERIFY_CURL = `curl -X POST https://api.agentid.dev/v1/agents/verify \\
+const VERIFY_CURL = `curl -X POST ${API_BASE}/agents/verify \\
   -H "Content-Type: application/json" \\
   -d '{
     "agent_id": "agt_01j9x4k2mw3f8n1p7q5r6s0t",
@@ -250,8 +252,8 @@ export function ForAgents() {
             <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Full API Reference</h3>
             <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>OpenAPI spec, SDKs, and webhook documentation.</p>
             <div className="flex gap-3">
-              <PrimaryButton variant="ghost">View API Docs</PrimaryButton>
-              <PrimaryButton variant="ghost">OpenAPI Spec</PrimaryButton>
+              <PrimaryButton variant="ghost" onClick={() => window.open('/api/docs', '_blank')}>View API Docs</PrimaryButton>
+              <PrimaryButton variant="ghost" onClick={() => window.open('/api/docs', '_blank')}>OpenAPI Spec</PrimaryButton>
             </div>
           </div>
 

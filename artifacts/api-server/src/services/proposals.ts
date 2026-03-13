@@ -4,6 +4,7 @@ import {
   jobProposalsTable,
   jobPostsTable,
   agentsTable,
+  usersTable,
   marketplaceListingsTable,
   marketplaceOrdersTable,
   type JobProposal,
@@ -103,6 +104,16 @@ export async function createProposal(
       jobTitle: job.title,
     },
   });
+
+  try {
+    const poster = await db.query.usersTable.findFirst({ where: eq(usersTable.id, job.posterUserId) });
+    if (poster?.email) {
+      const { sendNewProposalEmail } = await import("./email");
+      await sendNewProposalEmail(poster.email, job.title, agent.handle);
+    }
+  } catch (err) {
+    console.error(`[proposals] Failed to send new proposal email:`, err instanceof Error ? err.message : err);
+  }
 
   return { success: true, proposal };
 }
