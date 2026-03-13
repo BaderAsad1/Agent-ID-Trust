@@ -2,29 +2,29 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface AnimationPhase {
   frame: boolean;
-  avatar: boolean;
-  name: boolean;
+  emblem: boolean;
+  identity: boolean;
   handle: boolean;
   domain: boolean;
-  seal: boolean;
+  verification: boolean;
   trustRing: boolean;
   trustCount: number;
-  chips: boolean;
-  footer: boolean;
+  network: boolean;
+  capabilities: boolean;
   alive: boolean;
 }
 
 const initial: AnimationPhase = {
   frame: false,
-  avatar: false,
-  name: false,
+  emblem: false,
+  identity: false,
   handle: false,
   domain: false,
-  seal: false,
+  verification: false,
   trustRing: false,
   trustCount: 0,
-  chips: false,
-  footer: false,
+  network: false,
+  capabilities: false,
   alive: false,
 };
 
@@ -46,16 +46,16 @@ export function useHeroAnimation(targetTrust = 94) {
       timers.push(setTimeout(fn, ms));
     };
 
-    t(() => set({ frame: true }), 200);
-    t(() => set({ avatar: true }), 700);
-    t(() => set({ name: true }), 1100);
-    t(() => set({ handle: true }), 1400);
-    t(() => set({ domain: true }), 1650);
-    t(() => set({ seal: true }), 1950);
+    t(() => set({ frame: true }), 300);
+    t(() => set({ emblem: true }), 900);
+    t(() => set({ identity: true }), 1400);
+    t(() => set({ handle: true }), 1800);
+    t(() => set({ domain: true }), 2100);
+    t(() => set({ verification: true }), 2500);
     t(() => {
       set({ trustRing: true });
       const start = performance.now();
-      const duration = 1200;
+      const duration = 1400;
       const animate = (now: number) => {
         const elapsed = now - start;
         const progress = Math.min(elapsed / duration, 1);
@@ -69,10 +69,10 @@ export function useHeroAnimation(targetTrust = 94) {
         }
       };
       rafRef.current = requestAnimationFrame(animate);
-    }, 2200);
-    t(() => set({ chips: true }), 2800);
-    t(() => set({ footer: true }), 3200);
-    t(() => set({ alive: true }), 3600);
+    }, 2900);
+    t(() => set({ network: true }), 3400);
+    t(() => set({ capabilities: true }), 3900);
+    t(() => set({ alive: true }), 4500);
 
     return () => {
       mountedRef.current = false;
