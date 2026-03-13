@@ -1070,7 +1070,7 @@ function HeroOpening({ progress }: { progress: number }) {
           fontFamily: "'Inter', sans-serif", fontSize: 17, fontWeight: 500,
           color: 'rgba(232,232,240,0.6)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 8,
-        }}>Watch the film <span style={{ fontSize: 20 }}>&darr;</span></span>
+        }}>Learn more <span style={{ fontSize: 20 }}>&darr;</span></span>
       </div>
     </div>
   );
