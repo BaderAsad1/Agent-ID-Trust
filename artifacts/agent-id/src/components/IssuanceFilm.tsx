@@ -1289,13 +1289,13 @@ function NavBar({ opacity, onNavigate }: NavProps) {
 }
 
 function SystemResolvingText({ progress }: { progress: number }) {
-  const phase1 = progress > 0.06 && progress < 0.20;
-  const phase2 = progress > 0.12 && progress < 0.30;
-  const phase3 = progress > 0.20 && progress < 0.40;
+  const phase1 = progress > 0.06 && progress < 0.16;
+  const phase2 = progress > 0.16 && progress < 0.28;
+  const phase3 = progress > 0.28 && progress < 0.40;
 
-  const p1Opacity = phase1 ? (progress < 0.12 ? lerp(0, 1, (progress - 0.06) / 0.06) : lerp(1, 0, (progress - 0.12) / 0.08)) : 0;
-  const p2Opacity = phase2 ? (progress < 0.20 ? lerp(0, 1, (progress - 0.12) / 0.08) : lerp(1, 0, (progress - 0.20) / 0.10)) : 0;
-  const p3Opacity = phase3 ? (progress < 0.28 ? lerp(0, 1, (progress - 0.20) / 0.08) : lerp(1, 0, (progress - 0.28) / 0.12)) : 0;
+  const p1Opacity = phase1 ? (progress < 0.10 ? lerp(0, 1, (progress - 0.06) / 0.04) : lerp(1, 0, (progress - 0.10) / 0.06)) : 0;
+  const p2Opacity = phase2 ? (progress < 0.20 ? lerp(0, 1, (progress - 0.16) / 0.04) : lerp(1, 0, (progress - 0.20) / 0.08)) : 0;
+  const p3Opacity = phase3 ? (progress < 0.32 ? lerp(0, 1, (progress - 0.28) / 0.04) : lerp(1, 0, (progress - 0.32) / 0.08)) : 0;
 
   const anyVisible = p1Opacity > 0.01 || p2Opacity > 0.01 || p3Opacity > 0.01;
   if (!anyVisible) return null;
