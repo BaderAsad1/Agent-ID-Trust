@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod/v4";
+import { randomBytes, createHash } from "crypto";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import {
@@ -20,6 +21,8 @@ import {
 } from "../../services/agent-keys";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
+import { db } from "@workspace/db";
+import { apiKeysTable } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -153,6 +156,16 @@ router.post("/agents/verify", requireAuth, async (req, res, next) => {
 
     const trust = await recomputeAndStore(agentId);
 
+    const apiKey = generateAgentApiKey();
+    await db.insert(apiKeysTable).values({
+      ownerType: "agent",
+      ownerId: agentId,
+      name: `${agent.handle}-primary`,
+      keyPrefix: apiKey.prefix,
+      hashedKey: apiKey.hashed,
+      scopes: [],
+    });
+
     res.json({
       verified: true,
       agentId,
@@ -160,6 +173,7 @@ router.post("/agents/verify", requireAuth, async (req, res, next) => {
       domain: `${agent.handle}.agent`,
       trustScore: trust.trustScore,
       trustTier: trust.trustTier,
+      apiKey: apiKey.raw,
     });
   } catch (err) {
     next(err);
@@ -225,6 +239,66 @@ router.get("/agents/:agentId/auth-metadata", async (req, res, next) => {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
     res.json(meta);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const createAgentApiKeySchema = z.object({
+  name: z.string().min(1).max(255).default("default"),
+  scopes: z.array(z.string()).max(20).optional(),
+});
+
+function generateAgentApiKey(): { raw: string; prefix: string; hashed: string } {
+  const raw = `agk_${randomBytes(32).toString("hex")}`;
+  const prefix = raw.slice(0, 8);
+  const hashed = createHash("sha256").update(raw).digest("hex");
+  return { raw, prefix, hashed };
+}
+
+router.post("/agents/:agentId/api-keys", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const agent = await getAgentById(agentId);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (agent.userId !== req.userId) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+
+    const parsed = createAgentApiKeySchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+
+    const apiKey = generateAgentApiKey();
+
+    const [record] = await db.insert(apiKeysTable).values({
+      ownerType: "agent",
+      ownerId: agent.id,
+      name: parsed.data.name,
+      keyPrefix: apiKey.prefix,
+      hashedKey: apiKey.hashed,
+      scopes: parsed.data.scopes || [],
+    }).returning();
+
+    await logActivity({
+      agentId: agent.id,
+      eventType: "agent.key_created",
+      payload: { apiKeyId: record.id, name: parsed.data.name },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    res.status(201).json({
+      id: record.id,
+      name: record.name,
+      keyPrefix: record.keyPrefix,
+      apiKey: apiKey.raw,
+      scopes: record.scopes,
+      createdAt: record.createdAt,
+    });
   } catch (err) {
     next(err);
   }

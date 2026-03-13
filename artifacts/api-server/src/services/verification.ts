@@ -94,14 +94,25 @@ export async function verifyChallenge(
     return { success: false, error: "Challenge was consumed by a concurrent request" };
   }
 
+  const agentRecord = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.id, agentId),
+    columns: { status: true },
+  });
+
+  const statusUpdate: Record<string, unknown> = {
+    verificationStatus: "verified",
+    verificationMethod: "key_challenge",
+    verifiedAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  if (agentRecord?.status === "pending_verification") {
+    statusUpdate.status = "active";
+  }
+
   await db
     .update(agentsTable)
-    .set({
-      verificationStatus: "verified",
-      verificationMethod: "key_challenge",
-      verifiedAt: new Date(),
-      updatedAt: new Date(),
-    })
+    .set(statusUpdate)
     .where(eq(agentsTable.id, agentId));
 
   return { success: true };

@@ -50,6 +50,9 @@ export const agentsTable = pgTable(
       .notNull(),
     verificationMethod: verificationMethodEnum("verification_method"),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    parentAgentId: uuid("parent_agent_id"),
+    lineageDepth: integer("lineage_depth").default(0).notNull(),
+    sponsoredBy: uuid("sponsored_by"),
     tasksReceived: integer("tasks_received").default(0).notNull(),
     tasksCompleted: integer("tasks_completed").default(0).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })

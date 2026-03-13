@@ -5,11 +5,13 @@ export const agentStatusEnum = pgEnum("agent_status", [
   "active",
   "inactive",
   "suspended",
+  "pending_verification",
 ]);
 
 export const verificationStatusEnum = pgEnum("verification_status", [
   "unverified",
   "pending",
+  "pending_verification",
   "verified",
   "failed",
 ]);

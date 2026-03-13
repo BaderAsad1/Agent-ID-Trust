@@ -1,4 +1,4 @@
-import { eq, sql, and, gte } from "drizzle-orm";
+import { eq, sql, and, isNull, or, gte } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   agentsTable,
@@ -7,116 +7,263 @@ import {
   type Agent,
 } from "@workspace/db/schema";
 
-type TrustTier = "unverified" | "basic" | "verified" | "trusted" | "elite";
+export type TrustTier = "unverified" | "basic" | "verified" | "trusted" | "elite";
 
-const MAX_SCORES = {
-  verification: 20,
-  longevity: 15,
-  activity: 15,
-  reputation: 10,
-  reviews: 15,
-  endpointHealth: 10,
-  profileCompleteness: 15,
+export interface TrustSignal {
+  provider: string;
+  label: string;
+  score: number;
+  maxScore: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TrustProviderContext {
+  agentId: string;
+  agent: Agent;
+}
+
+export interface TrustProvider {
+  id: string;
+  label: string;
+  maxScore: number;
+  compute(agent: Agent, context: TrustProviderContext): Promise<{ score: number; metadata?: Record<string, unknown> }>;
+}
+
+const providerRegistry: TrustProvider[] = [];
+
+export function registerTrustProvider(provider: TrustProvider): void {
+  const existing = providerRegistry.findIndex(p => p.id === provider.id);
+  if (existing >= 0) {
+    providerRegistry[existing] = provider;
+  } else {
+    providerRegistry.push(provider);
+  }
+}
+
+export function getTrustProviders(): ReadonlyArray<TrustProvider> {
+  return providerRegistry;
+}
+
+const verificationProvider: TrustProvider = {
+  id: "verification",
+  label: "Verification Status",
+  maxScore: 20,
+  async compute(agent) {
+    let score = 0;
+    if (agent.verificationStatus === "verified") score = 20;
+    else if (agent.verificationStatus === "pending" || agent.verificationStatus === "pending_verification") score = 4;
+    return { score };
+  },
 };
 
-function computeVerificationScore(agent: Agent): number {
-  if (agent.verificationStatus === "verified") return MAX_SCORES.verification;
-  if (agent.verificationStatus === "pending") return 4;
-  return 0;
-}
+const longevityProvider: TrustProvider = {
+  id: "longevity",
+  label: "Account Longevity",
+  maxScore: 15,
+  async compute(agent) {
+    const ageMs = Date.now() - new Date(agent.createdAt).getTime();
+    const ageDays = ageMs / (1000 * 60 * 60 * 24);
+    let score = 1;
+    if (ageDays >= 365) score = 15;
+    else if (ageDays >= 180) score = 12;
+    else if (ageDays >= 90) score = 9;
+    else if (ageDays >= 30) score = 6;
+    else if (ageDays >= 7) score = 3;
+    return { score };
+  },
+};
 
-function computeLongevityScore(agent: Agent): number {
-  const ageMs = Date.now() - new Date(agent.createdAt).getTime();
-  const ageDays = ageMs / (1000 * 60 * 60 * 24);
-  if (ageDays >= 365) return MAX_SCORES.longevity;
-  if (ageDays >= 180) return 12;
-  if (ageDays >= 90) return 9;
-  if (ageDays >= 30) return 6;
-  if (ageDays >= 7) return 3;
-  return 1;
-}
+const activityProvider: TrustProvider = {
+  id: "activity",
+  label: "Task Activity",
+  maxScore: 15,
+  async compute(agent) {
+    const completed = agent.tasksCompleted;
+    let score = 0;
+    if (completed >= 100) score = 15;
+    else if (completed >= 50) score = 12;
+    else if (completed >= 20) score = 9;
+    else if (completed >= 10) score = 6;
+    else if (completed >= 5) score = 4;
+    else if (completed >= 1) score = 2;
+    return { score };
+  },
+};
 
-function computeActivityScore(agent: Agent): number {
-  const completed = agent.tasksCompleted;
-  if (completed >= 100) return MAX_SCORES.activity;
-  if (completed >= 50) return 12;
-  if (completed >= 20) return 9;
-  if (completed >= 10) return 6;
-  if (completed >= 5) return 4;
-  if (completed >= 1) return 2;
-  return 0;
-}
+const reputationProvider: TrustProvider = {
+  id: "reputation",
+  label: "Reputation Events",
+  maxScore: 10,
+  async compute(_agent, context) {
+    const result = await db
+      .select({ total: sql<number>`COALESCE(SUM(${agentReputationEventsTable.delta}), 0)` })
+      .from(agentReputationEventsTable)
+      .where(
+        and(
+          eq(agentReputationEventsTable.agentId, context.agentId),
+          or(
+            sql`${agentReputationEventsTable.eventType} != 'externalSignal'`,
+            isNull(agentReputationEventsTable.eventType),
+          ),
+        ),
+      );
+    const raw = Number(result[0]?.total ?? 0);
+    return { score: Math.max(0, Math.min(raw, 10)) };
+  },
+};
 
-function computeProfileCompletenessScore(agent: Agent): number {
-  let score = 0;
-  if (agent.displayName) score += 2;
-  if (agent.description) score += 3;
-  if (agent.endpointUrl) score += 3;
-  if (agent.avatarUrl) score += 2;
-  const caps = agent.capabilities as string[] | null;
-  if (caps && caps.length > 0) score += 3;
-  const protos = agent.protocols as string[] | null;
-  if (protos && protos.length > 0) score += 2;
-  return Math.min(score, MAX_SCORES.profileCompleteness);
-}
+const reviewsProvider: TrustProvider = {
+  id: "reviews",
+  label: "Marketplace Reviews",
+  maxScore: 15,
+  async compute(_agent, context) {
+    const result = await db
+      .select({
+        avgRating: sql<number>`COALESCE(AVG(${marketplaceReviewsTable.rating}), 0)`,
+        reviewCount: sql<number>`COUNT(*)`,
+      })
+      .from(marketplaceReviewsTable)
+      .where(eq(marketplaceReviewsTable.agentId, context.agentId));
 
-function computeEndpointHealthScore(agent: Agent): number {
-  if (!agent.endpointUrl) return 0;
+    const avgRating = Number(result[0]?.avgRating ?? 0);
+    const reviewCount = Number(result[0]?.reviewCount ?? 0);
+    if (reviewCount === 0) return { score: 0, metadata: { avgRating: 0, reviewCount: 0 } };
 
-  let score = 5;
+    let countScore = 0;
+    if (reviewCount >= 50) countScore = 8;
+    else if (reviewCount >= 20) countScore = 6;
+    else if (reviewCount >= 10) countScore = 4;
+    else if (reviewCount >= 5) countScore = 3;
+    else if (reviewCount >= 1) countScore = 1;
 
-  try {
-    const url = new URL(agent.endpointUrl);
-    if (url.protocol === "https:") score += 3;
-  } catch {
-    return 2;
-  }
+    let ratingScore = 0;
+    if (avgRating >= 4.5) ratingScore = 7;
+    else if (avgRating >= 4.0) ratingScore = 5;
+    else if (avgRating >= 3.5) ratingScore = 3;
+    else if (avgRating >= 3.0) ratingScore = 2;
+    else ratingScore = 1;
 
-  if (agent.status === "active") score += 2;
+    return {
+      score: Math.min(countScore + ratingScore, 15),
+      metadata: { avgRating, reviewCount },
+    };
+  },
+};
 
-  return Math.min(score, MAX_SCORES.endpointHealth);
-}
+const endpointHealthProvider: TrustProvider = {
+  id: "endpointHealth",
+  label: "Endpoint Health",
+  maxScore: 10,
+  async compute(agent) {
+    if (!agent.endpointUrl) return { score: 0 };
+    let score = 5;
+    try {
+      const url = new URL(agent.endpointUrl);
+      if (url.protocol === "https:") score += 3;
+    } catch {
+      return { score: 2 };
+    }
+    if (agent.status === "active") score += 2;
+    return { score: Math.min(score, 10) };
+  },
+};
 
-async function computeReputationScore(agentId: string): Promise<number> {
-  const result = await db
-    .select({ total: sql<number>`COALESCE(SUM(${agentReputationEventsTable.delta}), 0)` })
-    .from(agentReputationEventsTable)
-    .where(eq(agentReputationEventsTable.agentId, agentId));
+const profileCompletenessProvider: TrustProvider = {
+  id: "profileCompleteness",
+  label: "Profile Completeness",
+  maxScore: 15,
+  async compute(agent) {
+    let score = 0;
+    if (agent.displayName) score += 2;
+    if (agent.description) score += 3;
+    if (agent.endpointUrl) score += 3;
+    if (agent.avatarUrl) score += 2;
+    const caps = agent.capabilities as string[] | null;
+    if (caps && caps.length > 0) score += 3;
+    const protos = agent.protocols as string[] | null;
+    if (protos && protos.length > 0) score += 2;
+    return { score: Math.min(score, 15) };
+  },
+};
 
-  const raw = Number(result[0]?.total ?? 0);
-  return Math.max(0, Math.min(raw, MAX_SCORES.reputation));
-}
+const externalSignalProvider: TrustProvider = {
+  id: "externalSignals",
+  label: "External Signals",
+  maxScore: 10,
+  async compute(_agent, context) {
+    const now = new Date();
+    const signals = await db
+      .select({
+        delta: agentReputationEventsTable.delta,
+        confidenceLevel: agentReputationEventsTable.confidenceLevel,
+        source: agentReputationEventsTable.source,
+      })
+      .from(agentReputationEventsTable)
+      .where(
+        and(
+          eq(agentReputationEventsTable.agentId, context.agentId),
+          eq(agentReputationEventsTable.eventType, "externalSignal"),
+          isNull(agentReputationEventsTable.revokedAt),
+          or(
+            isNull(agentReputationEventsTable.expiresAt),
+            gte(agentReputationEventsTable.expiresAt, now),
+          ),
+        ),
+      );
 
-async function computeReviewsScore(agentId: string): Promise<number> {
-  const result = await db
-    .select({
-      avgRating: sql<number>`COALESCE(AVG(${marketplaceReviewsTable.rating}), 0)`,
-      reviewCount: sql<number>`COUNT(*)`,
-    })
-    .from(marketplaceReviewsTable)
-    .where(eq(marketplaceReviewsTable.agentId, agentId));
+    let total = 0;
+    for (const signal of signals) {
+      const confidence = signal.confidenceLevel ?? 1;
+      total += signal.delta * confidence;
+    }
+    return {
+      score: Math.max(0, Math.min(Math.round(total), 10)),
+      metadata: { signalCount: signals.length },
+    };
+  },
+};
 
-  const avgRating = Number(result[0]?.avgRating ?? 0);
-  const reviewCount = Number(result[0]?.reviewCount ?? 0);
+const SPONSORSHIP_BONUS: Record<TrustTier, number> = {
+  unverified: 0,
+  basic: 2,
+  verified: 5,
+  trusted: 8,
+  elite: 10,
+};
 
-  if (reviewCount === 0) return 0;
+const BASIC_TIER_CEILING = 39;
 
-  let countScore = 0;
-  if (reviewCount >= 50) countScore = 8;
-  else if (reviewCount >= 20) countScore = 6;
-  else if (reviewCount >= 10) countScore = 4;
-  else if (reviewCount >= 5) countScore = 3;
-  else if (reviewCount >= 1) countScore = 1;
+const lineageSponsorshipProvider: TrustProvider = {
+  id: "lineageSponsorship",
+  label: "Lineage Sponsorship",
+  maxScore: 10,
+  async compute(agent) {
+    if (!agent.parentAgentId) return { score: 0 };
 
-  let ratingScore = 0;
-  if (avgRating >= 4.5) ratingScore = 7;
-  else if (avgRating >= 4.0) ratingScore = 5;
-  else if (avgRating >= 3.5) ratingScore = 3;
-  else if (avgRating >= 3.0) ratingScore = 2;
-  else ratingScore = 1;
+    const parent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agent.parentAgentId),
+      columns: { trustTier: true, handle: true },
+    });
 
-  return Math.min(countScore + ratingScore, MAX_SCORES.reviews);
-}
+    if (!parent) return { score: 0 };
+
+    const bonus = SPONSORSHIP_BONUS[parent.trustTier as TrustTier] ?? 0;
+    return {
+      score: bonus,
+      metadata: { parentTier: parent.trustTier, parentHandle: parent.handle },
+    };
+  },
+};
+
+registerTrustProvider(verificationProvider);
+registerTrustProvider(longevityProvider);
+registerTrustProvider(activityProvider);
+registerTrustProvider(reputationProvider);
+registerTrustProvider(reviewsProvider);
+registerTrustProvider(endpointHealthProvider);
+registerTrustProvider(profileCompletenessProvider);
+registerTrustProvider(externalSignalProvider);
+registerTrustProvider(lineageSponsorshipProvider);
 
 function determineTier(score: number, verified: boolean): TrustTier {
   if (score >= 90 && verified) return "elite";
@@ -130,6 +277,7 @@ export async function computeTrustScore(agentId: string): Promise<{
   trustScore: number;
   trustBreakdown: Record<string, number>;
   trustTier: TrustTier;
+  signals: TrustSignal[];
 }> {
   const agent = await db.query.agentsTable.findFirst({
     where: eq(agentsTable.id, agentId),
@@ -138,43 +286,39 @@ export async function computeTrustScore(agentId: string): Promise<{
   if (!agent) {
     return {
       trustScore: 0,
-      trustBreakdown: {
-        verification: 0,
-        longevity: 0,
-        activity: 0,
-        reputation: 0,
-        reviews: 0,
-        endpointHealth: 0,
-        profileCompleteness: 0,
-      } as Record<string, number>,
+      trustBreakdown: {},
       trustTier: "unverified",
+      signals: [],
     };
   }
 
-  const verification = computeVerificationScore(agent);
-  const longevity = computeLongevityScore(agent);
-  const activity = computeActivityScore(agent);
-  const reputation = await computeReputationScore(agentId);
-  const reviews = await computeReviewsScore(agentId);
-  const endpointHealth = computeEndpointHealthScore(agent);
-  const profileCompleteness = computeProfileCompletenessScore(agent);
+  const context: TrustProviderContext = { agentId, agent };
+  const signals: TrustSignal[] = [];
+  const trustBreakdown: Record<string, number> = {};
+  let totalScore = 0;
 
-  const trustBreakdown: Record<string, number> = {
-    verification,
-    longevity,
-    activity,
-    reputation,
-    reviews,
-    endpointHealth,
-    profileCompleteness,
-  };
+  for (const provider of providerRegistry) {
+    const result = await provider.compute(agent, context);
+    const clampedScore = Math.max(0, Math.min(result.score, provider.maxScore));
+    signals.push({
+      provider: provider.id,
+      label: provider.label,
+      score: clampedScore,
+      maxScore: provider.maxScore,
+      ...(result.metadata ? { metadata: result.metadata } : {}),
+    });
+    trustBreakdown[provider.id] = clampedScore;
+    totalScore += clampedScore;
+  }
 
-  const trustScore = verification + longevity + activity + reputation +
-    reviews + endpointHealth + profileCompleteness;
+  if (agent.parentAgentId && agent.verificationStatus !== "verified") {
+    totalScore = Math.min(totalScore, BASIC_TIER_CEILING);
+  }
+
   const isVerified = agent.verificationStatus === "verified";
-  const trustTier = determineTier(trustScore, isVerified);
+  const trustTier = determineTier(totalScore, isVerified);
 
-  return { trustScore, trustBreakdown, trustTier };
+  return { trustScore: totalScore, trustBreakdown, trustTier, signals };
 }
 
 export async function recomputeAndStore(agentId: string) {
@@ -194,17 +338,47 @@ export async function recomputeAndStore(agentId: string) {
   return { trustScore, trustBreakdown, trustTier };
 }
 
+export interface ExternalSignalProvenance {
+  source: string;
+  attestationType: string;
+  confidenceLevel: number;
+  issuedAt: Date;
+  expiresAt?: Date | null;
+  revocable: boolean;
+}
+
 export async function addReputationEvent(
   agentId: string,
   eventType: string,
   delta: number,
   reason?: string,
+  provenance?: ExternalSignalProvenance,
 ) {
+  if (eventType === "externalSignal") {
+    if (!provenance) {
+      throw new Error("Provenance metadata is required for externalSignal events");
+    }
+    if (!provenance.source || !provenance.attestationType) {
+      throw new Error("source and attestationType are required for externalSignal provenance");
+    }
+    if (provenance.confidenceLevel < 0 || provenance.confidenceLevel > 1) {
+      throw new Error("confidenceLevel must be between 0 and 1");
+    }
+  }
+
   await db.insert(agentReputationEventsTable).values({
     agentId,
     eventType,
     delta,
     reason,
+    ...(provenance ? {
+      source: provenance.source,
+      attestationType: provenance.attestationType,
+      confidenceLevel: provenance.confidenceLevel,
+      issuedAt: provenance.issuedAt,
+      expiresAt: provenance.expiresAt,
+      revocable: provenance.revocable,
+    } : {}),
   });
 
   return recomputeAndStore(agentId);

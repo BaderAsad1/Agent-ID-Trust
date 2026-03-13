@@ -4,6 +4,8 @@ import {
   varchar,
   integer,
   text,
+  boolean,
+  real,
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
@@ -21,6 +23,13 @@ export const agentReputationEventsTable = pgTable(
     eventType: varchar("event_type", { length: 100 }).notNull(),
     delta: integer("delta").notNull(),
     reason: text("reason"),
+    source: varchar("source", { length: 255 }),
+    attestationType: varchar("attestation_type", { length: 100 }),
+    confidenceLevel: real("confidence_level"),
+    issuedAt: timestamp("issued_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revocable: boolean("revocable").default(false),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -32,6 +41,7 @@ export const agentReputationEventsTable = pgTable(
   (table) => [
     index("agent_reputation_events_agent_id_idx").on(table.agentId),
     index("agent_reputation_events_created_at_idx").on(table.createdAt),
+    index("agent_reputation_events_event_type_idx").on(table.eventType),
   ],
 );
 
