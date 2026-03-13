@@ -870,7 +870,7 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
   );
 }
 
-function CTASection({ ctaProgress }: { ctaProgress: number }) {
+function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNavigate?: (path: string) => void }) {
   const opacity = Math.min(1, ctaProgress / 0.25);
   const translateY = lerp(60, 0, Math.min(1, ctaProgress / 0.3));
 
@@ -915,7 +915,7 @@ function CTASection({ ctaProgress }: { ctaProgress: number }) {
       </p>
 
       <div style={{ display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
-        <button style={{
+        <button onClick={() => onNavigate?.('/start')} style={{
           position: 'relative', overflow: 'hidden',
           fontSize: 16, fontWeight: 600,
           fontFamily: "'Inter', sans-serif",
@@ -962,7 +962,13 @@ function CTASection({ ctaProgress }: { ctaProgress: number }) {
   );
 }
 
-function NavBar({ opacity }: { opacity: number }) {
+interface NavProps {
+  opacity: number;
+  onNavigate?: (path: string) => void;
+}
+
+function NavBar({ opacity, onNavigate }: NavProps) {
+  const nav = (path: string) => onNavigate?.(path);
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
@@ -974,7 +980,7 @@ function NavBar({ opacity }: { opacity: number }) {
       opacity,
       transition: 'opacity 0.3s ease',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => nav('/')}>
         <div style={{
           width: 7, height: 7, borderRadius: '50%',
           background: '#4f7df3',
@@ -987,14 +993,19 @@ function NavBar({ opacity }: { opacity: number }) {
         }}>Agent ID</span>
       </div>
       <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-        {['Protocol', 'Registry', 'Trust', 'Docs'].map(link => (
-          <span key={link} style={{
+        {[
+          { label: 'Marketplace', path: '/marketplace' },
+          { label: 'Jobs', path: '/jobs' },
+          { label: 'For Agents', path: '/for-agents' },
+          { label: 'Docs', path: '/docs' },
+        ].map(link => (
+          <span key={link.label} onClick={() => nav(link.path)} style={{
             fontFamily: "'Inter', sans-serif", fontSize: 13,
             color: 'rgba(232,232,240,0.45)', cursor: 'pointer',
             fontWeight: 500, letterSpacing: '0.01em',
-          }}>{link}</span>
+          }}>{link.label}</span>
         ))}
-        <span style={{
+        <span onClick={() => nav('/start')} style={{
           fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
           color: '#fff', background: 'rgba(79,125,243,0.15)',
           border: '1px solid rgba(79,125,243,0.25)',
@@ -1005,7 +1016,7 @@ function NavBar({ opacity }: { opacity: number }) {
   );
 }
 
-function HeroOpening({ progress }: { progress: number }) {
+function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: (path: string) => void }) {
   const titleVisible = progress < 0.12;
   const titleOpacity = titleVisible ? lerp(1, 0, progress / 0.12) : 0;
   const titleScale = lerp(1, 0.92, Math.min(1, progress / 0.15));
@@ -1060,11 +1071,12 @@ function HeroOpening({ progress }: { progress: number }) {
         opacity: subtitleOpacity,
         transform: `translateY(${titleY * 0.2}px)`,
       }}>
-        <span style={{
+        <span onClick={() => onNavigate?.('/start')} style={{
           fontFamily: "'Inter', sans-serif", fontSize: 17, fontWeight: 600,
           color: '#fff', background: '#4f7df3',
           borderRadius: 14, padding: '16px 44px', cursor: 'pointer',
           boxShadow: '0 4px 24px rgba(79,125,243,0.3)',
+          pointerEvents: 'auto',
         }}>Register an Agent</span>
         <span style={{
           fontFamily: "'Inter', sans-serif", fontSize: 17, fontWeight: 500,
@@ -1104,7 +1116,7 @@ function PhaseLabel({ state, progress }: { state: IssuanceCeremonyState; progres
   );
 }
 
-export default function IssuanceFilm() {
+export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: string) => void } = {}) {
   const sectionRefs = useSectionRefs();
   const scroll = useScrollFilm(sectionRefs);
 
@@ -1126,7 +1138,7 @@ export default function IssuanceFilm() {
       WebkitFontSmoothing: 'antialiased',
     } as CSSProperties}>
       <GrainOverlay />
-      <NavBar opacity={navOpacity} />
+      <NavBar opacity={navOpacity} onNavigate={onNavigate} />
 
       <section ref={sectionRefs.hero as React.RefObject<HTMLElement>} style={{
         position: 'relative',
@@ -1151,7 +1163,7 @@ export default function IssuanceFilm() {
             <HeroIssuanceRings heroProgress={scroll.heroProgress} />
           </div>
 
-          <HeroOpening progress={scroll.heroProgress} />
+          <HeroOpening progress={scroll.heroProgress} onNavigate={onNavigate} />
 
           <PhaseLabel state={ceremonyState} progress={scroll.heroProgress} />
 
@@ -1249,7 +1261,7 @@ export default function IssuanceFilm() {
             : undefined,
           transition: 'opacity 0.05s linear',
         }}>
-          <CTASection ctaProgress={scroll.ctaProgress} />
+          <CTASection ctaProgress={scroll.ctaProgress} onNavigate={onNavigate} />
         </div>
       </section>
 
