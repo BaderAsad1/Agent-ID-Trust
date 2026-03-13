@@ -121,22 +121,26 @@ function GrainOverlay() {
 
 function CeremonyStatusBar({ state, trustScore }: { state: IssuanceCeremonyState; trustScore: number }) {
   const isActive = state === 'active';
+  const isIssuing = state === 'issuing';
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
-      marginBottom: 20,
+      marginBottom: 18, padding: '10px 0',
     }}>
       <div style={{
         width: 7, height: 7, borderRadius: '50%',
-        background: isActive ? '#34d399' : '#4f7df3',
-        boxShadow: isActive ? '0 0 12px rgba(52,211,153,0.5)' : '0 0 8px rgba(79,125,243,0.4)',
+        background: isActive ? '#34d399' : (isIssuing ? '#f5a623' : '#4f7df3'),
+        boxShadow: isActive
+          ? '0 0 16px rgba(52,211,153,0.6)'
+          : (isIssuing ? '0 0 12px rgba(245,166,35,0.5)' : '0 0 8px rgba(79,125,243,0.4)'),
         transition: 'all 0.6s ease',
+        animation: isIssuing ? 'pulse-dot 1.2s ease-in-out infinite' : undefined,
       }} />
       <span style={{
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 10, fontWeight: 600,
         letterSpacing: '0.16em',
-        color: isActive ? '#34d399' : '#4f7df3',
+        color: isActive ? '#34d399' : (isIssuing ? '#f5a623' : '#4f7df3'),
         transition: 'color 0.6s ease',
       }}>{CEREMONY_LABELS[state]}</span>
       {state === 'active' && (
@@ -147,6 +151,7 @@ function CeremonyStatusBar({ state, trustScore }: { state: IssuanceCeremonyState
           marginLeft: 8,
         }}>TRUST {trustScore}</span>
       )}
+      <style>{`@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
     </div>
   );
 }
@@ -161,9 +166,9 @@ function CredentialIdenticon({ visible }: { visible: boolean }) {
   ];
   return (
     <div style={{
-      width: 60, height: 60, borderRadius: 15,
+      width: 56, height: 56, borderRadius: 14,
       background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)',
-      display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 2, padding: 7,
+      display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 2, padding: 6,
       transform: visible ? 'scale(1)' : 'scale(0.1)',
       opacity: visible ? 1 : 0,
       transition: 'transform 1s cubic-bezier(0.34,1.56,0.64,1), opacity 0.8s ease',
@@ -180,8 +185,8 @@ function CredentialIdenticon({ visible }: { visible: boolean }) {
 }
 
 function TrustRing({ score, visible, active }: { score: number; visible: boolean; active: boolean }) {
-  const size = 68;
-  const r = 28;
+  const size = 64;
+  const r = 26;
   const circ = 2 * Math.PI * r;
   const offset = visible ? circ - (score / 100) * circ : circ;
 
@@ -203,7 +208,7 @@ function TrustRing({ score, visible, active }: { score: number; visible: boolean
       <span style={{
         position: 'absolute', inset: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700,
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700,
         color: '#34d399',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.5s ease',
@@ -215,36 +220,34 @@ function TrustRing({ score, visible, active }: { score: number; visible: boolean
 function VerificationSeal({ visible }: { visible: boolean }) {
   return (
     <div style={{
-      position: 'absolute', top: 26, right: 32,
-      width: 64, height: 64,
+      position: 'absolute', top: 56, right: 28,
+      width: 56, height: 56,
       opacity: visible ? 1 : 0,
       transform: visible ? 'scale(1) rotate(0deg)' : 'scale(2.2) rotate(-20deg)',
       transition: 'opacity 0.5s ease, transform 0.7s cubic-bezier(0.34,1.56,0.64,1)',
     }}>
-      <svg viewBox="0 0 64 64" width="64" height="64" fill="none">
-        <rect x="12" y="8" width="40" height="52" rx="4"
-          fill="rgba(79,125,243,0.08)" stroke="#4f7df3" strokeWidth="1.2" opacity="0.7" />
-        <rect x="12" y="8" width="40" height="14" rx="4"
-          fill="rgba(79,125,243,0.18)" />
-        <rect x="14" y="8" width="36" height="14" rx="3"
-          fill="rgba(79,125,243,0.15)" />
-        <circle cx="27" cy="36" r="6.5"
-          fill="rgba(79,125,243,0.12)" stroke="#4f7df3" strokeWidth="0.8" opacity="0.6" />
-        <rect x="22" y="44" width="10" height="1.5" rx="0.75"
-          fill="#4f7df3" opacity="0.35" />
-        <rect x="22" y="47" width="10" height="1.5" rx="0.75"
-          fill="#4f7df3" opacity="0.25" />
-        <rect x="37" y="30" width="10" height="1.5" rx="0.75"
-          fill="rgba(232,232,240,0.15)" />
-        <rect x="37" y="34" width="8" height="1.5" rx="0.75"
-          fill="rgba(232,232,240,0.1)" />
-        <rect x="37" y="38" width="10" height="1.5" rx="0.75"
-          fill="rgba(232,232,240,0.15)" />
-        <rect x="37" y="42" width="6" height="1.5" rx="0.75"
-          fill="rgba(232,232,240,0.1)" />
-        <text x="32" y="18" textAnchor="middle" fontSize="5"
-          fontFamily="'JetBrains Mono', monospace" fill="rgba(232,232,240,0.5)" fontWeight="700"
-          letterSpacing="0.12em">PASSPORT</text>
+      <svg viewBox="0 0 56 56" width="56" height="56" fill="none">
+        <rect x="8" y="4" width="40" height="48" rx="3.5"
+          fill="rgba(79,125,243,0.06)" stroke="#4f7df3" strokeWidth="1" opacity="0.6" />
+        <rect x="8" y="4" width="40" height="12" rx="3.5"
+          fill="rgba(79,125,243,0.14)" />
+        <circle cx="23" cy="30" r="6"
+          fill="rgba(79,125,243,0.1)" stroke="#4f7df3" strokeWidth="0.7" opacity="0.5" />
+        <rect x="18" y="38" width="10" height="1.2" rx="0.6"
+          fill="#4f7df3" opacity="0.3" />
+        <rect x="18" y="41" width="10" height="1.2" rx="0.6"
+          fill="#4f7df3" opacity="0.2" />
+        <rect x="33" y="24" width="10" height="1.2" rx="0.6"
+          fill="rgba(232,232,240,0.12)" />
+        <rect x="33" y="28" width="8" height="1.2" rx="0.6"
+          fill="rgba(232,232,240,0.08)" />
+        <rect x="33" y="32" width="10" height="1.2" rx="0.6"
+          fill="rgba(232,232,240,0.12)" />
+        <rect x="33" y="36" width="6" height="1.2" rx="0.6"
+          fill="rgba(232,232,240,0.08)" />
+        <text x="28" y="13" textAnchor="middle" fontSize="4.5"
+          fontFamily="'JetBrains Mono', monospace" fill="rgba(232,232,240,0.45)" fontWeight="700"
+          letterSpacing="0.1em">PASSPORT</text>
       </svg>
     </div>
   );
@@ -258,6 +261,61 @@ const ATTESTATION_CHIPS = [
   { label: 'Messaging', icon: '\u0040' },
 ];
 
+function IssuanceFlash({ active }: { active: boolean }) {
+  return (
+    <>
+      <div style={{
+        position: 'absolute', inset: -2,
+        borderRadius: 24,
+        border: '1px solid transparent',
+        background: active
+          ? 'linear-gradient(135deg, rgba(52,211,153,0.3), rgba(79,125,243,0.1), rgba(52,211,153,0.3))'
+          : 'none',
+        opacity: active ? 1 : 0,
+        transition: 'opacity 1.5s ease',
+        pointerEvents: 'none',
+        mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        maskComposite: 'exclude',
+        WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        WebkitMaskComposite: 'xor',
+        padding: 1,
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0,
+        borderRadius: 22,
+        boxShadow: active
+          ? '0 0 60px rgba(52,211,153,0.15), 0 0 120px rgba(52,211,153,0.05), inset 0 0 60px rgba(52,211,153,0.03)'
+          : 'none',
+        opacity: active ? 1 : 0,
+        transition: 'opacity 2s ease',
+        pointerEvents: 'none',
+      }} />
+    </>
+  );
+}
+
+function MachineReadableZone() {
+  const bars = Array.from({ length: 42 }, (_, i) => {
+    const w = [1, 2, 1, 3, 1, 2, 1][i % 7];
+    return w;
+  });
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 1,
+      height: 10, overflow: 'hidden', opacity: 0.15,
+      padding: '0 2px',
+    }}>
+      {bars.map((w, i) => (
+        <div key={i} style={{
+          width: w, height: '100%',
+          background: 'rgba(232,232,240,0.6)',
+          borderRadius: 0.5,
+        }} />
+      ))}
+    </div>
+  );
+}
+
 function FilmCredential({ heroProgress }: { heroProgress: number }) {
   const ceremonyState = getIssuanceCeremonyState(heroProgress);
   const frameVisible = heroProgress > 0.05;
@@ -269,19 +327,22 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
   const capsVisible = heroProgress > 0.60;
   const marketplaceVisible = heroProgress > 0.70;
   const isActive = ceremonyState === 'active';
+  const isIssuing = ceremonyState === 'issuing';
 
   const trustScore = trustVisible ? Math.round(easeOutCubic(Math.min(1, (heroProgress - 0.50) / 0.25)) * 94) : 0;
 
   const scale = lerp(0.92, 1.0, Math.min(1, heroProgress / 0.3));
   const rotateX = lerp(5, 1, Math.min(1, heroProgress / 0.4));
 
+  const sealProgress = isActive ? 1 : (isIssuing ? lerp(0, 0.6, (heroProgress - 0.50) / 0.25) : 0);
+
   return (
     <div style={{
       position: 'relative',
       width: 520, maxWidth: '88vw',
       borderRadius: 22,
-      border: `1px solid ${isActive ? 'rgba(52,211,153,0.12)' : 'rgba(79,125,243,0.14)'}`,
-      background: 'rgba(12, 15, 30, 0.97)',
+      border: `1px solid ${isActive ? 'rgba(52,211,153,0.15)' : (isIssuing ? 'rgba(245,166,35,0.12)' : 'rgba(79,125,243,0.14)')}`,
+      background: 'rgba(8, 10, 22, 0.98)',
       backdropFilter: 'blur(30px)',
       overflow: 'hidden',
       opacity: frameVisible ? 1 : 0,
@@ -289,60 +350,67 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
       filter: frameVisible ? 'blur(0px)' : 'blur(14px)',
       transition: 'opacity 1.4s ease, filter 1.4s ease, border-color 1s ease',
       boxShadow: frameVisible
-        ? `0 0 80px rgba(79,125,243,${isActive ? '0.08' : '0.05'}), 0 40px 100px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.2)`
+        ? `0 0 80px rgba(79,125,243,${isActive ? '0.08' : '0.05'}), 0 40px 100px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.3)`
         : 'none',
     }}>
+      <IssuanceFlash active={isActive} />
+
       <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+        position: 'absolute', top: 0, left: 0, right: 0, height: 44,
         background: isActive
-          ? 'linear-gradient(90deg, transparent, rgba(52,211,153,0.4), transparent)'
-          : 'linear-gradient(90deg, transparent, rgba(79,125,243,0.3), transparent)',
-        opacity: frameVisible ? 0.6 : 0,
+          ? 'linear-gradient(180deg, rgba(52,211,153,0.06), transparent)'
+          : 'linear-gradient(180deg, rgba(79,125,243,0.04), transparent)',
+        borderBottom: '1px solid rgba(255,255,255,0.03)',
+        transition: 'background 1s ease',
+      }} />
+
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+        background: isActive
+          ? 'linear-gradient(90deg, transparent 10%, rgba(52,211,153,0.5) 30%, rgba(52,211,153,0.6) 50%, rgba(52,211,153,0.5) 70%, transparent 90%)'
+          : 'linear-gradient(90deg, transparent 10%, rgba(79,125,243,0.3) 30%, rgba(79,125,243,0.4) 50%, rgba(79,125,243,0.3) 70%, transparent 90%)',
+        opacity: frameVisible ? 0.8 : 0,
         transition: 'opacity 1s ease, background 1s ease',
       }} />
 
       <div style={{
-        position: 'absolute', top: 0, left: 0, bottom: 0, width: 1,
+        position: 'absolute', top: 0, left: 0, bottom: 0, width: 3,
         background: isActive
-          ? 'linear-gradient(180deg, rgba(52,211,153,0.15), transparent 70%)'
-          : 'linear-gradient(180deg, rgba(79,125,243,0.1), transparent 70%)',
-        transition: 'background 1s ease',
-      }} />
-      <div style={{
-        position: 'absolute', top: 0, right: 0, bottom: 0, width: 1,
-        background: isActive
-          ? 'linear-gradient(180deg, rgba(52,211,153,0.15), transparent 70%)'
-          : 'linear-gradient(180deg, rgba(79,125,243,0.1), transparent 70%)',
+          ? 'linear-gradient(180deg, rgba(52,211,153,0.4), rgba(52,211,153,0.1) 40%, transparent 80%)'
+          : (isIssuing
+            ? 'linear-gradient(180deg, rgba(245,166,35,0.3), rgba(245,166,35,0.08) 40%, transparent 80%)'
+            : 'linear-gradient(180deg, rgba(79,125,243,0.2), rgba(79,125,243,0.05) 40%, transparent 80%)'),
         transition: 'background 1s ease',
       }} />
 
       <VerificationSeal visible={verificationVisible} />
 
-      <div style={{ padding: '30px 40px 0' }}>
+      <div style={{ padding: '14px 36px 0' }}>
         <div style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 500,
-          letterSpacing: '0.16em', textTransform: 'uppercase',
-          color: 'rgba(232,232,240,0.25)',
-          marginBottom: 6,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
+          letterSpacing: '0.18em', textTransform: 'uppercase',
+          color: 'rgba(232,232,240,0.2)',
           opacity: frameVisible ? 1 : 0,
           transition: 'opacity 1s ease 0.3s',
         }}>AGENT IDENTITY CREDENTIAL</div>
+      </div>
 
+      <div style={{ padding: '0 36px' }}>
         <CeremonyStatusBar state={ceremonyState} trustScore={trustScore} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 22 }}>
           <CredentialIdenticon visible={identityVisible} />
           <div style={{ flex: 1 }}>
             <div style={{
               fontFamily: "'Bricolage Grotesque', sans-serif",
-              fontSize: 26, fontWeight: 700, color: '#e8e8f0',
+              fontSize: 24, fontWeight: 700, color: '#e8e8f0',
               letterSpacing: '-0.02em',
               opacity: identityVisible ? 1 : 0,
               transform: identityVisible ? 'translateY(0)' : 'translateY(10px)',
               transition: 'opacity 0.7s ease 0.15s, transform 0.7s ease 0.15s',
             }}>Atlas-7</div>
             <div style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 13.5,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
               color: '#4f7df3', letterSpacing: '0.01em',
               opacity: handleVisible ? 1 : 0,
               transform: handleVisible ? 'translateX(0)' : 'translateX(-12px)',
@@ -352,42 +420,42 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
         </div>
 
         <div style={{
-          borderTop: '1px solid rgba(255,255,255,0.05)',
-          paddingTop: 22, marginBottom: 22,
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 32px',
+          borderTop: '1px solid rgba(255,255,255,0.04)',
+          paddingTop: 18, marginBottom: 18,
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 28px',
           opacity: domainVisible ? 1 : 0,
           transform: domainVisible ? 'translateY(0)' : 'translateY(10px)',
           transition: 'opacity 0.7s ease, transform 0.7s ease',
         }}>
           {[
             { label: 'DOMAIN', value: 'atlas-7.agent.id' },
-            { label: 'STATUS', value: isActive ? 'Active' : 'Pending', isStatus: true },
+            { label: 'STATUS', value: isActive ? 'Active' : (isIssuing ? 'Issuing\u2026' : 'Pending'), isStatus: true },
             { label: 'ISSUED', value: '2026-03-13' },
             { label: 'SERIAL', value: 'AID-0x7f3a\u2026c91e', dim: true },
           ].map(field => (
             <div key={field.label}>
               <div style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
-                letterSpacing: '0.12em', color: 'rgba(232,232,240,0.25)', marginBottom: 5,
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, fontWeight: 600,
+                letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 4,
               }}>{field.label}</div>
               {'isStatus' in field ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{
-                    width: 6, height: 6, borderRadius: '50%',
-                    background: isActive ? '#34d399' : '#4f7df3',
+                    width: 5, height: 5, borderRadius: '50%',
+                    background: isActive ? '#34d399' : (isIssuing ? '#f5a623' : '#4f7df3'),
                     boxShadow: isActive ? '0 0 8px rgba(52,211,153,0.4)' : 'none',
                     transition: 'all 0.5s ease',
                   }} />
                   <span style={{
-                    fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
-                    color: isActive ? '#34d399' : 'rgba(232,232,240,0.6)',
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5,
+                    color: isActive ? '#34d399' : (isIssuing ? '#f5a623' : 'rgba(232,232,240,0.5)'),
                     fontWeight: 500, transition: 'color 0.5s ease',
                   }}>{field.value}</span>
                 </div>
               ) : (
                 <div style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
-                  color: 'dim' in field ? 'rgba(232,232,240,0.3)' : 'rgba(232,232,240,0.6)',
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5,
+                  color: 'dim' in field ? 'rgba(232,232,240,0.25)' : 'rgba(232,232,240,0.55)',
                 }}>{field.value}</div>
               )}
             </div>
@@ -395,51 +463,51 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
         </div>
 
         <div style={{
-          borderTop: '1px solid rgba(255,255,255,0.05)',
-          paddingTop: 20, marginBottom: 22,
-          display: 'flex', alignItems: 'center', gap: 22,
+          borderTop: '1px solid rgba(255,255,255,0.04)',
+          paddingTop: 16, marginBottom: 18,
+          display: 'flex', alignItems: 'center', gap: 18,
           opacity: trustVisible ? 1 : 0,
           transition: 'opacity 0.7s ease',
         }}>
           <TrustRing score={trustScore} visible={trustVisible} active={isActive} />
           <div>
             <div style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
-              letterSpacing: '0.12em', color: 'rgba(232,232,240,0.25)', marginBottom: 4,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, fontWeight: 600,
+              letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 4,
             }}>TRUST LEVEL</div>
             <div style={{
-              fontFamily: "'Inter', sans-serif", fontSize: 13,
-              color: 'rgba(232,232,240,0.6)', lineHeight: 1.5,
+              fontFamily: "'Inter', sans-serif", fontSize: 12.5,
+              color: 'rgba(232,232,240,0.5)', lineHeight: 1.5,
             }}>Verified identity &middot; 1.2M invocations &middot; 99.97% uptime</div>
           </div>
         </div>
       </div>
 
       <div style={{
-        borderTop: '1px solid rgba(255,255,255,0.05)',
-        padding: '16px 40px 20px',
+        borderTop: '1px solid rgba(255,255,255,0.04)',
+        padding: '14px 36px 16px',
         opacity: capsVisible ? 1 : 0,
         transform: capsVisible ? 'translateY(0)' : 'translateY(10px)',
         transition: 'opacity 0.6s ease, transform 0.6s ease',
       }}>
         <div style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
-          letterSpacing: '0.12em', color: 'rgba(232,232,240,0.25)', marginBottom: 10,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, fontWeight: 600,
+          letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 8,
         }}>CAPABILITY ATTESTATIONS</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
           {ATTESTATION_CHIPS.map((att, i) => (
             <span key={att.label} style={{
-              fontSize: 11, fontFamily: "'JetBrains Mono', monospace",
-              color: 'rgba(232,232,240,0.6)',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: 5, padding: '4px 10px',
-              display: 'flex', alignItems: 'center', gap: 5,
+              fontSize: 10.5, fontFamily: "'JetBrains Mono', monospace",
+              color: 'rgba(232,232,240,0.5)',
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              borderRadius: 4, padding: '3px 8px',
+              display: 'flex', alignItems: 'center', gap: 4,
               opacity: capsVisible ? 1 : 0,
               transform: capsVisible ? 'translateY(0)' : 'translateY(6px)',
               transition: `opacity 0.4s ease ${i * 80}ms, transform 0.4s ease ${i * 80}ms`,
             }}>
-              <span style={{ color: '#4f7df3', fontWeight: 700, fontSize: 12 }}>{att.icon}</span>
+              <span style={{ color: '#4f7df3', fontWeight: 700, fontSize: 11 }}>{att.icon}</span>
               {att.label}
             </span>
           ))}
@@ -447,8 +515,8 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
       </div>
 
       <div style={{
-        borderTop: '1px solid rgba(255,255,255,0.05)',
-        padding: '14px 40px 20px',
+        borderTop: '1px solid rgba(255,255,255,0.04)',
+        padding: '12px 36px 14px',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         opacity: marketplaceVisible ? 1 : 0,
         transform: marketplaceVisible ? 'translateY(0)' : 'translateY(10px)',
@@ -456,30 +524,40 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
       }}>
         <div>
           <div style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
-            letterSpacing: '0.12em', color: 'rgba(232,232,240,0.25)', marginBottom: 4,
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, fontWeight: 600,
+            letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 3,
           }}>MARKETPLACE</div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'rgba(232,232,240,0.6)' }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: 'rgba(232,232,240,0.55)' }}>
             Listed &middot; 4.9 &#9733;
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
-            letterSpacing: '0.12em', color: 'rgba(232,232,240,0.25)', marginBottom: 4,
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, fontWeight: 600,
+            letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 3,
           }}>ROUTING</div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#34d399' }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: '#34d399' }}>
             Addressable
           </div>
         </div>
       </div>
 
       <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0, height: 1,
+        padding: '8px 36px 12px',
+        borderTop: '1px solid rgba(255,255,255,0.03)',
+        opacity: marketplaceVisible ? 0.6 : 0,
+        transition: 'opacity 0.7s ease 0.2s',
+      }}>
+        <MachineReadableZone />
+      </div>
+
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: 2,
         background: isActive
-          ? 'linear-gradient(90deg, transparent, rgba(52,211,153,0.2), transparent)'
-          : 'linear-gradient(90deg, transparent, rgba(79,125,243,0.15), transparent)',
+          ? 'linear-gradient(90deg, transparent 10%, rgba(52,211,153,0.3) 30%, rgba(52,211,153,0.4) 50%, rgba(52,211,153,0.3) 70%, transparent 90%)'
+          : 'linear-gradient(90deg, transparent 10%, rgba(79,125,243,0.15) 50%, transparent 90%)',
         transition: 'background 1s ease',
+        opacity: sealProgress,
       }} />
     </div>
   );
@@ -514,6 +592,7 @@ function HeroIssuanceRings({ heroProgress }: { heroProgress: number }) {
       ctx!.clearRect(0, 0, W, H);
 
       const isActive = p > 0.75;
+      const isIssuing = p > 0.50 && p <= 0.75;
       const ringRadii = [140, 220, 310, 410];
 
       ringRadii.forEach((r, i) => {
@@ -522,14 +601,18 @@ function HeroIssuanceRings({ heroProgress }: { heroProgress: number }) {
         const baseOpacity = ringActive ? 0.14 : (p > 0.05 ? 0.03 : 0);
         if (baseOpacity <= 0) return;
 
-        const breathe = isActive ? Math.sin(t * 0.7 + i * 0.6) * 0.04 : 0;
+        const breathe = isActive
+          ? Math.sin(t * 0.7 + i * 0.6) * 0.04
+          : (isIssuing ? Math.sin(t * 1.5 + i * 0.4) * 0.06 : 0);
         const opacity = baseOpacity + breathe;
 
         ctx!.beginPath();
         ctx!.arc(cx, cy, r, 0, Math.PI * 2);
         ctx!.strokeStyle = isActive
           ? `rgba(52,211,153,${opacity * 0.6})`
-          : `rgba(79,125,243,${opacity})`;
+          : (isIssuing
+            ? `rgba(245,166,35,${opacity * 0.5})`
+            : `rgba(79,125,243,${opacity})`);
         ctx!.lineWidth = ringActive ? 1.2 : 0.4;
         ctx!.stroke();
 
@@ -545,27 +628,43 @@ function HeroIssuanceRings({ heroProgress }: { heroProgress: number }) {
       });
 
       if (p > 0.05) {
-        const pulseCount = isActive ? 3 : (p > 0.4 ? 2 : 1);
+        const pulseCount = isActive ? 3 : (isIssuing ? 4 : (p > 0.4 ? 2 : 1));
+        const pulseSpeed = isIssuing ? 1.2 : 0.8;
         for (let i = 0; i < pulseCount; i++) {
-          const age = (t * 0.8 + i * 1.8) % 4.5;
+          const age = (t * pulseSpeed + i * 1.8) % 4.5;
           const pulseR = age * 110;
-          const pulseOpacity = Math.max(0, 0.1 * (1 - age / 4.5));
+          const pulseOpacity = Math.max(0, (isIssuing ? 0.15 : 0.1) * (1 - age / 4.5));
           if (pulseR > 0 && pulseOpacity > 0) {
             ctx!.beginPath();
             ctx!.arc(cx, cy, pulseR, 0, Math.PI * 2);
             ctx!.strokeStyle = isActive
               ? `rgba(52,211,153,${pulseOpacity})`
-              : `rgba(79,125,243,${pulseOpacity})`;
-            ctx!.lineWidth = 0.8;
+              : (isIssuing
+                ? `rgba(245,166,35,${pulseOpacity})`
+                : `rgba(79,125,243,${pulseOpacity})`);
+            ctx!.lineWidth = isIssuing ? 1.2 : 0.8;
             ctx!.stroke();
           }
         }
       }
 
-      const coreR = isActive ? 7 : (p > 0.05 ? 3 : 0);
+      if (isIssuing) {
+        const scanAngle = (t * 0.6) % (Math.PI * 2);
+        const scanLen = Math.PI * 0.15;
+        ringRadii.forEach((r, i) => {
+          if (p <= 0.08 + i * 0.15) return;
+          ctx!.beginPath();
+          ctx!.arc(cx, cy, r, scanAngle + i * 0.3, scanAngle + i * 0.3 + scanLen);
+          ctx!.strokeStyle = `rgba(245,166,35,0.35)`;
+          ctx!.lineWidth = 3;
+          ctx!.stroke();
+        });
+      }
+
+      const coreR = isActive ? 8 : (isIssuing ? 6 : (p > 0.05 ? 3 : 0));
       if (coreR > 0) {
         const coreGrad = ctx!.createRadialGradient(cx, cy, 0, cx, cy, coreR * 5);
-        coreGrad.addColorStop(0, isActive ? 'rgba(52,211,153,0.12)' : 'rgba(79,125,243,0.12)');
+        coreGrad.addColorStop(0, isActive ? 'rgba(52,211,153,0.15)' : (isIssuing ? 'rgba(245,166,35,0.12)' : 'rgba(79,125,243,0.12)'));
         coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
         ctx!.beginPath();
         ctx!.arc(cx, cy, coreR * 5, 0, Math.PI * 2);
@@ -574,7 +673,7 @@ function HeroIssuanceRings({ heroProgress }: { heroProgress: number }) {
 
         ctx!.beginPath();
         ctx!.arc(cx, cy, coreR, 0, Math.PI * 2);
-        ctx!.fillStyle = isActive ? 'rgba(52,211,153,0.5)' : 'rgba(79,125,243,0.5)';
+        ctx!.fillStyle = isActive ? 'rgba(52,211,153,0.6)' : (isIssuing ? 'rgba(245,166,35,0.5)' : 'rgba(79,125,243,0.5)');
         ctx!.fill();
       }
 
@@ -748,23 +847,25 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
   );
 }
 
-const UNLOCK_MODULES = [
-  { id: 'inbox', label: 'INBOX ACTIVE', desc: 'Receive tasks, messages, and protocol-level communications', icon: '\u2709', color: '#4f7df3', metric: '< 2ms latency' },
-  { id: 'routing', label: 'ROUTING POSSIBLE', desc: 'Discoverable and addressable across the entire agent network', icon: '\u2192', color: '#7c5bf5', metric: 'Global resolution' },
-  { id: 'trust', label: 'TRUST INSPECTABLE', desc: 'Peer-verifiable trust score visible to every participant', icon: '\u2713', color: '#34d399', metric: 'Score: 94' },
-  { id: 'marketplace', label: 'MARKETPLACE ELIGIBLE', desc: 'Listed for hire with ratings, reviews, and capability proof', icon: '\u2605', color: '#4f7df3', metric: '4.9 rating' },
-  { id: 'payments', label: 'PAYMENTS AUTHORIZED', desc: 'Accept payments, issue invoices, and settle commercially', icon: '\u00A4', color: '#34d399', metric: 'Stripe connected' },
+const UNLOCK_CHANNELS = [
+  { id: 'inbox', label: 'INBOX', desc: 'Receive tasks and protocol-level communications', color: '#4f7df3', metric: '< 2ms' },
+  { id: 'routing', label: 'ROUTING', desc: 'Discoverable and addressable across the agent network', color: '#7c5bf5', metric: 'Global' },
+  { id: 'trust', label: 'TRUST', desc: 'Peer-verifiable trust score visible to every participant', color: '#34d399', metric: 'Score: 94' },
+  { id: 'marketplace', label: 'MARKETPLACE', desc: 'Listed for hire with ratings and capability proof', color: '#4f7df3', metric: '4.9 \u2605' },
+  { id: 'payments', label: 'PAYMENTS', desc: 'Accept payments, issue invoices, settle commercially', color: '#34d399', metric: 'Stripe' },
 ];
 
-function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
+function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number }) {
   const titleOpacity = Math.min(1, unlocksProgress / 0.12);
   const titleTranslateY = lerp(40, 0, Math.min(1, unlocksProgress / 0.12));
+
+  const spineOpacity = Math.min(1, unlocksProgress / 0.15);
 
   return (
     <div style={{
       position: 'relative',
       padding: 'clamp(24px, 4vh, 60px) clamp(24px, 4vw, 60px)',
-      maxWidth: 1100,
+      maxWidth: 900,
       margin: '0 auto',
       height: '100vh',
       display: 'flex',
@@ -773,15 +874,8 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
       boxSizing: 'border-box',
     }}>
       <div style={{
-        position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-        width: 1, height: '100%',
-        background: 'linear-gradient(180deg, transparent, rgba(79,125,243,0.06) 20%, rgba(79,125,243,0.06) 80%, transparent)',
-        pointerEvents: 'none',
-      }} />
-
-      <div style={{
         textAlign: 'center',
-        marginBottom: 'clamp(16px, 3vh, 48px)',
+        marginBottom: 'clamp(20px, 4vh, 56px)',
         opacity: titleOpacity,
         transform: `translateY(${titleTranslateY}px)`,
       }}>
@@ -789,7 +883,7 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
           letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
           marginBottom: 'clamp(6px, 1vh, 16px)',
-        }}>SYSTEM CONSEQUENCES</div>
+        }}>SYSTEM ACTIVATION</div>
         <h2 style={{
           fontFamily: "'Bricolage Grotesque', sans-serif",
           fontSize: 'clamp(26px, 3.5vw, 48px)',
@@ -797,104 +891,197 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
           color: '#e8e8f0',
           marginBottom: 'clamp(8px, 1.2vh, 18px)',
         }}>
-          What identity{' '}
+          Identity issues.{' '}
           <span style={{
             background: 'linear-gradient(135deg, #34d399, #4f7df3)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>unlocks.</span>
+          }}>Channels open.</span>
         </h2>
         <p style={{
           fontFamily: "'Inter', sans-serif", fontSize: 'clamp(13px, 1.4vw, 17px)', lineHeight: 1.55,
-          color: 'rgba(232,232,240,0.5)', maxWidth: 500, margin: '0 auto',
+          color: 'rgba(232,232,240,0.5)', maxWidth: 460, margin: '0 auto',
         }}>
-          An issued credential activates an entire system of capabilities.
-          Each one becomes possible only because the agent is known.
+          A credential activates an entire system. Each channel becomes possible
+          only because the agent is known.
         </p>
       </div>
 
       <div style={{
-        display: 'flex', flexDirection: 'column', gap: 'clamp(8px, 1.5vh, 20px)',
         position: 'relative',
         flex: 1,
         minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center',
       }}>
-        {UNLOCK_MODULES.map((mod, i) => {
-          const moduleStart = 0.15 + i * 0.14;
-          const moduleEnd = moduleStart + 0.20;
-          const moduleProgress = Math.max(0, Math.min(1, (unlocksProgress - moduleStart) / (moduleEnd - moduleStart)));
-          const isEven = i % 2 === 0;
+        <div style={{
+          position: 'absolute',
+          left: '50%',
+          top: 0,
+          bottom: 0,
+          width: 2,
+          transform: 'translateX(-50%)',
+          background: `linear-gradient(180deg, transparent, rgba(79,125,243,${spineOpacity * 0.15}) 15%, rgba(79,125,243,${spineOpacity * 0.15}) 85%, transparent)`,
+          transition: 'background 0.5s ease',
+        }} />
 
-          return (
-            <div key={mod.id} style={{
-              display: 'flex',
-              justifyContent: isEven ? 'flex-start' : 'flex-end',
-              position: 'relative',
-            }}>
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                width: isEven ? 'calc(50% - 260px)' : 0,
-                height: 1,
-                background: `linear-gradient(${isEven ? '270deg' : '90deg'}, ${mod.color}20, transparent)`,
-                transform: `translateY(-50%) ${isEven ? 'translateX(0)' : `translateX(-260px)`}`,
-                opacity: moduleProgress,
-              }} />
-              {!isEven && (
+        <div style={{
+          position: 'absolute',
+          left: '50%',
+          top: '10%',
+          transform: 'translateX(-50%)',
+          width: 10,
+          height: 10,
+          borderRadius: '50%',
+          background: spineOpacity > 0.5 ? '#4f7df3' : 'transparent',
+          boxShadow: spineOpacity > 0.5 ? '0 0 16px rgba(79,125,243,0.4)' : 'none',
+          transition: 'all 0.5s ease',
+          zIndex: 2,
+        }} />
+
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'clamp(6px, 1.2vh, 16px)',
+        }}>
+          {UNLOCK_CHANNELS.map((ch, i) => {
+            const channelStart = 0.15 + i * 0.13;
+            const channelEnd = channelStart + 0.18;
+            const chProgress = Math.max(0, Math.min(1, (unlocksProgress - channelStart) / (channelEnd - channelStart)));
+            const isLeft = i % 2 === 0;
+
+            return (
+              <div key={ch.id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                position: 'relative',
+                height: 'clamp(52px, 8vh, 72px)',
+              }}>
                 <div style={{
                   position: 'absolute',
+                  left: '50%',
                   top: '50%',
-                  right: '50%',
-                  width: 'calc(50% - 260px)',
-                  height: 1,
-                  background: `linear-gradient(90deg, transparent, ${mod.color}20)`,
-                  transform: 'translateY(-50%)',
-                  opacity: moduleProgress,
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: chProgress > 0.3 ? ch.color : 'rgba(232,232,240,0.1)',
+                  boxShadow: chProgress > 0.3 ? `0 0 12px ${ch.color}50` : 'none',
+                  transition: 'all 0.4s ease',
+                  zIndex: 2,
                 }} />
-              )}
 
-              <div style={{
-                width: 480, maxWidth: '80%',
-                background: 'rgba(12,15,30,0.9)',
-                border: `1px solid ${mod.color}${moduleProgress > 0.5 ? '18' : '08'}`,
-                borderRadius: 14,
-                padding: 'clamp(14px, 2vh, 28px) clamp(18px, 2.5vw, 32px)',
-                opacity: moduleProgress,
-                transform: `translateX(${isEven ? lerp(-50, 0, moduleProgress) : lerp(50, 0, moduleProgress)}px) translateY(${lerp(20, 0, moduleProgress)}px)`,
-                boxShadow: moduleProgress > 0.5 ? `0 0 40px ${mod.color}06, 0 20px 60px -15px rgba(0,0,0,0.3)` : 'none',
-                transition: 'border-color 0.5s ease, box-shadow 0.5s ease',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 10,
-                    background: `${mod.color}10`,
-                    border: `1px solid ${mod.color}18`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 16, color: mod.color,
-                    flexShrink: 0,
-                  }}>{mod.icon}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                      <span style={{
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-                        letterSpacing: '0.1em', color: mod.color,
-                      }}>{mod.label}</span>
-                      <span style={{
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
-                        color: 'rgba(232,232,240,0.3)',
-                      }}>{mod.metric}</span>
-                    </div>
+                {isLeft ? (
+                  <>
                     <div style={{
-                      fontFamily: "'Inter', sans-serif", fontSize: 'clamp(12px, 1.2vw, 14px)',
-                      color: 'rgba(232,232,240,0.5)', lineHeight: 1.45,
-                    }}>{mod.desc}</div>
-                  </div>
-                </div>
+                      flex: 1,
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      paddingRight: 'clamp(32px, 5vw, 60px)',
+                      opacity: chProgress,
+                      transform: `translateX(${lerp(-30, 0, chProgress)}px)`,
+                    }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 'clamp(10px, 1.5vw, 20px)',
+                        background: 'rgba(8,10,22,0.9)',
+                        border: `1px solid ${ch.color}${chProgress > 0.5 ? '20' : '08'}`,
+                        borderRadius: 10,
+                        padding: 'clamp(10px, 1.5vh, 16px) clamp(14px, 2vw, 24px)',
+                        transition: 'border-color 0.4s ease',
+                      }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{
+                            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                            letterSpacing: '0.1em', color: ch.color, marginBottom: 2,
+                          }}>{ch.label}</div>
+                          <div style={{
+                            fontFamily: "'Inter', sans-serif", fontSize: 'clamp(11px, 1.1vw, 13px)',
+                            color: 'rgba(232,232,240,0.45)', lineHeight: 1.4,
+                          }}>{ch.desc}</div>
+                        </div>
+                        <div style={{
+                          fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                          color: 'rgba(232,232,240,0.25)',
+                          whiteSpace: 'nowrap',
+                          borderLeft: '1px solid rgba(255,255,255,0.05)',
+                          paddingLeft: 'clamp(8px, 1vw, 16px)',
+                          marginLeft: 4,
+                        }}>{ch.metric}</div>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      position: 'absolute',
+                      right: '50%',
+                      top: '50%',
+                      height: 1,
+                      width: 'clamp(24px, 4vw, 52px)',
+                      background: `linear-gradient(90deg, ${ch.color}30, ${ch.color}08)`,
+                      transform: 'translateY(-50%)',
+                      opacity: chProgress,
+                      marginRight: 6,
+                    }} />
+
+                    <div style={{ flex: 1 }} />
+                  </>
+                ) : (
+                  <>
+                    <div style={{ flex: 1 }} />
+
+                    <div style={{
+                      position: 'absolute',
+                      left: '50%',
+                      top: '50%',
+                      height: 1,
+                      width: 'clamp(24px, 4vw, 52px)',
+                      background: `linear-gradient(270deg, ${ch.color}30, ${ch.color}08)`,
+                      transform: 'translateY(-50%)',
+                      opacity: chProgress,
+                      marginLeft: 6,
+                    }} />
+
+                    <div style={{
+                      flex: 1,
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      paddingLeft: 'clamp(32px, 5vw, 60px)',
+                      opacity: chProgress,
+                      transform: `translateX(${lerp(30, 0, chProgress)}px)`,
+                    }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 'clamp(10px, 1.5vw, 20px)',
+                        background: 'rgba(8,10,22,0.9)',
+                        border: `1px solid ${ch.color}${chProgress > 0.5 ? '20' : '08'}`,
+                        borderRadius: 10,
+                        padding: 'clamp(10px, 1.5vh, 16px) clamp(14px, 2vw, 24px)',
+                        transition: 'border-color 0.4s ease',
+                      }}>
+                        <div style={{
+                          fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                          color: 'rgba(232,232,240,0.25)',
+                          whiteSpace: 'nowrap',
+                          borderRight: '1px solid rgba(255,255,255,0.05)',
+                          paddingRight: 'clamp(8px, 1vw, 16px)',
+                          marginRight: 4,
+                        }}>{ch.metric}</div>
+                        <div>
+                          <div style={{
+                            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                            letterSpacing: '0.1em', color: ch.color, marginBottom: 2,
+                          }}>{ch.label}</div>
+                          <div style={{
+                            fontFamily: "'Inter', sans-serif", fontSize: 'clamp(11px, 1.1vw, 13px)',
+                            color: 'rgba(232,232,240,0.45)', lineHeight: 1.4,
+                          }}>{ch.desc}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -1037,8 +1224,8 @@ function NavBar({ opacity, onNavigate }: NavProps) {
           { label: 'Docs', path: '/docs' },
         ].map(link => (
           <span key={link.label} onClick={() => nav(link.path)} style={{
-            fontFamily: "'Inter', sans-serif", fontSize: 13,
-            color: 'rgba(232,232,240,0.45)', cursor: 'pointer',
+            fontFamily: "'Inter', sans-serif", fontSize: 13, cursor: 'pointer',
+            color: 'rgba(232,232,240,0.5)',
             fontWeight: 500, letterSpacing: '0.01em',
           }}>{link.label}</span>
         ))}
@@ -1053,13 +1240,75 @@ function NavBar({ opacity, onNavigate }: NavProps) {
   );
 }
 
-function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: (path: string) => void }) {
-  const titleVisible = progress < 0.12;
-  const titleOpacity = titleVisible ? lerp(1, 0, progress / 0.12) : 0;
-  const titleScale = lerp(1, 0.92, Math.min(1, progress / 0.15));
-  const titleY = lerp(0, -60, Math.min(1, progress / 0.15));
+function SystemResolvingText({ progress }: { progress: number }) {
+  const phase1 = progress > 0.06 && progress < 0.20;
+  const phase2 = progress > 0.12 && progress < 0.30;
+  const phase3 = progress > 0.20 && progress < 0.40;
 
-  const subtitleOpacity = progress < 0.08 ? lerp(1, 0, progress / 0.08) : 0;
+  const p1Opacity = phase1 ? (progress < 0.12 ? lerp(0, 1, (progress - 0.06) / 0.06) : lerp(1, 0, (progress - 0.12) / 0.08)) : 0;
+  const p2Opacity = phase2 ? (progress < 0.20 ? lerp(0, 1, (progress - 0.12) / 0.08) : lerp(1, 0, (progress - 0.20) / 0.10)) : 0;
+  const p3Opacity = phase3 ? (progress < 0.28 ? lerp(0, 1, (progress - 0.20) / 0.08) : lerp(1, 0, (progress - 0.28) / 0.12)) : 0;
+
+  const anyVisible = p1Opacity > 0.01 || p2Opacity > 0.01 || p3Opacity > 0.01;
+  if (!anyVisible) return null;
+
+  return (
+    <div style={{
+      position: 'absolute',
+      bottom: 'clamp(60px, 12vh, 140px)',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 15,
+      textAlign: 'center',
+      pointerEvents: 'none',
+    }}>
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 11,
+        fontWeight: 500,
+        letterSpacing: '0.14em',
+        color: '#4f7df3',
+        opacity: p1Opacity,
+        position: 'absolute',
+        left: '50%',
+        transform: `translateX(-50%) translateY(${lerp(8, 0, Math.min(1, p1Opacity * 2))}px)`,
+        whiteSpace: 'nowrap',
+      }}>RESOLVING AGENT IDENTITY\u2026</div>
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 11,
+        fontWeight: 500,
+        letterSpacing: '0.14em',
+        color: '#4f7df3',
+        opacity: p2Opacity,
+        position: 'absolute',
+        left: '50%',
+        transform: `translateX(-50%) translateY(${lerp(8, 0, Math.min(1, p2Opacity * 2))}px)`,
+        whiteSpace: 'nowrap',
+      }}>BINDING DOMAIN \u2192 atlas-7.agent.id</div>
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 11,
+        fontWeight: 500,
+        letterSpacing: '0.14em',
+        color: '#34d399',
+        opacity: p3Opacity,
+        position: 'absolute',
+        left: '50%',
+        transform: `translateX(-50%) translateY(${lerp(8, 0, Math.min(1, p3Opacity * 2))}px)`,
+        whiteSpace: 'nowrap',
+      }}>CREDENTIAL ISSUED \u2713</div>
+    </div>
+  );
+}
+
+function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: (path: string) => void }) {
+  const titleVisible = progress < 0.10;
+  const titleOpacity = titleVisible ? lerp(1, 0, progress / 0.10) : 0;
+  const titleScale = lerp(1, 0.92, Math.min(1, progress / 0.12));
+  const titleY = lerp(0, -80, Math.min(1, progress / 0.12));
+
+  const subtitleOpacity = progress < 0.07 ? lerp(1, 0, progress / 0.07) : 0;
 
   return (
     <div style={{
@@ -1127,6 +1376,7 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
 
 function PhaseLabel({ state, progress }: { state: IssuanceCeremonyState; progress: number }) {
   const visible = progress > 0.1;
+  const isIssuing = state === 'issuing';
   return (
     <div style={{
       position: 'absolute', top: 32, left: '50%',
@@ -1138,18 +1388,46 @@ function PhaseLabel({ state, progress }: { state: IssuanceCeremonyState; progres
     }}>
       <div style={{
         width: 6, height: 6, borderRadius: '50%',
-        background: state === 'active' ? '#34d399' : '#4f7df3',
-        boxShadow: state === 'active' ? '0 0 12px rgba(52,211,153,0.5)' : '0 0 8px rgba(79,125,243,0.4)',
+        background: state === 'active' ? '#34d399' : (isIssuing ? '#f5a623' : '#4f7df3'),
+        boxShadow: state === 'active' ? '0 0 12px rgba(52,211,153,0.5)' : (isIssuing ? '0 0 10px rgba(245,166,35,0.4)' : '0 0 8px rgba(79,125,243,0.4)'),
         transition: 'all 0.5s ease',
+        animation: isIssuing ? 'pulse-dot 1.2s ease-in-out infinite' : undefined,
       }} />
       <span style={{
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 10, fontWeight: 600,
         letterSpacing: '0.16em',
-        color: state === 'active' ? '#34d399' : 'rgba(232,232,240,0.35)',
+        color: state === 'active' ? '#34d399' : (isIssuing ? '#f5a623' : 'rgba(232,232,240,0.35)'),
         transition: 'color 0.5s ease',
       }}>{CEREMONY_LABELS[state]}</span>
     </div>
+  );
+}
+
+function IssuanceMomentFlash({ active }: { active: boolean }) {
+  const [flashed, setFlashed] = useState(false);
+  const prevActive = useRef(false);
+
+  useEffect(() => {
+    if (active && !prevActive.current) {
+      setFlashed(true);
+      const timer = setTimeout(() => setFlashed(false), 1200);
+      prevActive.current = true;
+      return () => clearTimeout(timer);
+    }
+    if (!active) prevActive.current = false;
+  }, [active]);
+
+  return (
+    <div style={{
+      position: 'absolute',
+      inset: 0,
+      background: 'radial-gradient(circle at 50% 50%, rgba(52,211,153,0.08), transparent 60%)',
+      opacity: flashed ? 1 : 0,
+      transition: flashed ? 'opacity 0.15s ease' : 'opacity 1.2s ease',
+      pointerEvents: 'none',
+      zIndex: 4,
+    }} />
   );
 }
 
@@ -1162,10 +1440,12 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
   const ceremonyState = getIssuanceCeremonyState(scroll.heroProgress);
   const navOpacity = scroll.heroProgress > 0.06 ? 1 : lerp(0.4, 1, scroll.heroProgress / 0.06);
 
-  const credentialScale = scroll.heroProgress < 0.08
-    ? lerp(0.7, 1, scroll.heroProgress / 0.08)
+  const credentialScale = scroll.heroProgress < 0.12
+    ? lerp(0.6, 1, easeOutCubic(scroll.heroProgress / 0.12))
     : 1;
-  const credentialOpacity = scroll.heroProgress < 0.06 ? 0 : lerp(0, 1, (scroll.heroProgress - 0.06) / 0.06);
+  const credentialOpacity = scroll.heroProgress < 0.05 ? 0 :
+    (scroll.heroProgress < 0.14 ? lerp(0, 1, (scroll.heroProgress - 0.05) / 0.09) : 1);
+  const credentialBlur = scroll.heroProgress < 0.10 ? lerp(12, 0, scroll.heroProgress / 0.10) : 0;
 
   return (
     <div style={{
@@ -1179,7 +1459,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
 
       <section ref={sectionRefs.hero as React.RefObject<HTMLElement>} style={{
         position: 'relative',
-        height: '350vh',
+        height: '400vh',
       }}>
         <div style={{
           position: 'sticky',
@@ -1200,14 +1480,19 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
             <HeroIssuanceRings heroProgress={scroll.heroProgress} />
           </div>
 
+          <IssuanceMomentFlash active={ceremonyState === 'active'} />
+
           <HeroOpening progress={scroll.heroProgress} onNavigate={onNavigate} />
 
           <PhaseLabel state={ceremonyState} progress={scroll.heroProgress} />
+
+          <SystemResolvingText progress={scroll.heroProgress} />
 
           <div style={{
             position: 'relative', zIndex: 5,
             opacity: credentialOpacity * heroOpacity,
             transform: `scale(${credentialScale})`,
+            filter: `blur(${credentialBlur}px)`,
             transition: 'transform 0.8s cubic-bezier(0.16,1,0.3,1)',
           }}>
             <FilmCredential heroProgress={scroll.heroProgress} />
@@ -1258,7 +1543,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
 
       <section ref={sectionRefs.unlocks as React.RefObject<HTMLElement>} style={{
         position: 'relative',
-        minHeight: '260vh',
+        minHeight: '280vh',
       }}>
         <div style={{
           position: 'sticky',
@@ -1276,7 +1561,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
             : undefined,
           transition: 'opacity 0.05s linear',
         }}>
-          <UnlocksSection unlocksProgress={scroll.unlocksProgress} />
+          <SystemActivationSection unlocksProgress={scroll.unlocksProgress} />
         </div>
       </section>
 

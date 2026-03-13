@@ -1,0 +1,11 @@
+                                              ...
+    at Module._load (node:internal/modules/cjs/loader:1300:12)
+
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+
+`;ZF.get("/llms.txt",(t,e)=>{e.setHeader("Content-Type","text/plain; charset=utf-8"),e.setHeader("Cache-Control","public, max-age=3600"),e.send(U1)});var QF=ZF;var vce=vt(Qt(),1);var QV=vt(Qt(),1);zt();Ot();async function zEe(t){let{replitUserId:e,replitUserName:r,replitUserProfileImage:n}=t,i={updatedAt:new Date};r&&(i.username=r,i.displayName=r),n&&(i.avatarUrl=n);let[o]=await S.insert(Le).values({replitUserId:e,username:r||void 0,displayName:r||void 0,avatarUrl:n||void 0}).onConflictDoUpdate({target:Le.replitUserId,set:i}).returning();return o}async function ZV(t,e,r){let n=t.headers["x-replit-user-id"];if(!n){r();return}try{let i=t.headers["x-replit-user-name"],o=t.headers["x-replit-user-profile-image"],s=t.headers["x-replit-user-roles"],a=await zEe({replitUserId:n,replitUserName:i,replitUserProfileImage:o,replitUserRoles:s});t.user=a,t.userId=a.id,t.replitRoles=s,r()}catch(i){r(i)}}function te(t,e,r){if(t.user){r();return}e.status(401).json({error:"Authentication required",code:"U...
+a port configuration was specified but the required port was never opened
+not all artifact ports opened within timeout detected=0 expected=[8080]
+all artifact processes stopped
+sending SIGTERM to artifact process artifact=artifacts/api-server
+2026-03-13T01:56:08Z error: The deployment failed because the application failed to open a port in time. This can happen because the application takes to long to open a server, or doesn't open one at all on the expected port. Note that this doesn't mean that the application is crashing, only that it's not opening a port in time. The application must serve traffic on the first port specified as 'localPort' in the port configuration specified in the .replit file. Make sure that the application opens a port quickly and that there are no operations taking too long on startup. Check the logs for more information.
