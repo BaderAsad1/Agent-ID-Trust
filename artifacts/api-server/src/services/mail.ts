@@ -1319,7 +1319,7 @@ async function emitWebhookEvent(
     }
 
     if (useQueue) {
-      const webhookSecret = wh.secretEncrypted ? decryptSecret(wh.secretEncrypted) : undefined;
+      const webhookSecret = wh.secretEncrypted ? decryptSecret(wh.secretEncrypted) : null;
       await enqueueWebhookDelivery({
         webhookId: wh.id,
         webhookUrl: wh.url,

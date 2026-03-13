@@ -13,6 +13,12 @@ export interface ApiError {
   details?: ApiErrorDetails;
 }
 
+export interface ForbiddenResponse {
+  error: string;
+  code: string;
+  details?: ApiErrorDetails;
+}
+
 export interface SuccessMessage {
   message: string;
 }
