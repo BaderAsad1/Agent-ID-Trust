@@ -1539,7 +1539,7 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         opacity: contentOpacity * 0.8,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
-        DNS, OAuth, and payments — unified into a single cryptographic credential for autonomous agents.
+        The last identity an agent will ever need.
       </p>
 
       <div style={{
