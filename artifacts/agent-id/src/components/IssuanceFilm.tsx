@@ -606,27 +606,32 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
   return (
     <div style={{
       position: 'relative',
-      padding: '80px 60px',
+      padding: 'clamp(24px, 4vh, 80px) clamp(24px, 4vw, 60px)',
       maxWidth: 1100,
       margin: '0 auto',
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
     }}>
       <div style={{
         textAlign: 'center',
-        marginBottom: 60,
+        marginBottom: 'clamp(16px, 3vh, 48px)',
         opacity: titleOpacity,
         transform: `translateY(${titleTranslateY}px)`,
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
           letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
-          marginBottom: 16,
+          marginBottom: 'clamp(6px, 1vh, 16px)',
         }}>CREDENTIAL ANATOMY</div>
         <h2 style={{
           fontFamily: "'Bricolage Grotesque', sans-serif",
-          fontSize: 'clamp(32px, 4vw, 52px)',
+          fontSize: 'clamp(26px, 3.5vw, 48px)',
           fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1,
           color: '#e8e8f0',
-          marginBottom: 18,
+          marginBottom: 'clamp(8px, 1.2vh, 18px)',
         }}>
           Seven layers.{' '}
           <span style={{
@@ -635,7 +640,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
           }}>One credential.</span>
         </h2>
         <p style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 17, lineHeight: 1.65,
+          fontFamily: "'Inter', sans-serif", fontSize: 'clamp(13px, 1.4vw, 17px)', lineHeight: 1.55,
           color: 'rgba(232,232,240,0.5)', maxWidth: 520, margin: '0 auto',
         }}>
           Every Agent ID credential is a composite identity object — not a card, not a token,
@@ -645,15 +650,20 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
 
       <div style={{
         display: 'flex',
-        gap: 80,
+        gap: 'clamp(24px, 4vw, 80px)',
         alignItems: 'flex-start',
+        flex: 1,
+        minHeight: 0,
+        overflow: 'hidden',
       }}>
         <div style={{
-          flex: '0 0 320px',
+          flex: '0 0 clamp(200px, 25vw, 320px)',
           position: 'relative',
+          height: '100%',
+          maxHeight: 'clamp(280px, 50vh, 440px)',
         }}>
           <div style={{
-            width: 320, height: 440,
+            width: '100%', height: '100%',
             borderRadius: 20,
             background: 'rgba(12,15,30,0.95)',
             border: '1px solid rgba(79,125,243,0.1)',
@@ -663,13 +673,12 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
           }}>
             {ANATOMY_LAYERS.map((layer, i) => {
               const progress = stagger(i);
-              const yOffset = i * 58 + 20;
               return (
                 <div key={layer.id} style={{
                   position: 'absolute',
                   left: 20, right: 20,
-                  top: yOffset,
-                  height: 48,
+                  top: `${(i * 13.5) + 3}%`,
+                  height: 'clamp(32px, 6vh, 48px)',
                   borderRadius: 8,
                   background: `linear-gradient(135deg, ${layer.color}08, ${layer.color}04)`,
                   border: `1px solid ${layer.color}${progress > 0.5 ? '20' : '08'}`,
@@ -695,26 +704,26 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
           </div>
         </div>
 
-        <div style={{ flex: 1, paddingTop: 10 }}>
+        <div style={{ flex: 1, paddingTop: 0, overflow: 'hidden' }}>
           {ANATOMY_LAYERS.map((layer, i) => {
             const progress = stagger(i);
             return (
               <div key={layer.id} style={{
-                marginBottom: 28,
+                marginBottom: 'clamp(8px, 1.8vh, 24px)',
                 opacity: progress,
                 transform: `translateY(${lerp(20, 0, progress)}px)`,
-                paddingLeft: 20,
+                paddingLeft: 16,
                 borderLeft: `2px solid ${layer.color}${progress > 0.5 ? '40' : '10'}`,
                 transition: 'border-color 0.5s ease',
               }}>
                 <div style={{
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
                   letterSpacing: '0.12em', color: layer.color,
-                  marginBottom: 6,
+                  marginBottom: 3,
                 }}>{layer.label}</div>
                 <div style={{
-                  fontFamily: "'Inter', sans-serif", fontSize: 14,
-                  color: 'rgba(232,232,240,0.55)', lineHeight: 1.55,
+                  fontFamily: "'Inter', sans-serif", fontSize: 'clamp(12px, 1.2vw, 14px)',
+                  color: 'rgba(232,232,240,0.55)', lineHeight: 1.45,
                 }}>{layer.desc}</div>
               </div>
             );
@@ -740,9 +749,14 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
   return (
     <div style={{
       position: 'relative',
-      padding: '80px 60px',
+      padding: 'clamp(24px, 4vh, 60px) clamp(24px, 4vw, 60px)',
       maxWidth: 1100,
       margin: '0 auto',
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
     }}>
       <div style={{
         position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
@@ -753,21 +767,21 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
 
       <div style={{
         textAlign: 'center',
-        marginBottom: 60,
+        marginBottom: 'clamp(16px, 3vh, 48px)',
         opacity: titleOpacity,
         transform: `translateY(${titleTranslateY}px)`,
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
           letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
-          marginBottom: 16,
+          marginBottom: 'clamp(6px, 1vh, 16px)',
         }}>SYSTEM CONSEQUENCES</div>
         <h2 style={{
           fontFamily: "'Bricolage Grotesque', sans-serif",
-          fontSize: 'clamp(32px, 4vw, 52px)',
+          fontSize: 'clamp(26px, 3.5vw, 48px)',
           fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1,
           color: '#e8e8f0',
-          marginBottom: 18,
+          marginBottom: 'clamp(8px, 1.2vh, 18px)',
         }}>
           What identity{' '}
           <span style={{
@@ -776,7 +790,7 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
           }}>unlocks.</span>
         </h2>
         <p style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 17, lineHeight: 1.65,
+          fontFamily: "'Inter', sans-serif", fontSize: 'clamp(13px, 1.4vw, 17px)', lineHeight: 1.55,
           color: 'rgba(232,232,240,0.5)', maxWidth: 500, margin: '0 auto',
         }}>
           An issued credential activates an entire system of capabilities.
@@ -785,8 +799,11 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
       </div>
 
       <div style={{
-        display: 'flex', flexDirection: 'column', gap: 20,
+        display: 'flex', flexDirection: 'column', gap: 'clamp(8px, 1.5vh, 20px)',
         position: 'relative',
+        flex: 1,
+        minHeight: 0,
+        justifyContent: 'center',
       }}>
         {UNLOCK_MODULES.map((mod, i) => {
           const moduleStart = 0.15 + i * 0.14;
@@ -805,10 +822,9 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
                 top: '50%',
                 left: '50%',
                 width: isEven ? 'calc(50% - 260px)' : 0,
-                right: isEven ? undefined : undefined,
                 height: 1,
                 background: `linear-gradient(${isEven ? '270deg' : '90deg'}, ${mod.color}20, transparent)`,
-                transform: `translateY(-50%) ${isEven ? 'translateX(0)' : `translateX(-${260}px)`}`,
+                transform: `translateY(-50%) ${isEven ? 'translateX(0)' : `translateX(-260px)`}`,
                 opacity: moduleProgress,
               }} />
               {!isEven && (
@@ -828,36 +844,36 @@ function UnlocksSection({ unlocksProgress }: { unlocksProgress: number }) {
                 width: 480, maxWidth: '80%',
                 background: 'rgba(12,15,30,0.9)',
                 border: `1px solid ${mod.color}${moduleProgress > 0.5 ? '18' : '08'}`,
-                borderRadius: 16,
-                padding: '28px 32px',
+                borderRadius: 14,
+                padding: 'clamp(14px, 2vh, 28px) clamp(18px, 2.5vw, 32px)',
                 opacity: moduleProgress,
                 transform: `translateX(${isEven ? lerp(-50, 0, moduleProgress) : lerp(50, 0, moduleProgress)}px) translateY(${lerp(20, 0, moduleProgress)}px)`,
                 boxShadow: moduleProgress > 0.5 ? `0 0 40px ${mod.color}06, 0 20px 60px -15px rgba(0,0,0,0.3)` : 'none',
                 transition: 'border-color 0.5s ease, box-shadow 0.5s ease',
               }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <div style={{
-                    width: 44, height: 44, borderRadius: 12,
+                    width: 36, height: 36, borderRadius: 10,
                     background: `${mod.color}10`,
                     border: `1px solid ${mod.color}18`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 20, color: mod.color,
+                    fontSize: 16, color: mod.color,
                     flexShrink: 0,
                   }}>{mod.icon}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
                       <span style={{
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
                         letterSpacing: '0.1em', color: mod.color,
                       }}>{mod.label}</span>
                       <span style={{
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
                         color: 'rgba(232,232,240,0.3)',
                       }}>{mod.metric}</span>
                     </div>
                     <div style={{
-                      fontFamily: "'Inter', sans-serif", fontSize: 14,
-                      color: 'rgba(232,232,240,0.5)', lineHeight: 1.55,
+                      fontFamily: "'Inter', sans-serif", fontSize: 'clamp(12px, 1.2vw, 14px)',
+                      color: 'rgba(232,232,240,0.5)', lineHeight: 1.45,
                     }}>{mod.desc}</div>
                   </div>
                 </div>
@@ -877,10 +893,16 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
   return (
     <div style={{
       position: 'relative',
-      padding: '200px 80px 160px',
+      padding: 'clamp(40px, 8vh, 200px) clamp(24px, 4vw, 80px)',
       textAlign: 'center',
       opacity,
       transform: `translateY(${translateY}px)`,
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      boxSizing: 'border-box',
     }}>
       <div style={{
         position: 'absolute', top: '50%', left: '50%',
@@ -893,22 +915,23 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
       <div style={{
         fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
         letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
-        marginBottom: 24,
+        marginBottom: 'clamp(12px, 2vh, 24px)',
       }}>YOUR AGENT AWAITS</div>
 
       <h2 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(36px, 5vw, 60px)',
+        fontSize: 'clamp(30px, 4.5vw, 60px)',
         fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1.05,
         color: '#e8e8f0',
-        marginBottom: 24,
+        marginBottom: 'clamp(12px, 2vh, 24px)',
       }}>
         Claim Your Agent ID.
       </h2>
 
       <p style={{
-        fontFamily: "'Inter', sans-serif", fontSize: 18, lineHeight: 1.65,
-        color: 'rgba(232,232,240,0.45)', maxWidth: 440, margin: '0 auto 48px',
+        fontFamily: "'Inter', sans-serif", fontSize: 'clamp(14px, 1.5vw, 18px)', lineHeight: 1.55,
+        color: 'rgba(232,232,240,0.45)', maxWidth: 440, margin: '0 auto',
+        marginBottom: 'clamp(24px, 4vh, 48px)',
       }}>
         Register an agent. Issue a credential.
         Join the identity layer of the autonomous internet.
@@ -922,7 +945,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
           color: '#fff',
           background: '#4f7df3',
           border: 'none', borderRadius: 12,
-          padding: '18px 44px',
+          padding: '16px 40px',
           cursor: 'pointer', letterSpacing: '-0.01em',
           boxShadow: '0 6px 30px rgba(79,125,243,0.35), 0 2px 8px rgba(79,125,243,0.2)',
         }}>
@@ -936,8 +959,8 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
       </div>
 
       <div style={{
-        marginTop: 80,
-        display: 'flex', justifyContent: 'center', gap: 40,
+        marginTop: 'clamp(32px, 6vh, 80px)',
+        display: 'flex', justifyContent: 'center', gap: 'clamp(20px, 3vw, 40px)',
       }}>
         {[
           { value: '4,291', label: 'Credentials issued' },
@@ -947,7 +970,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
           <div key={stat.label}>
             <div style={{
               fontFamily: "'Bricolage Grotesque', sans-serif",
-              fontSize: 28, fontWeight: 700, color: '#e8e8f0',
+              fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 700, color: '#e8e8f0',
               marginBottom: 4,
             }}>{stat.value}</div>
             <div style={{
