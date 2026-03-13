@@ -861,24 +861,31 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
             height: auto !important;
           }
           .anatomy-credential {
-            flex: none !important;
-            width: 100% !important;
-            height: 200px !important;
-            max-height: 200px !important;
+            display: none !important;
           }
           .anatomy-layers {
             flex: none !important;
+            width: 100% !important;
             overflow: visible !important;
             height: auto !important;
             min-height: 0 !important;
           }
+          .anatomy-layer-item {
+            background: rgba(255,255,255,0.03) !important;
+            border-radius: 10px !important;
+            padding: 16px 18px !important;
+            padding-left: 18px !important;
+            border-left-width: 2px !important;
+            margin-bottom: 10px !important;
+          }
           .anatomy-layer-label {
-            font-size: 10px !important;
-            margin-bottom: 4px !important;
+            font-size: 11px !important;
+            margin-bottom: 6px !important;
           }
           .anatomy-layer-desc {
-            font-size: 13px !important;
-            line-height: 1.5 !important;
+            font-size: 14px !important;
+            line-height: 1.6 !important;
+            color: rgba(232,232,240,0.7) !important;
           }
         }
       `}</style>

@@ -1,0 +1,103 @@
+You have just completed a full audit of the Agent ID codebase. You have the audit report in front of you. Your job now is to resolve every finding in the report — all 5 critical issues, all 8 moderate issues, all 6 minor issues, and all 10 gaps — in a single focused sprint.
+Work through every item methodically. Do not skip anything. Do not mark something as resolved without actually fixing it.
+
+RULES FOR THIS SPRINT
+
+Fix every issue in the audit report, in order of severity: Critical first, then Moderate, then Minor, then Gaps
+Do not introduce new dependencies unless absolutely necessary — use what is already in the stack
+Do not change the visual design or copy of any page unless the audit explicitly flagged it
+For every fix, leave a one-line comment in the code explaining what was fixed and why
+If a fix requires an environment variable that is not set, add it to a .env.example file with a clear description and flag it in your summary
+If a gap requires building a new UI, match the existing design system exactly — same components, same spacing, same color tokens
+If a gap requires a decision you cannot make alone, stop, flag it clearly, and move to the next item
+When all fixes are complete, do a final pass and confirm every item from the audit report is resolved
+
+
+CRITICAL FIXES
+C1 — Broken "Log In" link on landing page
+In IssuanceFilm.tsx line 1275, the nav link routes to /login. The correct route is /sign-in. Fix the href. Verify all other nav links on the landing page route to their correct destinations.
+C2 — Fake buttons on sign-in page
+Remove "Continue with GitHub" and "Forgot password?" from the sign-in page entirely. These have no onClick handlers and actively damage trust on the most sensitive page of an identity product. Do not replace them with anything unless real functionality exists to back it up.
+C3 — Dev-mode messaging visible to users
+The sign-in page displays: "Sign in with your Replit User ID. In production, authentication is handled automatically via Replit Auth." Gate this text behind a development environment check so it only renders when NODE_ENV === 'development'. It must never appear in production.
+C4 — Stripe subscription cancellation silent failure
+In billing.ts, the empty catch {} block on Stripe subscription cancellation is silently swallowing errors. Replace it with proper error logging — log the error with full context (user ID, subscription ID, error message) and throw or surface it appropriately so orphaned subscriptions are detectable.
+C5 — @ts-nocheck on mail routes
+Remove // @ts-nocheck from routes/v1/mail.ts. Fix every type error that surfaces. Do not suppress types — resolve them. This is a critical API surface and type safety is non-negotiable.
+
+MODERATE FIXES
+M1 — Landing page to app design discontinuity
+The cinematic landing page transitions jarringly into a standard dark SaaS layout on all other pages. Add a transition that softens this handoff. At minimum: ensure the nav bar that appears on interior pages uses the same font, color tokens, and spacing language as the landing page. The goal is continuity, not matching — they can look different but they should feel like the same product.
+M2 — No marketplace listing creation UI
+The backend supports POST /marketplace/listings but there is no frontend form. Build a marketplace listing creation form in the dashboard. Fields required: listing title, description, capability tags, pricing model (per task / per hour / fixed), price, and availability toggle. Match the existing dashboard form patterns exactly.
+M3 — N+1 patterns in billing and jobs
+In billing.ts (handleInvoicePaid, enforceAgentLimitsForUser) and jobs.ts (expireJobs), replace sequential for...of loops with individual DB updates with batch operations. Use Drizzle's batch update patterns or whereIn clauses to eliminate the N+1 behavior.
+M4 — Missing database indexes
+Add the following indexes:
+
+users.email — standard index
+users.username — standard index
+agents.handle — functional index on lower(handle) to support case-insensitive lookups without full table scans
+Any marketplace listing columns used in filter + sort queries — identify these from the query patterns in the routes and add composite indexes accordingly
+
+M5 — "View API Docs" and "OpenAPI Spec" buttons on /for-agents are dead
+Wire these buttons up. If a Swagger UI or hosted OpenAPI spec page exists, link to it. If it does not exist yet, generate one: serve the existing OpenAPI 3.1 spec via Swagger UI at /api/docs and link both buttons there. This is the single most important page for developer adoption.
+M6 — Redis not configured
+Add REDIS_URL to .env.example with a clear description. In the server startup log, upgrade the current warning to a prominent startup warning that clearly states which features are disabled without Redis. Document in a README or inline comment that domain provisioning and webhook delivery require Redis to be configured.
+M7 — HMAC secret ephemeral
+Add ACTIVITY_HMAC_SECRET to .env.example with a clear description and a note that without it, activity log signatures will not survive server restarts. In the server startup log, make the current warning impossible to miss.
+M8 — Marketplace payments are simulated
+This requires a decision. There are two valid paths:
+Option A — Wire up real Stripe payment intents for marketplace transactions, replacing the pi_sim_... simulation.
+Option B — Keep simulation but make it visually explicit in the UI with a "Payments in sandbox mode" badge so users and testers know.
+Pick Option B for now and implement the sandbox badge. Flag Option A as a gap to wire up before public launch. Do not silently simulate real money movement.
+
+MINOR FIXES
+m1 — Marketplace card price display truncated
+Fix the truncated "From $15.00 /" display. Show the full unit — "$15.00 / task" or the appropriate unit from the listing data. If the unit field is missing from the data model, add it.
+m2 — "Budget TBD" fallback copy
+Replace "Budget TBD" with "Budget not specified" or hide the budget field entirely when no budget is set. Either is acceptable — pick the one that looks cleaner in context.
+m3 — 404 resource on landing page initial load
+Identify and fix the missing asset reference causing the 404 on initial load. Check the network tab for the exact resource path and resolve it.
+m4 — Seed script placeholder secrets
+Add a comment block at the top of scripts/src/seed.ts that clearly marks the placeholder values as development-only seed data and documents that they must never be used in production.
+m5 — /for-agents page uses fictional API domain
+Replace https://api.agentid.dev/v1/ in code examples with a relative reference or an environment variable placeholder that resolves correctly in both development and production. Do not hardcode a domain that may not exist.
+m6 — Webhook routing failures silent
+In the mail routing webhook failure path, replace the console.error with a structured error log that includes the webhook ID, destination, attempt count, and failure reason. Add this to the existing error logging pattern in the codebase.
+
+GAPS TO CLOSE
+G1 — API documentation
+Serve the existing OpenAPI 3.1 spec via Swagger UI at /api/docs. Link it from the /for-agents page. This closes M5 above and fills the gap simultaneously.
+G2 — Email / notification system
+Audit whether Resend is wired up end-to-end. If it is not, implement the following emails as a minimum viable notification system:
+
+Welcome email on agent registration
+Credential issued confirmation
+New job proposal received
+Marketplace order placed
+Use the existing Resend configuration in the stack. Match the dark, minimal brand aesthetic in the email templates.
+
+G3 — Agent verification flow UI
+The Ed25519 cryptographic verification challenge/response exists in the API but has no frontend UI. Build a verification flow in the dashboard: display the challenge, provide a code block showing how to sign it, accept the signature response, and show a verified badge on the agent profile on success.
+G4 — Rate limiting
+Add rate limiting middleware to all public API endpoints. Use a reasonable default: 100 requests per minute per IP for unauthenticated routes, 500 per minute for authenticated routes. Use the existing Redis connection if available, fall back to in-memory if not.
+G5 — Pricing page
+Build a /pricing public-facing page that clearly explains the Starter, Pro, and Team plans — features, limits, and prices. Match the landing page's typographic and color system. Link it from the main nav.
+G6 — Custom 404 page
+Build a custom 404 page that matches the brand. Keep it minimal — the Agent ID wordmark, a one-line message, and a link back to the landing page.
+G7 — Mobile responsive audit and fixes
+Test the dashboard and mail pages at 375px width. Fix every layout that breaks or becomes unusable at mobile width. The landing page and marketplace are confirmed working — focus only on dashboard sub-routes and mail.
+G8 — Settings page completion
+Audit the dashboard settings page. Ensure the following are functional: plan display and upgrade CTA, API key creation and revocation, danger zone (account deletion or agent deletion). If any of these are stubbed, complete them.
+G9 — Marketplace payment wiring
+This is flagged for post-launch but document it clearly: before public launch, pi_sim_... must be replaced with real Stripe payment intents. Create a TODO_BEFORE_LAUNCH.md file in the root that lists this and any other items that are intentionally deferred.
+G10 — Real marketplace payment processing
+Already captured in G9 above as a documented pre-launch item.
+
+WHEN YOU ARE DONE
+Deliver a resolution summary in this format:
+RESOLVED — [issue code] — [one line describing what was fixed]
+DEFERRED — [issue code] — [one line explaining why and what is needed to resolve]
+FLAGGED — [issue code] — [one line describing the decision needed from the product owner]
+Every item from the audit must appear in this summary. Nothing is silently skipped.
