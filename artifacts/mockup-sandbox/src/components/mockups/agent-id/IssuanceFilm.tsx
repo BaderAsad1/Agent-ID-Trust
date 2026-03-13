@@ -1186,13 +1186,22 @@ export default function IssuanceFilm() {
       <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} style={{
         position: 'relative',
         minHeight: '300vh',
-        borderTop: '1px solid rgba(255,255,255,0.04)',
       }}>
         <div style={{
           position: 'sticky',
           top: 0,
-          minHeight: '100vh',
+          height: '100vh',
           overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.anatomyProgress > 0.88
+            ? lerp(1, 0, (scroll.anatomyProgress - 0.88) / 0.12)
+            : (scroll.anatomyProgress < 0.08
+              ? lerp(0, 1, scroll.anatomyProgress / 0.08)
+              : 1),
+          transform: scroll.anatomyProgress > 0.88
+            ? `scale(${lerp(1, 0.97, (scroll.anatomyProgress - 0.88) / 0.12)}) translateY(${lerp(0, -30, (scroll.anatomyProgress - 0.88) / 0.12)}px)`
+            : undefined,
+          transition: 'opacity 0.05s linear',
         }}>
           <AnatomySection anatomyProgress={scroll.anatomyProgress} />
         </div>
@@ -1201,13 +1210,22 @@ export default function IssuanceFilm() {
       <section ref={sectionRefs.unlocks as React.RefObject<HTMLElement>} style={{
         position: 'relative',
         minHeight: '260vh',
-        borderTop: '1px solid rgba(255,255,255,0.04)',
       }}>
         <div style={{
           position: 'sticky',
           top: 0,
-          minHeight: '100vh',
+          height: '100vh',
           overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.unlocksProgress > 0.88
+            ? lerp(1, 0, (scroll.unlocksProgress - 0.88) / 0.12)
+            : (scroll.unlocksProgress < 0.08
+              ? lerp(0, 1, scroll.unlocksProgress / 0.08)
+              : 1),
+          transform: scroll.unlocksProgress > 0.88
+            ? `scale(${lerp(1, 0.97, (scroll.unlocksProgress - 0.88) / 0.12)}) translateY(${lerp(0, -30, (scroll.unlocksProgress - 0.88) / 0.12)}px)`
+            : undefined,
+          transition: 'opacity 0.05s linear',
         }}>
           <UnlocksSection unlocksProgress={scroll.unlocksProgress} />
         </div>
@@ -1215,11 +1233,24 @@ export default function IssuanceFilm() {
 
       <section ref={sectionRefs.cta as React.RefObject<HTMLElement>} style={{
         position: 'relative',
-        minHeight: '100vh',
-        borderTop: '1px solid rgba(255,255,255,0.04)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: '160vh',
       }}>
-        <CTASection ctaProgress={scroll.ctaProgress} />
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.ctaProgress < 0.1
+            ? lerp(0, 1, scroll.ctaProgress / 0.1)
+            : 1,
+          transform: scroll.ctaProgress < 0.15
+            ? `translateY(${lerp(40, 0, scroll.ctaProgress / 0.15)}px)`
+            : undefined,
+          transition: 'opacity 0.05s linear',
+        }}>
+          <CTASection ctaProgress={scroll.ctaProgress} />
+        </div>
       </section>
 
       <footer style={{
