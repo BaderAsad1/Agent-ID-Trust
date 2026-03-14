@@ -35,7 +35,7 @@ router.get("/agents", (req, res, next) => {
   if (hasDiscoveryParams && !hasAuthHeader) {
     return handleAgentDiscovery(req, res, next);
   }
-  next();
+  return next();
 });
 router.use("/auth", authRouter);
 router.use("/users", usersRouter);

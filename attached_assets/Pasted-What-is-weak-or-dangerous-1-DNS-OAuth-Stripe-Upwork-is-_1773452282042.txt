@@ -1,0 +1,285 @@
+What is weak or dangerous
+1. “DNS + OAuth + Stripe + Upwork” is too much
+
+This is fine for internal thinking, but not great external framing.
+
+Why:
+
+it sounds assembled
+
+it makes the company feel derivative
+
+it confuses the wedge
+
+You need one sharper framing.
+
+Better:
+Agent ID is the trust and identity layer for AI agents.
+
+Then later:
+
+marketplace
+
+payments
+
+mail
+
+domains
+
+as modules built on top.
+
+2. The .agent namespace part is risky
+
+This is the biggest strategic overreach in the writeup.
+
+If you do not literally control .agent, then saying:
+
+“owns the namespace”
+
+“globally resolvable via .agent”
+
+“like DNS”
+
+gets dangerous fast.
+
+You can still build the product, but you should frame it more honestly as:
+
+an agent identity namespace
+
+an agent resolution layer
+
+an addressing standard
+
+possibly mapped to your own controlled domains first
+
+Do not let the pitch depend on owning a TLD if you do not own one.
+
+3. Marketplace is probably not the opening wedge
+
+This is a major point.
+
+The marketplace is attractive in the story because it sounds big.
+But the most defensible first wedge is likely:
+
+identity
+
+trust
+
+resolution
+
+verification
+
+inbox/routing
+
+Marketplace is probably a consequence, not the initial wedge.
+
+Because otherwise people may hear:
+“Upwork for agents”
+instead of:
+“identity infrastructure for the agent internet.”
+
+That makes the company feel smaller.
+
+4. Trust score needs to be more rigorous
+
+Right now it is directionally good, but still too soft.
+
+You will need to distinguish:
+
+self-asserted claims
+
+platform-verified claims
+
+third-party attestations
+
+agent-to-agent reviews
+
+human reviews
+
+signed completions
+
+uptime
+
+abuse/failure events
+
+Otherwise “trust score” starts sounding hand-wavy.
+
+5. Agent Mail is promising, but also a second company
+
+It fits. But it’s big.
+
+You need to be careful not to pitch:
+
+identity
+
+registry
+
+marketplace
+
+payments
+
+mail
+
+as if they are all equal on day one.
+
+That makes the company sound sprawling.
+
+Better structure:
+
+core primitive: Agent ID
+
+module 1: trust
+
+module 2: inbox/mail
+
+module 3: routing
+
+module 4: marketplace/payments
+
+The cleanest version of the company
+
+If I were simplifying this, I’d say:
+
+What Agent ID is
+
+Agent ID is the identity and trust layer for AI agents.
+
+It gives every agent:
+
+a verifiable identity
+
+a resolvable address
+
+a machine-readable capability profile
+
+signed activity history
+
+a trust score
+
+an inbox/routing endpoint
+
+Then:
+
+agents can be discovered
+
+agents can be hired
+
+agents can get paid
+
+platforms can verify them
+
+That is much sharper.
+
+What the actual wedge should be
+Start with:
+
+registration
+
+verification
+
+public identity document
+
+trust score
+
+inbox/routing
+
+API resolution
+
+Then expand into:
+
+directory / discovery
+
+marketplace
+
+payments
+
+enterprise fleet controls
+
+That is a much more believable path.
+
+What investors will question
+
+They will ask:
+
+1. Why won’t this be commoditized?
+
+Your answer:
+
+identity alone might be
+
+trust graph, signed history, routing, and marketplace reputation are not as easy to commoditize
+
+2. Why do you own this layer?
+
+Your answer should not depend only on .agent.
+It should depend on:
+
+default registration flow
+
+trust graph
+
+developer adoption
+
+integrations
+
+agent-to-agent interoperability
+
+resolution/inbox/payment rails
+
+3. Why now?
+
+Because agent usage is scaling before trust infrastructure exists.
+
+That part is good.
+
+4. What is the first wedge?
+
+You need one answer.
+Not five.
+
+Best answer:
+verifiable identity + trust for autonomous agents
+
+The strongest part of your TAM story
+
+Not “billions of agents” by itself.
+
+That sounds hand-wavey unless grounded.
+
+The stronger story is:
+
+every platform using agents needs identity
+
+every enterprise deploying agents needs trust and controls
+
+every agent marketplace or workflow system needs verification
+
+every agent-to-agent interaction benefits from resolvable trust
+
+That is better than just giant numbers.
+
+My honest score
+As a raw concept:
+
+8.5/10
+
+As a pitch today:
+
+7.6/10
+
+Because it is still trying to explain too much at once.
+
+As a company if focused correctly:
+
+very high potential
+
+The key is to avoid becoming:
+
+“marketplace + mail + registry + payments + domains”
+and instead become:
+
+the identity/trust primitive that those things sit on
+
+The one-sentence version I would use
+
+Agent ID gives AI agents a verifiable identity, trust history, and routing layer so they can be discovered, trusted, and paid across the agent internet.
