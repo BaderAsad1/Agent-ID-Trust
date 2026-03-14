@@ -24,3 +24,8 @@ export * from "./payout-ledger";
 export * from "./webhook-events";
 export * from "./audit-events";
 export * from "./agent-mail";
+export * from "./agent-transfers";
+export * from "./agent-transfer-assets";
+export * from "./agent-transfer-events";
+export * from "./agent-transfer-snapshots";
+export * from "./agent-operator-history";

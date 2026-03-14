@@ -68,7 +68,19 @@ export type ActivityEventType =
   | "agent.spawned_child"
   | "agent.handle_transferred"
   | "agent.sub_handle_created"
-  | "agent.sub_handle_deleted";
+  | "agent.sub_handle_deleted"
+  | "transfer.created"
+  | "transfer.readiness_report_generated"
+  | "transfer.hold_funded"
+  | "transfer.trust_snapshotted"
+  | "transfer.handoff_started"
+  | "transfer.handoff_completed"
+  | "transfer.trust_recalibrated"
+  | "transfer.keys_rotated"
+  | "transfer.operator_changed"
+  | "transfer.dispute_raised"
+  | "transfer.dispute_resolved"
+  | "transfer.cancelled";
 
 interface LogEventInput {
   agentId: string;

@@ -206,3 +206,27 @@ export const threadStatusEnum = pgEnum("thread_status", [
   "archived",
   "closed",
 ]);
+
+export const transferStatusEnum = pgEnum("transfer_status", [
+  "draft",
+  "listed",
+  "pending_acceptance",
+  "hold_pending",
+  "transfer_pending",
+  "in_handoff",
+  "completed",
+  "disputed",
+  "cancelled",
+]);
+
+export const transferTypeEnum = pgEnum("transfer_type", [
+  "sale",
+  "private_transfer",
+  "internal_reassignment",
+]);
+
+export const transferAssetTypeEnum = pgEnum("transfer_asset_type", [
+  "transferable",
+  "buyer_must_reconnect",
+  "excluded_by_default",
+]);

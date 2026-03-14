@@ -6,6 +6,7 @@ import {
   boolean,
   integer,
   jsonb,
+  real,
   timestamp,
   index,
   uniqueIndex,
@@ -19,6 +20,7 @@ import {
   verificationStatusEnum,
   verificationMethodEnum,
   trustTierEnum,
+  transferStatusEnum,
 } from "./enums";
 
 export const agentsTable = pgTable(
@@ -56,6 +58,11 @@ export const agentsTable = pgTable(
     sponsoredBy: uuid("sponsored_by"),
     tasksReceived: integer("tasks_received").default(0).notNull(),
     tasksCompleted: integer("tasks_completed").default(0).notNull(),
+    transferStatus: transferStatusEnum("transfer_status"),
+    transferredAt: timestamp("transferred_at", { withTimezone: true }),
+    historicalAgentReputation: real("historical_agent_reputation"),
+    currentOperatorReputation: real("current_operator_reputation"),
+    effectiveLiveTrust: real("effective_live_trust"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

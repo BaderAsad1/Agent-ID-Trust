@@ -1,18 +1,20 @@
 import { Router } from "express";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   agentsTable,
   agentKeysTable,
+  agentTransfersTable,
 } from "@workspace/db/schema";
 import { AppError } from "../../middlewares/error-handler";
 import { computeTrustScore } from "../../services/trust-score";
+import { getOperatorCount, getCurrentOperator } from "../../services/operator-history";
 
-const SPEC_VERSION = "1.0.0";
+const SPEC_VERSION = "1.1.0";
 
 const router = Router();
 
-router.get("/:agentIdOrHandle/identity", async (req, res, next) => {
+router.get("/:agentIdOrHandle", async (req, res, next) => {
   try {
     const param = req.params.agentIdOrHandle as string;
 
@@ -46,38 +48,75 @@ router.get("/:agentIdOrHandle/identity", async (req, res, next) => {
 
     const lineage: Record<string, unknown> | null = agent.parentAgentId
       ? {
-          parentAgentId: agent.parentAgentId,
+          parent_agent_id: agent.parentAgentId,
           depth: agent.lineageDepth,
-          sponsoredBy: agent.sponsoredBy,
+          sponsored_by: agent.sponsoredBy,
         }
       : null;
 
+    const operatorCount = await getOperatorCount(agent.id);
+    const currentOperator = await getCurrentOperator(agent.id);
+
+    const trustSurfaces = {
+      historical_agent_reputation: agent.historicalAgentReputation ?? trustScore,
+      current_operator_reputation: agent.currentOperatorReputation ?? trustScore,
+      effective_live_trust: agent.effectiveLiveTrust ?? trustScore,
+    };
+
+    let transfer: Record<string, unknown> | null = null;
+    if (agent.transferStatus) {
+      const latestTransfer = await db.query.agentTransfersTable.findFirst({
+        where: eq(agentTransfersTable.agentId, agent.id),
+        orderBy: [desc(agentTransfersTable.createdAt)],
+        columns: { transferType: true },
+      });
+
+      transfer = {
+        status: agent.transferStatus,
+        under_new_ownership: agent.transferredAt !== null,
+        transferred_at: agent.transferredAt,
+        transfer_type: latestTransfer?.transferType ?? null,
+      };
+    }
+
+    const operatorHistory = {
+      total_operators: Math.max(operatorCount, 1),
+      current_operator_verified: currentOperator?.verificationStatus === "verified" || false,
+    };
+
     res.json({
-      specVersion: SPEC_VERSION,
-      agentId: agent.id,
+      spec_version: SPEC_VERSION,
+      agent_id: agent.id,
       handle: agent.handle,
-      displayName: agent.displayName,
+      display_name: agent.displayName,
       status: agent.status,
-      createdAt: agent.createdAt,
-      publicKeys: keys.map((k) => ({
+      created_at: agent.createdAt,
+      public_keys: keys.map((k) => ({
         kid: k.kid,
         algorithm: k.keyType,
         use: k.use,
         status: k.status === "rotated" ? "revoked" as const : k.status,
-        addedAt: k.createdAt,
+        added_at: k.createdAt,
       })),
       trust: {
         score: trustScore,
         tier: trustTier,
         signals,
       },
-      authMethods,
+      trust_surfaces: trustSurfaces,
+      transfer,
+      operator_history: operatorHistory,
+      auth_methods: authMethods,
       protocols,
       lineage,
     });
   } catch (err) {
     next(err);
   }
+});
+
+router.get("/:agentIdOrHandle/identity", (req, res) => {
+  res.redirect(301, `/api/v1/public/agents/${req.params.agentIdOrHandle}`);
 });
 
 export default router;
