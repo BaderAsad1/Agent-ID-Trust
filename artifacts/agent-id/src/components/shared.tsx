@@ -8,9 +8,9 @@ export function AgentHandle({ handle, showPrefix = true, size = 'md' }: { handle
     <span
       className={`inline-flex items-center gap-1.5 rounded-md ${sizeClasses[size]} cursor-pointer group`}
       style={{ fontFamily: 'var(--font-mono)', background: 'rgba(59,130,246,0.1)', color: 'var(--text-primary)' }}
-      onClick={() => { navigator.clipboard.writeText(`agent.id/${handle}`); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      onClick={() => { navigator.clipboard.writeText(`getagent.id/${handle}`); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
     >
-      {showPrefix && <span style={{ color: 'var(--text-muted)' }}>agent.id/</span>}
+      {showPrefix && <span style={{ color: 'var(--text-muted)' }}>getagent.id/</span>}
       <span>{handle}</span>
       {copied ? <Check className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--success)' }} /> : <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-muted)' }} />}
     </span>

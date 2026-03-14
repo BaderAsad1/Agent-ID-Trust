@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -8,6 +8,17 @@ import { useAuth } from '@/lib/AuthContext';
 import { api, type Agent, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job } from '@/lib/api';
 import { formatPrice } from '@/lib/pricing';
 import { Mail } from '@/pages/Mail';
+
+async function initiateHandleCheckout(handle: string) {
+  const base = window.location.origin;
+  const successUrl = `${base}/dashboard?payment=success&handle=${encodeURIComponent(handle)}`;
+  const cancelUrl = `${base}/dashboard?payment=cancelled&handle=${encodeURIComponent(handle)}`;
+  const result = await api.payments.handleCheckout(handle, successUrl, cancelUrl);
+  if (result.url) {
+    window.location.href = result.url;
+  }
+  return result;
+}
 
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
@@ -149,12 +160,24 @@ console.log(sig.toString("base64"));`}</pre>
 
 function Overview() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { agents, refreshAgents } = useAuth();
   const [stats, setStats] = useState<Record<string, unknown> | null>(null);
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [verifyingAgent, setVerifyingAgent] = useState<Agent | null>(null);
+  const [transferringAgent, setTransferringAgent] = useState<Agent | null>(null);
+
+  const searchParams = new URLSearchParams(location.search);
+  const paymentResult = searchParams.get('payment');
+  const paymentHandle = searchParams.get('handle');
+
+  useEffect(() => {
+    if (paymentResult === 'success') {
+      refreshAgents();
+    }
+  }, [paymentResult, refreshAgents]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -195,6 +218,28 @@ function Overview() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Overview</h1>
+      {paymentResult === 'success' && (
+        <div className="flex items-center gap-3 p-4 rounded-xl mb-6" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}>
+          <CheckCircle className="w-5 h-5" style={{ color: 'var(--success)' }} />
+          <div>
+            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Payment successful!</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {paymentHandle ? `Handle "${paymentHandle}" is now active.` : 'Your handle is now active.'} Your agent can be activated and listed publicly.
+            </div>
+          </div>
+        </div>
+      )}
+      {paymentResult === 'cancelled' && (
+        <div className="flex items-center gap-3 p-4 rounded-xl mb-6" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+          <AlertCircle className="w-5 h-5" style={{ color: 'var(--warning, #f59e0b)' }} />
+          <div>
+            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Payment cancelled</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {paymentHandle ? `Handle "${paymentHandle}" is still reserved but inactive.` : 'Your handle is still reserved.'} Use the "Pay Now" button below to complete payment.
+            </div>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         {statCards.map(s => (
           <GlassCard key={s.label} className="!p-4">
@@ -226,13 +271,35 @@ function Overview() {
                 </div>
                 <TrustScoreRing score={agent.trustScore || 0} size={48} />
               </div>
-              <div className="flex gap-2 mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+              {agent.handlePricing?.paymentStatus === 'pending' && (
+                <div className="flex items-center gap-3 mt-3 p-3 rounded-lg" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--warning, #f59e0b)' }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>Handle payment required</div>
+                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      ${agent.handlePricing.annualPriceDollars}/yr — complete payment to activate
+                    </div>
+                  </div>
+                  <PrimaryButton
+                    onClick={async () => {
+                      try { await initiateHandleCheckout(agent.handle); } catch { /* handled by redirect */ }
+                    }}
+                    className="!py-1.5 !px-3 !text-xs"
+                  >
+                    <CreditCard className="w-3 h-3 mr-1" /> Pay Now
+                  </PrimaryButton>
+                </div>
+              )}
+              <div className="flex gap-2 mt-4 pt-4 border-t flex-wrap" style={{ borderColor: 'var(--border-color)' }}>
                 <PrimaryButton variant="ghost" onClick={() => navigate(`/${agent.handle}`)}>View Profile</PrimaryButton>
                 {agent.verificationStatus !== 'verified' && (
                   <PrimaryButton variant="ghost" onClick={() => setVerifyingAgent(agent)}>
                     <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Verify
                   </PrimaryButton>
                 )}
+                <PrimaryButton variant="ghost" onClick={() => setTransferringAgent(agent)}>
+                  <ArrowRightLeft className="w-3.5 h-3.5 mr-1" /> Transfer
+                </PrimaryButton>
                 <PrimaryButton variant="ghost">Edit</PrimaryButton>
               </div>
             </GlassCard>
@@ -257,6 +324,9 @@ function Overview() {
       )}
       {verifyingAgent && (
         <VerifyAgentModal agent={verifyingAgent} onClose={() => setVerifyingAgent(null)} onVerified={() => { fetchData(); refreshAgents(); }} />
+      )}
+      {transferringAgent && (
+        <HandleTransferModal agent={transferringAgent} onClose={() => setTransferringAgent(null)} onTransferred={() => { fetchData(); refreshAgents(); }} />
       )}
     </div>
   );
@@ -663,9 +733,249 @@ function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; 
   );
 }
 
+function HandleTransferModal({ agent, onClose, onTransferred }: { agent: Agent; onClose: () => void; onTransferred: () => void }) {
+  const [targetUserId, setTargetUserId] = useState('');
+  const [transferring, setTransferring] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleTransfer = async () => {
+    if (!targetUserId.trim()) return;
+    setTransferring(true);
+    setError(null);
+    try {
+      await api.transfer.initiate(agent.id, targetUserId.trim());
+      setSuccess(true);
+      setTimeout(() => { onTransferred(); onClose(); }, 1500);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Transfer failed');
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+      <div className="w-full max-w-md rounded-2xl p-6 relative" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
+        <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }} aria-label="Close"><X className="w-5 h-5" /></button>
+        <div className="flex items-center gap-3 mb-4">
+          <ArrowRightLeft className="w-6 h-6" style={{ color: 'var(--accent)' }} />
+          <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer @{agent.handle}</h3>
+        </div>
+
+        {success ? (
+          <div className="text-center py-4">
+            <CheckCircle className="w-10 h-10 mx-auto mb-2" style={{ color: 'var(--success)' }} />
+            <p className="text-sm font-semibold" style={{ color: 'var(--success)' }}>Handle transferred successfully!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Transfer ownership of this handle to another account. This action is irreversible — the new owner will have full control.
+            </p>
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
+                <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+              </div>
+            )}
+            <div>
+              <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>New Owner User ID</label>
+              <input
+                value={targetUserId}
+                onChange={e => setTargetUserId(e.target.value)}
+                placeholder="Enter the target user ID"
+                className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <PrimaryButton variant="danger" onClick={handleTransfer} disabled={transferring || !targetUserId.trim()}>
+              {transferring ? 'Transferring...' : 'Transfer Handle'}
+            </PrimaryButton>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FleetManagement() {
+  const { agents } = useAuth();
+  const [fleets, setFleets] = useState<Array<{ rootHandle: string; rootAgent: Agent; subHandles: Array<{ id: string; handle: string; displayName: string; status: string; trustScore: number; capabilities: string[]; createdAt: string }> }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [selectedRoot, setSelectedRoot] = useState('');
+  const [subName, setSubName] = useState('');
+  const [subDisplayName, setSubDisplayName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const rootHandles = agents.filter(a => !a.handle.includes('.'));
+
+  const fetchFleets = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.fleet.list();
+      setFleets(result.fleets || []);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message.includes('403')) {
+        setError('Fleet management requires a Pro or Enterprise plan.');
+      } else {
+        setError(e instanceof Error ? e.message : 'Failed to load fleets');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchFleets(); }, [fetchFleets]);
+
+  const handleCreate = async () => {
+    if (!selectedRoot || !subName.trim() || !subDisplayName.trim()) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await api.fleet.createSubHandle({
+        rootHandle: selectedRoot,
+        subName: subName.trim(),
+        displayName: subDisplayName.trim(),
+      });
+      setShowCreate(false);
+      setSubName('');
+      setSubDisplayName('');
+      fetchFleets();
+    } catch (e: unknown) {
+      setCreateError(e instanceof Error ? e.message : 'Failed to create sub-handle');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (agentId: string) => {
+    try {
+      await api.fleet.deleteSubHandle(agentId);
+      fetchFleets();
+    } catch (e: unknown) {
+      console.error('Failed to delete sub-handle:', e);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Fleet Management</h1>
+        <PrimaryButton onClick={() => setShowCreate(true)} disabled={rootHandles.length === 0}>
+          <Network className="w-4 h-4 mr-1" /> Create Sub-Handle
+        </PrimaryButton>
+      </div>
+
+      <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+        Provision sub-handles under your root handles (e.g., <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>research.acme</span>). Each sub-handle has independent trust scores and capabilities.
+      </p>
+
+      {showCreate && (
+        <GlassCard className="!p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>New Sub-Handle</h3>
+          {createError && (
+            <div className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
+              <AlertCircle className="w-4 h-4 flex-shrink-0" /> {createError}
+            </div>
+          )}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Root Handle</label>
+              <select value={selectedRoot} onChange={e => setSelectedRoot(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+                <option value="">Select a root handle</option>
+                {rootHandles.map(a => <option key={a.id} value={a.handle}>@{a.handle}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Sub-Handle Name</label>
+              <div className="flex items-center gap-2">
+                <input value={subName} onChange={e => setSubName(e.target.value)} placeholder="research" className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+                {selectedRoot && <span className="text-sm" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>.{selectedRoot}</span>}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Display Name</label>
+              <input value={subDisplayName} onChange={e => setSubDisplayName(e.target.value)} placeholder="Research Division" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+            </div>
+            <div className="flex gap-3">
+              <PrimaryButton onClick={handleCreate} disabled={creating || !selectedRoot || !subName.trim() || !subDisplayName.trim()}>
+                {creating ? 'Creating...' : 'Create Sub-Handle'}
+              </PrimaryButton>
+              <PrimaryButton variant="ghost" onClick={() => setShowCreate(false)}>Cancel</PrimaryButton>
+            </div>
+          </div>
+        </GlassCard>
+      )}
+
+      {loading ? (
+        <ListSkeleton rows={4} />
+      ) : error ? (
+        <ErrorState message={error} onRetry={fetchFleets} />
+      ) : fleets.length === 0 ? (
+        <EmptyState
+          icon={<Network className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />}
+          title="No fleets yet"
+          description="Register a root handle and create sub-handles to manage your agent fleet."
+        />
+      ) : (
+        <div className="space-y-6">
+          {fleets.map(fleet => (
+            <GlassCard key={fleet.rootHandle}>
+              <div className="flex items-center gap-3 mb-4">
+                <Identicon handle={fleet.rootHandle} size={36} />
+                <div>
+                  <div className="text-lg font-bold" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>@{fleet.rootHandle}</div>
+                  <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{fleet.subHandles.length} sub-handle{fleet.subHandles.length !== 1 ? 's' : ''}</div>
+                </div>
+              </div>
+              {fleet.subHandles.length === 0 ? (
+                <p className="text-sm" style={{ color: 'var(--text-dim)' }}>No sub-handles created yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {fleet.subHandles.map(sub => (
+                    <div key={sub.id} className="flex items-center justify-between py-2 px-3 rounded-lg" style={{ background: 'var(--bg-base)' }}>
+                      <div className="flex items-center gap-3">
+                        <Identicon handle={sub.handle} size={28} />
+                        <div>
+                          <div className="text-sm font-medium" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{sub.handle}</div>
+                          <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{sub.displayName}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <TrustScoreRing score={sub.trustScore} size={28} />
+                        <StatusDot status={sub.status as 'active' | 'inactive' | 'draft'} />
+                        <button onClick={() => handleDelete(sub.id)} className="text-xs cursor-pointer" style={{ color: 'var(--danger)', background: 'none', border: 'none' }}>Remove</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </GlassCard>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DomainDashboard() {
   const { agents } = useAuth();
-  const [hnsEnabled, setHnsEnabled] = useState(false);
+  const [registryStatuses, setRegistryStatuses] = useState<Record<string, { registered: boolean; domain: string; resolveUrl: string; dnsbridge: string; status: string; registeredAt: string | null }>>({});
+  const [transferAgent, setTransferAgent] = useState<Agent | null>(null);
+  const { refreshAgents } = useAuth();
+
+  useEffect(() => {
+    agents.forEach(async agent => {
+      try {
+        const status = await api.registry.status(agent.id);
+        setRegistryStatuses(prev => ({ ...prev, [agent.id]: status }));
+      } catch { /* ignore */ }
+    });
+  }, [agents]);
 
   return (
     <div>
@@ -674,36 +984,78 @@ function DomainDashboard() {
         <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agent domain." />
       ) : (
         <div className="space-y-6">
-          {agents.map(agent => (
-            <GlassCard key={agent.id}>
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{agent.domainName || `${agent.handle}.agent`}</div>
-                  <StatusDot status={agent.domainStatus === 'active' ? 'active' : 'inactive'} />
+          {agents.map(agent => {
+            const reg = registryStatuses[agent.id];
+            return (
+              <GlassCard key={agent.id}>
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{agent.domainName || `${agent.handle}.agent`}</div>
+                    <StatusDot status={agent.domainStatus === 'active' ? 'active' : 'inactive'} />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setTransferAgent(agent)} className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer flex items-center gap-1" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Transfer">
+                      <ArrowRightLeft className="w-3 h-3" /> Transfer
+                    </button>
+                    <button className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Copy domain">Copy</button>
+                  </div>
                 </div>
-                <button className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Copy domain">Copy</button>
-              </div>
-              <DomainRecordsTable agentId={agent.id} handle={agent.handle} domainName={agent.domainName} />
-              <div className="flex items-center justify-between py-3 px-4 rounded-lg" style={{ background: 'var(--bg-elevated)' }}>
-                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Handshake blockchain anchoring</span>
-                <button
-                  onClick={() => setHnsEnabled(!hnsEnabled)}
-                  className="w-10 h-5 rounded-full transition-colors relative cursor-pointer"
-                  style={{ background: hnsEnabled ? 'var(--domain)' : 'var(--border-color)', border: 'none' }}
-                  aria-label="Toggle Handshake anchoring"
-                >
-                  <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ left: hnsEnabled ? '22px' : '2px' }} />
-                </button>
-              </div>
-            </GlassCard>
-          ))}
+                <DomainRecordsTable agentId={agent.id} handle={agent.handle} domainName={agent.domainName} />
+
+                <div className="rounded-lg border p-4 mt-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.04)' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Globe className="w-5 h-5" style={{ color: 'var(--domain)' }} />
+                      <div>
+                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>.agent Protocol Registry</div>
+                        <div className="text-xs" style={{ color: 'var(--text-dim)' }}>
+                          {reg?.registered
+                            ? `Registered — resolvable at ${reg.domain}`
+                            : 'Pending registration in .agent registry'}
+                        </div>
+                      </div>
+                    </div>
+                    {reg?.registered ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--success)' }} /> Registered
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full" style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308' }}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#eab308' }} /> Pending
+                      </span>
+                    )}
+                  </div>
+                  {reg?.registered && (
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div className="rounded-md p-2.5" style={{ background: 'rgba(6,182,212,0.06)' }}>
+                        <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Protocol Resolve</div>
+                        <div className="text-xs truncate" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{reg.resolveUrl}</div>
+                      </div>
+                      <div className="rounded-md p-2.5" style={{ background: 'rgba(6,182,212,0.06)' }}>
+                        <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>DNS Bridge</div>
+                        <div className="text-xs truncate" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{reg.dnsbridge}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </GlassCard>
+            );
+          })}
 
           <div className="rounded-xl border p-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
             <p className="text-sm" style={{ color: 'var(--domain)' }}>
-              Your .agent domain is included with your plan and managed automatically. Agent ID operates the .agent namespace via our global anycast DNS infrastructure.
+              Your .agent domain is part of the Agent ID protocol namespace — like ENS for AI agents. Every registered handle is resolvable via the protocol layer (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agent</code>) and via standard DNS (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>).
             </p>
           </div>
         </div>
+      )}
+
+      {transferAgent && (
+        <HandleTransferModal
+          agent={transferAgent}
+          onClose={() => setTransferAgent(null)}
+          onTransferred={() => refreshAgents()}
+        />
       )}
     </div>
   );
@@ -835,6 +1187,7 @@ export function Dashboard() {
   else if (path === '/dashboard/log') content = <ActivityLogPage />;
   else if (path === '/dashboard/marketplace') content = <MarketplaceDashboard />;
   else if (path === '/dashboard/domain') content = <DomainDashboard />;
+  else if (path === '/dashboard/fleet') content = <FleetManagement />;
   else if (path === '/dashboard/settings') content = <SettingsPage />;
   else content = <Overview />;
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Identicon, TrustScoreRing, StarRating } from '@/components/shared';
 import { agents, marketplaceListings } from '@/lib/data';
-import { formatPrice } from '@/lib/pricing';
+import { formatPrice, HANDLE_PRICING_TIERS } from '@/lib/pricing';
 import { Footer } from '@/components/Footer';
 
 /* ═══════════════════════════════════════════════
@@ -669,9 +669,8 @@ function PricingSection() {
   const navigate = useNavigate();
   const plans = [
     { name: 'Free', price: '$0', period: '', desc: 'One agent. Private. Sandbox mode.', features: ['1 agent', 'Private profile', 'Basic analytics'] },
-    { name: 'Basic', price: '$24', period: '/yr', desc: 'Public profile. .agent domain. Listed.', features: ['1 agent', 'Public profile', '.agent domain', 'Marketplace listing'] },
-    { name: 'Pro', price: '$99', period: '/yr', desc: 'Signed logs. Reputation. API access.', features: ['5 agents', 'Signed activity logs', 'Reputation system', 'API access', 'Priority placement'], popular: true },
-    { name: 'Team', price: '$499', period: '/yr', desc: 'Org management. SLA. Priority support.', features: ['10 agents', 'Org management', 'Team dashboard', 'Priority support', 'SLA guarantee'] },
+    { name: 'Pro', price: '$29', period: '/mo', desc: 'Up to 10 agents. Sub-handles. API access.', features: ['10 agents', 'Sub-handle delegation', 'Signed activity logs', 'API access', 'Priority placement'], popular: true },
+    { name: 'Enterprise', price: 'Custom', period: '', desc: 'Fleet management. SLA. Dedicated support.', features: ['Unlimited agents', 'Fleet management', 'SSO & team dashboard', 'Priority support', 'SLA guarantee'] },
   ];
 
   return (
@@ -679,12 +678,28 @@ function PricingSection() {
       <div className="max-w-[1000px] mx-auto">
         <div className="mb-16">
           <p className="text-xs uppercase tracking-[0.2em] mb-6" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>Pricing</p>
-          <h2 className="text-2xl md:text-3xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-            Simple, annual pricing.
+          <h2 className="text-2xl md:text-3xl font-bold mb-3" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+            Name pricing + platform plans.
           </h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)', maxWidth: '500px' }}>
+            Handles are owned assets with ENS-style pricing by character length. Platform features scale with your plan.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="mb-12">
+          <p className="text-xs uppercase tracking-[0.15em] mb-4" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>Handle registration (annual, per handle)</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {HANDLE_PRICING_TIERS.map(tier => (
+              <div key={tier.label} className="rounded-xl border p-4 text-center" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+                <div className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{tier.label}</div>
+                <div className="text-2xl font-bold mb-0.5" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>${tier.annualPrice}</div>
+                <div className="text-[10px]" style={{ color: 'var(--text-dim)' }}>per year</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {plans.map(p => (
             <div
               key={p.name}
@@ -726,8 +741,8 @@ function PricingSection() {
             </div>
           ))}
         </div>
-        <p className="text-center text-xs mt-8" style={{ color: 'var(--text-dim)' }}>
-          All plans include a free .agent domain. Agents can self-register via API.
+        <p className="text-center text-xs mt-6" style={{ color: 'var(--text-dim)' }}>
+          Every handle is resolvable via the .agent protocol layer and via DNS at handle.getagent.id. Like ENS for AI agents — we own the full stack.
         </p>
       </div>
     </section>

@@ -232,22 +232,22 @@ async function seed() {
   await db.insert(agentDomainsTable).values([
     {
       agentId: agent1.id,
-      domain: "research-agent.agentid.dev",
-      baseDomain: "agentid.dev",
+      domain: "research-agent.getagent.id",
+      baseDomain: "getagent.id",
       status: "active",
       provisionedAt: new Date(),
     },
     {
       agentId: agent2.id,
-      domain: "code-reviewer.agentid.dev",
-      baseDomain: "agentid.dev",
+      domain: "code-reviewer.getagent.id",
+      baseDomain: "getagent.id",
       status: "active",
       provisionedAt: new Date(),
     },
     {
       agentId: agent3.id,
-      domain: "data-pipeline.agentid.dev",
-      baseDomain: "agentid.dev",
+      domain: "data-pipeline.getagent.id",
+      baseDomain: "getagent.id",
       status: "pending",
     },
   ]);

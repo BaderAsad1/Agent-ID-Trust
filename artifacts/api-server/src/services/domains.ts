@@ -8,7 +8,7 @@ import {
 import { logActivity } from "./activity-logger";
 import { enqueueDomainProvisioning } from "../workers/domain-provisioning";
 
-const DEFAULT_BASE_DOMAIN = "agentid.dev";
+const DEFAULT_BASE_DOMAIN = "getagent.id";
 
 function getBaseDomain(): string {
   return process.env.BASE_AGENT_DOMAIN ?? DEFAULT_BASE_DOMAIN;

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Github, Wallet, Key, Check, ChevronLeft, Loader2, User, Bot, AlertCircle } from 'lucide-react';
+import { Github, Wallet, Key, Check, ChevronLeft, Loader2, User, Bot, AlertCircle, CreditCard } from 'lucide-react';
 import { PrimaryButton, InputField, CapabilityChip, DomainBadge, AvailabilityCheck } from '@/components/shared';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
+import { getHandlePrice } from '@/lib/pricing';
 
 const capabilities = ['Research', 'Code Generation', 'Data Analysis', 'Customer Support', 'Content Creation', 'Scheduling', 'File Management', 'Web Search', 'API Integration', 'Database Query', 'Image Generation', 'Custom...'];
 
@@ -99,6 +100,7 @@ export function Start() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const [signInId, setSignInId] = useState('');
 
@@ -212,12 +214,48 @@ export function Start() {
           </div>
           <div className="space-y-2 mb-8">
             <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>agent.id/{handle}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>getagent.id/{handle}</span>
             </div>
             <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
               <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{handle}.agent</span>
             </div>
           </div>
+          {handle && (() => {
+            const { annualPrice } = getHandlePrice(handle);
+            return (
+              <div className="mb-6 p-4 rounded-xl text-left" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-4 h-4" style={{ color: 'var(--warning, #f59e0b)' }} />
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Complete handle payment to activate</span>
+                </div>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                  Your handle <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{handle}.agent</span> is reserved.
+                  Pay ${annualPrice}/yr to activate your agent.
+                </p>
+                <PrimaryButton
+                  disabled={checkoutLoading}
+                  onClick={async () => {
+                    setCheckoutLoading(true);
+                    try {
+                      const base = window.location.origin;
+                      const result = await api.payments.handleCheckout(
+                        handle,
+                        `${base}/dashboard?payment=success&handle=${encodeURIComponent(handle)}`,
+                        `${base}/dashboard?payment=cancelled&handle=${encodeURIComponent(handle)}`
+                      );
+                      if (result.url) window.location.href = result.url;
+                    } catch {
+                      setCheckoutLoading(false);
+                    }
+                  }}
+                  className="w-full"
+                >
+                  {checkoutLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
+                  Pay ${annualPrice}/yr — Activate Handle
+                </PrimaryButton>
+              </div>
+            );
+          })()}
           <div className="flex gap-3 justify-center">
             <PrimaryButton onClick={() => navigate(`/${handle}`)}>View Your Profile</PrimaryButton>
             <PrimaryButton variant="ghost" onClick={() => navigate('/dashboard')}>Go to Dashboard</PrimaryButton>
@@ -278,8 +316,16 @@ export function Start() {
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>This is your agent's permanent identity. Choose carefully.</p>
             </div>
             <InputField label="Agent Display Name" placeholder="Research Agent" value={agentName} onChange={setAgentName} />
-            <InputField label="Agent Handle" placeholder="research-agent" value={handle} onChange={setHandle} prefix="agent.id/" mono suffix={<AvailabilityCheck available={handle ? (checkingHandle ? null : available) : null} />} />
-            {handle && available && <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Your agent will be at: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>agent.id/{handle}</span></p>}
+            <InputField label="Agent Handle" placeholder="research-agent" value={handle} onChange={setHandle} prefix="getagent.id/" mono suffix={<AvailabilityCheck available={handle ? (checkingHandle ? null : available) : null} />} />
+            {handle && available && (
+              <div className="space-y-1">
+                <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Your agent will be at: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>getagent.id/{handle}</span></p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Handle cost: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontWeight: 600 }}>{getHandlePrice(handle).annualPrice === 0 ? 'Free' : `$${getHandlePrice(handle).annualPrice}/yr`}</span>
+                  <span style={{ color: 'var(--text-dim)' }}> — {getHandlePrice(handle).tier.description}</span>
+                </p>
+              </div>
+            )}
             <InputField label="Short description" placeholder="What does your agent do?" value={description} onChange={setDescription} maxLength={200} charCount />
           </div>
         )}

@@ -78,7 +78,7 @@ export class ResendTransportProvider implements TransportProvider {
         error: "RESEND_API_KEY not configured",
       };
     }
-    const fromEmail = process.env.FROM_EMAIL || "notifications@agentid.dev";
+    const fromEmail = process.env.FROM_EMAIL || "notifications@getagent.id";
     const resend = await this.getClient();
     const { data, error } = await resend.emails.send({
       from: fromEmail,

@@ -4,7 +4,7 @@ import { Copy, Check, Terminal, Zap, Key, Globe } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { Footer } from '@/components/Footer';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.agentid.dev/v1';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.getagent.id/v1';
 
 const REGISTER_CURL = `curl -X POST ${API_BASE}/agents/register \\
   -H "Content-Type: application/json" \\
@@ -52,7 +52,7 @@ console.log(data.agent_id);  // agt_01j...
 console.log(data.domain);    // your-handle.agent`;
 
 const REGISTER_HTTP = `POST ${API_BASE.replace(/^https?:\/\/[^/]+/, '')}/agents/register HTTP/1.1
-Host: ${(() => { try { return new URL(API_BASE).host; } catch { return 'api.agentid.dev'; } })()}
+Host: ${(() => { try { return new URL(API_BASE).host; } catch { return 'api.getagent.id'; } })()}
 Content-Type: application/json
 
 {
@@ -69,7 +69,7 @@ const REGISTER_RESPONSE = `{
   "domain": "your-handle.agent",
   "verification_token": "agid_verify_a3f7c2e1b8d4f912c1e5a7b3",
   "status": "pending_verification",
-  "profile_url": "https://agentid.dev/your-handle"
+  "profile_url": "https://getagent.id/your-handle"
 }`;
 
 const VERIFY_CURL = `curl -X POST ${API_BASE}/agents/verify \\
@@ -85,7 +85,7 @@ const VERIFY_RESPONSE = `{
   "trust_score": 45,
   "domain": "your-handle.agent",
   "domain_status": "propagating",
-  "profile_url": "https://agentid.dev/your-handle",
+  "profile_url": "https://getagent.id/your-handle",
   "message": "Identity verified. Domain will propagate in ~2 minutes."
 }`;
 
@@ -230,7 +230,7 @@ export function ForAgents() {
               <div className="space-y-3 text-sm" style={{ fontFamily: 'var(--font-mono)' }}>
                 <div className="flex items-center gap-3">
                   <span style={{ color: 'var(--text-dim)' }}>Handle:</span>
-                  <span style={{ color: 'var(--text-primary)' }}>agent.id/your-handle</span>
+                  <span style={{ color: 'var(--text-primary)' }}>getagent.id/your-handle</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span style={{ color: 'var(--text-dim)' }}>Domain:</span>

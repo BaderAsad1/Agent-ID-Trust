@@ -13,7 +13,7 @@ import {
 } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
-import { requirePlanFeature } from "../../services/billing";
+import { requirePlanFeature, getHandlePriceCents } from "../../services/billing";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentActivityLogTable } from "@workspace/db/schema";
@@ -63,16 +63,32 @@ router.post("/", requireAuth, async (req, res, next) => {
       throw new AppError(400, "INVALID_HANDLE", handleError);
     }
 
-    const available = await isHandleAvailable(handle);
+    const normalizedHandle = handle.toLowerCase();
+    const available = await isHandleAvailable(normalizedHandle);
     if (!available) {
       throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
     }
+
+    const handlePriceCents = getHandlePriceCents(normalizedHandle);
+    const handleLen = normalizedHandle.replace(/[^a-z0-9]/g, "").length;
+    const pricingTier = handleLen <= 3 ? "ultra_premium" : handleLen === 4 ? "premium" : "standard";
 
     let agent;
     try {
       agent = await createAgent({
         userId: req.userId!,
         ...parsed.data,
+        handle: normalizedHandle,
+        metadata: {
+          ...(parsed.data.metadata || {}),
+          handlePricing: {
+            annualPriceCents: handlePriceCents,
+            tier: pricingTier,
+            characterLength: handleLen,
+            paymentStatus: "pending",
+            registeredAt: new Date().toISOString(),
+          },
+        },
       });
     } catch (err) {
       if (err instanceof Error && err.message === "HANDLE_CONFLICT") {
@@ -84,14 +100,26 @@ router.post("/", requireAuth, async (req, res, next) => {
     await logActivity({
       agentId: agent.id,
       eventType: "agent.created",
-      payload: { handle: agent.handle },
+      payload: {
+        handle: agent.handle,
+        handlePriceCents,
+        pricingTier,
+      },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });
 
     await recomputeAndStore(agent.id);
 
-    res.status(201).json(agent);
+    res.status(201).json({
+      ...agent,
+      handlePricing: {
+        annualPriceCents: handlePriceCents,
+        annualPriceDollars: handlePriceCents / 100,
+        tier: pricingTier,
+        characterLength: handleLen,
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -100,7 +128,23 @@ router.post("/", requireAuth, async (req, res, next) => {
 router.get("/", requireAuth, async (req, res, next) => {
   try {
     const agents = await listAgentsByUser(req.userId!);
-    res.json({ agents });
+    const enriched = agents.map((a) => {
+      const meta = (a.metadata || {}) as Record<string, unknown>;
+      const hp = meta.handlePricing as Record<string, unknown> | undefined;
+      return {
+        ...a,
+        handlePricing: hp
+          ? {
+              annualPriceCents: hp.annualPriceCents,
+              annualPriceDollars: Number(hp.annualPriceCents) / 100,
+              tier: hp.tier,
+              characterLength: hp.characterLength,
+              paymentStatus: hp.paymentStatus,
+            }
+          : undefined,
+      };
+    });
+    res.json({ agents: enriched });
   } catch (err) {
     next(err);
   }
@@ -134,11 +178,32 @@ router.put("/:agentId", requireAuth, async (req, res, next) => {
       throw new AppError(400, "VALIDATION_ERROR", "No fields to update");
     }
 
+    if (parsed.data.metadata) {
+      const incoming = parsed.data.metadata as Record<string, unknown>;
+      delete incoming.handlePricing;
+    }
+
     if (parsed.data.isPublic === true) {
       const eligibility = await requirePlanFeature(req.userId!, "canListOnMarketplace");
       if (!eligibility.allowed) {
         throw new AppError(403, "PLAN_REQUIRED",
           `Marketplace listing requires the ${eligibility.requiredPlan} plan or higher. Current plan: ${eligibility.currentPlan}`);
+      }
+    }
+
+    const existingAgent = await getAgentById(agentId);
+    if (existingAgent) {
+      const meta = (existingAgent.metadata || {}) as Record<string, unknown>;
+      const hp = meta.handlePricing as Record<string, unknown> | undefined;
+      if (hp?.paymentStatus === "pending") {
+        if (parsed.data.status === "active") {
+          throw new AppError(402, "HANDLE_PAYMENT_REQUIRED",
+            "Handle payment must be completed before activating this agent. Use POST /billing/handle-checkout.");
+        }
+        if (parsed.data.isPublic === true) {
+          throw new AppError(402, "HANDLE_PAYMENT_REQUIRED",
+            "Handle payment must be completed before listing this agent publicly.");
+        }
       }
     }
 

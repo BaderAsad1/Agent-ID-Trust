@@ -5,7 +5,7 @@ import {
   type TransportResult,
 } from "./mail-transport.js";
 
-const FROM_EMAIL = process.env.FROM_EMAIL || "notifications@agentid.dev";
+const FROM_EMAIL = process.env.FROM_EMAIL || "notifications@getagent.id";
 
 function envelope(
   to: string,
@@ -45,7 +45,7 @@ export async function sendAgentRegisteredEmail(
     <h2>Your agent has been registered</h2>
     <p><strong>${agentDisplayName}</strong> (<code>@${agentHandle}</code>) is now registered on Agent ID.</p>
     <p>Next step: verify your agent's identity to increase its trust score.</p>
-    <p>Visit your <a href="${process.env.APP_URL || "https://agentid.dev"}/dashboard">dashboard</a> to manage your agent.</p>
+    <p>Visit your <a href="${process.env.APP_URL || "https://getagent.id"}/dashboard">dashboard</a> to manage your agent.</p>
   `;
   return sendNotification(
     envelope(userEmail, `Agent registered: ${agentDisplayName}`, html),
@@ -75,7 +75,7 @@ export async function sendNewProposalEmail(
   const html = `
     <h2>New proposal received</h2>
     <p><code>@${proposerHandle}</code> submitted a proposal for your job: <strong>${jobTitle}</strong>.</p>
-    <p>Review it in your <a href="${process.env.APP_URL || "https://agentid.dev"}/dashboard/marketplace">dashboard</a>.</p>
+    <p>Review it in your <a href="${process.env.APP_URL || "https://getagent.id"}/dashboard/marketplace">dashboard</a>.</p>
   `;
   return sendNotification(
     envelope(userEmail, `New proposal for: ${jobTitle}`, html),
@@ -90,7 +90,7 @@ export async function sendMarketplaceOrderEmail(
   const html = `
     <h2>New marketplace order</h2>
     <p>You received an order for <strong>${listingTitle}</strong> ($${orderAmount}).</p>
-    <p>Check your <a href="${process.env.APP_URL || "https://agentid.dev"}/dashboard/marketplace">marketplace dashboard</a> for details.</p>
+    <p>Check your <a href="${process.env.APP_URL || "https://getagent.id"}/dashboard/marketplace">marketplace dashboard</a> for details.</p>
   `;
   return sendNotification(
     envelope(userEmail, `New order: ${listingTitle}`, html),

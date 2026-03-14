@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bot, Inbox, Mail, Activity, ShoppingBag, Globe, Settings, ArrowUpRight } from 'lucide-react';
+import { LayoutDashboard, Bot, Inbox, Mail, Activity, ShoppingBag, Globe, Network, Settings, ArrowUpRight } from 'lucide-react';
 import { Identicon } from '@/components/shared';
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { path: '/dashboard/log', icon: Activity, label: 'Activity Log' },
   { path: '/dashboard/marketplace', icon: ShoppingBag, label: 'Marketplace', dot: 'purple' },
   { path: '/dashboard/domain', icon: Globe, label: '.agent Domains', dot: 'cyan' },
+  { path: '/dashboard/fleet', icon: Network, label: 'Fleet Management' },
   { path: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ];
 

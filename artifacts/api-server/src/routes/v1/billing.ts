@@ -7,6 +7,8 @@ import {
   activateAgent,
   deactivateAgent,
   createCheckoutSession,
+  createHandleCheckoutSession,
+  getHandlePriceCents,
   getPlanLimits,
   getActiveUserSubscription,
 } from "../../services/billing";
@@ -65,6 +67,53 @@ router.post("/checkout", requireAuth, async (req, res, next) => {
       res.status(503).json({
         code: "STRIPE_NOT_CONFIGURED",
         message: "Payment processing is not yet configured",
+      });
+      return;
+    }
+    next(err);
+  }
+});
+
+const handleCheckoutSchema = z.object({
+  handle: z.string().min(3).max(100),
+  successUrl: z.string().url(),
+  cancelUrl: z.string().url(),
+});
+
+router.post("/handle-checkout", requireAuth, async (req, res, next) => {
+  try {
+    const body = handleCheckoutSchema.parse(req.body);
+    const normalizedHandle = body.handle.toLowerCase();
+    const priceCents = getHandlePriceCents(normalizedHandle);
+
+    const result = await createHandleCheckoutSession(
+      req.userId!,
+      normalizedHandle,
+      body.successUrl,
+      body.cancelUrl,
+    );
+
+    if (result.error) {
+      res.status(400).json({ code: result.error, message: `Handle checkout failed: ${result.error}` });
+      return;
+    }
+
+    res.json({
+      url: result.url,
+      handle: normalizedHandle,
+      priceCents,
+      priceDollars: priceCents / 100,
+    });
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ code: "VALIDATION_ERROR", errors: err.issues });
+      return;
+    }
+    const message = err instanceof Error ? err.message : "";
+    if (message === "STRIPE_SECRET_KEY is not configured") {
+      res.status(503).json({
+        code: "STRIPE_NOT_CONFIGURED",
+        message: "Payment processing is not yet configured. Handle registered with payment pending.",
       });
       return;
     }

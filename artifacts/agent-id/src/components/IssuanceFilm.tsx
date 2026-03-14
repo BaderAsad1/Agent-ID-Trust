@@ -377,7 +377,7 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
               opacity: handleVisible ? 1 : 0,
               transform: handleVisible ? 'translateX(0)' : 'translateX(-12px)',
               transition: 'opacity 0.6s ease, transform 0.6s ease',
-            }}>agent.id/atlas-7</div>
+            }}>getagent.id/atlas-7</div>
           </div>
         </div>
 
@@ -1486,7 +1486,7 @@ function RegistryField({ progress }: { progress: number }) {
           fontSize: 'clamp(14px, 1.6vw, 18px)', fontWeight: 500,
           color: 'rgba(232,232,240,0.25)',
           letterSpacing: '0.02em',
-        }}>agent.id/</span>
+        }}>getagent.id/</span>
         <span className="registry-cursor" style={{
           fontFamily: "'JetBrains Mono', monospace",
           fontSize: 'clamp(14px, 1.6vw, 18px)', fontWeight: 500,

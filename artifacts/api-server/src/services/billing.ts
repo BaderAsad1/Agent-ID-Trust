@@ -24,6 +24,19 @@ const PLAN_PRICES: Record<string, Record<string, number>> = {
   team: { monthly: 7900, yearly: 79000 },
 };
 
+const HANDLE_PRICING_TIERS = [
+  { minLength: 3, maxLength: 3, annualPriceCents: 64000 },
+  { minLength: 4, maxLength: 4, annualPriceCents: 16000 },
+  { minLength: 5, maxLength: 100, annualPriceCents: 500 },
+];
+
+export function getHandlePriceCents(handle: string): number {
+  const len = handle.replace(/[^a-z0-9]/g, "").length;
+  const tier = HANDLE_PRICING_TIERS.find(t => len >= t.minLength && len <= t.maxLength)
+    || HANDLE_PRICING_TIERS[HANDLE_PRICING_TIERS.length - 1];
+  return tier.annualPriceCents;
+}
+
 type PlanType = "free" | "starter" | "pro" | "team";
 type SubStatus = "active" | "past_due" | "cancelled" | "paused" | "trialing";
 type BillingInterval = "monthly" | "yearly";
@@ -131,7 +144,7 @@ export async function activateAgent(
 ): Promise<{ success: boolean; error?: string; subscription?: AgentSubscription }> {
   const agent = await db.query.agentsTable.findFirst({
     where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
-    columns: { id: true, status: true },
+    columns: { id: true, status: true, metadata: true },
   });
 
   if (!agent) return { success: false, error: "AGENT_NOT_FOUND" };
@@ -139,6 +152,15 @@ export async function activateAgent(
   const existingSub = await getAgentSubscription(agentId);
   if (existingSub && existingSub.status === "active") {
     return { success: true, subscription: existingSub };
+  }
+
+  const agentMeta = agent.metadata as Record<string, unknown> | null;
+  const handlePricing = agentMeta?.handlePricing as Record<string, unknown> | null;
+  if (handlePricing && handlePricing.paymentStatus === "pending") {
+    return {
+      success: false,
+      error: "HANDLE_PAYMENT_REQUIRED",
+    };
   }
 
   const userSub = await getActiveUserSubscription(userId);
@@ -285,6 +307,70 @@ export async function createCheckoutSession(
   return { url: session.url };
 }
 
+export async function createHandleCheckoutSession(
+  userId: string,
+  handle: string,
+  successUrl: string,
+  cancelUrl: string,
+): Promise<{ url: string | null; error?: string; priceCents: number }> {
+  const stripe = getStripe();
+  const priceCents = getHandlePriceCents(handle);
+
+  const user = await db.query.usersTable.findFirst({
+    where: eq(usersTable.id, userId),
+    columns: { id: true, stripeCustomerId: true, email: true, displayName: true },
+  });
+
+  if (!user) return { url: null, error: "USER_NOT_FOUND", priceCents };
+
+  let customerId = user.stripeCustomerId;
+
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: user.email ?? undefined,
+      name: user.displayName ?? undefined,
+      metadata: { userId: user.id },
+    });
+    customerId = customer.id;
+
+    await db
+      .update(usersTable)
+      .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+      .where(eq(usersTable.id, userId));
+  }
+
+  const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
+  const tierLabel = handleLen <= 3 ? "Ultra-Premium (3-char)" : handleLen === 4 ? "Premium (4-char)" : "Standard";
+
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: "payment",
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `Handle Registration: @${handle}`,
+            description: `${tierLabel} .agent handle — owned asset`,
+          },
+          unit_amount: priceCents,
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata: {
+      userId: user.id,
+      type: "handle_registration",
+      handle,
+      priceCents: String(priceCents),
+    },
+  });
+
+  return { url: session.url, priceCents };
+}
+
 export async function claimWebhookEvent(
   provider: string,
   eventType: string,
@@ -397,7 +483,50 @@ function computePeriodDates(billingInterval: string): { start: Date; end: Date }
   return { start, end };
 }
 
+export async function markHandlePaymentComplete(agentId: string): Promise<void> {
+  const agent = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.id, agentId),
+    columns: { id: true, metadata: true },
+  });
+  if (!agent) return;
+
+  const meta = (agent.metadata as Record<string, unknown>) || {};
+  const handlePricing = (meta.handlePricing as Record<string, unknown>) || {};
+
+  await db
+    .update(agentsTable)
+    .set({
+      metadata: {
+        ...meta,
+        handlePricing: {
+          ...handlePricing,
+          paymentStatus: "paid",
+          paidAt: new Date().toISOString(),
+        },
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(agentsTable.id, agentId));
+}
+
 export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  const sessionType = session.metadata?.type;
+
+  if (sessionType === "handle_registration") {
+    const handle = session.metadata?.handle;
+    const userId = session.metadata?.userId;
+    if (handle && userId) {
+      const agent = await db.query.agentsTable.findFirst({
+        where: and(eq(agentsTable.handle, handle), eq(agentsTable.userId, userId)),
+        columns: { id: true },
+      });
+      if (agent) {
+        await markHandlePaymentComplete(agent.id);
+      }
+    }
+    return;
+  }
+
   const userId = session.metadata?.userId;
   const plan = session.metadata?.plan as PlanType;
   const billingInterval = (session.metadata?.billingInterval ?? "monthly") as BillingInterval;

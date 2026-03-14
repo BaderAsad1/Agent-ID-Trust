@@ -160,7 +160,31 @@ export const api = {
 
   handles: {
     check: (handle: string) =>
-      request<{ available: boolean; handle: string }>(`/handles/check?handle=${encodeURIComponent(handle)}`),
+      request<{ available: boolean; handle: string; pricing?: { annualPrice: number; tierLabel: string; description: string } }>(`/handles/check?handle=${encodeURIComponent(handle)}`),
+    pricing: () =>
+      request<{ tiers: Array<{ minLength: number; maxLength: number; label: string; annualPrice: number; description: string }> }>("/handles/pricing"),
+  },
+
+  transfer: {
+    initiate: (agentId: string, targetUserId: string) =>
+      request<{ success: boolean; handle: string; previousOwner: string; newOwner: string }>(`/agents/${agentId}/transfer`, {
+        method: "POST",
+        body: JSON.stringify({ targetUserId }),
+      }),
+  },
+
+  fleet: {
+    list: () =>
+      request<{ fleets: Array<{ rootHandle: string; rootAgent: Agent; subHandles: Array<{ id: string; handle: string; displayName: string; status: string; trustScore: number; capabilities: string[]; createdAt: string }> }> }>("/fleet"),
+    createSubHandle: (data: { rootHandle: string; subName: string; displayName: string; description?: string; capabilities?: string[]; endpointUrl?: string }) =>
+      request<Agent>("/fleet/sub-handles", { method: "POST", body: JSON.stringify(data) }),
+    deleteSubHandle: (agentId: string) =>
+      request<{ success: boolean }>(`/fleet/sub-handles/${agentId}`, { method: "DELETE" }),
+  },
+
+  registry: {
+    status: (agentId: string) =>
+      request<{ registered: boolean; domain: string; resolveUrl: string; dnsbridge: string; status: string; registeredAt: string | null }>(`/agents/${agentId}/registry/status`),
   },
 
   profiles: {
@@ -238,6 +262,11 @@ export const api = {
       const qs = params ? "?" + new URLSearchParams(params).toString() : "";
       return request<{ entries: LedgerEntry[] }>(`/payments/ledger${qs}`);
     },
+    handleCheckout: (handle: string, successUrl: string, cancelUrl: string) =>
+      request<{ url: string | null; handle: string; priceCents: number; priceDollars: number }>("/billing/handle-checkout", {
+        method: "POST",
+        body: JSON.stringify({ handle, successUrl, cancelUrl }),
+      }),
   },
 
   mail: {
@@ -328,6 +357,14 @@ export interface Agent {
   domainStatus?: string;
   createdAt: string;
   updatedAt: string;
+  metadata?: Record<string, unknown>;
+  handlePricing?: {
+    annualPriceCents: number;
+    annualPriceDollars: number;
+    tier: string;
+    characterLength: number;
+    paymentStatus?: string;
+  };
 }
 
 export interface CreateAgentInput {

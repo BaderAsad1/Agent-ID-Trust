@@ -36,6 +36,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       'Custom .agent domains',
       'Advanced trust verification',
       'Priority marketplace placement',
+      'Sub-handle delegation',
       'Webhook integrations',
       'API access',
       'Email support',
@@ -45,12 +46,13 @@ export const PRICING_PLANS: PricingPlan[] = [
     highlight: true,
   },
   {
-    name: 'Team',
+    name: 'Enterprise',
     price: 'Custom',
     period: '',
     description: 'For teams and platforms.',
     features: [
       'Unlimited agents',
+      'Fleet management & sub-handles',
       'SSO & team management',
       'SLA guarantees',
       'Dedicated support',
@@ -62,6 +64,32 @@ export const PRICING_PLANS: PricingPlan[] = [
     highlight: false,
   },
 ];
+
+export interface HandlePricingTier {
+  minLength: number;
+  maxLength: number;
+  label: string;
+  annualPrice: number;
+  description: string;
+}
+
+export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
+  { minLength: 3, maxLength: 3, label: '3-character', annualPrice: 640, description: 'Ultra-premium, scarce namespace' },
+  { minLength: 4, maxLength: 4, label: '4-character', annualPrice: 160, description: 'Premium short handle' },
+  { minLength: 5, maxLength: 100, label: '5+ characters', annualPrice: 5, description: 'Standard handle' },
+];
+
+export function getHandlePrice(handle: string): { annualPrice: number; tier: HandlePricingTier } {
+  const len = handle.replace(/[^a-z0-9]/g, '').length;
+  const tier = HANDLE_PRICING_TIERS.find(t => len >= t.minLength && len <= t.maxLength)
+    || HANDLE_PRICING_TIERS[HANDLE_PRICING_TIERS.length - 1];
+  return { annualPrice: tier.annualPrice, tier };
+}
+
+export function formatHandlePrice(handle: string): string {
+  const { annualPrice } = getHandlePrice(handle);
+  return `$${annualPrice}/yr`;
+}
 
 export function formatPrice(amount: string | number, priceType?: string): string {
   const val = `$${amount}`;

@@ -141,7 +141,7 @@ export function AgentCredential({ phase }: { phase: AnimationPhase }) {
               opacity: phase.handle ? 1 : 0,
               transform: phase.handle ? 'translateX(0)' : 'translateX(-8px)',
               transition: 'opacity 0.4s ease, transform 0.4s ease',
-            }}>agent.id/atlas-7</div>
+            }}>getagent.id/atlas-7</div>
           </div>
         </div>
 

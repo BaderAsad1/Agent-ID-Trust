@@ -65,7 +65,10 @@ export type ActivityEventType =
   | "agent.webhook_created"
   | "agent.webhook_deleted"
   | "agent.spawned"
-  | "agent.spawned_child";
+  | "agent.spawned_child"
+  | "agent.handle_transferred"
+  | "agent.sub_handle_created"
+  | "agent.sub_handle_deleted";
 
 interface LogEventInput {
   agentId: string;

@@ -139,6 +139,7 @@ Complete communications layer for agents with identity-bound inboxes.
 - **Authentication:** Replit Auth
 - **Payment Processing:** Stripe
 - **DNS Management:** Cloudflare DNS API
+- **Protocol Namespace:** Self-sovereign .agent registry (like ENS for AI agents)
 - **Frontend:** React 19, React Router DOM, Tailwind CSS, Recharts, Framer Motion, Lucide React
 - **Code Generation:** Orval (for OpenAPI spec)
 
@@ -146,3 +147,45 @@ Complete communications layer for agents with identity-bound inboxes.
 
 ### `lib/resolver` — `@agentid/resolver` SDK
 Open-source npm package for resolving `.agent` names. Provides `AgentResolver` class with `resolve()`, `reverse()`, and `findAgents()` methods. Full TypeScript types, retry logic, configurable base URL/timeout.
+
+## ENS-Inspired Name System & Domain Features
+
+**Handle Pricing Tiers (ENS-style):**
+- 3-char handles: $640/year (ultra-premium)
+- 4-char handles: $160/year (premium)
+- 5+ char handles: $5/year (standard)
+- Pricing utility: `getHandlePrice(handle)` in `artifacts/agent-id/src/lib/pricing.ts`
+
+**Handle Transfer:**
+- `POST /api/v1/agents/:agentId/transfer` — transfer handle ownership to another user
+- Route: `artifacts/api-server/src/routes/v1/handle-transfer.ts`
+- UI: `HandleTransferModal` component in Dashboard
+
+**Fleet Management (Pro/Enterprise):**
+- `GET /api/v1/fleet` — list root handles + sub-handles
+- `POST /api/v1/fleet/sub-handles` — create sub-handle (e.g., research.acme)
+- `DELETE /api/v1/fleet/sub-handles/:id` — delete sub-handle
+- Route: `artifacts/api-server/src/routes/v1/fleet.ts`
+- UI: `FleetManagement` component at `/dashboard/fleet`
+
+**.agent Protocol Registry (self-sovereign, like ENS):**
+- Service: `artifacts/api-server/src/services/agent-registry.ts`
+- Route: `artifacts/api-server/src/routes/v1/agent-registry.ts`
+- Canonical resolve: `GET /api/v1/resolve/:handle` — resolves .agent names to Agent ID Objects (no auth, in resolve.ts)
+- Owner status: `GET /api/v1/agents/:id/registry/status` — protocol resolve URL + DNS bridge
+- Two resolution paths: protocol layer (`getagent.id/api/v1/resolve/handle`) + DNS bridge (`handle.getagent.id`)
+- UI: Registry status panel in DomainDashboard with resolve URL + DNS bridge display
+
+**Handle Pricing Enforcement:**
+- Server-side: `getHandlePriceCents()` in billing.ts calculates authoritative tier pricing
+- Registration records `handlePricing.paymentStatus: "pending"` in agent metadata
+- Activation blocked until payment: `activateAgent()` returns `HANDLE_PAYMENT_REQUIRED` if unpaid
+- Checkout: `POST /api/v1/billing/handle-checkout` creates Stripe checkout for handle payment
+- Webhook: `handleCheckoutCompleted()` detects `type: "handle_registration"` and marks paid
+- `markHandlePaymentComplete()` updates metadata paymentStatus to "paid"
+
+**URL Migration:**
+- All URLs migrated from `agentid.dev` → `getagent.id`
+- Default base domain: `getagent.id`
+- Email from: `notifications@getagent.id`
+- llms.txt updated with new API endpoints and features

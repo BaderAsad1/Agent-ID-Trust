@@ -131,12 +131,22 @@ export async function updateAgent(
 ): Promise<Agent | null> {
   const existing = await db.query.agentsTable.findFirst({
     where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
-    columns: { status: true },
   });
+
+  const finalUpdates = { ...updates };
+
+  if (finalUpdates.metadata && existing?.metadata) {
+    const existingMeta = (existing.metadata || {}) as Record<string, unknown>;
+    const incomingMeta = (finalUpdates.metadata || {}) as Record<string, unknown>;
+    if (existingMeta.handlePricing) {
+      incomingMeta.handlePricing = existingMeta.handlePricing;
+    }
+    finalUpdates.metadata = incomingMeta;
+  }
 
   const [updated] = await db
     .update(agentsTable)
-    .set({ ...updates, updatedAt: new Date() })
+    .set({ ...finalUpdates, updatedAt: new Date() })
     .where(and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)))
     .returning();
 

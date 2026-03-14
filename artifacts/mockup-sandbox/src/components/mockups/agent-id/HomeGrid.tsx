@@ -269,7 +269,7 @@ export function HomeGrid() {
                 )}
                 {activeTab === 'resolve' && (
                   <pre>
-<span className="text-pink-400">const</span> response = <span className="text-blue-400">await</span> fetch(<span className="text-green-400">'https://api.agent.id/v1/resolve/miner.agent'</span>);
+<span className="text-pink-400">const</span> response = <span className="text-blue-400">await</span> fetch(<span className="text-green-400">'https://getagent.id/api/v1/resolve/miner.agent'</span>);
                   </pre>
                 )}
                 {activeTab === 'trust' && (

@@ -183,7 +183,7 @@ export function IssuanceCredential({ phase }: { phase: IssuancePhase }) {
               opacity: phase.handle ? 1 : 0,
               transform: phase.handle ? 'translateX(0)' : 'translateX(-10px)',
               transition: 'opacity 0.5s ease, transform 0.5s ease',
-            }}>agent.id/atlas-7</div>
+            }}>getagent.id/atlas-7</div>
           </div>
         </div>
 
