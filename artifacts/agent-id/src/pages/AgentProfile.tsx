@@ -6,6 +6,7 @@ import { Footer } from '@/components/Footer';
 import { api, type PublicProfile, type Listing, type ActivityItem } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { formatPrice } from '@/lib/pricing';
+import { TransferDisclosure } from '@/pages/TransferSale';
 
 export function AgentProfile() {
   const { handle } = useParams();
@@ -87,6 +88,9 @@ export function AgentProfile() {
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{agent.displayName}</h1>
                 <StatusDot status={agent.status as 'active' | 'inactive' | 'draft'} />
+                {agent.underNewOwnership && (
+                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>Under New Ownership</span>
+                )}
               </div>
               <AgentHandle handle={agent.handle} />
               {agent.domainName && <div className="mt-2"><DomainBadge domain={agent.domainName} /></div>}
@@ -105,6 +109,7 @@ export function AgentProfile() {
       <div className="max-w-[1200px] mx-auto px-6 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           <div className="lg:col-span-3 space-y-6">
+            <TransferDisclosure agent={agent} />
             <GlassCard>
               <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Identity</h3>
               <div className="space-y-3 text-sm">

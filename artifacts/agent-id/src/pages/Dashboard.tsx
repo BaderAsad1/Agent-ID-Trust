@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
-import { api, type Agent, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job } from '@/lib/api';
+import { api, type Agent, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType } from '@/lib/api';
 import { formatPrice } from '@/lib/pricing';
 import { Mail } from '@/pages/Mail';
+import { TransferWizardModal, TransferStatusBadge, TransferDashboardPage } from '@/pages/TransferSale';
 
 async function initiateHandleCheckout(handle: string) {
   const base = window.location.origin;
@@ -168,6 +169,7 @@ function Overview() {
   const [error, setError] = useState<string | null>(null);
   const [verifyingAgent, setVerifyingAgent] = useState<Agent | null>(null);
   const [transferringAgent, setTransferringAgent] = useState<Agent | null>(null);
+  const [agentTransfers, setAgentTransfers] = useState<Record<string, TransferSaleType>>({});
 
   const searchParams = new URLSearchParams(location.search);
   const paymentResult = searchParams.get('payment');
@@ -186,6 +188,16 @@ function Overview() {
       const dashStats = await api.dashboard.stats();
       setStats(dashStats as unknown as Record<string, unknown>);
       setRecentActivity((dashStats as unknown as Record<string, unknown>).recentActivity as ActivityItem[] || []);
+      try {
+        const transferRes = await api.transferSale.list();
+        const transferMap: Record<string, TransferSaleType> = {};
+        const activeStatuses = ['in_handoff', 'pending_acceptance', 'listed', 'draft', 'disputed'];
+        const sorted = (transferRes.transfers || [])
+          .filter(t => activeStatuses.includes(t.status))
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        sorted.forEach(t => { if (!transferMap[t.agentId]) transferMap[t.agentId] = t; });
+        setAgentTransfers(transferMap);
+      } catch { /* transfers not available */ }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load dashboard');
     } finally {
@@ -264,6 +276,25 @@ function Overview() {
                   </div>
                   <AgentHandle handle={agent.handle} size="sm" />
                   {agent.domainName && <div className="mt-1"><DomainBadge domain={agent.domainName} size="sm" /></div>}
+                  {agentTransfers[agent.id] && (
+                    <button
+                      className="mt-1.5 cursor-pointer"
+                      style={{ background: 'none', border: 'none', padding: 0 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const t = agentTransfers[agent.id];
+                        if (t.status === 'draft') {
+                          setTransferringAgent(agent);
+                        } else if (t.status === 'in_handoff') {
+                          navigate(`/dashboard/transfers/${t.id}/handoff`);
+                        } else {
+                          navigate(`/dashboard/transfers/${t.id}`);
+                        }
+                      }}
+                    >
+                      <TransferStatusBadge status={agentTransfers[agent.id].status} />
+                    </button>
+                  )}
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {(agent.capabilities || []).slice(0, 3).map(c => <CapabilityChip key={c} label={c} />)}
                     {(agent.capabilities || []).length > 3 && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>+{agent.capabilities.length - 3} more</span>}
@@ -297,9 +328,26 @@ function Overview() {
                     <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Verify
                   </PrimaryButton>
                 )}
-                <PrimaryButton variant="ghost" onClick={() => setTransferringAgent(agent)}>
-                  <ArrowRightLeft className="w-3.5 h-3.5 mr-1" /> Transfer
-                </PrimaryButton>
+                {agentTransfers[agent.id] ? (
+                  <PrimaryButton variant="ghost" onClick={() => {
+                    const t = agentTransfers[agent.id];
+                    if (t.status === 'draft') {
+                      setTransferringAgent(agent);
+                    } else if (t.status === 'in_handoff') {
+                      navigate(`/dashboard/transfers/${t.id}/handoff`);
+                    } else {
+                      navigate(`/dashboard/transfers/${t.id}`);
+                    }
+                  }}>
+                    <ArrowRightLeft className="w-3.5 h-3.5 mr-1" />
+                    {agentTransfers[agent.id].status === 'draft' ? 'Continue Setup' :
+                     agentTransfers[agent.id].status === 'in_handoff' ? 'Handoff' : 'View Transfer'}
+                  </PrimaryButton>
+                ) : (agent.verificationStatus === 'verified' && agent.status === 'active') ? (
+                  <PrimaryButton variant="ghost" onClick={() => setTransferringAgent(agent)}>
+                    <ArrowRightLeft className="w-3.5 h-3.5 mr-1" /> Transfer / Sell
+                  </PrimaryButton>
+                ) : null}
                 <PrimaryButton variant="ghost">Edit</PrimaryButton>
               </div>
             </GlassCard>
@@ -326,7 +374,12 @@ function Overview() {
         <VerifyAgentModal agent={verifyingAgent} onClose={() => setVerifyingAgent(null)} onVerified={() => { fetchData(); refreshAgents(); }} />
       )}
       {transferringAgent && (
-        <HandleTransferModal agent={transferringAgent} onClose={() => setTransferringAgent(null)} onTransferred={() => { fetchData(); refreshAgents(); }} />
+        <TransferWizardModal
+          agent={transferringAgent}
+          existingTransfer={agentTransfers[transferringAgent.id]?.status === 'draft' ? agentTransfers[transferringAgent.id] : undefined}
+          onClose={() => setTransferringAgent(null)}
+          onComplete={() => { fetchData(); refreshAgents(); }}
+        />
       )}
     </div>
   );
@@ -1189,6 +1242,7 @@ export function Dashboard() {
   else if (path === '/dashboard/domain') content = <DomainDashboard />;
   else if (path === '/dashboard/fleet') content = <FleetManagement />;
   else if (path === '/dashboard/settings') content = <SettingsPage />;
+  else if (path.startsWith('/dashboard/transfers')) content = <TransferDashboardPage />;
   else content = <Overview />;
 
   return <DashboardLayout>{content}</DashboardLayout>;

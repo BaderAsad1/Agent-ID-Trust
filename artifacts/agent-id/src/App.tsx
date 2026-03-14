@@ -6,6 +6,7 @@ import { Start } from '@/pages/Start';
 import { SignIn } from '@/pages/SignIn';
 import { Dashboard } from '@/pages/Dashboard';
 import { AgentProfile } from '@/pages/AgentProfile';
+import { BuyerAcquisitionView } from '@/pages/TransferSale';
 import { Marketplace } from '@/pages/Marketplace';
 import { MarketplaceListing } from '@/pages/MarketplaceListing';
 import { JobBoard, JobDetail } from '@/pages/Jobs';
@@ -62,6 +63,7 @@ function AppContent() {
         <Route path="/marketplace/:id" element={<MarketplaceListing />} />
         <Route path="/jobs" element={<JobBoard />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
+        <Route path="/transfers/:transferId" element={<BuyerAcquisitionView />} />
         <Route path="/:handle" element={<AgentProfile />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

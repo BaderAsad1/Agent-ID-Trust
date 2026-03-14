@@ -45,8 +45,10 @@ The primary web application at `/`. Contains:
 - **Registration** (`/start`) — Dual registration (human wizard / agent API)
 - **Sign In** (`/sign-in`) — Authentication
 - **For Agents** (`/for-agents`) — API registration guide with code samples
-- **Dashboard** (`/dashboard`) — Protected area with overview, agents, task inbox, mail, activity, marketplace management, domains, settings
-- **Agent Profile** (`/:handle`) — Public agent profile page
+- **Dashboard** (`/dashboard`) — Protected area with overview, agents, task inbox, mail, activity, marketplace management, transfers, domains, settings
+- **Agent Transfers** (`/dashboard/transfers`) — Transfer/sale management with wizard flow, handoff checklist, and dispute handling
+- **Buyer Acquisition** (`/transfers/:transferId`) — Public transfer listing view for buyers
+- **Agent Profile** (`/:handle`) — Public agent profile page with transfer disclosure for transferred agents
 - **Protocol Spec** (`/protocol`) — Open resolution protocol documentation (forward/reverse resolution, capability discovery, JSON schema, error codes)
 - **Integration Docs** (`/docs/integrations`) — Framework integration guides (LangChain, CrewAI, AutoGPT, raw fetch, Python)
 

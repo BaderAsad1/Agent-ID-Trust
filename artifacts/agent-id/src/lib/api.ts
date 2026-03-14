@@ -173,6 +173,43 @@ export const api = {
       }),
   },
 
+  transferSale: {
+    list: () =>
+      request<{ transfers: TransferSale[] }>("/transfers"),
+    get: (transferId: string) =>
+      request<TransferSale>(`/transfers/${transferId}`),
+    getByAgent: (agentId: string) =>
+      request<TransferSale>(`/agents/${agentId}/transfer-sale`),
+    create: (data: CreateTransferSaleInput) =>
+      request<TransferSale>("/transfers", { method: "POST", body: JSON.stringify(data) }),
+    update: (transferId: string, data: Record<string, unknown>) =>
+      request<TransferSale>(`/transfers/${transferId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    publish: (transferId: string) =>
+      request<TransferSale>(`/transfers/${transferId}/publish`, { method: "POST" }),
+    cancel: (transferId: string) =>
+      request<TransferSale>(`/transfers/${transferId}/cancel`, { method: "POST" }),
+    readiness: (agentId: string) =>
+      request<TransferReadinessReport>(`/agents/${agentId}/transfer-readiness`),
+    purchase: (transferId: string) =>
+      request<TransferSale>(`/transfers/${transferId}/purchase`, { method: "POST" }),
+    handoff: {
+      get: (transferId: string) =>
+        request<TransferHandoff>(`/transfers/${transferId}/handoff`),
+      acknowledgeItem: (transferId: string, itemId: string) =>
+        request<TransferHandoffItem>(`/transfers/${transferId}/handoff/items/${itemId}/acknowledge`, { method: "POST" }),
+      acknowledgeSeller: (transferId: string) =>
+        request<TransferHandoff>(`/transfers/${transferId}/handoff/acknowledge-seller`, { method: "POST" }),
+      acknowledgeBuyer: (transferId: string) =>
+        request<TransferHandoff>(`/transfers/${transferId}/handoff/acknowledge-buyer`, { method: "POST" }),
+      complete: (transferId: string) =>
+        request<TransferSale>(`/transfers/${transferId}/handoff/complete`, { method: "POST" }),
+      dispute: (transferId: string, reason: string) =>
+        request<TransferSale>(`/transfers/${transferId}/handoff/dispute`, { method: "POST", body: JSON.stringify({ reason }) }),
+    },
+    publicListing: (transferId: string) =>
+      request<TransferPublicListing>(`/transfers/${transferId}/public`),
+  },
+
   fleet: {
     list: () =>
       request<{ fleets: Array<{ rootHandle: string; rootAgent: Agent; subHandles: Array<{ id: string; handle: string; displayName: string; status: string; trustScore: number; capabilities: string[]; createdAt: string }> }> }>("/fleet"),
@@ -383,10 +420,17 @@ export interface AgentDomain {
 }
 
 export interface PublicProfile {
-  agent: Agent;
+  agent: Agent & TransferOwnershipFields;
   listings?: Listing[];
   recentActivity?: ActivityItem[];
   trustBreakdown?: { verification: number; longevity: number; activity: number; reputation: number };
+}
+
+export interface TransferOwnershipFields {
+  underNewOwnership?: boolean;
+  transferredAt?: string;
+  historicalTrustPeak?: number;
+  currentOperatorVerification?: string;
 }
 
 export interface Listing {
@@ -644,4 +688,78 @@ export interface MailEvent {
 export interface InboxStats {
   messages: { total: number; unread: number };
   threads: { total: number; open: number };
+}
+
+export type TransferType = 'identity_only' | 'operating_agent' | 'full_agent_business';
+export type TransferStatus = 'draft' | 'listed' | 'pending_acceptance' | 'in_handoff' | 'completed' | 'cancelled' | 'disputed';
+
+export interface TransferSale {
+  id: string;
+  agentId: string;
+  sellerUserId: string;
+  buyerUserId?: string;
+  transferType: TransferType;
+  status: TransferStatus;
+  askingPrice: string;
+  currency: string;
+  notes?: string;
+  agentHandle: string;
+  agentDisplayName: string;
+  agentTrustScore: number;
+  historicalTrustPeak: number;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+  completedAt?: string;
+}
+
+export interface CreateTransferSaleInput {
+  agentId: string;
+  transferType: TransferType;
+  askingPrice: string;
+  currency: string;
+  notes?: string;
+}
+
+export interface TransferReadinessReport {
+  agentId: string;
+  eligible: boolean;
+  blockers: string[];
+  transferable: TransferAssetItem[];
+  mustReconnect: TransferAssetItem[];
+  excluded: TransferAssetItem[];
+}
+
+export interface TransferAssetItem {
+  id: string;
+  label: string;
+  category: string;
+  description: string;
+}
+
+export interface TransferHandoff {
+  transferId: string;
+  items: TransferHandoffItem[];
+  sellerAcknowledged: boolean;
+  buyerAcknowledged: boolean;
+  allSystemValidated: boolean;
+  progress: number;
+}
+
+export interface TransferHandoffItem {
+  id: string;
+  label: string;
+  category: 'system_validated' | 'manual_acknowledgment';
+  description: string;
+  completed: boolean;
+  completedAt?: string;
+  completedBy?: string;
+}
+
+export interface TransferPublicListing {
+  transfer: TransferSale;
+  agent: Agent;
+  transferable: TransferAssetItem[];
+  mustReconnect: TransferAssetItem[];
+  trustBreakdown?: Record<string, number>;
 }
