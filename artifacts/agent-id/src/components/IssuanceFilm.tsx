@@ -1423,12 +1423,6 @@ function CredentialSilhouette({ progress }: { progress: number }) {
           background: 'linear-gradient(180deg, rgba(79,125,243,0.08), transparent 60%)',
         }} />
 
-        <div style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 600,
-          letterSpacing: '0.18em', color: 'rgba(232,232,240,0.08)',
-          marginBottom: 20,
-        }}>AGENT IDENTITY CREDENTIAL</div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
           <div style={{
             width: 40, height: 40, borderRadius: 10,
@@ -1464,9 +1458,64 @@ function CredentialSilhouette({ progress }: { progress: number }) {
   );
 }
 
+const TYPEWRITER_NAMES = ['Clawd', 'Harvey', 'Gemi', 'Aria', 'Dia', 'Codex', 'Bolt'];
+const TYPING_SPEED = 80;
+const DELETE_SPEED = 50;
+const PAUSE_DURATION = 1500;
+
+function useTypewriter(names: string[]) {
+  const [nameIndex, setNameIndex] = useState(0);
+  const [displayed, setDisplayed] = useState('');
+  const [phase, setPhase] = useState<'typing' | 'pausing' | 'deleting'>('typing');
+
+  useEffect(() => {
+    const currentName = names[nameIndex];
+
+    if (phase === 'typing') {
+      if (displayed.length < currentName.length) {
+        const timer = setTimeout(() => {
+          setDisplayed(currentName.slice(0, displayed.length + 1));
+        }, TYPING_SPEED);
+        return () => clearTimeout(timer);
+      } else {
+        setPhase('pausing');
+        return undefined;
+      }
+    }
+
+    if (phase === 'pausing') {
+      const timer = setTimeout(() => setPhase('deleting'), PAUSE_DURATION);
+      return () => clearTimeout(timer);
+    }
+
+    if (phase === 'deleting') {
+      if (displayed.length > 0) {
+        const timer = setTimeout(() => {
+          setDisplayed(displayed.slice(0, -1));
+        }, DELETE_SPEED);
+        return () => clearTimeout(timer);
+      }
+      setNameIndex((nameIndex + 1) % names.length);
+      setPhase('typing');
+    }
+
+    return undefined;
+  }, [displayed, phase, nameIndex, names]);
+
+  return displayed;
+}
+
 function RegistryField({ progress }: { progress: number }) {
+  const displayedName = useTypewriter(TYPEWRITER_NAMES);
   const fieldOpacity = progress < 0.08 ? 1 : lerp(1, 0, (progress - 0.08) / 0.06);
   if (fieldOpacity <= 0) return null;
+
+  const monoStyle: CSSProperties = {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 'clamp(14px, 1.6vw, 18px)',
+    fontWeight: 500,
+    letterSpacing: '0.02em',
+  };
 
   return (
     <div style={{
@@ -1479,30 +1528,21 @@ function RegistryField({ progress }: { progress: number }) {
         background: 'rgba(79,125,243,0.04)',
         border: '1px solid rgba(79,125,243,0.08)',
         borderRadius: 10, padding: '10px 20px',
-        gap: 2,
+        width: '14.5ch',
+        boxSizing: 'content-box',
       }}>
         <span style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 'clamp(14px, 1.6vw, 18px)', fontWeight: 500,
-          color: 'rgba(232,232,240,0.25)',
-          letterSpacing: '0.02em',
-        }}>getagent.id/</span>
-        <span className="registry-cursor" style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 'clamp(14px, 1.6vw, 18px)', fontWeight: 500,
+          ...monoStyle,
+          display: 'inline-block',
+          width: '6ch',
+          textAlign: 'right',
+          color: '#e8e8f0',
+        }}>{displayedName}</span>
+        <span style={{
+          ...monoStyle,
           color: '#4f7df3',
-          letterSpacing: '0.02em',
-        }}>_</span>
+        }}>.AgentID</span>
       </div>
-      <style>{`
-        @keyframes cursor-blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-        .registry-cursor {
-          animation: cursor-blink 1.1s step-end infinite;
-        }
-      `}</style>
     </div>
   );
 }
