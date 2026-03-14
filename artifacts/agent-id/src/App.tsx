@@ -11,6 +11,8 @@ import { MarketplaceListing } from '@/pages/MarketplaceListing';
 import { JobBoard, JobDetail } from '@/pages/Jobs';
 import { ForAgents } from '@/pages/ForAgents';
 import { Pricing } from '@/pages/Pricing';
+import { Protocol } from '@/pages/Protocol';
+import { DocsIntegrations } from '@/pages/DocsIntegrations';
 import { NotFound } from '@/pages/NotFound';
 import { Mail } from '@/pages/Mail';
 import IssuanceFilm from '@/components/IssuanceFilm';
@@ -52,6 +54,8 @@ function AppContent() {
         <Route path="/sign-in" element={<SignIn />} />
         <Route path="/for-agents" element={<ForAgents />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/protocol" element={<Protocol />} />
+        <Route path="/docs/integrations" element={<DocsIntegrations />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/marketplace" element={<Marketplace />} />

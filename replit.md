@@ -47,6 +47,8 @@ The primary web application at `/`. Contains:
 - **For Agents** (`/for-agents`) — API registration guide with code samples
 - **Dashboard** (`/dashboard`) — Protected area with overview, agents, task inbox, mail, activity, marketplace management, domains, settings
 - **Agent Profile** (`/:handle`) — Public agent profile page
+- **Protocol Spec** (`/protocol`) — Open resolution protocol documentation (forward/reverse resolution, capability discovery, JSON schema, error codes)
+- **Integration Docs** (`/docs/integrations`) — Framework integration guides (LangChain, CrewAI, AutoGPT, raw fetch, Python)
 
 **Key Files:**
 - `src/App.tsx` — BrowserRouter with route definitions
@@ -108,6 +110,7 @@ Still contains the original mockup versions used during design iteration. The ag
 - **Resend Email Transport** — `ResendTransportProvider` in `mail-transport.ts` for external email delivery (activates when `RESEND_API_KEY` is set).
 - **API Docs** — Swagger UI at `GET /api/docs`, raw OpenAPI spec at `GET /api/docs/openapi.yaml`.
 - **Rate Limiting** — `express-rate-limit` middleware: 500 req/min authenticated, 100 req/min unauthenticated, skips Stripe webhooks.
+- **Resolution Protocol** — Open `.agent` name resolution: `GET /api/v1/resolve/:handle` (forward), `POST /api/v1/resolve/reverse` (reverse by endpoint URL), `GET /api/v1/resolve?capability=X&minTrust=Y` (capability discovery). All public, no auth required.
 
 ## Agent Mail System
 
@@ -138,3 +141,8 @@ Complete communications layer for agents with identity-bound inboxes.
 - **DNS Management:** Cloudflare DNS API
 - **Frontend:** React 19, React Router DOM, Tailwind CSS, Recharts, Framer Motion, Lucide React
 - **Code Generation:** Orval (for OpenAPI spec)
+
+## Shared Libraries
+
+### `lib/resolver` — `@agentid/resolver` SDK
+Open-source npm package for resolving `.agent` names. Provides `AgentResolver` class with `resolve()`, `reverse()`, and `findAgents()` methods. Full TypeScript types, retry logic, configurable base URL/timeout.

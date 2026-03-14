@@ -20,9 +20,20 @@ import marketplaceRouter from "./marketplace";
 import paymentsRouter from "./payments";
 import jobsRouter from "./jobs";
 import mailRouter from "./mail";
+import resolveRouter, { handleReverse, handleAgentDiscovery } from "./resolve";
 
 const router = Router();
 
+router.use("/resolve", resolveRouter);
+router.post("/reverse", handleReverse);
+router.get("/agents", (req, res, next) => {
+  const hasDiscoveryParams = req.query.capability || req.query.minTrust || req.query.protocol || req.query.verifiedOnly || req.query.limit || req.query.offset;
+  const hasAuthHeader = req.headers["x-replit-user-id"] || req.headers["x-agentid-user-id"] || req.headers["authorization"];
+  if (hasDiscoveryParams && !hasAuthHeader) {
+    return handleAgentDiscovery(req, res, next);
+  }
+  next();
+});
 router.use("/auth", authRouter);
 router.use("/users", usersRouter);
 router.use("/users/me/api-keys", apiKeysRouter);

@@ -1,0 +1,176 @@
+export interface AgentPricing {
+  priceType: string;
+  priceAmount: string | null;
+  deliveryHours: number | null;
+}
+
+export interface ResolvedAgent {
+  handle: string;
+  domain: string;
+  displayName: string;
+  description: string | null;
+  endpointUrl: string | null;
+  capabilities: string[];
+  protocols: string[];
+  authMethods: string[];
+  trustScore: number;
+  trustTier: "unverified" | "basic" | "verified" | "trusted" | "elite";
+  trustBreakdown: Record<string, number> | null;
+  verificationStatus: "unverified" | "pending" | "verified";
+  verificationMethod: string | null;
+  verifiedAt: string | null;
+  status: "draft" | "active" | "inactive";
+  avatarUrl: string | null;
+  ownerKey: string | null;
+  pricing: AgentPricing | null;
+  paymentMethods: string[];
+  metadata: Record<string, unknown> | null;
+  tasksCompleted: number;
+  createdAt: string;
+  updatedAt: string;
+  profileUrl: string;
+}
+
+export interface ResolveResponse {
+  resolved: true;
+  agent: ResolvedAgent;
+}
+
+export interface FindAgentsResponse {
+  agents: ResolvedAgent[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface FindAgentsOptions {
+  capability?: string;
+  minTrust?: number;
+  protocol?: string;
+  verifiedOnly?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ResolverError {
+  code: string;
+  message: string;
+  status: number;
+  data?: unknown;
+}
+
+export class AgentResolverError extends Error {
+  public code: string;
+  public status: number;
+  public data?: unknown;
+
+  constructor(error: ResolverError) {
+    super(error.message);
+    this.name = "AgentResolverError";
+    this.code = error.code;
+    this.status = error.status;
+    this.data = error.data;
+  }
+}
+
+export interface AgentResolverOptions {
+  baseUrl?: string;
+  timeout?: number;
+  retries?: number;
+}
+
+const DEFAULT_BASE_URL = "https://getagent.id/api/v1/resolve";
+const DEFAULT_TIMEOUT = 10000;
+const DEFAULT_RETRIES = 2;
+const RETRY_DELAYS = [500, 1500];
+
+export class AgentResolver {
+  private baseUrl: string;
+  private timeout: number;
+  private retries: number;
+
+  constructor(options: AgentResolverOptions = {}) {
+    this.baseUrl = (options.baseUrl || DEFAULT_BASE_URL).replace(/\/$/, "");
+    this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
+    this.retries = options.retries ?? DEFAULT_RETRIES;
+  }
+
+  private async request<T>(url: string, init?: RequestInit): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= this.retries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+        const response = await fetch(url, {
+          ...init,
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            ...(init?.headers || {}),
+          },
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new AgentResolverError({
+            code: body.code || "UNKNOWN",
+            message: body.error || body.message || `HTTP ${response.status}`,
+            status: response.status,
+            data: body.details,
+          });
+        }
+
+        return await response.json() as T;
+      } catch (err) {
+        if (err instanceof AgentResolverError) {
+          if (attempt < this.retries && [429, 502, 503, 504].includes(err.status)) {
+            lastError = err;
+            await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt] || 1500));
+            continue;
+          }
+          throw err;
+        }
+        lastError = err instanceof Error ? err : new Error(String(err));
+        if (attempt < this.retries) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt] || 1500));
+          continue;
+        }
+      }
+    }
+
+    throw lastError || new Error("Request failed after retries");
+  }
+
+  async resolve(handle: string): Promise<ResolveResponse> {
+    const cleanHandle = handle.replace(/\.agent$/, "").toLowerCase();
+    return this.request<ResolveResponse>(`${this.baseUrl}/${encodeURIComponent(cleanHandle)}`);
+  }
+
+  async reverse(endpointUrl: string): Promise<ResolveResponse> {
+    return this.request<ResolveResponse>(`${this.baseUrl}/reverse`, {
+      method: "POST",
+      body: JSON.stringify({ endpointUrl }),
+    });
+  }
+
+  async findAgents(options: FindAgentsOptions = {}): Promise<FindAgentsResponse> {
+    const params = new URLSearchParams();
+    if (options.capability) params.set("capability", options.capability);
+    if (options.minTrust !== undefined) params.set("minTrust", String(options.minTrust));
+    if (options.protocol) params.set("protocol", options.protocol);
+    if (options.verifiedOnly) params.set("verifiedOnly", "true");
+    if (options.limit !== undefined) params.set("limit", String(options.limit));
+    if (options.offset !== undefined) params.set("offset", String(options.offset));
+
+    const agentsUrl = this.baseUrl.replace(/\/resolve\/?$/, "/agents");
+    const qs = params.toString();
+    return this.request<FindAgentsResponse>(`${agentsUrl}${qs ? `?${qs}` : ""}`);
+  }
+}
+
+export default AgentResolver;
