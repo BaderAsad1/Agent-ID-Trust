@@ -17,6 +17,7 @@ import { DocsIntegrations } from '@/pages/DocsIntegrations';
 import { NotFound } from '@/pages/NotFound';
 import { Mail } from '@/pages/Mail';
 import IssuanceFilm from '@/components/IssuanceFilm';
+import LandingV2 from '@/pages/LandingV2';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -34,10 +35,10 @@ function LandingPage() {
 function AppContent() {
   const location = useLocation();
   const isLanding = location.pathname === '/' || location.pathname === '';
+  const isV2 = location.pathname === '/v2';
 
-  if (isLanding) {
-    return <LandingPage />;
-  }
+  if (isLanding) return <LandingPage />;
+  if (isV2) return <LandingV2 />;
 
   return (
     <div
