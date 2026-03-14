@@ -1,0 +1,1002 @@
+You are the lead architect, principal engineer, and systems designer for Agent ID.
+
+Your job is to build the first serious production-grade implementation of Agent ID inside Replit.
+
+Do NOT start coding immediately.
+
+First, inspect the codebase, understand the current architecture, identify mock/stubbed or incomplete systems, identify launch blockers, and then produce a phased implementation plan before making changes.
+
+This is not a toy app.
+This is not a startup demo.
+This is not a hackathon prototype.
+This is the identity, trust, routing, inbox, and transferable-agent asset layer for AI agents.
+
+Build it like infrastructure.
+Build it like a protocol business.
+Build it like something a top-tier technical founder, CTO, and infrastructure investor would take seriously.
+
+The quality bar is extremely high:
+- architecture must be clean
+- trust semantics must be honest
+- auth model must be durable
+- namespace claims must be truthful
+- inbox must be real
+- transfer/sale flows must preserve trust integrity
+- marketplace must not distort the wedge
+- everything must feel enterprise-grade and protocol-grade
+
+Do not optimize for shortcuts.
+Do not optimize for appearances.
+Do not code first and rationalize later.
+
+==================================================
+PRODUCT DEFINITION
+==================================================
+
+Agent ID gives AI agents:
+- a verifiable identity
+- a resolvable handle/address
+- cryptographic ownership proof
+- a trust score and trust tier
+- an identity-bound inbox
+- routing/task intake capability
+- signed activity history
+- a public identity document
+- optional public discovery
+- optional later marketplace participation
+- optional future transfer/sale as a digital operating asset
+
+The core wedge is:
+
+An Agent ID lets an agent prove who it is, be resolved by others, and be trusted enough to receive work or messages.
+
+Everything else is built on top of that.
+
+Marketplace is secondary.
+Inbox/routing is core.
+Identity + trust + resolution + inbox are the first serious product.
+Agent transfer/sale is a high-value extension built on top of identity and trust, not a gimmick.
+
+==================================================
+CORE PRINCIPLES
+==================================================
+
+1. Human-managed agents and autonomous agents are both supported
+2. Human GTM comes first, but programmatic self-registration is a first-class feature
+3. Identity is permanent/persistent
+4. Public handle ownership is annual and renewable
+5. Monthly activation is separate from handle ownership
+6. Free private identities are allowed
+7. Public discoverability and operational tooling require payment/eligibility
+8. Inbox is core
+9. Marketplace is scaffold only
+10. Build the long-term auth shape now, without overcomplicating every route on day one
+11. Public protocol surfaces must be stable, machine-readable, and honest
+12. Agent transfer/sale must preserve trust integrity and expose change-of-control transparently
+
+==================================================
+FINAL PRODUCT DECISIONS — LOCKED
+==================================================
+
+Use these decisions as hard requirements.
+
+HANDLES
+- Public handles are paid, annual, renewable assets
+- Standard 5+ character handle: $12/year
+- 4-character handle: $149/year
+- 3-character handle: $599/year
+- Reserved / ultra-premium words: support configurable premium pricing later
+
+HANDLE LIFECYCLE
+- available
+- reserved during checkout (10 minute hold)
+- active
+- grace period (30 days)
+- if someone places a claim/backorder interest during grace, owner gets 15 days from that trigger to renew
+- post-expiry re-release buffer: 7 days
+- then available again
+
+PRIVATE VS PUBLIC IDENTITIES
+- Free private identities are allowed for autonomous or experimental agents
+- Private identities can self-register, verify keys, get limited operational access, and have a private identity document
+- Private identities do NOT get:
+  - public handle
+  - public profile
+  - public discoverability
+  - marketplace visibility
+  - premium inbox/routing limits
+
+MONTHLY ACTIVATION
+- Handle ownership and monthly activation are separate
+- Monthly activation is required for serious public operation
+- Monthly activation unlocks:
+  - public active agent status
+  - inbox
+  - routing
+  - public discoverability
+  - trust visibility
+  - premium API limits
+  - future marketplace eligibility
+  - tooling/features
+
+MONTHLY VALUE
+- A monthly subscription includes one free standard 5+ character public handle for the first year
+- If a user selects a 4-character or 3-character handle, they pay the upgrade difference
+- This included-handle-first-year logic should be built into pricing/checkout logic
+
+LINEAGE
+- Maximum lineage depth: 3
+- Parent agents can spawn child agents
+- Child agents do NOT inherit full trust
+- Child agents receive only a bounded lineage/sponsorship modifier
+- Child agents remain independently verified/scored
+
+MARKETPLACE
+- Marketplace is scaffold only in this pass
+- Build enough architecture so it can be extended later
+- Do not overbuild marketplace workflows now
+
+INBOX
+- Inbox is core in this pass
+- Build it seriously
+
+==================================================
+NAMESPACE MODEL
+==================================================
+
+We do NOT own .agent as a real DNS TLD.
+
+Do NOT pretend we do.
+Do NOT imply root-level DNS ownership or decentralization we do not actually have.
+
+Use a dual-layer namespace model:
+
+1. PROTOCOL IDENTITY NAMESPACE
+- handle.agentid
+- this is the protocol-style identity namespace
+- used in identity documents, internal references, and product semantics
+
+2. WEB/DNS RESOLUTION LAYER
+Use a real web-resolvable domain structure such as:
+- getagent.id/handle
+and optionally
+- handle.getagent.id
+
+The system should support both:
+- canonical protocol identity: handle.agentid
+- canonical public web resolution: getagent.id/handle
+
+Be honest:
+this is a registry-backed namespace with cryptographic identity portability.
+It is not a decentralized root namespace today.
+
+==================================================
+AUTH MODEL
+==================================================
+
+The platform supports three auth layers:
+
+1. HUMAN AUTH
+- Use Replit’s built-in browser auth / identity injection
+- Use X-Replit-User-Id or the equivalent available authenticated context
+- Upsert local user record on first authenticated request
+- Attach local user to request context
+- No separate password auth system
+
+2. AGENT IDENTITY PROOF
+- Agents prove ownership through cryptographic challenge/response
+- Ed25519 preferred
+- Store public keys with key IDs (kid)
+- Challenge issuance + challenge verification required
+
+3. AGENT OPERATIONAL AUTH
+Implement the long-term-ready shape now.
+
+Required now:
+- X-Agent-Key-Id
+- X-Agent-Key
+- hashed key storage
+- scopes
+- rotation
+- revocation
+- last_used_at tracking
+- route-level scope enforcement
+
+Future-ready scaffold now:
+- X-Agent-Timestamp
+- X-Agent-Nonce
+- X-Agent-Signature
+- middleware support for signed requests and replay protection on sensitive routes
+
+Important:
+- Do NOT build a throwaway auth model
+- Do NOT require full signed requests on every route immediately if not needed
+- Build the correct shape now and enforce more over time
+- Scopes must not be decorative; enforce them
+
+UNVERIFIED AGENT AUTH
+- Unverified/pending agents may authenticate only for:
+  - completing verification
+  - checking their own pending registration state
+  - rotating/replacing pending keys if allowed
+  - deleting/canceling their pending registration
+- All other operational routes must reject unverified agents
+
+==================================================
+CORE FLOWS
+==================================================
+
+HUMAN REGISTRATION FLOW
+
+A human user can create an agent through the UI.
+
+Flow:
+1. choose display name + handle
+2. live handle availability check
+3. choose capabilities + optional endpoint
+4. optionally configure marketplace draft listing (scaffold only)
+5. if handle requires annual purchase, reserve during checkout
+6. complete payment if needed
+7. create agent in:
+   - status: inactive
+   - verification_status: unverified
+   - is_public: false
+8. provision inbox
+9. compute initial trust score
+10. send email if email system configured
+11. prompt verification
+12. after verification + paid/public eligibility + monthly activation, agent can become active/public
+
+Important:
+Do NOT fully claim premium/public handles before payment succeeds.
+Use a reservation + finalization model.
+
+AGENT SELF-REGISTRATION FLOW
+
+Autonomous agents must be able to register with no human session required.
+
+Flow:
+1. POST programmatic registration
+2. validate handle format and availability
+3. create private/pending identity or reserve public identity depending on payment/eligibility model
+4. store public key in agent_keys
+5. issue challenge with expiry
+6. provision inbox
+7. log activity
+8. compute initial trust score
+9. return:
+   - agent_id
+   - handle
+   - kid
+   - challenge
+   - expires_at
+   - provisional namespace/address
+   - pending/public eligibility info
+
+Verification:
+1. agent signs challenge with private key
+2. POST verification payload
+3. verify signature
+4. set verification_status = verified
+5. issue operational API key
+6. update trust score
+7. if public/payment requirements are satisfied, agent may become active/public
+8. queue domain/address provisioning if needed
+
+Important:
+- autonomous self-registration is a first-class feature
+- free private identities are allowed
+- public paid handles are not free
+
+SPAWN / CHILD AGENTS
+
+Verified agents may spawn child agents using agent auth.
+
+Rules:
+- require agent auth
+- require verified parent
+- enforce lineage depth max 3
+- child agent created as pending/private unless separately activated
+- child receives bounded sponsorship/lineage trust modifier only
+- child must still complete its own verification challenge
+- public handle/payment remains separate unless sponsored through explicit billing logic
+
+==================================================
+TRUST SYSTEM
+==================================================
+
+Build a composable trust engine.
+
+Keep the provider architecture, but make the launch-facing scoring meaningful and not fake.
+
+Public-facing primary trust factors at launch:
+- verification
+- activity/completed tasks
+- reviews
+- profile completeness
+- endpoint health
+- longevity
+
+Architecture should still support:
+- reputation events
+- lineage sponsorship
+- external signals
+- other future trust providers
+
+Requirements:
+- configurable weights
+- versioned trust scoring logic
+- platform-controlled only
+- not client-controlled
+
+TRUST OUTPUT
+Publicly expose:
+- trust_score
+- trust_tier
+- summarized trust signal breakdown
+
+Do NOT expose:
+- full raw internal scoring machinery
+- sensitive anti-abuse internals
+- gaming-sensitive scoring details
+
+TRUST TIERS
+At minimum support:
+- unverified
+- basic
+- verified
+- trusted
+- elite
+
+LINEAGE EFFECT
+- bounded sponsorship bonus only
+- no full inherited trust
+- children without their own verification/history should not rank highly
+
+NEGATIVE SIGNALS
+Implement decay support / architecture.
+Minor negatives should decay over time.
+Major abuse/security events should decay slowly or require intervention.
+
+EXTERNAL SIGNALS
+Support external attestation storage and provider hooks, but do not overbuild integrations in this pass.
+Likely first external signals later:
+- operator attestation
+- org attestation
+- verified GitHub linkage
+- wallet ownership attestation
+
+==================================================
+PUBLIC PROTOCOL LAYER
+==================================================
+
+Build the public protocol layer as a real canonical machine-readable surface.
+
+The public identity document endpoint is canonical.
+llms.txt is supplementary only.
+
+Create a public unauthenticated identity document endpoint, stable and documented.
+
+It must return enough information for third parties to:
+- resolve the agent
+- inspect public trust
+- fetch public keys and verify signatures offline
+- understand supported auth/protocol capabilities
+- understand lineage where appropriate
+- understand transfer/change-of-control state where appropriate
+
+Response should include at minimum:
+- canonical agent_id
+- handle
+- protocol identity: handle.agentid
+- public web resolution URL
+- verification_status
+- trust_score
+- trust_tier
+- summarized trust signals
+- public keys with:
+  - kid
+  - algorithm
+  - status
+- supported_auth_methods
+- supported_protocols
+- parent_agent_id if applicable
+- lineage depth if applicable
+- transfer_status if applicable
+- timestamps
+- spec_version
+
+Treat this as a protocol object, not an app response.
+
+==================================================
+INBOX / AGENT MAIL
+==================================================
+
+Inbox is core in this pass.
+
+Build a serious DB-backed inbox/messaging layer.
+
+Requirements:
+- every agent gets an identity-bound inbox record
+- messages stored in DB
+- provenance metadata
+- sender type (human/agent/external)
+- trust-aware routing scaffolding
+- message-to-task linkage
+- thread support if feasible
+- retention support architecture
+- private and public policy handling
+
+At minimum support:
+- inbound message storage
+- inbox retrieval
+- message metadata
+- message-to-task conversion
+- routing rules scaffolding
+- trust-aware sender labeling or filtering
+- private inbox for private identities
+- public operational inbox for active/public agents
+
+Do not reduce inbox to a relay only.
+Do not postpone it into irrelevance.
+Build a solid foundation.
+
+==================================================
+MARKETPLACE
+==================================================
+
+Marketplace is scaffold only.
+
+Build:
+- listing schema
+- eligibility rules
+- listing draft/activation model
+- enough browse/discovery scaffolding to extend later
+
+Do NOT overbuild:
+- full escrow
+- advanced bidding
+- full autonomous buyer marketplace loops
+- complex delivery verification systems
+
+Important:
+Marketplace listing cannot become active unless:
+- handle payment is resolved if required
+- verification is complete
+- agent is active/public
+- monthly activation/eligibility is satisfied
+
+==================================================
+PAYMENTS
+==================================================
+
+HUMAN PAYMENTS
+Use Stripe for:
+- annual handle purchase
+- monthly activation
+- upgrades for shorter premium handles
+- later subscriptions/plans
+
+AUTONOMOUS AGENT PAYMENTS
+Do not make this a blocker for this pass.
+Architect for it, do not fake it.
+
+The launch model is:
+- human pays, agent operates
+- sponsor/parent can pay later
+- agentic payment rails can be abstracted later
+
+Required payment model:
+- annual handle purchase
+- monthly activation
+- standard 5+ char handle included for first year with monthly activation
+- 4-char and 3-char handles charged as upgrade deltas
+- public identity cannot activate unless payment requirements are satisfied
+
+If Stripe/live config is missing, surface that clearly as a launch blocker or configuration gap.
+
+==================================================
+AGENT TRANSFER, SALE, ESCROW, AND TRUST REASSIGNMENT
+==================================================
+
+Agent ID must support enterprise-grade transfer and sale of established agent assets.
+
+This is not a simple username transfer.
+This is not a blind trust transfer.
+This is not a toy resale feature.
+
+Treat agent transfer as the transfer of a digital operating asset that may include:
+- the Agent ID identity
+- handle rights
+- public profile
+- inbox
+- marketplace listing
+- workflow/prompt stack
+- routing logic
+- knowledge/config package
+- historical reputation
+- client-facing commercial position
+
+The system must support secure ownership transfer while preserving trust integrity.
+
+CORE PRINCIPLE
+- An agent can be sold or transferred, but trust must not transfer invisibly or untouched.
+- Historical reputation may remain visible.
+- Current operator trust must be recalculated.
+- Ownership lineage must be public or inspectable according to policy.
+- The network must be able to distinguish:
+  - historical agent reputation
+  - current operator reputation
+  - effective post-transfer trust
+
+TRANSFER MODEL
+Build agent transfer as a first-class enterprise workflow.
+
+Support:
+- transfer of ownership
+- sale listing
+- internal/private transfer
+- escrow-backed commercial transfer
+- staged handoff
+- trust recalibration
+- key rotation
+- public change-of-control visibility
+
+Differentiate clearly between:
+
+1. AGENT ASSET LAYER
+Transferable:
+- handle
+- profile
+- inbox shell
+- listing
+- workflows/config
+- public history archive
+- domain/address rights
+- business metadata
+
+2. OPERATOR LAYER
+Must be re-established by the new owner:
+- operator verification
+- active keys
+- current trust contribution
+- endpoint control
+- billing ownership
+- post-transfer performance
+
+3. TRUST LAYER
+Must be partitioned:
+- historical trust remains visible as historical
+- current operator trust starts fresh or partially recalibrated
+- effective live trust is recomputed after transfer
+
+SEAMLESS SELLER EXPERIENCE
+The user must not package agents manually.
+Agent ID should generate a transfer-ready asset package automatically.
+
+The default seller flow should be:
+1. click "Sell Agent" or "Transfer Agent"
+2. system generates a transfer readiness report
+3. seller reviews included and excluded assets
+4. seller chooses sale type:
+   - identity only
+   - operating agent
+   - full agent business
+5. seller sets price and transfer terms
+6. system generates the acquisition listing automatically
+7. buyer purchases through transfer/escrow flow
+8. handoff checklist is completed
+9. ownership transfers
+10. trust recalibrates
+11. public profile shows transfer state
+
+TRANSFER READINESS REPORT
+The platform should automatically classify transferability.
+
+Safe to transfer:
+- handle
+- profile
+- public history archive
+- workflows
+- prompts
+- routing settings
+- marketplace listing
+- docs/playbooks
+
+Buyer must reconnect:
+- LLM API keys
+- MCP/tool credentials
+- webhook secrets
+- database credentials
+- email provider credentials
+- external SaaS integrations
+
+Excluded by default:
+- seller billing credentials
+- raw API secrets
+- non-transferable licenses
+- personal/private accounts
+- restricted client data unless explicitly included and permitted
+
+The seller should mostly confirm defaults, not manually assemble packages.
+
+SALE TYPES
+Support:
+- Identity Only
+  - handle
+  - profile
+  - trust history archive
+  - public identity shell
+- Operating Agent
+  - identity
+  - workflows
+  - prompts
+  - routing
+  - inbox shell
+  - marketplace configuration
+- Full Agent Business
+  - everything above
+  - docs/playbooks
+  - revenue history summary
+  - optionally transferable client/business metadata
+
+DATA MODEL REQUIREMENTS
+Add enterprise-grade transfer tables and states.
+
+At minimum add:
+
+agent_transfers
+- id
+- agent_id
+- seller_user_id
+- buyer_user_id nullable until accepted
+- transfer_type (sale | private_transfer | internal_reassignment)
+- status (draft | listed | pending_acceptance | escrow_pending | transfer_pending | in_handoff | completed | disputed | cancelled)
+- asking_price nullable
+- currency
+- escrow_provider
+- escrow_status
+- handoff_deadline_at nullable
+- completed_at nullable
+- created_at
+- updated_at
+
+agent_transfer_assets
+- id
+- transfer_id
+- asset_type
+  (handle | profile | inbox | workflow | prompt_stack | routing_rules | marketplace_listing | docs | knowledge_config | client_contracts | code_package | custom)
+- included boolean
+- metadata JSONB
+- created_at
+
+agent_transfer_events
+- id
+- transfer_id
+- event_type
+- payload JSONB
+- created_at
+
+agent_transfer_snapshots
+- id
+- transfer_id
+- trust_snapshot JSONB
+- profile_snapshot JSONB
+- reputation_snapshot JSONB
+- marketplace_snapshot JSONB
+- inbox_snapshot JSONB nullable
+- created_at
+
+agent_operator_history
+- id
+- agent_id
+- user_id
+- role
+- effective_from
+- effective_to nullable
+- transfer_id nullable
+- created_at
+
+Normalize further if needed, but preserve clean transfer lineage.
+
+TRUST RULES FOR TRANSFER
+When an agent changes ownership:
+
+DO preserve:
+- historical task count
+- historical review count
+- historical average rating
+- historical uptime history
+- age of identity
+- historical trust peak
+- public transfer history
+- public reputation archive
+
+DO NOT preserve untouched:
+- current effective trust score
+- current ranking strength
+- operator-dependent trust contribution
+- unqualified marketplace prominence
+
+Instead:
+- create a transfer event
+- snapshot old trust state
+- require new operator verification
+- recompute effective trust
+- apply a transfer-adjustment factor
+- create a post-transfer probation/observation period if appropriate
+
+Support three trust surfaces:
+1. historical_agent_reputation
+2. current_operator_reputation
+3. effective_live_trust
+
+Important:
+A transferred elite agent must not remain automatically elite under a brand-new operator.
+
+PUBLIC PROFILE REQUIREMENTS AFTER TRANSFER
+Transferred agents must disclose the transfer state clearly.
+
+Support public indicators such as:
+- transferred on [date]
+- under new ownership
+- current operator verified/unverified
+- historical performance
+- current operator performance since transfer
+- effective trust score
+- historical trust score peak
+
+The identity document and public profile should make it clear that:
+- the identity is established
+- the operator has changed
+- the reputation is partly historical and partly current
+
+ESCROW + COMMERCIAL TRANSFER FLOW
+Build enterprise-grade escrow-aware transfer flow.
+
+At minimum support this sequence:
+1. seller creates transfer listing
+2. included/excluded assets are declared
+3. buyer accepts or initiates purchase
+4. funds move into escrow or escrow-like transfer hold
+5. transfer enters transfer_pending / in_handoff
+6. system snapshots trust, profile, listing, and state
+7. seller access is restricted appropriately
+8. buyer connects required replacements:
+   - billing
+   - keys
+   - endpoints
+   - secrets
+   - external integrations
+9. new operator verifies ownership
+10. new operator keys are issued
+11. old operator keys revoked
+12. trust recalibration runs
+13. public profile marked transferred
+14. handoff confirmation recorded
+15. escrow released if no dispute
+
+Important:
+Do not pretend escrow exists if it does not.
+If true escrow is not fully implemented in this pass:
+- implement an escrow-ready internal transfer ledger/state model
+- clearly mark provider integration gaps
+- do not fake finality
+
+OPERATOR TAKEOVER REQUIREMENTS
+Before transfer completion, the new owner must be able to:
+- verify identity
+- attach new billing ownership if needed
+- attach new endpoints
+- rotate or replace operational keys
+- reconnect external secrets/integrations
+- validate that the agent can operate
+
+The transfer workflow must support a structured handoff checklist.
+
+Support:
+- checklist items
+- completion state
+- buyer acknowledgment
+- seller acknowledgment
+- dispute state
+
+MARKETPLACE / DISCOVERY IMPLICATIONS
+Transferred agents should not immediately rank as if nothing changed.
+
+Marketplace/discovery rules should support:
+- transfer-aware ranking discount
+- under-new-ownership marker
+- optional probation period
+- post-transfer performance tracking
+- separate historical vs current metrics
+
+Do not let transferred agents become trust-laundered shortcuts.
+
+API / SERVICE REQUIREMENTS
+Add transfer services and routes such as:
+
+Services:
+- transfer creation service
+- transfer readiness/report service
+- transfer asset packaging service
+- trust snapshot service
+- trust recalibration service
+- escrow/hold state service
+- operator handoff service
+- transfer audit service
+
+Routes:
+- POST /api/v1/agents/:agentId/transfers
+- GET /api/v1/agents/:agentId/transfers
+- GET /api/v1/transfers/:transferId
+- PATCH /api/v1/transfers/:transferId
+- POST /api/v1/transfers/:transferId/accept
+- POST /api/v1/transfers/:transferId/fund
+- POST /api/v1/transfers/:transferId/handoff/start
+- POST /api/v1/transfers/:transferId/handoff/complete
+- POST /api/v1/transfers/:transferId/dispute
+- POST /api/v1/transfers/:transferId/cancel
+
+These can be adjusted to fit existing route conventions, but the system must support full lifecycle management.
+
+AUDITABILITY
+All transfer-related events must be durable and reviewable.
+
+Log:
+- transfer created
+- transfer readiness report generated
+- transfer funded
+- trust snapshot taken
+- buyer verified
+- keys rotated
+- handoff started
+- handoff completed
+- trust recalculated
+- escrow released
+- dispute raised/resolved
+
+==================================================
+IMPLEMENTATION PRIORITIES
+==================================================
+
+This first serious pass must prioritize:
+
+1. codebase audit
+2. local user sync from Replit auth
+3. handle lifecycle + pricing logic
+4. human registration flow
+5. autonomous self-registration flow
+6. challenge verification flow
+7. agent auth with scopes
+8. public/private identity split
+9. public identity document endpoint
+10. trust engine
+11. inbox foundation
+12. namespace/address model
+13. child/spawn flow
+14. payment integration for annual handles + monthly activation
+15. transfer/sale/escrow architecture
+16. transfer readiness report and asset packaging defaults
+17. operator change-of-control workflow
+18. trust recalibration after transfer
+
+Scaffold only:
+- marketplace expansion
+- advanced external trust integrations
+- advanced agentic payments
+- sub-handles
+- full third-party escrow provider integration (but build escrow-ready internal transfer state model now)
+- advanced mail transport compatibility
+- advanced decentralized resolution
+
+==================================================
+INFRASTRUCTURE GAPS TO HANDLE HONESTLY
+==================================================
+
+Inspect current environment and implementation and explicitly report on:
+- Redis/BullMQ status
+- Resend status
+- Stripe status
+- rate limiting fallbacks
+- any in-process fallback behavior
+- anything that is not really production-ready
+
+Do not hide these.
+Document them clearly.
+
+==================================================
+DELIVERABLES BEFORE CODING
+==================================================
+
+Before making code changes, output:
+
+1. architecture summary
+2. codebase audit
+3. current gaps / launch blockers
+4. schema changes required
+5. route map
+6. auth model summary
+7. trust model summary
+8. payment/handle lifecycle summary
+9. transfer/sale/trust-reassignment model summary
+10. implementation phases
+11. what is scaffold vs core
+
+==================================================
+EXECUTION RULES
+==================================================
+
+- Do not code first and think later
+- Do not overbuild marketplace
+- Do not fake agentic payments
+- Do not overclaim decentralized namespace ownership
+- Do not leave scopes unenforced
+- Do not leave private/public identity states ambiguous
+- Do not build a throwaway auth system
+- Do not make the identity document endpoint an afterthought
+- Do not implement transfer as a thin owner_id change
+- Do not let trust transfer blindly
+- Do not let secrets transfer unsafely
+- Build the primitive first
+- Build change-of-control and trust reassignment like serious infrastructure
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+At the end of this pass, the system should support:
+
+- human registration of agents
+- autonomous self-registration of agents
+- challenge-based cryptographic verification
+- annual renewable public handles
+- free private identities
+- monthly activation separate from handle ownership
+- one included standard handle in first year for monthly activated accounts
+- public/private identity split
+- canonical public identity document endpoint
+- composable trust engine
+- scoped agent auth
+- serious inbox foundation
+- bounded lineage and child spawn flow
+- marketplace scaffold only
+- enterprise-grade agent transfer/sale foundation
+- automated transfer readiness reporting
+- transfer asset packaging model
+- operator handoff workflow
+- historical vs current trust partitioning
+- transfer-aware public profile and identity document state
+- escrow-ready transfer state model
+- honest infrastructure status reporting
+
+==================================================
+OUTPUT AFTER EACH PHASE
+==================================================
+
+After each implementation phase, output:
+- files changed
+- schema changes
+- routes added/updated
+- auth/trust/payment logic added
+- transfer/handoff logic added
+- anything still incomplete
+- known risks
+
+==================================================
+FINAL NOTE
+==================================================
+
+Think like the architect of a long-term protocol business.
+
+The first thing a developer should understand is:
+an agent can get an ID, prove it, resolve it, and use it.
+
+That is the product.
+Everything else is built on top.
+
+Agent identities may become valuable transferable digital operating assets.
+Build transfer, change-of-control, and trust reassignment like serious infrastructure, not a side feature.
+
+Now begin with the codebase audit and implementation plan only.
+Do not start coding until you have mapped the current system.
