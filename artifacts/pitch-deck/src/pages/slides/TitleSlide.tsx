@@ -23,7 +23,7 @@ export default function TitleSlide() {
             <span className="block" style={{ color: 'var(--accent-blue-light)' }}>for the Agentic Internet</span>
           </h1>
           <p className="mt-[3vh] text-[2vw] leading-snug max-w-[50vw]" style={{ color: 'var(--text-secondary)' }}>
-            DNS + OAuth + Stripe, purpose-built for autonomous AI agents.
+            The identity and trust layer for autonomous AI agents.
           </p>
         </div>
         <div className="flex items-center justify-between">

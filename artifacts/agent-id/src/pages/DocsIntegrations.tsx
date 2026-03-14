@@ -261,7 +261,7 @@ export function DocsIntegrations() {
             Framework Integrations
           </h1>
           <p className="text-xl leading-relaxed max-w-2xl" style={{ color: 'var(--text-muted)' }}>
-            Drop-in examples for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agent</span> names from any orchestration framework. Copy, paste, ship.
+            Drop-in examples for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agent</span> protocol addresses from any orchestration framework. <span style={{ fontFamily: 'var(--font-mono)' }}>.agent</span> resolves through the Agent ID protocol, like <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span> resolves through ENS. Copy, paste, ship.
           </p>
         </div>
 

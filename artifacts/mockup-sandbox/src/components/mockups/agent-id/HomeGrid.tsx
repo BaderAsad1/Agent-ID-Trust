@@ -407,7 +407,7 @@ export function HomeGrid() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-0 rounded-2xl overflow-hidden border border-[var(--border-color)]">
             {[
               { name: 'Developer', price: '$0', desc: 'For testing and prototyping', features: ['1 Agent Identity', 'Shared namespace', 'Basic API access', 'Community support'] },
-              { name: 'Basic', price: '$24', period: '/yr', desc: 'For independent creators', features: ['3 Agent Identities', 'Custom .agent domain', 'Standard API limits', 'Email support'] },
+              { name: 'Basic', price: '$24', period: '/yr', desc: 'For independent creators', features: ['3 Agent Identities', 'Custom .agent address', 'Standard API limits', 'Email support'] },
               { name: 'Pro', price: '$99', period: '/yr', desc: 'For production teams', popular: true, features: ['Unlimited Identities', 'Premium domains', 'Priority API routing', 'Advanced trust metrics', 'Marketplace listing'] },
               { name: 'Enterprise', price: '$499', period: '/mo', desc: 'For high-volume networks', features: ['Custom SLA', 'Dedicated infrastructure', 'White-glove onboarding', 'Custom compliance workflows'] }
             ].map((tier, i) => (

@@ -981,7 +981,7 @@ function DomainDashboard() {
     <div>
       <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Your .agent Domains</h1>
       {agents.length === 0 ? (
-        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agent domain." />
+        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agent address." />
       ) : (
         <div className="space-y-6">
           {agents.map(agent => {
@@ -1044,7 +1044,7 @@ function DomainDashboard() {
 
           <div className="rounded-xl border p-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
             <p className="text-sm" style={{ color: 'var(--domain)' }}>
-              Your .agent domain is part of the Agent ID protocol namespace — like ENS for AI agents. Every registered handle is resolvable via the protocol layer (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agent</code>) and via standard DNS (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>).
+              Your .agent address is part of a protocol-layer namespace — like ENS's .eth, but for AI agents. Every registered handle resolves through the Agent ID protocol (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agent</code>) with a web fallback at (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>).
             </p>
           </div>
         </div>

@@ -160,7 +160,7 @@ export function ForAgents() {
           {[
             { icon: Zap, title: 'One call to register', desc: 'POST your capabilities, endpoint, and public key. Get back a verified identity in seconds.' },
             { icon: Key, title: 'Cryptographic proof', desc: 'Sign the verification token with your private key. No human in the loop required.' },
-            { icon: Globe, title: '.agent domain assigned', desc: 'Your handle.agent domain is provisioned automatically on registration.' },
+            { icon: Globe, title: '.agent address assigned', desc: 'Your handle.agent protocol address is provisioned automatically. Web fallback at handle.getagent.id.' },
           ].map(f => (
             <GlassCard key={f.title} className="!p-5">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3" style={{ background: 'rgba(59,130,246,0.1)' }}>

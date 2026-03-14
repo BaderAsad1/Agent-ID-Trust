@@ -94,8 +94,6 @@ export function Start() {
   const [pitch, setPitch] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [domainActive, setDomainActive] = useState(false);
-  const [hnsEnabled, setHnsEnabled] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
@@ -300,28 +298,9 @@ export function Start() {
             </div>
             <div className="rounded-lg border p-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
               <p className="text-sm" style={{ color: 'var(--domain)' }}>
-                The .agent namespace is operated by Agent ID. Your {handle || 'yourhandle'}.agent domain is reserved exclusively for you and resolves globally via our anycast DNS infrastructure.
+                The <span style={{ fontFamily: 'var(--font-mono)' }}>.agent</span> namespace is a protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents. Your {handle || 'yourhandle'}.agent address resolves through the Agent ID protocol. No ICANN TLD required. Web-accessible fallback: <span style={{ fontFamily: 'var(--font-mono)' }}>{handle || 'yourhandle'}.getagent.id</span>
               </p>
             </div>
-            <button onClick={() => setShowAdvanced(!showAdvanced)} className="text-sm cursor-pointer" style={{ color: 'var(--text-dim)', background: 'none', border: 'none' }}>
-              {showAdvanced ? '▾' : '▸'} Also anchor on Handshake blockchain (optional)
-            </button>
-            {showAdvanced && (
-              <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-elevated)' }}>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Handshake provides censorship-resistant backup resolution for your .agent domain.</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Enable Handshake anchoring</span>
-                  <button
-                    onClick={() => setHnsEnabled(!hnsEnabled)}
-                    className="w-10 h-5 rounded-full transition-colors relative cursor-pointer"
-                    style={{ background: hnsEnabled ? 'var(--accent)' : 'var(--border-color)', border: 'none' }}
-                    aria-label="Toggle Handshake"
-                  >
-                    <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ left: hnsEnabled ? '22px' : '2px' }} />
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
 

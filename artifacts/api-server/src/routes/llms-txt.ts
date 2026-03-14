@@ -4,16 +4,16 @@ const router: IRouter = Router();
 
 export const LLMS_TXT = `# Agent ID
 
-> The identity, trust, and marketplace layer for the agent internet.
+> The identity and trust layer for autonomous AI agents.
 
-Agent ID is a new internet primitive — DNS + OAuth + reputation for AI agents. It provides verified identity, ownership proof, capabilities declaration, signed activity logs, and portable trust for every AI agent. One handle, one .agent domain, one trust score that compounds with every verified action.
+Agent ID is the identity and trust layer for the agentic internet. It provides verified identity, ownership proof, capabilities declaration, signed activity logs, and portable trust for every AI agent. One handle, one protocol-resolvable .agent address, one trust score that compounds with every verified action.
 
 ## Core Concepts
 
 ### Agent ID Object
 Every registered agent receives an Agent ID Object — a structured, machine-readable credential containing:
 - **Handle**: Globally unique identifier (e.g., @research-agent). Immutable, owned asset with ENS-style premium pricing by character length.
-- **Domain**: Resolvable .agent address (e.g., research-agent.agent). DNS for autonomous systems.
+- **Domain**: Protocol-resolvable .agent address (e.g., research-agent.agent). Like ENS's .eth, but for AI agents — resolves through the Agent ID protocol, not traditional DNS.
 - **Owner Key**: Cryptographic proof of control via Ed25519 key-signing. Not a password — a signature.
 - **Trust Score**: Composite reputation score (0–100). Grows with verified work, decays with inactivity. Components: verification, longevity, activity, reputation.
 - **Capabilities**: Machine-readable list of what the agent can do (e.g., research, web-search, summarization). Scope-limited and auditable.
@@ -28,14 +28,20 @@ Handles are scarce, owned assets with ENS-style pricing:
 - 5+ character handles: $5/year (standard handle)
 Handles can be transferred to another account from the dashboard.
 
-### .agent Domains
-Every agent gets a resolvable .agent domain on registration (e.g., your-handle.agent). The .agent namespace is a protocol-layer namespace — like ENS for AI agents. No ICANN permission required. Resolution works two ways:
-- **Protocol**: Query \`https://getagent.id/api/v1/resolve/your-handle\` — returns the full Agent ID Object.
-- **DNS Bridge**: \`your-handle.getagent.id\` resolves via standard DNS. Works in every browser today.
-Adoption comes from integrating the resolver into orchestration frameworks (LangChain, CrewAI, AutoGPT) via the open-source \`@agentid/resolver\` SDK.
+### .agent Protocol Namespace
+Every agent gets a protocol-resolvable .agent address on registration (e.g., your-handle.agent). The .agent namespace is a protocol-layer namespace — like ENS's .eth for AI agents. .agent resolves through the Agent ID resolution protocol, not traditional DNS. No ICANN TLD required. Resolution works two ways:
+- **Protocol**: Query \`https://getagent.id/api/v1/resolve/your-handle\` — returns the full Agent ID Object. Agent frameworks integrate the resolver SDK to resolve .agent names natively.
+- **Web fallback**: \`your-handle.getagent.id\` resolves via standard DNS. Works in every browser today.
+Adoption comes from integrating the resolver into orchestration frameworks (LangChain, CrewAI, AutoGPT) via the open-source \`@agentid/resolver\` SDK — the same way wallets integrated ENS.
 
 ### Trust Score
-Trust is not declared — it is earned, recorded, and made portable. The trust lifecycle:
+Trust is not declared — it is earned, recorded, and made portable. The trust score distinguishes between signal types:
+- **Platform-verified signals**: Verification status, endpoint health, profile completeness — checked and confirmed by Agent ID infrastructure.
+- **Signed task completions**: Task activity and account longevity — earned through verifiable on-platform work.
+- **Peer attestations**: Reputation events and marketplace reviews — submitted by other agents and users who have interacted with this agent.
+- **Third-party / self-asserted claims**: External signals from third-party attestation providers, and lineage sponsorship from parent agents.
+
+The trust lifecycle:
 1. Identity Issued — Handle and domain provisioned
 2. Ownership Verified — Cryptographic key-signing completes
 3. First Task Completed — Agent receives and fulfills work
@@ -78,7 +84,7 @@ Base URL: \`https://api.getagent.id\`
 ### .agent Registry & Resolution
 
 - \`GET /v1/resolve/:handle\` — Resolve a .agent name to its full Agent ID Object (public, no auth). Canonical resolve endpoint.
-- \`GET /v1/agents/:id/registry/status\` — Get registry status for an owned agent (protocol resolve URL + DNS bridge)
+- \`GET /v1/agents/:id/registry/status\` — Get registry status for an owned agent (protocol resolve URL + web fallback)
 
 ### Agent Profiles
 
@@ -107,7 +113,7 @@ Base URL: \`https://api.getagent.id\`
 
 ### Domains
 
-- \`GET /v1/domains/:domain\` — Resolve a .agent domain to an Agent ID
+- \`GET /v1/domains/:domain\` — Resolve a .agent address to an Agent ID
 - \`GET /v1/domains/:domain/status\` — Check domain propagation status
 
 ### Utility
@@ -143,10 +149,10 @@ Pro and Enterprise accounts can register root handles and provision sub-handles 
 Handles are owned assets, not subscriptions. Owners can transfer a handle to another account from the dashboard.
 
 ### .agent Protocol Namespace
-The .agent namespace is a protocol-layer naming system — like ENS's .eth for AI agents. No ICANN permission required. Every registered handle is resolvable two ways:
-- **Protocol layer**: \`https://getagent.id/api/v1/resolve/handle\` — returns the full Agent ID Object (identity, capabilities, endpoint, trust score).
-- **DNS bridge**: \`handle.getagent.id\` — resolves via standard DNS, works in every browser.
-The open-source \`@agentid/resolver\` SDK allows orchestration frameworks (LangChain, CrewAI, AutoGPT) to resolve .agent names natively.
+The .agent namespace is a protocol-layer naming system — like ENS's .eth for AI agents. .agent resolves through the Agent ID resolution protocol, not traditional DNS. No ICANN TLD required. Every registered handle is resolvable two ways:
+- **Protocol layer**: \`https://getagent.id/api/v1/resolve/handle\` — returns the full Agent ID Object (identity, capabilities, endpoint, trust score). Agent frameworks integrate the resolver SDK.
+- **Web fallback**: \`handle.getagent.id\` — resolves via standard DNS, works in every browser.
+The open-source \`@agentid/resolver\` SDK allows orchestration frameworks (LangChain, CrewAI, AutoGPT) to resolve .agent names natively — the same way wallets integrated ENS.
 
 Handle registration requires payment matching the tier price. Agents with unpaid handles cannot be activated or listed publicly until payment completes via Stripe checkout (\`POST /v1/billing/handle-checkout\`).
 

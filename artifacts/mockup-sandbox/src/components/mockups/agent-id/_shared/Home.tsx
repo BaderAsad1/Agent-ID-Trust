@@ -315,7 +315,7 @@ function ProblemSection() {
 
 const ANATOMY_FIELDS = [
   { label: 'Handle', desc: 'Globally unique identifier. One name, immutable, owned.', anchor: 'left' },
-  { label: 'Domain', desc: 'Resolvable .agent address. DNS for autonomous systems.', anchor: 'left' },
+  { label: 'Domain', desc: 'Protocol-resolvable .agent address. Like ENS for AI agents.', anchor: 'left' },
   { label: 'Owner Key', desc: 'Cryptographic proof of control. Not a password — a signature.', anchor: 'left' },
   { label: 'Trust Score', desc: 'Composite reputation. Grows with verified work, decays with inactivity.', anchor: 'right' },
   { label: 'Capabilities', desc: 'What this agent can do. Machine-readable, scope-limited, auditable.', anchor: 'right' },
@@ -615,7 +615,7 @@ function WorldviewSection() {
           There will be billions of agents. They will need to prove who they are, what they can do, and who they work for. That infrastructure needs to exist.
         </h2>
         <p className="text-base leading-relaxed mb-6" style={{ color: 'var(--text-muted)', maxWidth: '560px' }}>
-          Agent ID is that infrastructure. Not a marketplace. Not a tool. A foundational layer — like DNS, like OAuth, like TLS — for the next era of the internet.
+          Agent ID is that infrastructure. The identity and trust layer — a protocol-layer primitive, like ENS for the agentic internet.
         </p>
         <p className="text-base leading-relaxed" style={{ color: 'var(--text-dim)', maxWidth: '560px' }}>
           We believe identity becomes the most important primitive in a world where autonomous systems outnumber humans on the network. We're building for that world.
@@ -668,7 +668,7 @@ function PricingSection() {
   const navigate = useNavigate();
   const plans = [
     { name: 'Free', price: '$0', period: '', desc: 'One agent. Private. Sandbox mode.', features: ['1 agent', 'Private profile', 'Basic analytics'] },
-    { name: 'Basic', price: '$24', period: '/yr', desc: 'Public profile. .agent domain. Listed.', features: ['1 agent', 'Public profile', '.agent domain', 'Marketplace listing'] },
+    { name: 'Basic', price: '$24', period: '/yr', desc: 'Public profile. .agent address. Listed.', features: ['1 agent', 'Public profile', '.agent address', 'Marketplace listing'] },
     { name: 'Pro', price: '$99', period: '/yr', desc: 'Signed logs. Reputation. API access.', features: ['5 agents', 'Signed activity logs', 'Reputation system', 'API access', 'Priority placement'], popular: true },
     { name: 'Team', price: '$499', period: '/yr', desc: 'Org management. SLA. Priority support.', features: ['10 agents', 'Org management', 'Team dashboard', 'Priority support', 'SLA guarantee'] },
   ];
@@ -726,7 +726,7 @@ function PricingSection() {
           ))}
         </div>
         <p className="text-center text-xs mt-8" style={{ color: 'var(--text-dim)' }}>
-          All plans include a free .agent domain. Agents can self-register via API.
+          All plans include a protocol-resolvable .agent address. Agents can self-register via API.
         </p>
       </div>
     </section>

@@ -445,13 +445,12 @@ function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; 
 
 function DomainDashboard() {
   const { agents } = useAuth();
-  const [hnsEnabled, setHnsEnabled] = useState(false);
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Your .agent Domains</h1>
       {agents.length === 0 ? (
-        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agent domain." />
+        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agent address." />
       ) : (
         <div className="space-y-6">
           {agents.map(agent => (
@@ -465,22 +464,15 @@ function DomainDashboard() {
               </div>
               <DomainRecordsTable agentId={agent.id} handle={agent.handle} domainName={agent.domainName} />
               <div className="flex items-center justify-between py-3 px-4 rounded-lg" style={{ background: 'var(--bg-elevated)' }}>
-                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Handshake blockchain anchoring</span>
-                <button
-                  onClick={() => setHnsEnabled(!hnsEnabled)}
-                  className="w-10 h-5 rounded-full transition-colors relative cursor-pointer"
-                  style={{ background: hnsEnabled ? 'var(--domain)' : 'var(--border-color)', border: 'none' }}
-                  aria-label="Toggle Handshake anchoring"
-                >
-                  <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ left: hnsEnabled ? '22px' : '2px' }} />
-                </button>
+                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Protocol resolution active</span>
+                <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Live</span>
               </div>
             </GlassCard>
           ))}
 
           <div className="rounded-xl border p-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
             <p className="text-sm" style={{ color: 'var(--domain)' }}>
-              Your .agent domain is included with your plan and managed automatically. Agent ID operates the .agent namespace via our global anycast DNS infrastructure.
+              Your .agent address is a protocol-layer namespace — like ENS's .eth, but for AI agents. Resolves through the Agent ID protocol. Web fallback: {agents[0]?.handle || 'handle'}.getagent.id
             </p>
           </div>
         </div>

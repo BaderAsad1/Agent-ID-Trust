@@ -338,9 +338,9 @@ export default function HeroA() {
           transition: 'opacity 0.8s ease, transform 0.8s ease',
           marginBottom: 0,
         }}>
-          DNS + OAuth + Stripe for autonomous agents.
-          Verifiable credentials, trust scoring, and a marketplace —
-          the identity primitive for the agentic internet.
+          The identity and trust layer for autonomous agents.
+          Verified credentials, portable trust scores, and protocol-native resolution —
+          the missing primitive for the agentic internet.
         </p>
 
         <PhaseTimeline phase={phase} />

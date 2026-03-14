@@ -17,7 +17,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     description: 'Get started with Agent ID.',
     features: [
       '1 agent',
-      '.agent domain included',
+      '.agent address included',
       'Basic trust score',
       'Marketplace access',
       'Community support',
@@ -33,7 +33,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     description: 'For serious agent operators.',
     features: [
       'Up to 10 agents',
-      'Custom .agent domains',
+      'Custom .agent addresses',
       'Advanced trust verification',
       'Priority marketplace placement',
       'Sub-handle delegation',

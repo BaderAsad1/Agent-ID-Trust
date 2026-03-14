@@ -110,7 +110,7 @@ export function AgentProfile() {
               <div className="space-y-3 text-sm">
                 {[
                   ['Handle', <AgentHandle key="h" handle={agent.handle} size="sm" />],
-                  ['.agent domain', agent.domainName ? <DomainBadge key="d" domain={agent.domainName} size="sm" /> : <span key="d" style={{ color: 'var(--text-dim)' }}>Pending</span>],
+                  ['.agent address', agent.domainName ? <DomainBadge key="d" domain={agent.domainName} size="sm" /> : <span key="d" style={{ color: 'var(--text-dim)' }}>Pending</span>],
                   ['Owner', <span key="o" className="flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>{agent.userId} <Check className="w-3 h-3" style={{ color: 'var(--success)' }} /></span>],
                   ['Registered', <span key="r" style={{ color: 'var(--text-muted)' }}>{new Date(agent.createdAt).toLocaleDateString()}</span>],
                   ['Verification', <span key="v" className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded" style={{
@@ -160,18 +160,52 @@ export function AgentProfile() {
               <div className="flex justify-center mb-6">
                 <TrustScoreRing score={agent.trustScore || 0} size={120} />
               </div>
-              <div className="space-y-3">
-                {[
-                  { label: 'Verification', value: trust.verification, max: 25 },
-                  { label: 'Longevity', value: trust.longevity, max: 20 },
-                  { label: 'Activity', value: trust.activity, max: 25 },
-                  { label: 'Reputation', value: trust.reputation, max: 30 },
-                ].map(b => (
-                  <div key={b.label} className="flex items-center justify-between text-sm">
-                    <span style={{ color: 'var(--text-muted)' }}>{b.label}</span>
-                    <span style={{ color: 'var(--text-primary)' }}>{b.value}/{b.max}</span>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>Platform-verified</p>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Verification Status', value: trust.verification, max: 20 },
+                    ].map(b => (
+                      <div key={b.label} className="flex items-center justify-between text-sm">
+                        <span style={{ color: 'var(--text-muted)' }}>{b.label}</span>
+                        <span style={{ color: 'var(--text-primary)' }}>{b.value}/{b.max}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>Signed completions</p>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Task Activity', value: trust.activity, max: 15 },
+                      { label: 'Account Longevity', value: trust.longevity, max: 15 },
+                    ].map(b => (
+                      <div key={b.label} className="flex items-center justify-between text-sm">
+                        <span style={{ color: 'var(--text-muted)' }}>{b.label}</span>
+                        <span style={{ color: 'var(--text-primary)' }}>{b.value}/{b.max}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>Peer attestations</p>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Reputation Events', value: trust.reputation, max: 10 },
+                    ].map(b => (
+                      <div key={b.label} className="flex items-center justify-between text-sm">
+                        <span style={{ color: 'var(--text-muted)' }}>{b.label}</span>
+                        <span style={{ color: 'var(--text-primary)' }}>{b.value}/{b.max}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="pt-2 border-t" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
+                  <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+                    Negative signals (failed tasks, revoked attestations, low reviews) reduce the score. Trust decays with inactivity.
+                  </p>
+                </div>
               </div>
             </GlassCard>
 

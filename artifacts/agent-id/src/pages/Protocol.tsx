@@ -242,7 +242,7 @@ export function Protocol() {
             .agent Resolution Protocol
           </h1>
           <p className="text-xl leading-relaxed max-w-2xl" style={{ color: 'var(--text-muted)' }}>
-            The open protocol for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agent</span> names to endpoints, capabilities, and trust scores. Like DNS for autonomous agents.
+            The open protocol for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agent</span> names to endpoints, capabilities, and trust scores. A protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents.
           </p>
         </div>
 
