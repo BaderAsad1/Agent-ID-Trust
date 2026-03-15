@@ -370,14 +370,14 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
               opacity: identityVisible ? 1 : 0,
               transform: identityVisible ? 'translateY(0)' : 'translateY(10px)',
               transition: 'opacity 0.7s ease 0.15s, transform 0.7s ease 0.15s',
-            }}>Atlas-7</div>
+            }}>Atlas-7<span style={{ color: '#4f7df3' }}>.AgentID</span></div>
             <div style={{
               fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
-              color: '#4f7df3', letterSpacing: '0.01em',
+              color: 'rgba(232,232,240,0.4)', letterSpacing: '0.01em',
               opacity: handleVisible ? 1 : 0,
               transform: handleVisible ? 'translateX(0)' : 'translateX(-12px)',
               transition: 'opacity 0.6s ease, transform 0.6s ease',
-            }}>getagent.id/atlas-7</div>
+            }}>atlas-7.agentid.dev</div>
           </div>
         </div>
 
@@ -390,7 +390,7 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
           transition: 'opacity 0.7s ease, transform 0.7s ease',
         }}>
           {[
-            { label: 'DOMAIN', value: 'atlas-7.agent.id' },
+            { label: 'HANDLE', value: 'Atlas-7.AgentID' },
             { label: 'STATUS', value: isActive ? 'Active' : (isIssuing ? 'Issuing\u2026' : 'Pending'), isStatus: true },
             { label: 'ISSUED', value: '2026-03-13' },
             { label: 'SERIAL', value: 'AID-0x7f3a\u2026c91e', dim: true },
@@ -1350,7 +1350,7 @@ function SystemResolvingText({ progress }: { progress: number }) {
         left: '50%',
         transform: `translateX(-50%) translateY(${lerp(8, 0, Math.min(1, p2Opacity * 2))}px)`,
         whiteSpace: 'nowrap',
-      }}>BINDING DOMAIN \u2192 atlas-7.agent.id</div>
+      }}>BINDING HANDLE \u2192 Atlas-7.AgentID</div>
       <div style={{
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 11,
