@@ -76,24 +76,6 @@ export function Step6_Complete() {
       color: '#e8e8f0',
       padding: '32px 20px',
     }}>
-      <style>{`
-        @keyframes borderGlow {
-          0% { background-position: 0% 0%; }
-          25% { background-position: 100% 0%; }
-          50% { background-position: 100% 100%; }
-          75% { background-position: 0% 100%; }
-          100% { background-position: 0% 0%; }
-        }
-        @keyframes edgePulse {
-          0%, 100% { opacity: 0.6; }
-          50% { opacity: 1; }
-        }
-        @keyframes shimmer {
-          0% { transform: translateX(-100%) rotate(15deg); }
-          100% { transform: translateX(200%) rotate(15deg); }
-        }
-      `}</style>
-
       <div style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
@@ -103,27 +85,19 @@ export function Step6_Complete() {
 
         <div style={{
           position: 'relative', borderRadius: 18,
+          border: '1px solid rgba(52,211,153,0.15)',
           background: 'rgba(8, 10, 22, 0.98)',
           overflow: 'hidden', marginBottom: 20,
-          boxShadow: '0 0 60px rgba(52,211,153,0.08), 0 30px 80px -15px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)',
+          boxShadow: '0 0 60px rgba(79,125,243,0.06), 0 30px 80px -15px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)',
           textAlign: 'left',
         }}>
           <div style={{
-            position: 'absolute', inset: -2, borderRadius: 20,
-            background: 'linear-gradient(270deg, rgba(52,211,153,0.5), rgba(79,125,243,0.15), rgba(52,211,153,0.05), rgba(79,125,243,0.15), rgba(52,211,153,0.5))',
-            backgroundSize: '300% 300%',
-            animation: 'borderGlow 4s ease infinite',
+            position: 'absolute', inset: -2, borderRadius: 20, border: '1px solid transparent',
+            background: 'linear-gradient(135deg, rgba(52,211,153,0.25), rgba(79,125,243,0.08), rgba(52,211,153,0.25))',
             pointerEvents: 'none',
             mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', maskComposite: 'exclude',
             WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', WebkitMaskComposite: 'xor',
-            padding: 1.5,
-          }} />
-
-          <div style={{
-            position: 'absolute', inset: 0, borderRadius: 18,
-            boxShadow: '0 0 40px rgba(52,211,153,0.1), inset 0 0 40px rgba(52,211,153,0.02)',
-            animation: 'edgePulse 3s ease-in-out infinite',
-            pointerEvents: 'none',
+            padding: 1,
           }} />
 
           <div style={{
@@ -131,17 +105,15 @@ export function Step6_Complete() {
             background: 'linear-gradient(180deg, rgba(52,211,153,0.05), transparent)',
             borderBottom: '1px solid rgba(255,255,255,0.03)',
           }} />
-
           <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, height: '100%',
-            overflow: 'hidden', pointerEvents: 'none', borderRadius: 18,
-          }}>
-            <div style={{
-              position: 'absolute', top: -50, left: -100, width: 60, height: '200%',
-              background: 'linear-gradient(90deg, transparent, rgba(52,211,153,0.04), transparent)',
-              animation: 'shimmer 6s ease-in-out infinite',
-            }} />
-          </div>
+            position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+            background: 'linear-gradient(90deg, transparent 10%, rgba(52,211,153,0.5) 30%, rgba(52,211,153,0.6) 50%, rgba(52,211,153,0.5) 70%, transparent 90%)',
+            opacity: 0.8,
+          }} />
+          <div style={{
+            position: 'absolute', top: 0, left: 0, bottom: 0, width: 2,
+            background: 'linear-gradient(180deg, rgba(52,211,153,0.35), rgba(52,211,153,0.08) 40%, transparent 80%)',
+          }} />
 
           <div style={{ padding: '12px 28px 0' }}>
             <div style={{
