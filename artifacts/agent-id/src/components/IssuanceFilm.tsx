@@ -1598,11 +1598,8 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         opacity: contentOpacity,
         transform: `translateY(${contentY}px)`,
       }}>
-        Every agent needs a verifiable identity.{' '}
-        <span style={{
-          color: 'rgba(232,232,240,0.3)',
-          fontWeight: 500,
-        }}>This is where one begins.</span>
+        The identity layer<br />
+        for the agent internet.
       </h1>
 
       <p style={{
@@ -1615,7 +1612,7 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         opacity: contentOpacity * 0.8,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
-        The last identity an agent will ever need.
+        Verifiable. Resolvable. Trusted. One credential that makes autonomous agents usable by the rest of the internet.
       </p>
 
       <div style={{

@@ -107,20 +107,7 @@ function sectionOpacity(progress: number): number {
 // ─────────────────────────────────────────────────────────────────
 
 function GrainOverlay() {
-  return (
-    <>
-      <svg style={{ position: 'fixed', width: 0, height: 0 }}>
-        <filter id="v2-grain">
-          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
-          <feColorMatrix type="saturate" values="0" />
-        </filter>
-      </svg>
-      <div style={{
-        position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 9999,
-        filter: 'url(#v2-grain)', opacity: 0.022, mixBlendMode: 'overlay',
-      }} />
-    </>
-  );
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -826,7 +813,7 @@ export default function IssuanceFilmV2() {
   }, [ceremony]);
 
   return (
-    <div style={{ background: '#050711', minHeight: '100vh', color: 'rgba(232,232,240,0.9)' }}>
+    <div style={{ background: '#000000', minHeight: '100vh', color: 'rgba(232,232,240,0.9)' }}>
       <GrainOverlay />
 
       <style>{`
@@ -886,7 +873,7 @@ export default function IssuanceFilmV2() {
       >
         <div style={{
           position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
-          background: '#050711',
+          background: '#000000',
           opacity: sectionOpacity(scroll.heroProgress),
           transition: 'opacity 0.05s linear',
         }}>
@@ -904,7 +891,7 @@ export default function IssuanceFilmV2() {
           className="v2-anatomy-sticky"
           style={{
             position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
-            background: '#050711',
+            background: '#000000',
             opacity: sectionOpacity(scroll.anatomyProgress),
             transition: 'opacity 0.05s linear',
           }}
@@ -923,7 +910,7 @@ export default function IssuanceFilmV2() {
           className="v2-activation-sticky"
           style={{
             position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
-            background: '#050711',
+            background: '#000000',
             opacity: sectionOpacity(scroll.activationProgress),
             transition: 'opacity 0.05s linear',
           }}
@@ -938,7 +925,7 @@ export default function IssuanceFilmV2() {
         style={{
           minHeight: '100vh',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: '#050711',
+          background: '#000000',
         }}
       >
         <CTAContent ctaProgress={scroll.ctaProgress} />
