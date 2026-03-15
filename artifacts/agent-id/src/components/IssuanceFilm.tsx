@@ -1540,32 +1540,6 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
       zIndex: 10, pointerEvents: 'none',
       padding: '0 clamp(20px, 5vw, 60px)',
     }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        marginBottom: 28,
-        opacity: contentOpacity,
-        transform: `translateY(${contentY * 0.3}px)`,
-      }}>
-        <div className="dormant-dot" style={{
-          width: 6, height: 6, borderRadius: '50%',
-          background: '#4f7df3',
-          boxShadow: '0 0 10px rgba(79,125,243,0.4)',
-        }} />
-        <span style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
-        }}>UNRESOLVED</span>
-        <style>{`
-          @keyframes dormant-pulse {
-            0%, 100% { opacity: 0.5; box-shadow: 0 0 8px rgba(79,125,243,0.2); }
-            50% { opacity: 1; box-shadow: 0 0 14px rgba(79,125,243,0.5); }
-          }
-          .dormant-dot {
-            animation: dormant-pulse 2.8s ease-in-out infinite;
-          }
-        `}</style>
-      </div>
-
       <RegistryField progress={progress} />
 
       <h1 style={{
@@ -1598,20 +1572,29 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
 
       <div style={{
         marginTop: 32,
-        opacity: contentOpacity * 0.7,
+        opacity: contentOpacity * 0.9,
         transform: `translateY(${contentY * 0.3}px)`,
       }}>
+        <style>{`
+          @keyframes begin-dot-blink {
+            0%, 100% { opacity: 0.55; box-shadow: 0 0 5px rgba(79,125,243,0.3); }
+            50% { opacity: 1; box-shadow: 0 0 10px rgba(79,125,243,0.75); }
+          }
+          .begin-dot { animation: begin-dot-blink 2.6s ease-in-out infinite; }
+        `}</style>
         <span onClick={() => onNavigate?.('/start')} style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
           letterSpacing: '0.1em',
-          color: 'rgba(232,232,240,0.35)',
+          color: 'rgba(232,232,240,0.62)',
           cursor: 'pointer',
           pointerEvents: 'auto',
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <span style={{
-            width: 4, height: 4, borderRadius: '50%',
-            background: 'rgba(79,125,243,0.4)',
+          <span className="begin-dot" style={{
+            width: 5, height: 5, borderRadius: '50%',
+            background: '#4f7df3',
+            boxShadow: '0 0 8px rgba(79,125,243,0.6)',
+            flexShrink: 0,
           }} />
           BEGIN ISSUANCE
         </span>
