@@ -22,8 +22,10 @@ import {
 } from "../../services/agent-keys";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
+import { buildBootstrapBundle } from "./agent-runtime";
 import { db } from "@workspace/db";
-import { apiKeysTable, usersTable } from "@workspace/db/schema";
+import { apiKeysTable, usersTable, agentsTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -191,6 +193,14 @@ router.post("/agents/verify", registrationLimiter, async (req, res, next) => {
       scopes: [],
     });
 
+    await db
+      .update(agentsTable)
+      .set({ bootstrapIssuedAt: new Date(), updatedAt: new Date() })
+      .where(eq(agentsTable.id, agentId));
+
+    const freshAgent = await getAgentById(agentId);
+    const bootstrap = await buildBootstrapBundle(freshAgent!);
+
     res.json({
       verified: true,
       agentId,
@@ -200,6 +210,7 @@ router.post("/agents/verify", registrationLimiter, async (req, res, next) => {
       trustScore: trust.trustScore,
       trustTier: trust.trustTier,
       apiKey: apiKey.raw,
+      bootstrap,
     });
   } catch (err) {
     next(err);

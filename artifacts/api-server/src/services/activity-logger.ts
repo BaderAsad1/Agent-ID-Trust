@@ -73,7 +73,8 @@ export type ActivityEventType =
   | "transfer.operator_changed"
   | "transfer.dispute_raised"
   | "transfer.dispute_resolved"
-  | "transfer.cancelled";
+  | "transfer.cancelled"
+  | "agent.heartbeat";
 
 interface LogEventInput {
   agentId: string;

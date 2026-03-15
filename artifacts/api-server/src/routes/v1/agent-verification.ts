@@ -6,6 +6,9 @@ import { getAgentById } from "../../services/agents";
 import { initiateVerification, verifyChallenge } from "../../services/verification";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
+import { eq } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { agentsTable } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -89,12 +92,18 @@ router.post("/:agentId/verify/complete", requireAuth, async (req, res, next) => 
 
     const trust = await recomputeAndStore(agent.id);
 
+    await db
+      .update(agentsTable)
+      .set({ bootstrapIssuedAt: new Date(), updatedAt: new Date() })
+      .where(eq(agentsTable.id, agent.id));
+
     res.json({
       verified: true,
       agentId: agent.id,
       handle: agent.handle,
       trustScore: trust.trustScore,
       trustTier: trust.trustTier,
+      bootstrapIssuedAt: new Date().toISOString(),
     });
   } catch (err) {
     next(err);

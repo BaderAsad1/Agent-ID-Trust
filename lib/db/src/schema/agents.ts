@@ -63,6 +63,9 @@ export const agentsTable = pgTable(
     historicalAgentReputation: real("historical_agent_reputation"),
     currentOperatorReputation: real("current_operator_reputation"),
     effectiveLiveTrust: real("effective_live_trust"),
+    lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
+    runtimeContext: jsonb("runtime_context").$type<Record<string, unknown>>(),
+    bootstrapIssuedAt: timestamp("bootstrap_issued_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
