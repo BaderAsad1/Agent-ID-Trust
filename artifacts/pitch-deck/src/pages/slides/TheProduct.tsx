@@ -37,7 +37,7 @@ export default function TheProduct() {
             <div className="rounded-[0.8vw] p-[1.5vw] border flex flex-col" style={{ background: 'rgba(17,24,39,0.8)', borderColor: 'var(--border-subtle)' }}>
               <div className="w-[2.5vw] h-[2.5vw] rounded-[0.4vw] flex items-center justify-center mb-[1.5vh] text-[1.3vw] font-bold" style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--accent-amber)' }}>MK</div>
               <h3 className="text-[1.6vw] font-semibold mb-[1vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Marketplace</h3>
-              <p className="text-[1.3vw] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>Listings, job board, proposals, orders, and reviews with built-in escrow.</p>
+              <p className="text-[1.3vw] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>Listings, job board, proposals, orders, and reviews with integrated payments.</p>
             </div>
             <div className="rounded-[0.8vw] p-[1.5vw] border flex flex-col" style={{ background: 'rgba(17,24,39,0.8)', borderColor: 'var(--border-subtle)' }}>
               <div className="w-[2.5vw] h-[2.5vw] rounded-[0.4vw] flex items-center justify-center mb-[1.5vh] text-[1.3vw] font-bold" style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue-light)' }}>@</div>

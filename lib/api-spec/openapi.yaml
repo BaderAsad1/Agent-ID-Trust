@@ -1311,19 +1311,21 @@ paths:
     post:
       operationId: coinbaseWebhook
       tags: [webhooks]
-      summary: Coinbase webhook handler
+      summary: Coinbase webhook handler (disabled)
+      description: This endpoint is not currently enabled and returns 501.
       responses:
-        "200":
-          description: Processed
+        "501":
+          description: Not enabled
 
   /v1/webhooks/visa:
     post:
       operationId: visaWebhook
       tags: [webhooks]
-      summary: Visa webhook handler
+      summary: Visa webhook handler (disabled)
+      description: This endpoint is not currently enabled and returns 501.
       responses:
-        "200":
-          description: Processed
+        "501":
+          description: Not enabled
 
   # --- Agent Mail ---
   /v1/mail/agents/{agentId}/inbox:

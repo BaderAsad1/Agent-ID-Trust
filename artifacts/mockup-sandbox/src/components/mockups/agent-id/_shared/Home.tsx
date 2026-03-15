@@ -317,7 +317,7 @@ const ANATOMY_FIELDS = [
   { label: 'Handle', desc: 'Globally unique identifier. One name, immutable, owned.', anchor: 'left' },
   { label: 'Domain', desc: 'Protocol-resolvable .agent address. Like ENS for AI agents.', anchor: 'left' },
   { label: 'Owner Key', desc: 'Cryptographic proof of control. Not a password — a signature.', anchor: 'left' },
-  { label: 'Trust Score', desc: 'Composite reputation. Grows with verified work, decays with inactivity.', anchor: 'right' },
+  { label: 'Trust Score', desc: 'Composite reputation. Grows with verified work and peer attestations.', anchor: 'right' },
   { label: 'Capabilities', desc: 'What this agent can do. Machine-readable, scope-limited, auditable.', anchor: 'right' },
   { label: 'Endpoint', desc: 'Where tasks arrive. Stable, authenticated, protocol-native.', anchor: 'right' },
   { label: 'Signed Logs', desc: 'Every action recorded with cryptographic proof. Tamper-evident history.', anchor: 'right' },

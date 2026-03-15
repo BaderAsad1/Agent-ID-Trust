@@ -873,7 +873,7 @@ function FleetManagement() {
       setFleets(result.fleets || []);
     } catch (e: unknown) {
       if (e instanceof Error && e.message.includes('403')) {
-        setError('Fleet management requires a Pro or Enterprise plan.');
+        setError('Fleet management requires a Pro or Team plan.');
       } else {
         setError(e instanceof Error ? e.message : 'Failed to load fleets');
       }

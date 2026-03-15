@@ -224,11 +224,13 @@ export function Start() {
               <div className="mb-6 p-4 rounded-xl text-left" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
                 <div className="flex items-center gap-2 mb-2">
                   <AlertCircle className="w-4 h-4" style={{ color: 'var(--warning, #f59e0b)' }} />
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Complete handle payment to activate</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Activate your handle</span>
                 </div>
                 <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
                   Your handle <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{handle}.agent</span> is reserved.
-                  Pay ${annualPrice}/yr to activate your agent.
+                  {handle.replace(/[^a-z0-9]/g, '').length >= 5
+                    ? ' Paid plan subscribers get their first standard handle included.'
+                    : ` Pay $${annualPrice}/yr to activate your agent.`}
                 </p>
                 <PrimaryButton
                   disabled={checkoutLoading}
@@ -249,7 +251,7 @@ export function Start() {
                   className="w-full"
                 >
                   {checkoutLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
-                  Pay ${annualPrice}/yr — Activate Handle
+                  Activate Handle
                 </PrimaryButton>
               </div>
             );

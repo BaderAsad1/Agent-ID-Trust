@@ -11,11 +11,11 @@ import {
   type AgentSubscription,
 } from "@workspace/db/schema";
 
-const PLAN_LIMITS: Record<string, number> = {
-  free: 1,
-  starter: 1,
-  pro: 5,
-  team: 10,
+const PLAN_LIMITS: Record<string, { maxPublicAgents: number; maxPrivateAgents: number }> = {
+  free: { maxPublicAgents: 0, maxPrivateAgents: 1 },
+  starter: { maxPublicAgents: 1, maxPrivateAgents: 1 },
+  pro: { maxPublicAgents: 5, maxPrivateAgents: 5 },
+  team: { maxPublicAgents: 10, maxPrivateAgents: 10 },
 };
 
 const PLAN_PRICES: Record<string, Record<string, number>> = {
@@ -50,12 +50,16 @@ function getStripe(): Stripe {
 }
 
 export function getPlanLimits(plan: string) {
+  const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
   return {
-    maxAgents: PLAN_LIMITS[plan] ?? 1,
+    maxAgents: limits.maxPublicAgents,
+    maxPublicAgents: limits.maxPublicAgents,
+    maxPrivateAgents: limits.maxPrivateAgents,
     canListOnMarketplace: plan !== "free",
     canUsePremiumRouting: plan === "pro" || plan === "team",
     canUseAdvancedAuth: plan === "pro" || plan === "team",
     canUseTeamFeatures: plan === "team",
+    includesStandardHandle: plan !== "free",
   };
 }
 
@@ -285,7 +289,7 @@ export async function createCheckoutSession(
           currency: "usd",
           product_data: {
             name: `Agent ID ${plan.charAt(0).toUpperCase() + plan.slice(1)} Plan`,
-            description: `Up to ${PLAN_LIMITS[plan]} active agent${PLAN_LIMITS[plan] > 1 ? "s" : ""}`,
+            description: `Up to ${(PLAN_LIMITS[plan] ?? PLAN_LIMITS.free).maxPublicAgents} public agent${(PLAN_LIMITS[plan] ?? PLAN_LIMITS.free).maxPublicAgents > 1 ? "s" : ""}`,
           },
           unit_amount: priceAmount,
           recurring: {
@@ -307,14 +311,59 @@ export async function createCheckoutSession(
   return { url: session.url };
 }
 
+export async function isEligibleForIncludedHandle(userId: string, handle: string): Promise<boolean> {
+  const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
+  if (handleLen < 5) return false;
+
+  const userSub = await getActiveUserSubscription(userId);
+  if (!userSub || userSub.plan === "free") return false;
+
+  const existingAgents = await db
+    .select({ id: agentsTable.id, metadata: agentsTable.metadata })
+    .from(agentsTable)
+    .where(eq(agentsTable.userId, userId));
+
+  const alreadyUsedBenefit = existingAgents.some((a) => {
+    const meta = a.metadata as Record<string, unknown> | null;
+    const hp = meta?.handlePricing as Record<string, unknown> | undefined;
+    return hp?.paymentStatus === "paid" || hp?.paymentStatus === "included";
+  });
+  if (alreadyUsedBenefit) return false;
+
+  const subAge = Date.now() - new Date(userSub.createdAt).getTime();
+  const oneYear = 365 * 24 * 60 * 60 * 1000;
+  return subAge < oneYear;
+}
+
 export async function createHandleCheckoutSession(
   userId: string,
   handle: string,
   successUrl: string,
   cancelUrl: string,
-): Promise<{ url: string | null; error?: string; priceCents: number }> {
-  const stripe = getStripe();
+): Promise<{ url: string | null; error?: string; priceCents: number; included?: boolean }> {
   const priceCents = getHandlePriceCents(handle);
+
+  const included = await isEligibleForIncludedHandle(userId, handle);
+  if (included) {
+    const agent = await db.query.agentsTable.findFirst({
+      where: and(eq(agentsTable.handle, handle.toLowerCase()), eq(agentsTable.userId, userId)),
+      columns: { id: true, metadata: true },
+    });
+    if (agent) {
+      const meta = (agent.metadata as Record<string, unknown>) || {};
+      const handlePricing = (meta.handlePricing as Record<string, unknown>) || {};
+      await db
+        .update(agentsTable)
+        .set({
+          metadata: { ...meta, handlePricing: { ...handlePricing, paymentStatus: "included", includedAt: new Date().toISOString() } },
+          updatedAt: new Date(),
+        })
+        .where(eq(agentsTable.id, agent.id));
+    }
+    return { url: successUrl, priceCents: 0, included: true };
+  }
+
+  const stripe = getStripe();
 
   const user = await db.query.usersTable.findFirst({
     where: eq(usersTable.id, userId),

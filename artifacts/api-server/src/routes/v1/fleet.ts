@@ -29,7 +29,7 @@ router.get("/", requireAuth, async (req, res, next) => {
     const eligibility = await requirePlanFeature(req.userId!, "canUsePremiumRouting");
     if (!eligibility.allowed) {
       throw new AppError(403, "PLAN_REQUIRED",
-        `Fleet management requires Pro or Enterprise plan. Current plan: ${eligibility.currentPlan}`);
+        `Fleet management requires a Pro or Team plan. Current plan: ${eligibility.currentPlan}`);
     }
 
     const rootAgents = await db.query.agentsTable.findMany({
@@ -73,7 +73,7 @@ router.post("/sub-handles", requireAuth, async (req, res, next) => {
     const eligibility = await requirePlanFeature(req.userId!, "canUsePremiumRouting");
     if (!eligibility.allowed) {
       throw new AppError(403, "PLAN_REQUIRED",
-        `Sub-handle delegation requires Pro or Enterprise plan. Current plan: ${eligibility.currentPlan}`);
+        `Sub-handle delegation requires a Pro or Team plan. Current plan: ${eligibility.currentPlan}`);
     }
 
     const parsed = createSubHandleSchema.safeParse(req.body);
@@ -144,7 +144,7 @@ router.delete("/sub-handles/:agentId", requireAuth, async (req, res, next) => {
     const eligibility = await requirePlanFeature(req.userId!, "canUsePremiumRouting");
     if (!eligibility.allowed) {
       throw new AppError(403, "PLAN_REQUIRED",
-        `Fleet management requires Pro or Enterprise plan. Current plan: ${eligibility.currentPlan}`);
+        `Fleet management requires a Pro or Team plan. Current plan: ${eligibility.currentPlan}`);
     }
 
     const agentId = req.params.agentId as string;

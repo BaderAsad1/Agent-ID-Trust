@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { z } from "zod/v4";
 import { randomBytes, createHash } from "crypto";
 import { requireAuth } from "../../middlewares/replit-auth";
@@ -22,9 +23,23 @@ import {
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
 import { db } from "@workspace/db";
-import { apiKeysTable } from "@workspace/db/schema";
+import { apiKeysTable, usersTable } from "@workspace/db/schema";
 
 const router = Router();
+
+const registrationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-7" as const,
+  legacyHeaders: false,
+  message: {
+    error: "Too many registration attempts",
+    code: "RATE_LIMIT_EXCEEDED",
+    retryAfterSeconds: 900,
+  },
+  keyGenerator: (req) => req.ip || "unknown",
+  validate: { xForwardedForHeader: false },
+});
 
 const registerSchema = z.object({
   handle: z.string().min(3).max(100),
@@ -49,7 +64,7 @@ const rotateKeySchema = z.object({
   keyType: z.string().default("ed25519"),
 });
 
-router.post("/agents/register", requireAuth, async (req, res, next) => {
+router.post("/agents/register", registrationLimiter, async (req, res, next) => {
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -69,10 +84,20 @@ router.post("/agents/register", requireAuth, async (req, res, next) => {
       throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
     }
 
+    let ownerId = req.userId;
+    if (!ownerId) {
+      const autonomousId = `auto_${randomBytes(16).toString("hex")}`;
+      const [newUser] = await db.insert(usersTable).values({
+        replitUserId: autonomousId,
+        displayName: `autonomous-${handle.toLowerCase()}`,
+      }).returning({ id: usersTable.id });
+      ownerId = newUser.id;
+    }
+
     let agent;
     try {
       agent = await createAgent({
-        userId: req.userId!,
+        userId: ownerId,
         handle: handle.toLowerCase(),
         displayName,
         description,
@@ -97,7 +122,7 @@ router.post("/agents/register", requireAuth, async (req, res, next) => {
     await logActivity({
       agentId: agent.id,
       eventType: "agent.programmatic_registered",
-      payload: { handle: agent.handle },
+      payload: { handle: agent.handle, autonomous: !req.userId },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });
@@ -117,7 +142,7 @@ router.post("/agents/register", requireAuth, async (req, res, next) => {
   }
 });
 
-router.post("/agents/verify", requireAuth, async (req, res, next) => {
+router.post("/agents/verify", registrationLimiter, async (req, res, next) => {
   try {
     const parsed = verifySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -130,7 +155,7 @@ router.post("/agents/verify", requireAuth, async (req, res, next) => {
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId) {
+    if (req.userId && agent.userId !== req.userId) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
 
@@ -149,7 +174,7 @@ router.post("/agents/verify", requireAuth, async (req, res, next) => {
     await logActivity({
       agentId,
       eventType: "agent.verified",
-      payload: { method: "key_challenge" },
+      payload: { method: "key_challenge", autonomous: !req.userId },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });

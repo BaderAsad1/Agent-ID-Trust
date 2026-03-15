@@ -203,7 +203,7 @@ export function AgentProfile() {
                 </div>
                 <div className="pt-2 border-t" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
                   <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-                    Negative signals (failed tasks, revoked attestations, low reviews) reduce the score. Trust decays with inactivity.
+                    Negative signals (failed tasks, revoked attestations, low reviews) reduce the score.
                   </p>
                 </div>
               </div>

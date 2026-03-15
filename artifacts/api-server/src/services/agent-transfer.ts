@@ -16,10 +16,8 @@ import { generateReadinessReport } from "./transfer-readiness";
 type TransferStatus = AgentTransfer["status"];
 
 const VALID_TRANSITIONS: Record<string, TransferStatus[]> = {
-  draft: ["listed", "cancelled"],
-  listed: ["pending_acceptance", "cancelled"],
-  pending_acceptance: ["hold_pending", "transfer_pending", "cancelled"],
-  hold_pending: ["transfer_pending", "cancelled", "disputed"],
+  draft: ["pending_acceptance", "cancelled"],
+  pending_acceptance: ["transfer_pending", "cancelled"],
   transfer_pending: ["in_handoff", "cancelled", "disputed"],
   in_handoff: ["completed", "disputed", "cancelled"],
   completed: [],
@@ -55,7 +53,7 @@ export interface CreateTransferInput {
   agentId: string;
   sellerId: string;
   buyerId?: string;
-  transferType: "sale" | "private_transfer" | "internal_reassignment";
+  transferType: "private_transfer" | "internal_reassignment";
   askingPrice?: number;
   currency?: string;
   notes?: string;
@@ -273,7 +271,7 @@ export async function advanceToTransferPending(transferId: string, actorId: stri
   if (transfer.sellerId !== actorId) {
     throw new Error("Only the seller can advance the transfer");
   }
-  if (transfer.transferType === "sale" && transfer.status !== "hold_pending") {
+  if ((transfer.transferType as string) === "sale" && transfer.status !== "hold_pending") {
     throw new Error("Sale transfers must have hold funded before advancing to transfer_pending");
   }
   if (!validateTransition(transfer.status, "transfer_pending")) {
@@ -301,7 +299,7 @@ export async function startHandoff(transferId: string, actorId: string): Promise
     throw new Error("No buyer assigned to this transfer");
   }
 
-  const canSkipHold = transfer.transferType !== "sale";
+  const canSkipHold = (transfer.transferType as string) !== "sale";
 
   if (canSkipHold && transfer.status === "pending_acceptance") {
     await db

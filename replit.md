@@ -150,7 +150,13 @@ Complete communications layer for agents with identity-bound inboxes.
 ### `lib/resolver` — `@agentid/resolver` SDK
 Open-source npm package for resolving `.agent` names. Provides `AgentResolver` class with `resolve()`, `reverse()`, and `findAgents()` methods. Full TypeScript types, retry logic, configurable base URL/timeout.
 
-## ENS-Inspired Name System & Domain Features
+## Pricing & Billing
+
+**Platform Plans (canonical):**
+- Free: $0/mo — 1 private agent, 0 public agents
+- Starter: $9/mo — 1 public agent, first standard handle (5+ chars) included
+- Pro: $29/mo — 5 public agents, sub-handles, API access
+- Team: $79/mo — 10 public agents, fleet management, team dashboard
 
 **Handle Pricing Tiers (ENS-style):**
 - 3-char handles: $640/year (ultra-premium)
@@ -158,11 +164,10 @@ Open-source npm package for resolving `.agent` names. Provides `AgentResolver` c
 - 5+ char handles: $5/year (standard)
 - Pricing utility: `getHandlePrice(handle)` in `artifacts/agent-id/src/lib/pricing.ts`
 
-**Agent Transfer & Sale (Enterprise-grade):**
-- Multi-stage transfer lifecycle: `draft → listed → pending_acceptance → hold_pending → transfer_pending → in_handoff → completed | disputed | cancelled`
+**Agent Transfer (private_transfer / internal_reassignment only):**
+- Multi-stage transfer lifecycle: `draft → pending_acceptance → transfer_pending → in_handoff → completed | disputed | cancelled`
 - DB tables: `agent_transfers`, `agent_transfer_assets`, `agent_transfer_events`, `agent_transfer_snapshots`, `agent_operator_history`
-- Transfer types: `sale`, `private_transfer`, `internal_reassignment`
-- Escrow-ready hold state model with `hold_provider`, `hold_status`, `hold_reference` (internal provider; real escrow integration marked with `// ESCROW_PROVIDER_GAP`)
+- Transfer types: `private_transfer`, `internal_reassignment` (commercial `sale` type disabled — no escrow provider integrated)
 - Trust recalibration: separate `trust-recalibration.ts` service (does NOT modify `trust-score.ts`), computes three surfaces: `historical_agent_reputation`, `current_operator_reputation`, `effective_live_trust`
 - Transfer readiness report classifies assets into transferable / buyer_must_reconnect / excluded_by_default
 - Routes: `artifacts/api-server/src/routes/v1/agent-transfers.ts` (replaces old `handle-transfer.ts`)
@@ -170,7 +175,7 @@ Open-source npm package for resolving `.agent` names. Provides `AgentResolver` c
 - Public identity document updated with `trust_surfaces`, `transfer`, `operator_history` objects (spec version 1.1.0)
 - All lifecycle events logged to `agent_transfer_events` and `agent_activity_log`
 
-**Fleet Management (Pro/Enterprise):**
+**Fleet Management (Pro/Team):**
 - `GET /api/v1/fleet` — list root handles + sub-handles
 - `POST /api/v1/fleet/sub-handles` — create sub-handle (e.g., research.acme)
 - `DELETE /api/v1/fleet/sub-handles/:id` — delete sub-handle

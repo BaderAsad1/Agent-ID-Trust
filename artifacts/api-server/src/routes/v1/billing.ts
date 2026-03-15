@@ -8,7 +8,6 @@ import {
   deactivateAgent,
   createCheckoutSession,
   createHandleCheckoutSession,
-  getHandlePriceCents,
   getPlanLimits,
   getActiveUserSubscription,
 } from "../../services/billing";
@@ -84,7 +83,6 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
   try {
     const body = handleCheckoutSchema.parse(req.body);
     const normalizedHandle = body.handle.toLowerCase();
-    const priceCents = getHandlePriceCents(normalizedHandle);
 
     const result = await createHandleCheckoutSession(
       req.userId!,
@@ -98,11 +96,13 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
       return;
     }
 
+    const effectivePrice = result.priceCents;
     res.json({
       url: result.url,
       handle: normalizedHandle,
-      priceCents,
-      priceDollars: priceCents / 100,
+      priceCents: effectivePrice,
+      priceDollars: effectivePrice / 100,
+      included: result.included ?? false,
     });
   } catch (err: unknown) {
     if (err instanceof z.ZodError) {

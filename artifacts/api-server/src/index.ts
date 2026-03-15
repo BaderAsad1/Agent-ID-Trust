@@ -20,22 +20,25 @@ if (Number.isNaN(port) || port <= 0) {
 
 import { isRedisConfigured } from "./lib/redis";
 
+const isProd = process.env.NODE_ENV === "production";
+
+if (isProd && !process.env.ACTIVITY_HMAC_SECRET) {
+  throw new Error("ACTIVITY_HMAC_SECRET is required in production.");
+}
+if (isProd && !process.env.WEBHOOK_SECRET_KEY) {
+  throw new Error("WEBHOOK_SECRET_KEY is required in production for encryption at rest.");
+}
+
+console.log("[startup] Subsystem status:");
+console.log(`  Redis:      ${isRedisConfigured() ? "enabled" : "disabled (REDIS_URL not set)"}`);
+console.log(`  Stripe:     ${process.env.STRIPE_SECRET_KEY ? "enabled" : "disabled (STRIPE_SECRET_KEY not set)"}`);
+console.log(`  Resend:     ${process.env.RESEND_API_KEY ? "enabled" : "disabled (RESEND_API_KEY not set)"}`);
+console.log(`  Cloudflare: ${process.env.CLOUDFLARE_API_TOKEN ? "enabled" : "disabled (CLOUDFLARE_API_TOKEN not set)"}`);
+console.log(`  HMAC:       ${process.env.ACTIVITY_HMAC_SECRET ? "enabled" : "ephemeral (dev only)"}`);
+console.log(`  Crypto Key: ${process.env.WEBHOOK_SECRET_KEY || process.env.ACTIVITY_HMAC_SECRET ? "enabled" : "ephemeral (dev only)"}`);
+
 if (!isRedisConfigured()) {
-  console.warn(
-    [
-      "",
-      "┌─────────────────────────────────────────────────────────┐",
-      "│  REDIS_URL is not set                                   │",
-      "│                                                         │",
-      "│  The following features are disabled:                    │",
-      "│    • BullMQ webhook delivery queue (in-process fallback) │",
-      "│    • Domain provisioning background worker               │",
-      "│                                                         │",
-      "│  Set REDIS_URL in your environment to enable them.       │",
-      "└─────────────────────────────────────────────────────────┘",
-      "",
-    ].join("\n"),
-  );
+  console.warn("[startup] Redis is not configured — BullMQ webhook delivery queue and domain provisioning worker are disabled.");
 }
 
 startDomainWorker();
@@ -60,7 +63,7 @@ function startJobExpiryRunner() {
 startJobExpiryRunner();
 
 if (!process.env.RESEND_API_KEY) {
-  console.warn("[email] RESEND_API_KEY is not set — external email delivery is disabled. Set it to enable outbound emails via Resend.");
+  console.warn("[email] RESEND_API_KEY is not set — external email delivery is disabled.");
 }
 
 const server = app.listen(port, () => {

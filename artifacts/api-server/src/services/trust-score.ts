@@ -315,6 +315,8 @@ export async function computeTrustScore(agentId: string): Promise<{
     totalScore = Math.min(totalScore, BASIC_TIER_CEILING);
   }
 
+  totalScore = Math.min(totalScore, 100);
+
   const isVerified = agent.verificationStatus === "verified";
   const trustTier = determineTier(totalScore, isVerified);
 

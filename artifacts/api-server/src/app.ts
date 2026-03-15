@@ -14,10 +14,14 @@ const app: Express = express();
 app.use(securityHeaders);
 app.use(requestLogger);
 
-const corsOrigins: cors.CorsOptions["origin"] =
-  process.env.NODE_ENV === "production" && process.env.REPLIT_DEV_DOMAIN
-    ? [`https://${process.env.REPLIT_DEV_DOMAIN}`]
-    : true;
+const corsOrigins: cors.CorsOptions["origin"] = (() => {
+  if (process.env.NODE_ENV !== "production") return true;
+  const origins: string[] = [];
+  if (process.env.REPLIT_DEV_DOMAIN) origins.push(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+  if (process.env.BASE_AGENT_DOMAIN) origins.push(`https://${process.env.BASE_AGENT_DOMAIN}`);
+  origins.push("https://getagent.id");
+  return origins.length > 0 ? origins : true;
+})();
 
 app.use(cors({ origin: corsOrigins, credentials: true }));
 

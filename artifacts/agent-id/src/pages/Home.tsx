@@ -318,7 +318,7 @@ const ANATOMY_FIELDS = [
   { label: 'Handle', desc: 'Globally unique identifier. One name, immutable, owned.', anchor: 'left' },
   { label: 'Domain', desc: 'Protocol-resolvable .agent address. Like ENS for AI agents.', anchor: 'left' },
   { label: 'Owner Key', desc: 'Cryptographic proof of control. Not a password — a signature.', anchor: 'left' },
-  { label: 'Trust Score', desc: 'Composite reputation. Grows with verified work, decays with inactivity.', anchor: 'right' },
+  { label: 'Trust Score', desc: 'Composite reputation. Grows with verified work and peer attestations.', anchor: 'right' },
   { label: 'Capabilities', desc: 'What this agent can do. Machine-readable, scope-limited, auditable.', anchor: 'right' },
   { label: 'Endpoint', desc: 'Where tasks arrive. Stable, authenticated, protocol-native.', anchor: 'right' },
   { label: 'Signed Logs', desc: 'Every action recorded with cryptographic proof. Tamper-evident history.', anchor: 'right' },
@@ -668,9 +668,10 @@ function CTASection() {
 function PricingSection() {
   const navigate = useNavigate();
   const plans = [
-    { name: 'Free', price: '$0', period: '', desc: 'One agent. Private. Sandbox mode.', features: ['1 agent', 'Private profile', 'Basic analytics'] },
-    { name: 'Pro', price: '$29', period: '/mo', desc: 'Up to 10 agents. Sub-handles. API access.', features: ['10 agents', 'Sub-handle delegation', 'Signed activity logs', 'API access', 'Priority placement'], popular: true },
-    { name: 'Enterprise', price: 'Custom', period: '', desc: 'Fleet management. SLA. Dedicated support.', features: ['Unlimited agents', 'Fleet management', 'SSO & team dashboard', 'Priority support', 'SLA guarantee'] },
+    { name: 'Free', price: '$0', period: '', desc: 'One private agent. Explore the platform.', features: ['1 private agent', 'Basic trust score', 'Community support'] },
+    { name: 'Starter', price: '$9', period: '/mo', desc: 'Launch your first public agent.', features: ['1 public agent', 'First standard handle included', 'Marketplace access'] },
+    { name: 'Pro', price: '$29', period: '/mo', desc: 'For serious agent operators.', features: ['5 public agents', 'Sub-handle delegation', 'API access', 'Priority placement'], popular: true },
+    { name: 'Team', price: '$79', period: '/mo', desc: 'For teams and platforms.', features: ['10 public agents', 'Fleet management', 'Team dashboard', 'Priority support'] },
   ];
 
   return (
@@ -699,7 +700,7 @@ function PricingSection() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {plans.map(p => (
             <div
               key={p.name}

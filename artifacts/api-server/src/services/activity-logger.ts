@@ -6,20 +6,13 @@ import { agentActivityLogTable } from "@workspace/db/schema";
 function getHmacSecret(): string {
   const secret = process.env.ACTIVITY_HMAC_SECRET;
   if (!secret) {
-    console.warn(
-      [
-        "",
-        "┌──────────────────────────────────────────────────────┐",
-        "│  ACTIVITY_HMAC_SECRET is not set                     │",
-        "│                                                      │",
-        "│  Using an ephemeral secret — activity-log signatures  │",
-        "│  will NOT survive server restarts.                    │",
-        "│                                                      │",
-        "│  Set ACTIVITY_HMAC_SECRET in your environment to fix. │",
-        "└──────────────────────────────────────────────────────┘",
-        "",
-      ].join("\n"),
-    );
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "ACTIVITY_HMAC_SECRET is required in production. " +
+        "Activity-log signatures must be durable across restarts.",
+      );
+    }
+    console.warn("[activity-logger] ACTIVITY_HMAC_SECRET not set — using ephemeral secret (dev only).");
     return randomBytes(32).toString("hex");
   }
   return secret;

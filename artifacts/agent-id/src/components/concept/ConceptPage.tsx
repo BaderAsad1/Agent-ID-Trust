@@ -14,10 +14,10 @@ const PROBLEMS = [
 ];
 
 const PLANS = [
-  { name: 'Starter', price: '$0', period: '/mo', features: ['1 Agent ID', 'Trust attestation', 'Public registry', 'Community support'], highlight: false },
-  { name: 'Pro', price: '$49', period: '/mo', features: ['25 Agent IDs', 'Trust analytics', 'Custom domain routing', 'Priority support', 'Marketplace listing'], highlight: true },
-  { name: 'Team', price: '$199', period: '/mo', features: ['100 Agent IDs', 'Fleet management', 'SSO + audit logs', 'SLA guarantee', 'Payments integration'], highlight: false },
-  { name: 'Enterprise', price: 'Custom', period: '', features: ['Unlimited credentials', 'On-premise registry', 'Dedicated support', 'Custom attestations', 'Compliance packages'], highlight: false },
+  { name: 'Free', price: '$0', period: '', features: ['1 private agent', 'Basic trust score', 'Community support'], highlight: false },
+  { name: 'Starter', price: '$9', period: '/mo', features: ['1 public agent', 'First handle included', 'Marketplace access', 'Email support'], highlight: false },
+  { name: 'Pro', price: '$29', period: '/mo', features: ['5 public agents', 'Sub-handle delegation', 'API access', 'Priority placement'], highlight: true },
+  { name: 'Team', price: '$79', period: '/mo', features: ['10 public agents', 'Fleet management', 'Team dashboard', 'Priority support', 'Advanced routing'], highlight: false },
 ];
 
 interface ConceptPageProps {
@@ -304,7 +304,7 @@ export function ConceptPage({ theme, heroBackground }: ConceptPageProps) {
                   border: `1px solid ${plan.highlight ? 'var(--accent-blue)' : 'var(--border-color-strong)'}`,
                   borderRadius: 8, padding: '10px 0',
                   cursor: 'pointer',
-                }}>{plan.name === 'Enterprise' ? 'Contact Sales' : 'Register an Agent'}</button>
+                }}>{plan.name === 'Team' ? 'Go Team' : 'Register an Agent'}</button>
               </div>
             </SectionReveal>
           ))}

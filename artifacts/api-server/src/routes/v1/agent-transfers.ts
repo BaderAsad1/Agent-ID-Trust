@@ -8,9 +8,7 @@ import {
   getTransfer,
   listAgentTransfers,
   updateTransfer,
-  listTransfer,
   acceptTransfer,
-  fundHold,
   advanceToTransferPending,
   startHandoff,
   completeHandoff,
@@ -57,10 +55,8 @@ function requireTransferScope(scope: string) {
 const router = Router();
 
 const createTransferSchema = z.object({
-  transferType: z.enum(["sale", "private_transfer", "internal_reassignment"]),
+  transferType: z.enum(["private_transfer", "internal_reassignment"]),
   buyerId: z.string().uuid().optional(),
-  askingPrice: z.number().int().min(0).optional(),
-  currency: z.string().max(10).optional(),
   notes: z.string().max(2000).optional(),
 });
 
@@ -184,18 +180,8 @@ router.patch("/:agentId/transfers/:transferId", requireTransferAuth, requireTran
   }
 });
 
-router.post("/:agentId/transfers/:transferId/list", requireTransferAuth, requireTransferScope("transfer:write"), async (req, res, next) => {
-  try {
-    const updated = await listTransfer(req.params.transferId as string, req.userId!);
-    res.json(updated);
-  } catch (err) {
-    if (err instanceof Error) {
-      if (err.message.includes("not found")) return next(new AppError(404, "NOT_FOUND", err.message));
-      if (err.message.includes("Only the seller")) return next(new AppError(403, "FORBIDDEN", err.message));
-      if (err.message.includes("Cannot transition")) return next(new AppError(422, "INVALID_STATE", err.message));
-    }
-    next(err);
-  }
+router.post("/:agentId/transfers/:transferId/list", (_req, res) => {
+  res.status(501).json({ error: "not_enabled", message: "Public listing of transfers is not available" });
 });
 
 router.post("/:agentId/transfers/:transferId/accept", requireTransferAuth, requireTransferScope("transfer:write"), async (req, res, next) => {
@@ -232,18 +218,8 @@ router.post("/:agentId/transfers/:transferId/advance", requireTransferAuth, requ
   }
 });
 
-router.post("/:agentId/transfers/:transferId/fund-hold", requireTransferAuth, requireTransferScope("transfer:write"), async (req, res, next) => {
-  try {
-    const updated = await fundHold(req.params.transferId as string, req.userId!);
-    res.json(updated);
-  } catch (err) {
-    if (err instanceof Error) {
-      if (err.message.includes("not found")) return next(new AppError(404, "NOT_FOUND", err.message));
-      if (err.message.includes("Only the buyer")) return next(new AppError(403, "FORBIDDEN", err.message));
-      if (err.message.includes("Cannot fund")) return next(new AppError(422, "INVALID_STATE", err.message));
-    }
-    next(err);
-  }
+router.post("/:agentId/transfers/:transferId/fund-hold", (_req, res) => {
+  res.status(501).json({ error: "not_enabled", message: "Escrow fund-hold is not available" });
 });
 
 router.post("/:agentId/transfers/:transferId/start-handoff", requireTransferAuth, requireTransferScope("transfer:write"), async (req, res, next) => {
