@@ -1,35 +1,41 @@
+import { validateEnv, env } from "./lib/env";
+
+validateEnv();
+const config = env();
+
 import app from "./app";
 import { startDomainWorker, closeDomainWorker } from "./workers/domain-provisioning";
 import { initWebhookDeliveryWorker, closeWebhookWorker } from "./workers/webhook-delivery";
 import { initEmailDeliveryWorker, closeEmailWorker } from "./workers/email-delivery";
 import { closeRedis } from "./lib/redis";
 import { expireJobs } from "./services/jobs";
+import { logger } from "./middlewares/request-logger";
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
-const port = Number(rawPort);
+const port = Number(config.PORT);
 
 if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
+  throw new Error(`Invalid PORT value: "${config.PORT}"`);
 }
 
-import { isRedisConfigured } from "./lib/redis";
+logger.info({ subsystems: {
+  redis: !!config.REDIS_URL,
+  stripe: !!config.STRIPE_SECRET_KEY,
+  resend: !!config.RESEND_API_KEY,
+  cloudflare: !!(config.CLOUDFLARE_API_TOKEN && config.CLOUDFLARE_ZONE_ID),
+  hmac: !!config.ACTIVITY_HMAC_SECRET,
+  webhookKey: !!(config.WEBHOOK_SECRET_KEY || config.ACTIVITY_HMAC_SECRET),
+  credSign: !!config.CREDENTIAL_SIGNING_SECRET,
+} }, "[startup] Subsystem status");
 
-const isProd = process.env.NODE_ENV === "production";
+const isProd = config.NODE_ENV === "production";
 
-if (isProd && !process.env.ACTIVITY_HMAC_SECRET) {
+if (isProd && !config.ACTIVITY_HMAC_SECRET) {
   throw new Error("ACTIVITY_HMAC_SECRET is required in production.");
 }
-if (isProd && !process.env.WEBHOOK_SECRET_KEY) {
+if (isProd && !config.WEBHOOK_SECRET_KEY) {
   throw new Error("WEBHOOK_SECRET_KEY is required in production for encryption at rest.");
 }
-if (isProd && !process.env.CREDENTIAL_SIGNING_SECRET) {
+if (isProd && !config.CREDENTIAL_SIGNING_SECRET) {
   throw new Error("CREDENTIAL_SIGNING_SECRET is required in production for credential signing.");
 }
 
@@ -40,17 +46,8 @@ try {
   if (isProd) throw err;
 }
 
-console.log("[startup] Subsystem status:");
-console.log(`  Redis:      ${isRedisConfigured() ? "enabled" : "disabled (REDIS_URL not set)"}`);
-console.log(`  Stripe:     ${process.env.STRIPE_SECRET_KEY ? "enabled" : "disabled (STRIPE_SECRET_KEY not set)"}`);
-console.log(`  Resend:     ${process.env.RESEND_API_KEY ? "enabled" : "disabled (RESEND_API_KEY not set)"}`);
-console.log(`  Cloudflare: ${process.env.CLOUDFLARE_API_TOKEN ? "enabled" : "disabled (CLOUDFLARE_API_TOKEN not set)"}`);
-console.log(`  HMAC:       ${process.env.ACTIVITY_HMAC_SECRET ? "enabled" : "ephemeral (dev only)"}`);
-console.log(`  Crypto Key: ${process.env.WEBHOOK_SECRET_KEY || process.env.ACTIVITY_HMAC_SECRET ? "enabled" : "ephemeral (dev only)"}`);
-console.log(`  Cred Sign:  ${process.env.CREDENTIAL_SIGNING_SECRET ? "enabled" : "ephemeral (dev only)"}`);
-
-if (!isRedisConfigured()) {
-  console.warn("[startup] Redis is not configured — BullMQ webhook delivery queue and domain provisioning worker are disabled.");
+if (!config.REDIS_URL) {
+  logger.warn("[startup] Redis is not configured — BullMQ webhook delivery queue and domain provisioning worker are disabled.");
 }
 
 startDomainWorker();
@@ -65,26 +62,22 @@ function startJobExpiryRunner() {
     try {
       const count = await expireJobs();
       if (count > 0) {
-        console.log(`[job-expiry] Expired ${count} job(s)`);
+        logger.info({ expiredCount: count }, "[job-expiry] Expired jobs");
       }
     } catch (err) {
-      console.error("[job-expiry] Error expiring jobs:", err);
+      logger.error({ err }, "[job-expiry] Error expiring jobs");
     }
   }, JOB_EXPIRY_INTERVAL_MS);
 }
 
 startJobExpiryRunner();
 
-if (!process.env.RESEND_API_KEY) {
-  console.warn("[email] RESEND_API_KEY is not set — external email delivery is disabled.");
-}
-
 const server = app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+  logger.info({ port }, `Server listening on port ${port}`);
 });
 
 async function gracefulShutdown(signal: string) {
-  console.log(`Received ${signal}, shutting down gracefully...`);
+  logger.info({ signal }, "Shutting down gracefully");
   if (jobExpiryTimer) clearInterval(jobExpiryTimer);
   server.close();
   await closeDomainWorker();

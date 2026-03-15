@@ -2,6 +2,7 @@ import { createHmac } from "crypto";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { outboundMessageDeliveriesTable } from "@workspace/db/schema";
+import { env } from "../lib/env";
 
 export interface TransportEnvelope {
   messageId: string;
@@ -38,8 +39,7 @@ export class InternalTransportProvider implements TransportProvider {
   }
 
   canDeliver(address: string): boolean {
-    const baseDomain = process.env.MAIL_BASE_DOMAIN || "agents.local";
-    return address.endsWith(`@${baseDomain}`);
+    return address.endsWith(`@${env().MAIL_BASE_DOMAIN}`);
   }
 }
 
@@ -64,21 +64,21 @@ export class ResendTransportProvider implements TransportProvider {
   private async getClient(): Promise<ResendClient> {
     if (!this.client) {
       const { Resend } = await import("resend");
-      this.client = new Resend(process.env.RESEND_API_KEY) as unknown as ResendClient;
+      this.client = new Resend(env().RESEND_API_KEY) as unknown as ResendClient;
     }
     return this.client;
   }
 
   async send(envelope: TransportEnvelope): Promise<TransportResult> {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
+    const config = env();
+    if (!config.RESEND_API_KEY) {
       return {
         success: false,
         providerName: this.name,
         error: "RESEND_API_KEY not configured",
       };
     }
-    const fromEmail = process.env.FROM_EMAIL || "notifications@getagent.id";
+    const fromEmail = config.FROM_EMAIL;
     const resend = await this.getClient();
     const { data, error } = await resend.emails.send({
       from: fromEmail,
@@ -97,8 +97,8 @@ export class ResendTransportProvider implements TransportProvider {
   }
 
   canDeliver(address: string): boolean {
-    const baseDomain = process.env.MAIL_BASE_DOMAIN || "agents.local";
-    return !!process.env.RESEND_API_KEY && !address.endsWith(`@${baseDomain}`);
+    const config = env();
+    return !!config.RESEND_API_KEY && !address.endsWith(`@${config.MAIL_BASE_DOMAIN}`);
   }
 }
 

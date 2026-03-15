@@ -7,11 +7,10 @@ import {
 } from "@workspace/db/schema";
 import { logActivity } from "./activity-logger";
 import { enqueueDomainProvisioning } from "../workers/domain-provisioning";
-
-const DEFAULT_BASE_DOMAIN = "getagent.id";
+import { env } from "../lib/env";
 
 function getBaseDomain(): string {
-  return process.env.BASE_AGENT_DOMAIN ?? DEFAULT_BASE_DOMAIN;
+  return env().BASE_AGENT_DOMAIN;
 }
 
 function handleToSubdomain(handle: string): string {
@@ -28,8 +27,9 @@ interface CloudflareConfig {
 }
 
 function getCloudflareConfig(): CloudflareConfig | null {
-  const apiToken = process.env.CLOUDFLARE_API_TOKEN;
-  const zoneId = process.env.CLOUDFLARE_ZONE_ID;
+  const config = env();
+  const apiToken = config.CLOUDFLARE_API_TOKEN;
+  const zoneId = config.CLOUDFLARE_ZONE_ID;
   if (!apiToken || !zoneId) return null;
   return { apiToken, zoneId };
 }
@@ -99,7 +99,7 @@ async function enqueueOrFallback(
     subdomain,
     apiToken: cfConfig.apiToken,
     zoneId: cfConfig.zoneId,
-    proxyIp: process.env.AGENT_PROXY_IP ?? "127.0.0.1",
+    proxyIp: env().AGENT_PROXY_IP,
   });
 
   if (!enqueued) {

@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { usersTable, apiKeysTable, marketplaceListingsTable, agentsTable } from "@workspace/db/schema";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { env } from "../../lib/env";
 import { z } from "zod/v4";
 
 const router = Router();
@@ -18,7 +19,7 @@ const updateUserSchema = z.object({
 router.get("/me", requireAuth, (req, res) => {
   const user = req.user!;
   const response: Record<string, unknown> = { ...user };
-  if (process.env.NODE_ENV === "production") {
+  if (env().NODE_ENV === "production") {
     delete response.replitUserId;
   }
   res.json(response);

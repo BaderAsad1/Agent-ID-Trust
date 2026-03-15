@@ -1,4 +1,6 @@
-const APP_URL = process.env.APP_URL || "https://getagent.id";
+import { env } from "../lib/env";
+
+const APP_URL = env().APP_URL || "https://getagent.id";
 
 const WORDMARK = `<span style="font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace; font-weight: 700; font-size: 14px; letter-spacing: 0.5px; color: #a0a0a0;">agent<span style="color: #ffffff;">ID</span></span>`;
 

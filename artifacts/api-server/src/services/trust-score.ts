@@ -1,4 +1,5 @@
 import { eq, sql, and, isNull, or, gte } from "drizzle-orm";
+import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import {
   agentsTable,
@@ -348,7 +349,7 @@ export async function recomputeAndStore(agentId: string) {
       const { reissueCredential } = await import("./credentials");
       await reissueCredential(agentId);
     } catch (err) {
-      console.error(`[trust-score] Failed to reissue credential after score change:`, err instanceof Error ? err.message : err);
+      logger.error({ err }, "[trust-score] Failed to reissue credential after score change");
     }
   }
 

@@ -1,5 +1,6 @@
 import { randomBytes, verify as cryptoVerify, createPublicKey } from "crypto";
 import { eq, and, isNull } from "drizzle-orm";
+import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import {
   agentsTable,
@@ -120,7 +121,7 @@ export async function verifyChallenge(
     const { reissueCredential } = await import("./credentials");
     await reissueCredential(agentId);
   } catch (err) {
-    console.error(`[verification] Failed to reissue credential after verification:`, err instanceof Error ? err.message : err);
+    logger.error({ err }, "[verification] Failed to reissue credential after verification");
   }
 
   try {
@@ -144,7 +145,7 @@ export async function verifyChallenge(
       }
     }
   } catch (err) {
-    console.error(`[verification] Failed to send verification email for agent ${agentId}:`, err instanceof Error ? err.message : err);
+    logger.error({ err }, `[verification] Failed to send verification email for agent ${agentId}`);
   }
 
   try {

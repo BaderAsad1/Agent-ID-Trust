@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from "crypto";
+import { env } from "../lib/env";
 
 const ALGORITHM = "aes-256-gcm";
 
@@ -7,15 +8,15 @@ let cachedKey: Buffer | null = null;
 function getEncryptionKey(): Buffer {
   if (cachedKey) return cachedKey;
 
-  const key = process.env.WEBHOOK_SECRET_KEY || process.env.ACTIVITY_HMAC_SECRET;
+  const config = env();
+  const key = config.WEBHOOK_SECRET_KEY || config.ACTIVITY_HMAC_SECRET;
   if (!key) {
-    if (process.env.NODE_ENV === "production") {
+    if (config.NODE_ENV === "production") {
       throw new Error(
         "WEBHOOK_SECRET_KEY (or ACTIVITY_HMAC_SECRET) is required in production. " +
         "Encrypted secrets cannot use an ephemeral key — data would be lost on restart.",
       );
     }
-    console.warn("[crypto] WARNING: WEBHOOK_SECRET_KEY not set — using ephemeral key (dev only). Set it before deploying.");
     cachedKey = randomBytes(32);
     return cachedKey;
   }

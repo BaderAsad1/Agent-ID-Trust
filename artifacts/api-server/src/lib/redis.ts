@@ -1,3 +1,5 @@
+import { env } from "./env";
+
 export interface RedisConnectionOptions {
   host: string;
   port: number;
@@ -10,7 +12,7 @@ let connectionOpts: RedisConnectionOptions | null = null;
 export function getRedisConnectionOptions(): RedisConnectionOptions {
   if (connectionOpts) return connectionOpts;
 
-  const url = process.env.REDIS_URL;
+  const url = env().REDIS_URL;
   if (url) {
     const parsed = new URL(url);
     connectionOpts = {
@@ -31,7 +33,7 @@ export function getRedisConnectionOptions(): RedisConnectionOptions {
 }
 
 export function isRedisConfigured(): boolean {
-  return !!process.env.REDIS_URL;
+  return !!env().REDIS_URL;
 }
 
 export async function closeRedis(): Promise<void> {

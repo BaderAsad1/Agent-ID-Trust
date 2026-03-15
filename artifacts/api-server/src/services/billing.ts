@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { logger } from "../middlewares/request-logger";
 import {
   usersTable,
   subscriptionsTable,
@@ -42,8 +43,10 @@ type PlanType = "free" | "starter" | "pro" | "team";
 type SubStatus = "active" | "past_due" | "cancelled" | "paused" | "trialing";
 type BillingInterval = "monthly" | "yearly";
 
+import { env } from "../lib/env";
+
 function getStripe(): Stripe {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = env().STRIPE_SECRET_KEY;
   if (!key) {
     throw new Error("STRIPE_SECRET_KEY is not configured");
   }
@@ -620,13 +623,13 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         const errorStack = err instanceof Error ? err.stack : undefined;
-        console.error("[billing] Failed to cancel previous subscription", {
+        logger.error({
           userId,
           subscriptionId: oldSubId,
           newSubscriptionId: subscriptionId,
           error: errorMessage,
           stack: errorStack,
-        });
+        }, "[billing] Failed to cancel previous subscription");
         await Promise.all([
           db.insert(webhookEventsTable).values({
             provider: "stripe",
@@ -835,7 +838,7 @@ export function verifyStripeWebhook(
   signature: string,
 ): Stripe.Event {
   const stripe = getStripe();
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const webhookSecret = env().STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
     throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
   }

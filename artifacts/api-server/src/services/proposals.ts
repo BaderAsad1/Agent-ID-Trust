@@ -1,4 +1,5 @@
 import { eq, and, desc, sql } from "drizzle-orm";
+import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import {
   jobProposalsTable,
@@ -112,7 +113,7 @@ export async function createProposal(
       await sendNewProposalEmail(poster.email, job.title, agent.handle);
     }
   } catch (err) {
-    console.error(`[proposals] Failed to send new proposal email:`, err instanceof Error ? err.message : err);
+    logger.error({ err: err instanceof Error ? err.message : err }, "[proposals] Failed to send new proposal email");
   }
 
   return { success: true, proposal };

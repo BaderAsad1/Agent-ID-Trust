@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
+import { AppError } from "../../middlewares/error-handler";
+import { validateUuidParam } from "../../middlewares/validation";
 import {
   getUserSubscriptions,
   getAgentBillingStatus,
@@ -51,23 +53,18 @@ router.post("/checkout", requireAuth, async (req, res, next) => {
     );
 
     if (result.error) {
-      res.status(400).json({ code: result.error, message: `Checkout failed: ${result.error}` });
-      return;
+      throw new AppError(400, result.error, `Checkout failed: ${result.error}`);
     }
 
     res.json({ url: result.url });
   } catch (err: unknown) {
+    if (err instanceof AppError) return next(err);
     if (err instanceof z.ZodError) {
-      res.status(400).json({ code: "VALIDATION_ERROR", errors: err.issues });
-      return;
+      return next(new AppError(400, "VALIDATION_ERROR", "Invalid input", err.issues));
     }
     const message = err instanceof Error ? err.message : "";
     if (message === "STRIPE_SECRET_KEY is not configured") {
-      res.status(503).json({
-        code: "STRIPE_NOT_CONFIGURED",
-        message: "Payment processing is not yet configured",
-      });
-      return;
+      return next(new AppError(503, "STRIPE_NOT_CONFIGURED", "Payment processing is not yet configured"));
     }
     next(err);
   }
@@ -92,8 +89,7 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
     );
 
     if (result.error) {
-      res.status(400).json({ code: result.error, message: `Handle checkout failed: ${result.error}` });
-      return;
+      throw new AppError(400, result.error, `Handle checkout failed: ${result.error}`);
     }
 
     const effectivePrice = result.priceCents;
@@ -105,31 +101,26 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
       included: result.included ?? false,
     });
   } catch (err: unknown) {
+    if (err instanceof AppError) return next(err);
     if (err instanceof z.ZodError) {
-      res.status(400).json({ code: "VALIDATION_ERROR", errors: err.issues });
-      return;
+      return next(new AppError(400, "VALIDATION_ERROR", "Invalid input", err.issues));
     }
     const message = err instanceof Error ? err.message : "";
     if (message === "STRIPE_SECRET_KEY is not configured") {
-      res.status(503).json({
-        code: "STRIPE_NOT_CONFIGURED",
-        message: "Payment processing is not yet configured. Handle registered with payment pending.",
-      });
-      return;
+      return next(new AppError(503, "STRIPE_NOT_CONFIGURED", "Payment processing is not yet configured. Handle registered with payment pending."));
     }
     next(err);
   }
 });
 
-router.post("/agents/:agentId/activate", requireAuth, async (req, res, next) => {
+router.post("/agents/:agentId/activate", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const result = await activateAgent(agentId, req.userId!);
 
     if (!result.success) {
       const statusCode = result.error === "AGENT_NOT_FOUND" ? 404 : 409;
-      res.status(statusCode).json({ code: result.error, message: result.error });
-      return;
+      throw new AppError(statusCode, result.error!, result.error!);
     }
 
     await logActivity({
@@ -146,14 +137,13 @@ router.post("/agents/:agentId/activate", requireAuth, async (req, res, next) => 
   }
 });
 
-router.post("/agents/:agentId/deactivate", requireAuth, async (req, res, next) => {
+router.post("/agents/:agentId/deactivate", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const result = await deactivateAgent(agentId, req.userId!);
 
     if (!result.success) {
-      res.status(404).json({ code: result.error, message: result.error });
-      return;
+      throw new AppError(404, result.error!, result.error!);
     }
 
     await logActivity({
@@ -170,14 +160,13 @@ router.post("/agents/:agentId/deactivate", requireAuth, async (req, res, next) =
   }
 });
 
-router.get("/agents/:agentId/status", requireAuth, async (req, res, next) => {
+router.get("/agents/:agentId/status", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const status = await getAgentBillingStatus(agentId, req.userId!);
 
     if (!status) {
-      res.status(404).json({ code: "NOT_FOUND", message: "Agent not found" });
-      return;
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
 
     res.json(status);

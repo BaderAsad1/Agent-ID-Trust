@@ -38,8 +38,9 @@ export async function getRegistryStatus(
   });
 
   const domain = formatDomain(agent.handle);
-  const baseDomain = process.env.BASE_AGENT_DOMAIN || "getagent.id";
-  const appBase = process.env.APP_URL || "https://getagent.id";
+  const config = (await import("../lib/env")).env();
+  const baseDomain = config.BASE_AGENT_DOMAIN;
+  const appBase = config.APP_URL;
   const apiBase = `${appBase}/api/v1`;
 
   const domainStatus = domainRecord?.status || "pending";

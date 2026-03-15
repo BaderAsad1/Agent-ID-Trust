@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { validateUuidParam } from "../../middlewares/validation";
 import {
   getAgentDomain,
   getDomainStatus,
@@ -10,7 +11,7 @@ import {
 
 const router = Router();
 
-router.get("/:agentId/domain", requireAuth, async (req, res, next) => {
+router.get("/:agentId/domain", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const domain = await getAgentDomain(agentId, req.userId!);
@@ -23,7 +24,7 @@ router.get("/:agentId/domain", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/:agentId/domain/status", requireAuth, async (req, res, next) => {
+router.get("/:agentId/domain/status", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const status = await getDomainStatus(agentId, req.userId!);
@@ -36,7 +37,7 @@ router.get("/:agentId/domain/status", requireAuth, async (req, res, next) => {
   }
 });
 
-router.post("/:agentId/domain/provision", requireAuth, async (req, res, next) => {
+router.post("/:agentId/domain/provision", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const result = await provisionDomain(agentId, req.userId!);
@@ -50,7 +51,7 @@ router.post("/:agentId/domain/provision", requireAuth, async (req, res, next) =>
   }
 });
 
-router.post("/:agentId/domain/reprovision", requireAuth, async (req, res, next) => {
+router.post("/:agentId/domain/reprovision", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const result = await reprovisionDomain(agentId, req.userId!);

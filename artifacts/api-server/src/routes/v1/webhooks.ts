@@ -8,6 +8,7 @@ import {
   claimWebhookEvent,
   finalizeWebhookEvent,
 } from "../../services/billing";
+import { AppError } from "../../middlewares/error-handler";
 import type Stripe from "stripe";
 
 const router = Router();
@@ -19,8 +20,7 @@ router.post(
     try {
       const signature = req.headers["stripe-signature"];
       if (!signature) {
-        res.status(400).json({ error: "Missing stripe-signature header" });
-        return;
+        throw new AppError(400, "MISSING_SIGNATURE", "Missing stripe-signature header");
       }
 
       let event: Stripe.Event;
@@ -32,11 +32,9 @@ router.post(
       } catch (err) {
         const message = err instanceof Error ? err.message : "Verification failed";
         if (message === "STRIPE_WEBHOOK_SECRET is not configured") {
-          res.status(503).json({ error: "Webhook handler not configured" });
-          return;
+          throw new AppError(503, "WEBHOOK_NOT_CONFIGURED", "Webhook handler not configured");
         }
-        res.status(400).json({ error: `Webhook verification failed: ${message}` });
-        return;
+        throw new AppError(400, "WEBHOOK_VERIFICATION_FAILED", `Webhook verification failed: ${message}`);
       }
 
       const claimResult = await claimWebhookEvent("stripe", event.type, event.id, event.data.object);
@@ -77,12 +75,12 @@ router.post(
   },
 );
 
-router.all("/coinbase", (_req, res) => {
-  res.status(501).json({ error: "not_enabled" });
+router.all("/coinbase", (_req, _res, next) => {
+  next(new AppError(501, "NOT_ENABLED", "Coinbase webhooks are not enabled"));
 });
 
-router.all("/visa", (_req, res) => {
-  res.status(501).json({ error: "not_enabled" });
+router.all("/visa", (_req, _res, next) => {
+  next(new AppError(501, "NOT_ENABLED", "Visa webhooks are not enabled"));
 });
 
 export default router;

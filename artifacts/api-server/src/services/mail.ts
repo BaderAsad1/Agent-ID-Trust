@@ -1,5 +1,6 @@
 import { eq, and, desc, sql, ilike, gte, lte, inArray, or } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { logger } from "../middlewares/request-logger";
 import {
   agentInboxesTable,
   agentThreadsTable,
@@ -29,7 +30,9 @@ import { encryptSecret, decryptSecret } from "../utils/crypto";
 import { AppError } from "../middlewares/error-handler";
 import { normalizeSubject as normalizeSubjectUtil, evaluateConditionSync, generateSnippet, isPrivateOrLocalUrl } from "./mail-utils";
 
-const MAIL_BASE_DOMAIN = process.env.MAIL_BASE_DOMAIN || "agents.local";
+import { env } from "../lib/env";
+
+const MAIL_BASE_DOMAIN = env().MAIL_BASE_DOMAIN;
 
 function isUrlSafe(url: string): boolean {
   if (isPrivateOrLocalUrl(url)) return false;
@@ -332,7 +335,7 @@ export async function bulkAssignLabel(
       else errors.push(messageId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[mail] bulkAssignLabel failed for message ${messageId}: ${msg}`);
+      logger.error({ messageId, error: msg }, "[mail] bulkAssignLabel failed");
       errors.push(messageId);
     }
   }
@@ -353,7 +356,7 @@ export async function bulkRemoveLabel(
       else errors.push(messageId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[mail] bulkRemoveLabel failed for message ${messageId}: ${msg}`);
+      logger.error({ messageId, error: msg }, "[mail] bulkRemoveLabel failed");
       errors.push(messageId);
     }
   }
@@ -972,7 +975,7 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
 
       if (targetEndpoint) {
         if (!isUrlSafe(targetEndpoint)) {
-          console.error(`[mail] Blocked forward to unsafe endpoint: ${targetEndpoint}`);
+          logger.error({ targetEndpoint }, "[mail] Blocked forward to unsafe endpoint");
           break;
         }
         try {
@@ -1058,7 +1061,7 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
       const webhookUrl = action.params?.url as string;
       if (!webhookUrl) break;
       if (!isUrlSafe(webhookUrl)) {
-        console.error(`[mail] Blocked routing webhook to unsafe URL: ${webhookUrl}`);
+        logger.error({ webhookUrl }, "[mail] Blocked routing webhook to unsafe URL");
         break;
       }
       try {
@@ -1076,8 +1079,7 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
         });
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
-        console.error(JSON.stringify({
-          level: "error",
+        logger.error({
           service: "mail",
           event: "routing.webhook_failed",
           url: webhookUrl,
@@ -1085,7 +1087,7 @@ async function executeAction(message: AgentMessage, action: RoutingAction): Prom
           threadId: message.threadId,
           attempt: 1,
           reason,
-        }));
+        }, "[mail] Routing webhook failed");
       }
       await db.insert(messageEventsTable).values({
         messageId: message.id,
@@ -1322,7 +1324,7 @@ async function emitWebhookEvent(
     if (events.length > 0 && !events.includes(eventType)) continue;
 
     if (!isUrlSafe(wh.url)) {
-      console.error(`[mail] Blocked webhook delivery to unsafe URL: ${wh.url}`);
+      logger.error({ url: wh.url }, "[mail] Blocked webhook delivery to unsafe URL");
       continue;
     }
 

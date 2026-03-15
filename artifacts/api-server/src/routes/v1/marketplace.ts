@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { validateUuidParam } from "../../middlewares/validation";
 import {
   createListing,
   updateListing,
@@ -24,6 +25,7 @@ import {
   createReview,
   getReviewsByListing,
 } from "../../services/reviews";
+import { env } from "../../lib/env";
 
 const router = Router();
 
@@ -80,7 +82,7 @@ router.get("/listings/mine", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/listings/:listingId", async (req, res, next) => {
+router.get("/listings/:listingId", validateUuidParam("listingId"), async (req, res, next) => {
   try {
     const listingId = req.params.listingId as string;
     const listing = await getListingById(listingId);
@@ -108,7 +110,7 @@ router.post("/listings", requireAuth, async (req, res, next) => {
   }
 });
 
-router.put("/listings/:listingId", requireAuth, async (req, res, next) => {
+router.put("/listings/:listingId", requireAuth, validateUuidParam("listingId"), async (req, res, next) => {
   try {
     const listingId = req.params.listingId as string;
     const parsed = createListingSchema.omit({ agentId: true }).parse(req.body);
@@ -123,7 +125,7 @@ router.put("/listings/:listingId", requireAuth, async (req, res, next) => {
   }
 });
 
-router.patch("/listings/:listingId", requireAuth, async (req, res, next) => {
+router.patch("/listings/:listingId", requireAuth, validateUuidParam("listingId"), async (req, res, next) => {
   try {
     const listingId = req.params.listingId as string;
     const parsed = updateListingSchema.parse(req.body);
@@ -138,7 +140,7 @@ router.patch("/listings/:listingId", requireAuth, async (req, res, next) => {
   }
 });
 
-router.delete("/listings/:listingId", requireAuth, async (req, res, next) => {
+router.delete("/listings/:listingId", requireAuth, validateUuidParam("listingId"), async (req, res, next) => {
   try {
     const listingId = req.params.listingId as string;
     const result = await deleteListing(listingId, req.userId!);
@@ -151,7 +153,7 @@ router.delete("/listings/:listingId", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/listings/:listingId/reviews", async (req, res, next) => {
+router.get("/listings/:listingId/reviews", validateUuidParam("listingId"), async (req, res, next) => {
   try {
     const listingId = req.params.listingId as string;
     const limit = req.query.limit ? Number(req.query.limit) : 20;
@@ -169,7 +171,7 @@ const createOrderSchema = z.object({
 });
 
 router.get("/stripe-config", (_req, res) => {
-  const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || "";
+  const publishableKey = env().STRIPE_PUBLISHABLE_KEY || "";
   res.json({ publishableKey });
 });
 
@@ -207,7 +209,7 @@ router.get("/orders", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/orders/:orderId", requireAuth, async (req, res, next) => {
+router.get("/orders/:orderId", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
   try {
     const orderId = req.params.orderId as string;
     const order = await getOrderById(orderId, req.userId!);
@@ -218,7 +220,7 @@ router.get("/orders/:orderId", requireAuth, async (req, res, next) => {
   }
 });
 
-router.post("/orders/:orderId/confirm-payment", requireAuth, async (req, res, next) => {
+router.post("/orders/:orderId/confirm-payment", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
   try {
     const orderId = req.params.orderId as string;
     const result = await confirmPayment(orderId, req.userId!);
@@ -232,7 +234,7 @@ router.post("/orders/:orderId/confirm-payment", requireAuth, async (req, res, ne
   }
 });
 
-router.post("/orders/:orderId/confirm", requireAuth, async (req, res, next) => {
+router.post("/orders/:orderId/confirm", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
   try {
     const orderId = req.params.orderId as string;
     const result = await confirmOrder(orderId, req.userId!);
@@ -246,7 +248,7 @@ router.post("/orders/:orderId/confirm", requireAuth, async (req, res, next) => {
   }
 });
 
-router.post("/orders/:orderId/complete", requireAuth, async (req, res, next) => {
+router.post("/orders/:orderId/complete", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
   try {
     const orderId = req.params.orderId as string;
     const result = await completeOrder(orderId, req.userId!);
@@ -260,7 +262,7 @@ router.post("/orders/:orderId/complete", requireAuth, async (req, res, next) => 
   }
 });
 
-router.post("/orders/:orderId/cancel", requireAuth, async (req, res, next) => {
+router.post("/orders/:orderId/cancel", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
   try {
     const orderId = req.params.orderId as string;
     const result = await cancelOrder(orderId, req.userId!);

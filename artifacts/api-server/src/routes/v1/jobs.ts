@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { validateUuidParam } from "../../middlewares/validation";
 import {
   createJob,
   updateJob,
@@ -87,7 +88,7 @@ router.get("/proposals/mine", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/:jobId", async (req, res, next) => {
+router.get("/:jobId", validateUuidParam("jobId"), async (req, res, next) => {
   try {
     const job = await getJobById(req.params.jobId as string);
     if (!job) throw new AppError(404, "NOT_FOUND", "Job not found");
@@ -110,7 +111,7 @@ router.post("/", requireAuth, async (req, res, next) => {
   }
 });
 
-router.patch("/:jobId", requireAuth, async (req, res, next) => {
+router.patch("/:jobId", requireAuth, validateUuidParam("jobId"), async (req, res, next) => {
   try {
     const parsed = updateJobSchema.parse(req.body);
     const result = await updateJob(req.params.jobId as string, req.userId!, parsed);
@@ -124,7 +125,7 @@ router.patch("/:jobId", requireAuth, async (req, res, next) => {
   }
 });
 
-router.patch("/:jobId/status", requireAuth, async (req, res, next) => {
+router.patch("/:jobId/status", requireAuth, validateUuidParam("jobId"), async (req, res, next) => {
   try {
     const statusSchema = z.object({
       status: z.enum(["filled", "closed", "expired"]),
@@ -141,7 +142,7 @@ router.patch("/:jobId/status", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/:jobId/proposals", requireAuth, async (req, res, next) => {
+router.get("/:jobId/proposals", requireAuth, validateUuidParam("jobId"), async (req, res, next) => {
   try {
     const jobId = req.params.jobId as string;
     const job = await getJobById(jobId);
@@ -165,7 +166,7 @@ const createProposalSchema = z.object({
   deliveryHours: z.number().int().positive().optional(),
 });
 
-router.post("/:jobId/proposals", requireAuth, async (req, res, next) => {
+router.post("/:jobId/proposals", requireAuth, validateUuidParam("jobId"), async (req, res, next) => {
   try {
     const parsed = createProposalSchema.parse(req.body);
     const result = await createProposal({
@@ -196,7 +197,7 @@ const updateProposalStatusSchema = z.object({
   status: z.enum(["accepted", "rejected"]),
 });
 
-router.patch("/:jobId/proposals/:proposalId", requireAuth, async (req, res, next) => {
+router.patch("/:jobId/proposals/:proposalId", requireAuth, validateUuidParam("jobId", "proposalId"), async (req, res, next) => {
   try {
     const { status } = updateProposalStatusSchema.parse(req.body);
     const result = await updateProposalStatus(
@@ -217,7 +218,7 @@ router.patch("/:jobId/proposals/:proposalId", requireAuth, async (req, res, next
   }
 });
 
-router.post("/:jobId/proposals/:proposalId/withdraw", requireAuth, async (req, res, next) => {
+router.post("/:jobId/proposals/:proposalId/withdraw", requireAuth, validateUuidParam("jobId", "proposalId"), async (req, res, next) => {
   try {
     const result = await withdrawProposal(
       req.params.jobId as string,

@@ -6,8 +6,10 @@ import { normalizeHandle, formatHandle, formatDomain, formatDID, formatProfileUr
 
 const router = Router();
 
-const BASE_DOMAIN = process.env.BASE_AGENT_DOMAIN || "getagent.id";
-const APP_URL = process.env.APP_URL || "https://getagent.id";
+import { env } from "../lib/env";
+
+const BASE_DOMAIN = env().BASE_AGENT_DOMAIN;
+const APP_URL = env().APP_URL;
 
 async function getAgentBySubdomain(hostname: string) {
   const domainRecord = await db.query.agentDomainsTable.findFirst({
@@ -105,9 +107,11 @@ router.get("/.well-known/agent.json", async (req: Request, res: Response, next: 
     }
 
     if (!agent) {
+      const requestId = (req as unknown as { requestId?: string }).requestId || req.headers["x-request-id"] || "unknown";
       res.status(404).json({
         error: "AGENT_NOT_FOUND",
         message: "No agent identity found for this domain. Resolve agents via GET /api/v1/resolve/:handle",
+        requestId,
       });
       return;
     }

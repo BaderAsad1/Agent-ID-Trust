@@ -1,4 +1,5 @@
 import { eq, and, desc, sql } from "drizzle-orm";
+import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import {
   marketplaceOrdersTable,
@@ -162,7 +163,7 @@ export async function confirmPayment(
       await sendMarketplaceOrderEmail(seller.email, listing?.title ?? "Marketplace Order", Number(order.priceAmount).toFixed(2));
     }
   } catch (err) {
-    console.error(`[orders] Failed to send order email:`, err instanceof Error ? err.message : err);
+    logger.error({ err: err instanceof Error ? err.message : err }, "[orders] Failed to send order email");
   }
 
   return { success: true, order: updated };
@@ -337,7 +338,7 @@ export async function completeOrder(
     }
     await Promise.all(sends);
   } catch (err) {
-    console.error(`[orders] Failed to send order completed email:`, err instanceof Error ? err.message : err);
+    logger.error({ err: err instanceof Error ? err.message : err }, "[orders] Failed to send order completed email");
   }
 
   return { success: true, order: updated };

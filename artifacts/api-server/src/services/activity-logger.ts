@@ -2,17 +2,18 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentActivityLogTable } from "@workspace/db/schema";
+import { env } from "../lib/env";
 
 function getHmacSecret(): string {
-  const secret = process.env.ACTIVITY_HMAC_SECRET;
+  const config = env();
+  const secret = config.ACTIVITY_HMAC_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === "production") {
+    if (config.NODE_ENV === "production") {
       throw new Error(
         "ACTIVITY_HMAC_SECRET is required in production. " +
         "Activity-log signatures must be durable across restarts.",
       );
     }
-    console.warn("[activity-logger] ACTIVITY_HMAC_SECRET not set — using ephemeral secret (dev only).");
     return randomBytes(32).toString("hex");
   }
   return secret;

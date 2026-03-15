@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { randomBytes, createHash } from "crypto";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { validateUuidParam } from "../../middlewares/validation";
 import {
   validateHandle,
   isHandleAvailable,
@@ -43,7 +44,7 @@ function generateApiKey(): { raw: string; prefix: string; hashed: string } {
 
 const CHALLENGE_EXPIRY_MS = 10 * 60 * 1000;
 
-router.post("/:agentId/spawn", requireAgentAuth, async (req, res, next) => {
+router.post("/:agentId/spawn", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const parentAgent = req.authenticatedAgent!;
     const requestedParentId = req.params.agentId as string;

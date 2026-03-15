@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { validateUuidParam } from "../../middlewares/validation";
 import { getAgentById } from "../../services/agents";
 import { initiateVerification, verifyChallenge } from "../../services/verification";
 import { logActivity } from "../../services/activity-logger";
@@ -22,7 +23,7 @@ const completeSchema = z.object({
   kid: z.string().min(1),
 });
 
-router.post("/:agentId/verify/initiate", requireAuth, async (req, res, next) => {
+router.post("/:agentId/verify/initiate", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agent = await getAgentById(req.params.agentId as string);
     if (!agent) {
@@ -53,7 +54,7 @@ router.post("/:agentId/verify/initiate", requireAuth, async (req, res, next) => 
   }
 });
 
-router.post("/:agentId/verify/complete", requireAuth, async (req, res, next) => {
+router.post("/:agentId/verify/complete", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agent = await getAgentById(req.params.agentId as string);
     if (!agent) {

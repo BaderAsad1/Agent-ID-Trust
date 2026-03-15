@@ -1,4 +1,5 @@
 import { eq, and, ilike } from "drizzle-orm";
+import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import { agentsTable, usersTable, type Agent } from "@workspace/db/schema";
 
@@ -87,7 +88,7 @@ export async function createAgent(input: CreateAgentInput): Promise<Agent> {
     const { provisionInboxForAgent } = await import("./mail");
     await provisionInboxForAgent(agent.id);
   } catch (err) {
-    console.error(`[agents] Failed to provision inbox for agent ${agent.id}:`, err instanceof Error ? err.message : err);
+    logger.error({ err: err instanceof Error ? err.message : err, agentId: agent.id }, "[agents] Failed to provision inbox for agent");
   }
 
   try {
@@ -97,7 +98,7 @@ export async function createAgent(input: CreateAgentInput): Promise<Agent> {
       await sendAgentRegisteredEmail(user.email, agent.handle, agent.displayName);
     }
   } catch (err) {
-    console.error(`[agents] Failed to send registration email for agent ${agent.id}:`, err instanceof Error ? err.message : err);
+    logger.error({ err: err instanceof Error ? err.message : err, agentId: agent.id }, "[agents] Failed to send registration email for agent");
   }
 
   return agent;
@@ -165,7 +166,7 @@ export async function updateAgent(
       const { provisionInboxForAgent } = await import("./mail");
       await provisionInboxForAgent(agentId);
     } catch (err) {
-      console.error(`[agents] Failed to provision inbox on activation for ${agentId}:`, err instanceof Error ? err.message : err);
+      logger.error({ err: err instanceof Error ? err.message : err, agentId }, "[agents] Failed to provision inbox on activation");
     }
   }
 

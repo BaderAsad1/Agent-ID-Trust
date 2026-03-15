@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { validateUuidParam } from "../../middlewares/validation";
 import { eq, and, like } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
@@ -139,7 +140,7 @@ router.post("/sub-handles", requireAuth, async (req, res, next) => {
   }
 });
 
-router.delete("/sub-handles/:agentId", requireAuth, async (req, res, next) => {
+router.delete("/sub-handles/:agentId", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const eligibility = await requirePlanFeature(req.userId!, "canUsePremiumRouting");
     if (!eligibility.allowed) {

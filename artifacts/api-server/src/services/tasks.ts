@@ -1,4 +1,5 @@
 import { eq, and, or, desc, sql, inArray } from "drizzle-orm";
+import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import {
   tasksTable,
@@ -107,7 +108,7 @@ export async function submitTask(input: SubmitTaskInput): Promise<Task> {
       }
     }
   } catch (err) {
-    console.error(`[tasks] Failed to send new task email:`, err instanceof Error ? err.message : err);
+    logger.error({ err }, "[tasks] Failed to send new task email");
   }
 
   return task;

@@ -8,6 +8,8 @@ import {
   agentDomainsTable,
   agentInboxesTable,
 } from "@workspace/db/schema";
+import { env } from "../lib/env";
+import { logger } from "../middlewares/request-logger";
 
 const CREDENTIAL_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -16,22 +18,20 @@ let signingSecret: string | null = null;
 export function getCredentialSigningSecret(): string {
   if (signingSecret) return signingSecret;
 
-  const envSecret = process.env.CREDENTIAL_SIGNING_SECRET;
+  const envSecret = env().CREDENTIAL_SIGNING_SECRET;
   if (envSecret) {
     signingSecret = envSecret;
     return signingSecret;
   }
 
-  if (process.env.NODE_ENV === "production") {
+  if (env().NODE_ENV === "production") {
     throw new Error(
       "CREDENTIAL_SIGNING_SECRET is required in production. " +
         "Credentials cannot be signed with an ephemeral key — signatures would be unverifiable after restart.",
     );
   }
 
-  console.warn(
-    "[credentials] WARNING: CREDENTIAL_SIGNING_SECRET not set — using ephemeral secret (dev only). Set it before deploying.",
-  );
+  logger.warn("[credentials] CREDENTIAL_SIGNING_SECRET not set — using ephemeral secret (dev only)");
   signingSecret = randomBytes(32).toString("hex");
   return signingSecret;
 }
@@ -70,7 +70,7 @@ export async function issueCredential(agentId: string) {
       where: eq(agentInboxesTable.agentId, agentId),
     });
   } catch (err) {
-    console.warn(`[credentials] Failed to fetch inbox for agent ${agentId}:`, err instanceof Error ? err.message : err);
+    logger.warn({ err }, `[credentials] Failed to fetch inbox for agent ${agentId}`);
   }
 
   const activeDomain = domains.find((d) => d.status === "active");
@@ -258,8 +258,7 @@ export async function buildErc8004(handle: string) {
   });
 
   const activeDomain = domains.find((d) => d.status === "active");
-  const baseUrl =
-    process.env.API_BASE_URL || "https://getagent.id/api/v1";
+  const baseUrl = env().API_BASE_URL;
 
   const services: Array<{
     id: string;

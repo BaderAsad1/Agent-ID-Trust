@@ -27,8 +27,9 @@ try {
     res.type("text/yaml").send(specContent);
   });
 } catch {
-  router.get("/docs", (_req, res) => {
-    res.status(503).json({ error: "API documentation not available" });
+  router.get("/docs", (req, res) => {
+    const requestId = (req as unknown as { requestId?: string }).requestId || req.headers["x-request-id"] || "unknown";
+    res.status(503).json({ error: "SERVICE_UNAVAILABLE", message: "API documentation not available", requestId });
   });
 }
 

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { resolutionRateLimit, registrationRateLimit } from "../../middlewares/rate-limit";
 import authRouter from "./auth";
 import usersRouter from "./users";
 import apiKeysRouter from "./api-keys";
@@ -28,8 +29,8 @@ import resolveRouter, { handleReverse, handleAgentDiscovery } from "./resolve";
 
 const router = Router();
 
-router.use("/resolve", resolveRouter);
-router.post("/reverse", handleReverse);
+router.use("/resolve", resolutionRateLimit, resolveRouter);
+router.post("/reverse", resolutionRateLimit, handleReverse);
 router.get("/agents", (req, res, next) => {
   const hasDiscoveryParams = req.query.capability || req.query.minTrust || req.query.protocol || req.query.verifiedOnly || req.query.limit || req.query.offset;
   const hasAuthHeader = req.headers["x-replit-user-id"] || req.headers["x-agentid-user-id"] || req.headers["authorization"];
@@ -53,12 +54,12 @@ router.use("/handles", handlesRouter);
 router.use("/fleet", fleetRouter);
 router.use("/p", publicProfilesRouter);
 router.use("/public/agents", agentIdentityRouter);
-router.use("/programmatic", programmaticRouter);
+router.use("/programmatic", registrationRateLimit, programmaticRouter);
 router.use("/tasks", tasksRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/billing", billingRouter);
 router.use("/webhooks", webhooksRouter);
-router.use("/domains", domainResolveRouter);
+router.use("/domains", resolutionRateLimit, domainResolveRouter);
 router.use("/marketplace", marketplaceRouter);
 router.use("/payments", paymentsRouter);
 router.use("/jobs", jobsRouter);

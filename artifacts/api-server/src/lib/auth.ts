@@ -5,7 +5,9 @@ import { db } from "@workspace/db";
 import { sessionsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
-export const ISSUER_URL = process.env.ISSUER_URL ?? "https://replit.com/oidc";
+import { env } from "./env";
+
+export const ISSUER_URL = env().ISSUER_URL;
 export const SESSION_COOKIE = "sid";
 export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 
@@ -31,7 +33,7 @@ export async function getOidcConfig(): Promise<client.Configuration> {
   if (!oidcConfig) {
     oidcConfig = await client.discovery(
       new URL(ISSUER_URL),
-      process.env.REPL_ID!,
+      env().REPL_ID!,
     );
   }
   return oidcConfig;

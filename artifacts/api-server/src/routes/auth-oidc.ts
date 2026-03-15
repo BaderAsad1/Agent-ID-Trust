@@ -1,5 +1,6 @@
 import * as oidc from "openid-client";
 import { Router, type Request, type Response } from "express";
+import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db/schema";
 import {
@@ -14,6 +15,7 @@ import {
   type SessionData,
   type AuthSessionUser,
 } from "../lib/auth";
+import { env } from "../lib/env";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
 
@@ -123,7 +125,7 @@ router.get("/auth/user", async (req: Request, res: Response) => {
   }
 
   const userData = { ...session.user };
-  if (process.env.NODE_ENV === "production") {
+  if (env().NODE_ENV === "production") {
     delete (userData as Record<string, unknown>).replitUserId;
   }
   res.json({ user: userData });
@@ -158,7 +160,7 @@ router.get("/login", async (req: Request, res: Response) => {
 
     res.redirect(redirectTo.href);
   } catch (err) {
-    console.error("OIDC login error:", err);
+    logger.error({ err }, "OIDC login error");
     res.redirect("/?error=login_failed");
   }
 });
@@ -218,7 +220,7 @@ router.get("/callback", async (req: Request, res: Response) => {
 
     res.redirect(returnTo);
   } catch (err) {
-    console.error("OIDC callback error:", err);
+    logger.error({ err }, "OIDC callback error");
     res.redirect("/?error=auth_failed");
   }
 });

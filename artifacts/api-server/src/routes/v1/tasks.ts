@@ -4,6 +4,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
 import { requireAuth } from "../../middlewares/replit-auth";
+import { AppError } from "../../middlewares/error-handler";
+import { validateUuidParam } from "../../middlewares/validation";
 import {
   submitTask,
   getTaskById,
@@ -28,7 +30,11 @@ const submitTaskSchema = z.object({
 
 router.post("/", requireAuth, async (req, res, next) => {
   try {
-    const body = submitTaskSchema.parse(req.body);
+    const parsed = submitTaskSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+    const body = parsed.data;
 
     if (body.senderAgentId) {
       const senderAgent = await db.query.agentsTable.findFirst({
@@ -36,11 +42,7 @@ router.post("/", requireAuth, async (req, res, next) => {
         columns: { id: true, userId: true },
       });
       if (!senderAgent || senderAgent.userId !== req.userId) {
-        res.status(403).json({
-          code: "SENDER_NOT_OWNED",
-          message: "You do not own the specified sender agent",
-        });
-        return;
+        throw new AppError(403, "SENDER_NOT_OWNED", "You do not own the specified sender agent");
       }
     }
 
@@ -88,28 +90,16 @@ router.post("/", requireAuth, async (req, res, next) => {
       },
     });
   } catch (err: unknown) {
-    if (err instanceof z.ZodError) {
-      res.status(400).json({ code: "VALIDATION_ERROR", errors: err.issues });
-      return;
-    }
+    if (err instanceof AppError) return next(err);
     const message = err instanceof Error ? err.message : "";
     if (message === "RECIPIENT_NOT_FOUND") {
-      res
-        .status(404)
-        .json({ code: "RECIPIENT_NOT_FOUND", message: "Recipient agent not found or inactive" });
-      return;
+      return next(new AppError(404, "RECIPIENT_NOT_FOUND", "Recipient agent not found or inactive"));
     }
     if (message === "SENDER_REQUIRED") {
-      res
-        .status(400)
-        .json({ code: "SENDER_REQUIRED", message: "Either senderUserId or senderAgentId is required" });
-      return;
+      return next(new AppError(400, "SENDER_REQUIRED", "Either senderUserId or senderAgentId is required"));
     }
     if (message === "SELF_TASK_NOT_ALLOWED") {
-      res
-        .status(400)
-        .json({ code: "SELF_TASK_NOT_ALLOWED", message: "Agent cannot send a task to itself" });
-      return;
+      return next(new AppError(400, "SELF_TASK_NOT_ALLOWED", "Agent cannot send a task to itself"));
     }
     next(err);
   }
@@ -126,23 +116,19 @@ const listTasksSchema = z.object({
 
 router.get("/", requireAuth, async (req, res, next) => {
   try {
-    const query = listTasksSchema.parse(req.query);
+    const parsed = listTasksSchema.safeParse(req.query);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid query parameters", parsed.error.issues);
+    }
+    const query = parsed.data;
     const userAgentIds = await getUserAgentIds(req.userId!);
 
     if (query.recipientAgentId && !userAgentIds.includes(query.recipientAgentId)) {
-      res.status(403).json({
-        code: "NOT_OWNER",
-        message: "You do not own the specified recipient agent",
-      });
-      return;
+      throw new AppError(403, "NOT_OWNER", "You do not own the specified recipient agent");
     }
 
     if (query.senderAgentId && !userAgentIds.includes(query.senderAgentId)) {
-      res.status(403).json({
-        code: "NOT_OWNER",
-        message: "You do not own the specified sender agent",
-      });
-      return;
+      throw new AppError(403, "NOT_OWNER", "You do not own the specified sender agent");
     }
 
     const result = await listTasks({
@@ -153,22 +139,18 @@ router.get("/", requireAuth, async (req, res, next) => {
 
     res.json(result);
   } catch (err: unknown) {
-    if (err instanceof z.ZodError) {
-      res.status(400).json({ code: "VALIDATION_ERROR", errors: err.issues });
-      return;
-    }
+    if (err instanceof AppError) return next(err);
     next(err);
   }
 });
 
-router.get("/:taskId", requireAuth, async (req, res, next) => {
+router.get("/:taskId", requireAuth, validateUuidParam("taskId"), async (req, res, next) => {
   try {
     const taskId = req.params.taskId as string;
 
     const hasAccess = await canAccessTask(taskId, req.userId!);
     if (!hasAccess) {
-      res.status(404).json({ code: "NOT_FOUND", message: "Task not found" });
-      return;
+      throw new AppError(404, "NOT_FOUND", "Task not found");
     }
 
     const task = await getTaskById(taskId);
@@ -178,14 +160,13 @@ router.get("/:taskId", requireAuth, async (req, res, next) => {
   }
 });
 
-router.post("/:taskId/acknowledge", requireAuth, async (req, res, next) => {
+router.post("/:taskId/acknowledge", requireAuth, validateUuidParam("taskId"), async (req, res, next) => {
   try {
     const taskId = req.params.taskId as string;
 
     const task = await acknowledgeTask(taskId, req.userId!);
     if (!task) {
-      res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
-      return;
+      throw new AppError(404, "NOT_FOUND", "Task not found or not owned");
     }
 
     await logActivity({
@@ -201,13 +182,10 @@ router.post("/:taskId/acknowledge", requireAuth, async (req, res, next) => {
 
     res.json(task);
   } catch (err: unknown) {
+    if (err instanceof AppError) return next(err);
     const message = err instanceof Error ? err.message : "";
     if (message === "INVALID_DELIVERY_STATE") {
-      res.status(409).json({
-        code: "INVALID_DELIVERY_STATE",
-        message: "Task cannot be acknowledged in its current delivery state",
-      });
-      return;
+      return next(new AppError(409, "INVALID_DELIVERY_STATE", "Task cannot be acknowledged in its current delivery state"));
     }
     next(err);
   }
@@ -218,10 +196,14 @@ const businessStatusSchema = z.object({
   result: z.record(z.string(), z.unknown()).optional(),
 });
 
-router.patch("/:taskId/business-status", requireAuth, async (req, res, next) => {
+router.patch("/:taskId/business-status", requireAuth, validateUuidParam("taskId"), async (req, res, next) => {
   try {
     const taskId = req.params.taskId as string;
-    const body = businessStatusSchema.parse(req.body);
+    const parsed = businessStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+    const body = parsed.data;
 
     const task = await updateBusinessStatus(
       taskId,
@@ -231,8 +213,7 @@ router.patch("/:taskId/business-status", requireAuth, async (req, res, next) => 
     );
 
     if (!task) {
-      res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
-      return;
+      throw new AppError(404, "NOT_FOUND", "Task not found or not owned");
     }
 
     const eventType =
@@ -254,30 +235,22 @@ router.patch("/:taskId/business-status", requireAuth, async (req, res, next) => 
 
     res.json(task);
   } catch (err: unknown) {
-    if (err instanceof z.ZodError) {
-      res.status(400).json({ code: "VALIDATION_ERROR", errors: err.issues });
-      return;
-    }
+    if (err instanceof AppError) return next(err);
     const message = err instanceof Error ? err.message : "";
     if (message.startsWith("INVALID_TRANSITION")) {
-      res.status(409).json({
-        code: "INVALID_TRANSITION",
-        message: `Invalid status transition: ${message.split(":")[1]}`,
-      });
-      return;
+      return next(new AppError(409, "INVALID_TRANSITION", `Invalid status transition: ${message.split(":")[1]}`));
     }
     next(err);
   }
 });
 
-router.get("/:taskId/delivery-receipts", requireAuth, async (req, res, next) => {
+router.get("/:taskId/delivery-receipts", requireAuth, validateUuidParam("taskId"), async (req, res, next) => {
   try {
     const taskId = req.params.taskId as string;
 
     const hasAccess = await canAccessTask(taskId, req.userId!);
     if (!hasAccess) {
-      res.status(404).json({ code: "NOT_FOUND", message: "Task not found" });
-      return;
+      throw new AppError(404, "NOT_FOUND", "Task not found");
     }
 
     const receipts = await getDeliveryReceipts(taskId);

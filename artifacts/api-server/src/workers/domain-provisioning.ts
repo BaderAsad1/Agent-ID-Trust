@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { agentDomainsTable } from "@workspace/db/schema";
 import { getRedisConnectionOptions, isRedisConfigured } from "../lib/redis";
 import { logActivity } from "../services/activity-logger";
+import { logger } from "../middlewares/request-logger";
 
 const QUEUE_NAME = "domain-provisioning";
 
@@ -66,7 +67,7 @@ async function deleteExistingRecords(
       );
     }
   } catch (err) {
-    console.warn(`[domain-worker] Failed to delete existing DNS records for ${fqdn}:`, err instanceof Error ? err.message : String(err));
+    logger.warn({ fqdn, err: err instanceof Error ? err.message : String(err) }, "[domain-worker] Failed to delete existing DNS records");
   }
 }
 
@@ -177,7 +178,7 @@ async function verifyDnsRecords(
 
 export function startDomainWorker(): Worker<DomainProvisioningJobData> | null {
   if (!isRedisConfigured()) {
-    console.log("[domain-worker] Redis not configured — domain worker disabled");
+    logger.info("[domain-worker] Redis not configured — domain worker disabled");
     return null;
   }
 
@@ -186,9 +187,9 @@ export function startDomainWorker(): Worker<DomainProvisioningJobData> | null {
   worker = new Worker<DomainProvisioningJobData>(
     QUEUE_NAME,
     async (job) => {
-      console.log(`[domain-worker] Processing job ${job.id} for domain ${job.data.fqdn}`);
+      logger.info({ jobId: job.id, fqdn: job.data.fqdn }, "[domain-worker] Processing job");
       await createAndVerifyDnsRecords(job);
-      console.log(`[domain-worker] Completed job ${job.id} for domain ${job.data.fqdn}`);
+      logger.info({ jobId: job.id, fqdn: job.data.fqdn }, "[domain-worker] Completed job");
     },
     {
       connection: getRedisConnectionOptions(),
@@ -198,7 +199,7 @@ export function startDomainWorker(): Worker<DomainProvisioningJobData> | null {
 
   worker.on("failed", async (job, err) => {
     if (!job) return;
-    console.error(`[domain-worker] Job ${job.id} failed (attempt ${job.attemptsMade}/${job.opts.attempts}): ${err.message}`);
+    logger.error({ jobId: job.id, attempt: job.attemptsMade, maxAttempts: job.opts.attempts, error: err.message }, "[domain-worker] Job failed");
 
     if (job.attemptsMade >= (job.opts.attempts ?? 5)) {
       await db
@@ -219,10 +220,10 @@ export function startDomainWorker(): Worker<DomainProvisioningJobData> | null {
   });
 
   worker.on("completed", (job) => {
-    console.log(`[domain-worker] Job ${job?.id} completed successfully`);
+    logger.info({ jobId: job?.id }, "[domain-worker] Job completed successfully");
   });
 
-  console.log("[domain-worker] Domain provisioning worker started");
+  logger.info("[domain-worker] Domain provisioning worker started");
   return worker;
 }
 

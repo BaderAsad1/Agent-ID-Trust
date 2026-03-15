@@ -180,8 +180,8 @@ router.patch("/:agentId/transfers/:transferId", requireTransferAuth, requireTran
   }
 });
 
-router.post("/:agentId/transfers/:transferId/list", (_req, res) => {
-  res.status(501).json({ error: "not_enabled", message: "Public listing of transfers is not available" });
+router.post("/:agentId/transfers/:transferId/list", (_req, _res, next) => {
+  next(new AppError(501, "NOT_ENABLED", "Public listing of transfers is not available"));
 });
 
 router.post("/:agentId/transfers/:transferId/accept", requireTransferAuth, requireTransferScope("transfer:write"), async (req, res, next) => {
@@ -218,8 +218,8 @@ router.post("/:agentId/transfers/:transferId/advance", requireTransferAuth, requ
   }
 });
 
-router.post("/:agentId/transfers/:transferId/fund-hold", (_req, res) => {
-  res.status(501).json({ error: "not_enabled", message: "Escrow fund-hold is not available" });
+router.post("/:agentId/transfers/:transferId/fund-hold", (_req, _res, next) => {
+  next(new AppError(501, "NOT_ENABLED", "Escrow fund-hold is not available"));
 });
 
 router.post("/:agentId/transfers/:transferId/start-handoff", requireTransferAuth, requireTransferScope("transfer:write"), async (req, res, next) => {

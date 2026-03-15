@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { z } from "zod/v4";
+import { logger } from "../../middlewares/request-logger";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { validateUuidParam } from "../../middlewares/validation";
 import {
   createAgent,
   listAgentsByUser,
@@ -155,7 +157,7 @@ router.get("/", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/:agentId", requireAuth, async (req, res, next) => {
+router.get("/:agentId", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const agent = await getAgentById(agentId);
@@ -171,7 +173,7 @@ router.get("/:agentId", requireAuth, async (req, res, next) => {
   }
 });
 
-router.put("/:agentId", requireAuth, async (req, res, next) => {
+router.put("/:agentId", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const parsed = updateAgentSchema.safeParse(req.body);
@@ -242,14 +244,14 @@ router.put("/:agentId", requireAuth, async (req, res, next) => {
         try {
           await reissueCredential(updated.id);
         } catch (err) {
-          console.error(`[agents] Failed to reissue credential after update:`, err instanceof Error ? err.message : err);
+          logger.error({ err }, "[agents] Failed to reissue credential after update");
         }
       }
     } else if (credentialRelevantChanged) {
       try {
         await reissueCredential(updated.id);
       } catch (err) {
-        console.error(`[agents] Failed to reissue credential after update:`, err instanceof Error ? err.message : err);
+        logger.error({ err }, "[agents] Failed to reissue credential after update");
       }
     }
 
@@ -259,7 +261,7 @@ router.put("/:agentId", requireAuth, async (req, res, next) => {
   }
 });
 
-router.delete("/:agentId", requireAuth, async (req, res, next) => {
+router.delete("/:agentId", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const agent = await getAgentById(agentId);
@@ -286,7 +288,7 @@ router.delete("/:agentId", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/:agentId/activity", requireAuth, async (req, res, next) => {
+router.get("/:agentId/activity", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const agent = await getAgentById(agentId);

@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { inboxWebhooksTable, messageEventsTable } from "@workspace/db/schema";
 import { signWebhookPayload } from "../services/mail-transport";
+import { logger } from "../middlewares/request-logger";
 
 export interface WebhookDeliveryJob {
   webhookId: string;
@@ -69,7 +70,7 @@ async function processWebhookJob(job: Job<WebhookDeliveryJob>): Promise<void> {
 
 export function initWebhookDeliveryWorker(): void {
   if (!isRedisConfigured()) {
-    console.log("[webhook-worker] Redis not configured — webhook queue disabled, using in-process delivery");
+    logger.info("[webhook-worker] Redis not configured — webhook queue disabled, using in-process delivery");
     return;
   }
 
@@ -90,14 +91,14 @@ export function initWebhookDeliveryWorker(): void {
     if (!job) return;
     const { webhookId, webhookUrl, messageId } = job.data;
 
-    console.error("[webhook-worker] Delivery failed", {
+    logger.error({
       webhookId,
       destinationUrl: webhookUrl,
       messageId,
       attempt: job.attemptsMade,
       maxAttempts: MAX_ATTEMPTS,
       error: err.message,
-    });
+    }, "[webhook-worker] Delivery failed");
 
     if (job.attemptsMade >= MAX_ATTEMPTS) {
       await db
@@ -123,7 +124,7 @@ export function initWebhookDeliveryWorker(): void {
   });
 
   webhookWorker.on("ready", () => {
-    console.log("[webhook-worker] Webhook delivery worker started");
+    logger.info("[webhook-worker] Webhook delivery worker started");
   });
 }
 

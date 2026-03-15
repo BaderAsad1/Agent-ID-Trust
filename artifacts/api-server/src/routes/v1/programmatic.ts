@@ -1,5 +1,4 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
 import { z } from "zod/v4";
 import { randomBytes, createHash } from "crypto";
 import { requireAuth } from "../../middlewares/replit-auth";
@@ -30,19 +29,6 @@ import { eq } from "drizzle-orm";
 
 const router = Router();
 
-const registrationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 5,
-  standardHeaders: "draft-7" as const,
-  legacyHeaders: false,
-  message: {
-    error: "Too many registration attempts",
-    code: "RATE_LIMIT_EXCEEDED",
-    retryAfterSeconds: 900,
-  },
-  validate: { xForwardedForHeader: false },
-});
-
 const registerSchema = z.object({
   handle: z.string().min(3).max(100),
   displayName: z.string().min(1).max(255),
@@ -66,7 +52,7 @@ const rotateKeySchema = z.object({
   keyType: z.string().default("ed25519"),
 });
 
-router.post("/agents/register", registrationLimiter, async (req, res, next) => {
+router.post("/agents/register", async (req, res, next) => {
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -145,7 +131,7 @@ router.post("/agents/register", registrationLimiter, async (req, res, next) => {
   }
 });
 
-router.post("/agents/verify", registrationLimiter, async (req, res, next) => {
+router.post("/agents/verify", async (req, res, next) => {
   try {
     const parsed = verifySchema.safeParse(req.body);
     if (!parsed.success) {

@@ -9,8 +9,10 @@ import {
   resolveTransportProvider,
   type TransportEnvelope,
 } from "./mail-transport.js";
+import { env } from "../lib/env";
+import { logger } from "../middlewares/request-logger";
 
-const FROM_EMAIL = process.env.FROM_EMAIL || "notifications@getagent.id";
+const FROM_EMAIL = env().FROM_EMAIL;
 const QUEUE_NAME = "email-notifications";
 
 let emailQueue: Queue | null = null;
@@ -44,37 +46,24 @@ function envelope(
 async function deliverEmail(recipient: string, subject: string, html: string): Promise<void> {
   const provider = resolveTransportProvider(recipient);
   if (provider.name === "webhook") {
-    console.log(JSON.stringify({
-      level: "warn",
-      service: "email",
-      event: "email.skipped",
-      recipient,
-      subject,
-      reason: "no_email_transport",
-    }));
+    logger.warn({ recipient, subject, reason: "no_email_transport" }, "[email] Skipping notification — no real email transport configured");
     return;
   }
   const result = await deliverOutbound(envelope(recipient, subject, html));
   if (result.success) {
-    console.log(JSON.stringify({
-      level: "info",
-      service: "email",
-      event: "email.sent",
+    logger.info({
       recipient,
       subject,
       provider: result.providerName,
       providerMessageId: result.providerMessageId,
-    }));
+    }, "[email] Email sent");
   } else {
-    console.log(JSON.stringify({
-      level: "error",
-      service: "email",
-      event: "email.failed",
+    logger.error({
       recipient,
       subject,
       provider: result.providerName,
       error: result.error,
-    }));
+    }, "[email] Email delivery failed");
   }
 }
 
@@ -83,15 +72,12 @@ export async function sendEmail(
   recipient: string,
 ): Promise<void> {
   try {
-    if (!process.env.RESEND_API_KEY) {
-      console.log(JSON.stringify({
-        level: "warn",
-        service: "email",
-        event: "email.skipped",
+    if (!env().RESEND_API_KEY) {
+      logger.warn({
         template: template.type,
         recipient,
         reason: "RESEND_API_KEY not set",
-      }));
+      }, "[email] Skipping email");
       return;
     }
 
@@ -106,37 +92,28 @@ export async function sendEmail(
           removeOnComplete: 100,
           removeOnFail: 200,
         });
-        console.log(JSON.stringify({
-          level: "info",
-          service: "email",
-          event: "email.queued",
+        logger.info({
           template: template.type,
           recipient,
           subject,
-        }));
+        }, "[email] Email queued");
         return;
       } catch {
-        console.log(JSON.stringify({
-          level: "warn",
-          service: "email",
-          event: "email.queue_failed",
+        logger.warn({
           template: template.type,
           recipient,
           reason: "falling back to direct send",
-        }));
+        }, "[email] Queue failed");
       }
     }
 
     await deliverEmail(recipient, subject, html);
   } catch (err) {
-    console.log(JSON.stringify({
-      level: "error",
-      service: "email",
-      event: "email.unexpected_error",
+    logger.error({
       template: template.type,
       recipient,
       error: err instanceof Error ? err.message : String(err),
-    }));
+    }, "[email] Unexpected error");
   }
 }
 

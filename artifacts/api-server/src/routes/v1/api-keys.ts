@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { validateUuidParam } from "../../middlewares/validation";
 import {
   createApiKey,
   listApiKeys,
@@ -61,7 +62,7 @@ router.get("/", requireAuth, async (req, res, next) => {
   }
 });
 
-router.delete("/:keyId", requireAuth, async (req, res, next) => {
+router.delete("/:keyId", requireAuth, validateUuidParam("keyId"), async (req, res, next) => {
   try {
     const keyId = req.params.keyId as string;
     const revoked = await revokeApiKey(keyId, req.user!.id);

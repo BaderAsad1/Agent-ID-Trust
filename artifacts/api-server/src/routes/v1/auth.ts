@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../../middlewares/replit-auth";
+import { env } from "../../lib/env";
 
 const router = Router();
 
@@ -14,7 +15,7 @@ router.get("/me", requireAuth, (req, res) => {
     plan: user.plan,
     createdAt: user.createdAt.toISOString(),
   };
-  if (process.env.NODE_ENV !== "production") {
+  if (env().NODE_ENV !== "production") {
     response.replitUserId = user.replitUserId;
   }
   res.json(response);

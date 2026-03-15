@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import { eq, and } from "drizzle-orm";
+import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import { agentKeysTable, agentsTable, usersTable, type AgentKey } from "@workspace/db/schema";
 
@@ -42,7 +43,7 @@ export async function createAgentKey(
       }
     }
   } catch (err) {
-    console.error(`[agent-keys] Failed to send credential email:`, err instanceof Error ? err.message : err);
+    logger.error({ err: err instanceof Error ? err.message : err }, "[agent-keys] Failed to send credential email");
   }
 
   return key;

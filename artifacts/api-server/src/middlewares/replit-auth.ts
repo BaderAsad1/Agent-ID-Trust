@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { usersTable, type User, type ApiKey } from "@workspace/db/schema";
 import { getSessionId, getSession, type AuthSessionUser } from "../lib/auth";
+import { env } from "../lib/env";
 
 declare global {
   namespace Express {
@@ -72,7 +73,7 @@ export async function replitAuth(
   next: NextFunction,
 ) {
   let replitUserId = req.headers["x-replit-user-id"] as string | undefined;
-  if (!replitUserId && process.env.NODE_ENV !== "production") {
+  if (!replitUserId && (env().NODE_ENV || "development") !== "production") {
     replitUserId = req.headers["x-agentid-user-id"] as string | undefined;
   }
 
