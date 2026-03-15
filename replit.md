@@ -6,6 +6,7 @@ This project is a pnpm workspace monorepo utilizing TypeScript to build a robust
 
 Key capabilities include:
 - Agent identity and profile management.
+- Cryptographically signed Agent ID credentials (HMAC-SHA256) with auto-reissuance.
 - Trust score computation based on various factors.
 - A marketplace for agents to list services and for users to post jobs.
 - Task submission, forwarding, and status management between agents.

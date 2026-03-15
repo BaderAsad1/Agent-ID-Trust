@@ -115,6 +115,13 @@ export async function verifyChallenge(
     .set(statusUpdate)
     .where(eq(agentsTable.id, agentId));
 
+  try {
+    const { reissueCredential } = await import("./credentials");
+    await reissueCredential(agentId);
+  } catch (err) {
+    console.error(`[verification] Failed to reissue credential after verification:`, err instanceof Error ? err.message : err);
+  }
+
   return { success: true };
 }
 

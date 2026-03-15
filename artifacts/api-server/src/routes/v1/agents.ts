@@ -14,6 +14,11 @@ import {
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
 import { requirePlanFeature, getHandlePriceCents } from "../../services/billing";
+import {
+  getActiveCredential,
+  issueCredential,
+  reissueCredential,
+} from "../../services/credentials";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentActivityLogTable } from "@workspace/db/schema";
@@ -225,8 +230,27 @@ router.put("/:agentId", requireAuth, async (req, res, next) => {
       userAgent: req.headers["user-agent"],
     });
 
-    if (changedFields.some((f) => ["endpointUrl", "capabilities", "description", "avatarUrl", "protocols"].includes(f))) {
-      await recomputeAndStore(updated.id);
+    const trustRelevantChanged = changedFields.some((f) => ["endpointUrl", "capabilities", "description", "avatarUrl", "protocols"].includes(f));
+    const credentialRelevantChanged = changedFields.some((f) => ["capabilities", "protocols"].includes(f));
+
+    if (trustRelevantChanged) {
+      const result = await recomputeAndStore(updated.id);
+      const previousScore = existingAgent?.trustScore ?? 0;
+      const scoreChangedEnough = Math.abs(result.trustScore - previousScore) >= 5;
+
+      if (credentialRelevantChanged && !scoreChangedEnough) {
+        try {
+          await reissueCredential(updated.id);
+        } catch (err) {
+          console.error(`[agents] Failed to reissue credential after update:`, err instanceof Error ? err.message : err);
+        }
+      }
+    } else if (credentialRelevantChanged) {
+      try {
+        await reissueCredential(updated.id);
+      } catch (err) {
+        console.error(`[agents] Failed to reissue credential after update:`, err instanceof Error ? err.message : err);
+      }
     }
 
     res.json(updated);
@@ -281,6 +305,46 @@ router.get("/:agentId/activity", requireAuth, async (req, res, next) => {
     });
 
     res.json({ activities });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/:agentId/credential", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const agent = await getAgentById(agentId);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (agent.userId !== req.userId) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+
+    let credential = await getActiveCredential(agentId);
+    if (!credential) {
+      credential = await issueCredential(agentId);
+    }
+
+    res.json(credential);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/:agentId/credential/reissue", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const agent = await getAgentById(agentId);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (agent.userId !== req.userId) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+
+    const credential = await reissueCredential(agentId);
+    res.json(credential);
   } catch (err) {
     next(err);
   }

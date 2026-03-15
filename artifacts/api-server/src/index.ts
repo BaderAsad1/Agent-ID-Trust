@@ -28,6 +28,16 @@ if (isProd && !process.env.ACTIVITY_HMAC_SECRET) {
 if (isProd && !process.env.WEBHOOK_SECRET_KEY) {
   throw new Error("WEBHOOK_SECRET_KEY is required in production for encryption at rest.");
 }
+if (isProd && !process.env.CREDENTIAL_SIGNING_SECRET) {
+  throw new Error("CREDENTIAL_SIGNING_SECRET is required in production for credential signing.");
+}
+
+import { getCredentialSigningSecret } from "./services/credentials";
+try {
+  getCredentialSigningSecret();
+} catch (err) {
+  if (isProd) throw err;
+}
 
 console.log("[startup] Subsystem status:");
 console.log(`  Redis:      ${isRedisConfigured() ? "enabled" : "disabled (REDIS_URL not set)"}`);
@@ -36,6 +46,7 @@ console.log(`  Resend:     ${process.env.RESEND_API_KEY ? "enabled" : "disabled 
 console.log(`  Cloudflare: ${process.env.CLOUDFLARE_API_TOKEN ? "enabled" : "disabled (CLOUDFLARE_API_TOKEN not set)"}`);
 console.log(`  HMAC:       ${process.env.ACTIVITY_HMAC_SECRET ? "enabled" : "ephemeral (dev only)"}`);
 console.log(`  Crypto Key: ${process.env.WEBHOOK_SECRET_KEY || process.env.ACTIVITY_HMAC_SECRET ? "enabled" : "ephemeral (dev only)"}`);
+console.log(`  Cred Sign:  ${process.env.CREDENTIAL_SIGNING_SECRET ? "enabled" : "ephemeral (dev only)"}`);
 
 if (!isRedisConfigured()) {
   console.warn("[startup] Redis is not configured — BullMQ webhook delivery queue and domain provisioning worker are disabled.");

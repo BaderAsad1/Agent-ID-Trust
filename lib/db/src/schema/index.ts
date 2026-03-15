@@ -30,3 +30,4 @@ export * from "./agent-transfer-events";
 export * from "./agent-transfer-snapshots";
 export * from "./agent-operator-history";
 export * from "./sessions";
+export * from "./agent-credentials";

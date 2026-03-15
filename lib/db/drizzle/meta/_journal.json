@@ -15,6 +15,13 @@
       "when": 1773601457097,
       "tag": "0001_unusual_donald_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773617890449,
+      "tag": "0002_empty_mastermind",
+      "breakpoints": true
     }
   ]
 }

@@ -324,6 +324,12 @@ export async function computeTrustScore(agentId: string): Promise<{
 }
 
 export async function recomputeAndStore(agentId: string) {
+  const agent = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.id, agentId),
+    columns: { trustScore: true },
+  });
+  const previousScore = agent?.trustScore ?? 0;
+
   const { trustScore, trustBreakdown, trustTier } =
     await computeTrustScore(agentId);
 
@@ -336,6 +342,15 @@ export async function recomputeAndStore(agentId: string) {
       updatedAt: new Date(),
     })
     .where(eq(agentsTable.id, agentId));
+
+  if (Math.abs(trustScore - previousScore) >= 5) {
+    try {
+      const { reissueCredential } = await import("./credentials");
+      await reissueCredential(agentId);
+    } catch (err) {
+      console.error(`[trust-score] Failed to reissue credential after score change:`, err instanceof Error ? err.message : err);
+    }
+  }
 
   return { trustScore, trustBreakdown, trustTier };
 }
