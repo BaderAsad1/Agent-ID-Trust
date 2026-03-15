@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, agentKeysTable, agentDomainsTable } from "@workspace/db/schema";
+import { normalizeHandle, formatHandle, formatDomain, formatDID, formatProfileUrl, formatResolverUrl } from "../utils/handle";
 
 const router = Router();
 
@@ -49,14 +50,14 @@ function buildAgentIdentityDocument(
   agent: typeof agentsTable.$inferSelect,
   ownerKey: { kid: string; publicKey: string | null; keyType: string } | null,
 ) {
-  const handle = agent.handle.toLowerCase();
+  const handle = normalizeHandle(agent.handle);
   return {
     "@context": "https://getagent.id/ns/agent-identity/v1",
     "@type": "AgentIdentity",
-    id: `urn:agentid:${handle}`,
+    id: formatDID(handle),
     handle: agent.handle,
-    protocolAddress: `${agent.handle}.agentid`,
-    domain: `${handle}.${BASE_DOMAIN}`,
+    protocolAddress: formatHandle(handle),
+    domain: formatDomain(handle),
     displayName: agent.displayName,
     description: agent.description,
     endpointUrl: agent.endpointUrl,
@@ -73,9 +74,9 @@ function buildAgentIdentityDocument(
       publicKey: ownerKey.publicKey,
     } : null,
     links: {
-      self: `https://${handle}.${BASE_DOMAIN}/.well-known/agent.json`,
-      profile: `${APP_URL}/${agent.handle}`,
-      resolve: `${APP_URL}/api/v1/resolve/${handle}`,
+      self: `https://${formatDomain(handle)}/.well-known/agent.json`,
+      profile: formatProfileUrl(handle),
+      resolve: formatResolverUrl(handle),
     },
     metadata: agent.metadata,
     createdAt: agent.createdAt,
@@ -100,7 +101,7 @@ router.get("/.well-known/agent.json", async (req: Request, res: Response, next: 
 
     const handleParam = req.query.handle as string | undefined;
     if (!agent && handleParam) {
-      agent = await getAgentByHandle(handleParam.toLowerCase().replace(/\.agentid$/, ""));
+      agent = await getAgentByHandle(normalizeHandle(handleParam));
     }
 
     if (!agent) {

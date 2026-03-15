@@ -152,6 +152,14 @@ export async function updateAgent(
 
   if (!updated) return null;
 
+  if (updates.capabilities || updates.status) {
+    try {
+      const { deleteResolutionCache } = await import("../routes/v1/resolve");
+      const { normalizeHandle } = await import("../utils/handle");
+      await deleteResolutionCache(normalizeHandle(updated.handle));
+    } catch {}
+  }
+
   if (updates.status === "active" && existing?.status !== "active") {
     try {
       const { provisionInboxForAgent } = await import("./mail");

@@ -147,6 +147,18 @@ export async function verifyChallenge(
     console.error(`[verification] Failed to send verification email for agent ${agentId}:`, err instanceof Error ? err.message : err);
   }
 
+  try {
+    const agentForCache = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+      columns: { handle: true },
+    });
+    if (agentForCache) {
+      const { deleteResolutionCache } = await import("../routes/v1/resolve");
+      const { normalizeHandle } = await import("../utils/handle");
+      await deleteResolutionCache(normalizeHandle(agentForCache.handle));
+    }
+  } catch {}
+
   return { success: true };
 }
 
@@ -158,6 +170,18 @@ export async function initiateVerification(
     .update(agentsTable)
     .set({ verificationStatus: "pending", updatedAt: new Date() })
     .where(eq(agentsTable.id, agentId));
+
+  try {
+    const agent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+      columns: { handle: true },
+    });
+    if (agent) {
+      const { deleteResolutionCache } = await import("../routes/v1/resolve");
+      const { normalizeHandle } = await import("../utils/handle");
+      await deleteResolutionCache(normalizeHandle(agent.handle));
+    }
+  } catch {}
 
   return createChallenge(agentId, method);
 }

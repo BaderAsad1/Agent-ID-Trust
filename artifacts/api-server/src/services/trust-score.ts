@@ -352,6 +352,18 @@ export async function recomputeAndStore(agentId: string) {
     }
   }
 
+  try {
+    const agentForCache = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+      columns: { handle: true },
+    });
+    if (agentForCache) {
+      const { deleteResolutionCache } = await import("../routes/v1/resolve");
+      const { normalizeHandle } = await import("../utils/handle");
+      await deleteResolutionCache(normalizeHandle(agentForCache.handle));
+    }
+  } catch {}
+
   return { trustScore, trustBreakdown, trustTier };
 }
 

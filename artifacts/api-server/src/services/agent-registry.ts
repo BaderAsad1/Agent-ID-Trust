@@ -1,6 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, agentDomainsTable } from "@workspace/db/schema";
+import { formatDomain } from "../utils/handle";
 
 export interface RegistryStatus {
   registered: boolean;
@@ -36,7 +37,7 @@ export async function getRegistryStatus(
     columns: { status: true },
   });
 
-  const domain = `${agent.handle.toLowerCase()}.getagent.id`;
+  const domain = formatDomain(agent.handle);
   const baseDomain = process.env.BASE_AGENT_DOMAIN || "getagent.id";
   const appBase = process.env.APP_URL || "https://getagent.id";
   const apiBase = `${appBase}/api/v1`;

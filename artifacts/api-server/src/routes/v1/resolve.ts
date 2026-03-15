@@ -5,7 +5,9 @@ import { AppError } from "../../middlewares/error-handler";
 import { getAgentByHandle } from "../../services/agents";
 import { eq, and, gte, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, agentKeysTable, marketplaceListingsTable } from "@workspace/db/schema";
+import { agentsTable, agentKeysTable, marketplaceListingsTable, resolutionEventsTable } from "@workspace/db/schema";
+import { normalizeHandle, formatHandle, formatDomain, formatProfileUrl, formatDID, formatResolverUrl } from "../../utils/handle";
+import { getResolutionCache, setResolutionCache, deleteResolutionCache } from "../../lib/resolution-cache";
 
 const router = Router();
 
@@ -41,10 +43,13 @@ function toResolvedAgent(
   ownerKey: string | null,
   pricing: { priceType: string; priceAmount: string | null; deliveryHours: number | null } | null,
 ) {
+  const handle = normalizeHandle(agent.handle);
   return {
     handle: agent.handle,
-    domain: `${agent.handle.toLowerCase()}.getagent.id`,
-    protocolAddress: `${agent.handle}.agentid`,
+    domain: formatDomain(handle),
+    protocolAddress: formatHandle(handle),
+    did: formatDID(handle),
+    resolverUrl: formatResolverUrl(handle),
     displayName: agent.displayName,
     description: agent.description,
     endpointUrl: agent.endpointUrl,
@@ -66,7 +71,13 @@ function toResolvedAgent(
     tasksCompleted: agent.tasksCompleted,
     createdAt: agent.createdAt,
     updatedAt: agent.updatedAt,
-    profileUrl: `https://getagent.id/${agent.handle}`,
+    profileUrl: formatProfileUrl(handle),
+    erc8004Uri: `erc8004://${handle}.agentid`,
+    credential: {
+      namespace: ".agentid",
+      did: formatDID(handle),
+      domain: formatDomain(handle),
+    },
   };
 }
 
@@ -78,13 +89,61 @@ async function enrichAndResolve(agent: typeof agentsTable.$inferSelect) {
   return toResolvedAgent(agent, ownerKey, pricing);
 }
 
+function isMachineClient(req: Request): boolean {
+  if (req.headers["x-agent-client"] === "true") return true;
+
+  const accept = req.headers["accept"] || "";
+  if (accept.includes("application/json")) return true;
+
+  if (
+    accept.includes("text/html") &&
+    !accept.includes("application/json")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function logResolutionEvent(
+  handle: string,
+  agentId: string | null,
+  clientType: string,
+  responseTimeMs: number,
+  cacheHit: string,
+) {
+  db.insert(resolutionEventsTable)
+    .values({
+      handle,
+      resolvedAgentId: agentId,
+      clientType,
+      responseTimeMs,
+      cacheHit,
+    })
+    .catch((err) => {
+      console.error("[resolve] Failed to log resolution event:", err instanceof Error ? err.message : err);
+    });
+}
+
 router.get("/:handle", async (req: Request, res: Response, next: NextFunction) => {
+  const startTime = Date.now();
   try {
-    let handle = (req.params.handle as string).toLowerCase();
-    if (handle.endsWith(".agentid")) {
-      handle = handle.replace(/\.agentid$/, "");
-    } else if (handle.endsWith(".agent")) {
-      handle = handle.replace(/\.agent$/, "");
+    const handle = normalizeHandle(req.params.handle as string);
+    const machine = isMachineClient(req);
+
+    if (!machine) {
+      logResolutionEvent(handle, null, "browser", Date.now() - startTime, "NONE");
+      res.redirect(302, formatProfileUrl(handle));
+      return;
+    }
+
+    const cached = await getResolutionCache(handle);
+    if (cached) {
+      const responseTimeMs = Date.now() - startTime;
+      logResolutionEvent(handle, null, "machine", responseTimeMs, "HIT");
+      res.setHeader("X-Cache", "HIT");
+      res.json(cached);
+      return;
     }
 
     const agent = await getAgentByHandle(handle);
@@ -94,9 +153,61 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
 
     const resolved = await enrichAndResolve(agent);
 
-    res.json({
+    const responseBody = {
       resolved: true,
       agent: resolved,
+    };
+
+    await setResolutionCache(handle, responseBody);
+
+    const responseTimeMs = Date.now() - startTime;
+    logResolutionEvent(handle, agent.id, "machine", responseTimeMs, "MISS");
+
+    res.setHeader("X-Cache", "MISS");
+    res.json(responseBody);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/:handle/stats", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const handle = normalizeHandle(req.params.handle as string);
+
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const [totalResult, last24hResult, last7dResult, avgResult] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` })
+        .from(resolutionEventsTable)
+        .where(eq(resolutionEventsTable.handle, handle)),
+
+      db.select({ count: sql<number>`count(*)::int` })
+        .from(resolutionEventsTable)
+        .where(and(
+          eq(resolutionEventsTable.handle, handle),
+          gte(resolutionEventsTable.createdAt, oneDayAgo),
+        )),
+
+      db.select({ count: sql<number>`count(*)::int` })
+        .from(resolutionEventsTable)
+        .where(and(
+          eq(resolutionEventsTable.handle, handle),
+          gte(resolutionEventsTable.createdAt, sevenDaysAgo),
+        )),
+
+      db.select({ avg: sql<number>`COALESCE(AVG(${resolutionEventsTable.responseTimeMs}), 0)` })
+        .from(resolutionEventsTable)
+        .where(eq(resolutionEventsTable.handle, handle)),
+    ]);
+
+    res.json({
+      handle,
+      totalResolutions: totalResult[0]?.count ?? 0,
+      resolutionsLast24h: last24hResult[0]?.count ?? 0,
+      resolutionsLast7d: last7dResult[0]?.count ?? 0,
+      avgResponseTimeMs: Math.round(Number(avgResult[0]?.avg ?? 0)),
     });
   } catch (err) {
     next(err);
@@ -203,4 +314,5 @@ export async function handleAgentDiscovery(req: Request, res: Response, next: Ne
 
 router.get("/", handleAgentDiscovery);
 
+export { deleteResolutionCache };
 export default router;

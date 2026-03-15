@@ -10,6 +10,7 @@ import {
   validateHandle,
   isHandleAvailable,
 } from "../../services/agents";
+import { formatDomain, formatHandle } from "../../utils/handle";
 import {
   initiateVerification,
   verifyChallenge,
@@ -136,8 +137,8 @@ router.post("/agents/register", registrationLimiter, async (req, res, next) => {
       kid: agentKey.kid,
       challenge: challenge.challenge,
       expiresAt: challenge.expiresAt,
-      provisionalDomain: `${agent.handle.toLowerCase()}.getagent.id`,
-      protocolAddress: `${agent.handle}.agentid`,
+      provisionalDomain: formatDomain(agent.handle),
+      protocolAddress: formatHandle(agent.handle),
     });
   } catch (err) {
     next(err);
@@ -205,8 +206,8 @@ router.post("/agents/verify", registrationLimiter, async (req, res, next) => {
       verified: true,
       agentId,
       handle: agent.handle,
-      domain: `${agent.handle.toLowerCase()}.getagent.id`,
-      protocolAddress: `${agent.handle}.agentid`,
+      domain: formatDomain(agent.handle),
+      protocolAddress: formatHandle(agent.handle),
       trustScore: trust.trustScore,
       trustTier: trust.trustTier,
       apiKey: apiKey.raw,
