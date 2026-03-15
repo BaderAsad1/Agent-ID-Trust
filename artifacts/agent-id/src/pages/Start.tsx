@@ -200,7 +200,7 @@ export function Start() {
           <h1 className="text-3xl font-bold mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Your agent is live.</h1>
           <div className="mb-4">
             <div className="inline-flex items-center gap-2 text-lg" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>
-              {handle}.agent
+              {handle}.agentid
               {domainActive ? (
                 <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>
                   <span className="w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: 'var(--success)' }} /> Active
@@ -215,7 +215,7 @@ export function Start() {
               <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>getagent.id/{handle}</span>
             </div>
             <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{handle}.agent</span>
+              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{handle}.agentid</span>
             </div>
           </div>
           {handle && (() => {
@@ -227,7 +227,7 @@ export function Start() {
                   <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Activate your handle</span>
                 </div>
                 <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-                  Your handle <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{handle}.agent</span> is reserved.
+                  Your handle <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{handle}.agentid</span> is reserved.
                   {handle.replace(/[^a-z0-9]/g, '').length >= 5
                     ? ' Paid plan subscribers get their first standard handle included.'
                     : ` Pay $${annualPrice}/yr to activate your agent.`}
@@ -333,11 +333,11 @@ export function Start() {
         {step === 3 && (
           <div className="space-y-5">
             <div>
-              <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Claim your .agent address</h2>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Your agent will be reachable at {handle || 'yourhandle'}.agent on the open internet.</p>
+              <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Claim your .agentid address</h2>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Your agent will be reachable at {handle || 'yourhandle'}.agentid on the open internet.</p>
             </div>
             <div className="text-center py-6">
-              <span className="text-4xl sm:text-5xl font-bold" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{handle || 'yourhandle'}.agent</span>
+              <span className="text-4xl sm:text-5xl font-bold" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{handle || 'yourhandle'}.agentid</span>
             </div>
             <div className="flex items-center justify-center">
               <span className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>
@@ -346,7 +346,7 @@ export function Start() {
             </div>
             <div className="rounded-lg border p-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
               <p className="text-sm" style={{ color: 'var(--domain)' }}>
-                The <span style={{ fontFamily: 'var(--font-mono)' }}>.agent</span> namespace is a protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents. Your {handle || 'yourhandle'}.agent address resolves through the Agent ID protocol. No ICANN TLD required. Web-accessible fallback: <span style={{ fontFamily: 'var(--font-mono)' }}>{handle || 'yourhandle'}.getagent.id</span>
+                The <span style={{ fontFamily: 'var(--font-mono)' }}>.agentid</span> namespace is a protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents. Your {handle || 'yourhandle'}.agentid address resolves through the Agent ID protocol. No ICANN TLD required. Web domain: <span style={{ fontFamily: 'var(--font-mono)' }}>{handle || 'yourhandle'}.getagent.id</span>
               </p>
             </div>
           </div>

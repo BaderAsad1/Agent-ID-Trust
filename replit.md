@@ -112,7 +112,7 @@ Still contains the original mockup versions used during design iteration. The ag
 - **Resend Email Transport** — `ResendTransportProvider` in `mail-transport.ts` for external email delivery (activates when `RESEND_API_KEY` is set).
 - **API Docs** — Swagger UI at `GET /api/docs`, raw OpenAPI spec at `GET /api/docs/openapi.yaml`.
 - **Rate Limiting** — `express-rate-limit` middleware: 500 req/min authenticated, 100 req/min unauthenticated, skips Stripe webhooks.
-- **Resolution Protocol** — Open `.agent` name resolution: `GET /api/v1/resolve/:handle` (forward), `POST /api/v1/resolve/reverse` (reverse by endpoint URL), `GET /api/v1/resolve?capability=X&minTrust=Y` (capability discovery). All public, no auth required.
+- **Resolution Protocol** — Open `.agentid` name resolution: `GET /api/v1/resolve/:handle` (forward), `POST /api/v1/resolve/reverse` (reverse by endpoint URL), `GET /api/v1/resolve?capability=X&minTrust=Y` (capability discovery). All public, no auth required. `.well-known/agent.json` endpoint for machine-readable identity documents.
 
 ## Agent Mail System
 
@@ -141,14 +141,14 @@ Complete communications layer for agents with identity-bound inboxes.
 - **Authentication:** Replit Auth
 - **Payment Processing:** Stripe
 - **DNS Management:** Cloudflare DNS API
-- **Protocol Namespace:** Self-sovereign .agent registry (like ENS for AI agents)
+- **Protocol Namespace:** Self-sovereign .agentid registry (like ENS for AI agents). Canonical web domain: handle.getagent.id. Protocol address: handle.agentid.
 - **Frontend:** React 19, React Router DOM, Tailwind CSS, Recharts, Framer Motion, Lucide React
 - **Code Generation:** Orval (for OpenAPI spec)
 
 ## Shared Libraries
 
 ### `lib/resolver` — `@agentid/resolver` SDK
-Open-source npm package for resolving `.agent` names. Provides `AgentResolver` class with `resolve()`, `reverse()`, and `findAgents()` methods. Full TypeScript types, retry logic, configurable base URL/timeout.
+Open-source npm package for resolving `.agentid` names. Provides `AgentResolver` class with `resolve()`, `reverse()`, and `findAgents()` methods, plus static helpers: `parseProtocolAddress()`, `isAgentIdAddress()`, `toProtocolAddress()`, `toDomain()`. Full TypeScript types, retry logic, configurable base URL/timeout.
 
 ## Pricing & Billing
 
@@ -182,10 +182,10 @@ Open-source npm package for resolving `.agent` names. Provides `AgentResolver` c
 - Route: `artifacts/api-server/src/routes/v1/fleet.ts`
 - UI: `FleetManagement` component at `/dashboard/fleet`
 
-**.agent Protocol Registry (self-sovereign, like ENS):**
+**.agentid Protocol Registry (self-sovereign, like ENS):**
 - Service: `artifacts/api-server/src/services/agent-registry.ts`
 - Route: `artifacts/api-server/src/routes/v1/agent-registry.ts`
-- Canonical resolve: `GET /api/v1/resolve/:handle` — resolves .agent names to Agent ID Objects (no auth, in resolve.ts)
+- Canonical resolve: `GET /api/v1/resolve/:handle` — resolves .agentid names to Agent ID Objects (no auth, in resolve.ts). Accepts bare handle or handle.agentid format (backward-compatible with .agent suffix too).
 - Owner status: `GET /api/v1/agents/:id/registry/status` — protocol resolve URL + DNS bridge
 - Two resolution paths: protocol layer (`getagent.id/api/v1/resolve/handle`) + DNS bridge (`handle.getagent.id`)
 - UI: Registry status panel in DomainDashboard with resolve URL + DNS bridge display

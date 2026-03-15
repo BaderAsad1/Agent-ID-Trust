@@ -53,10 +53,11 @@ const RESOLVE_RESPONSE = `{
   "resolved": true,
   "agent": {
     "handle": "research-agent",
-    "domain": "research-agent.agent",
+    "domain": "research-agent.getagent.id",
+    "protocolAddress": "research-agent.agentid",
     "displayName": "Research Agent",
     "description": "Autonomous research agent...",
-    "endpointUrl": "https://api.research.agent/v1/tasks",
+    "endpointUrl": "https://research-agent.getagent.id/v1/tasks",
     "capabilities": ["research", "web-search", "data-analysis"],
     "protocols": ["agent-protocol-v1", "openai-functions"],
     "authMethods": ["api-key", "oauth2"],
@@ -86,17 +87,17 @@ const RESOLVE_RESPONSE = `{
   }
 }`;
 
-const RESOLVE_DOMAIN = `GET ${API_BASE}/resolve/research-agent.agent HTTP/1.1
+const RESOLVE_DOMAIN = `GET ${API_BASE}/resolve/research-agent.agentid HTTP/1.1
 
-# The .agent suffix is automatically stripped.
-# Both "research-agent" and "research-agent.agent" resolve identically.`;
+# The .agentid suffix is automatically stripped.
+# Both "research-agent" and "research-agent.agentid" resolve identically.`;
 
 const REVERSE_REQUEST = `POST ${API_BASE}/reverse HTTP/1.1
 Host: getagent.id
 Content-Type: application/json
 
 {
-  "endpointUrl": "https://api.research.agent/v1/tasks"
+  "endpointUrl": "https://research-agent.getagent.id/v1/tasks"
 }
 
 # Alias: POST ${API_BASE}/resolve/reverse`;
@@ -105,9 +106,10 @@ const REVERSE_RESPONSE = `{
   "resolved": true,
   "agent": {
     "handle": "research-agent",
-    "domain": "research-agent.agent",
+    "domain": "research-agent.getagent.id",
+    "protocolAddress": "research-agent.agentid",
     "displayName": "Research Agent",
-    "endpointUrl": "https://api.research.agent/v1/tasks",
+    "endpointUrl": "https://research-agent.getagent.id/v1/tasks",
     "trustScore": 94,
     "verificationStatus": "verified",
     "ownerKey": "MCowBQYDK2VwAyEA...",
@@ -124,10 +126,11 @@ const DISCOVERY_RESPONSE = `{
   "agents": [
     {
       "handle": "research-agent",
-      "domain": "research-agent.agent",
+      "domain": "research-agent.getagent.id",
+      "protocolAddress": "research-agent.agentid",
       "trustScore": 94,
       "capabilities": ["research", "web-search", "data-analysis"],
-      "endpointUrl": "https://api.research.agent/v1/tasks",
+      "endpointUrl": "https://research-agent.getagent.id/v1/tasks",
       "ownerKey": "MCowBQYDK2VwAyEA...",
       "pricing": { "priceType": "fixed", "priceAmount": "25.00", "deliveryHours": 2 },
       ...
@@ -162,7 +165,8 @@ const JSON_SCHEMA = `{
       "required": ["handle", "domain", "displayName", "status", "trustScore"],
       "properties": {
         "handle":             { "type": "string" },
-        "domain":             { "type": "string", "pattern": "^[a-z0-9-]+\\\\.agent$" },
+        "domain":             { "type": "string", "description": "Web domain (handle.getagent.id)" },
+        "protocolAddress":    { "type": "string", "pattern": "^[a-z0-9-]+\\\\.agentid$" },
         "displayName":        { "type": "string" },
         "description":        { "type": ["string", "null"] },
         "endpointUrl":        { "type": ["string", "null"], "format": "uri" },
@@ -202,13 +206,13 @@ const SDK_USAGE = `import { AgentResolver } from '@agentid/resolver';
 
 const resolver = new AgentResolver();
 
-// Resolve a .agent name
+// Resolve a .agentid name
 const result = await resolver.resolve('research-agent');
 console.log(result.agent.endpointUrl);
-// => "https://api.research.agent/v1/tasks"
+// => "https://research-agent.getagent.id/v1/tasks"
 
 // Reverse lookup by endpoint URL
-const identity = await resolver.reverse('https://api.research.agent/v1/tasks');
+const identity = await resolver.reverse('https://research-agent.getagent.id/v1/tasks');
 console.log(identity.agent.handle);
 // => "research-agent"
 
@@ -239,16 +243,16 @@ export function Protocol() {
             <BookOpen className="w-3.5 h-3.5" /> PROTOCOL SPEC
           </div>
           <h1 className="text-4xl md:text-5xl font-black mb-4 leading-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-            .agent Resolution Protocol
+            .agentid Resolution Protocol
           </h1>
           <p className="text-xl leading-relaxed max-w-2xl" style={{ color: 'var(--text-muted)' }}>
-            The open protocol for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agent</span> names to endpoints, capabilities, and trust scores. A protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents.
+            The open protocol for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> names to endpoints, capabilities, and trust scores. A protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
           {[
-            { icon: Server, title: 'Forward Resolution', desc: 'Resolve any .agent handle to its endpoint, capabilities, and trust score.' },
+            { icon: Server, title: 'Forward Resolution', desc: 'Resolve any .agentid handle to its endpoint, capabilities, and trust score.' },
             { icon: RotateCcw, title: 'Reverse Resolution', desc: 'Given an API endpoint, verify the agent identity behind it.' },
             { icon: Search, title: 'Capability Discovery', desc: 'Query agents by what they can do, with trust and verification filters.' },
           ].map(f => (
@@ -284,7 +288,7 @@ export function Protocol() {
               <SectionTitle id="overview">Overview</SectionTitle>
               <div className="prose-sm space-y-4" style={{ color: 'var(--text-muted)' }}>
                 <p className="text-sm leading-relaxed">
-                  The <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>.agent</span> resolution protocol provides a standardized way to look up agent identities. Any orchestration framework &mdash; LangChain, CrewAI, AutoGPT, or your own &mdash; can resolve a <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agent</span> name to discover how to communicate with that agent.
+                  The <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>.agentid</span> resolution protocol provides a standardized way to look up agent identities. Any orchestration framework &mdash; LangChain, CrewAI, AutoGPT, or your own &mdash; can resolve a <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> name to discover how to communicate with that agent.
                 </p>
                 <p className="text-sm leading-relaxed">
                   All resolution endpoints are public and require no authentication. Rate limits apply at 100 requests/minute per IP for unauthenticated callers. All responses use <span style={{ fontFamily: 'var(--font-mono)' }}>application/json</span>.
@@ -299,7 +303,7 @@ export function Protocol() {
             <section id="resolve">
               <SectionTitle id="resolve-title">Forward Resolution</SectionTitle>
               <p className="text-sm mb-4 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                Resolve a <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agent</span> handle or domain to its full identity record.
+                Resolve a <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> handle or domain to its full identity record.
               </p>
               <div className="rounded-lg px-4 py-3 mb-4 flex items-center gap-3" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
                 <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>GET</span>
@@ -312,7 +316,7 @@ export function Protocol() {
               <div className="mt-6 rounded-lg p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
                 <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Domain suffix handling</p>
                 <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-muted)' }}>
-                  The resolver automatically strips the <span style={{ fontFamily: 'var(--font-mono)' }}>.agent</span> suffix. Both formats work identically:
+                  The resolver automatically strips the <span style={{ fontFamily: 'var(--font-mono)' }}>.agentid</span> suffix. Both formats work identically:
                 </p>
                 <CodeBlock code={RESOLVE_DOMAIN} lang="http" />
               </div>
@@ -411,7 +415,7 @@ export function Protocol() {
             <section id="sdk">
               <SectionTitle id="sdk-title">SDK</SectionTitle>
               <p className="text-sm mb-4 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                Drop in the open-source <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>@agentid/resolver</span> package to resolve <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agent</span> names from any JavaScript/TypeScript project.
+                Drop in the open-source <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>@agentid/resolver</span> package to resolve <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> names from any JavaScript/TypeScript project.
               </p>
               <div className="space-y-4">
                 <CodeBlock code={SDK_INSTALL} lang="bash" title="Install" />

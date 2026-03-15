@@ -400,7 +400,7 @@ export async function createHandleCheckoutSession(
           currency: "usd",
           product_data: {
             name: `Handle Registration: @${handle}`,
-            description: `${tierLabel} .agent handle — owned asset`,
+            description: `${tierLabel} .agentid handle — owned asset`,
           },
           unit_amount: priceCents,
         },

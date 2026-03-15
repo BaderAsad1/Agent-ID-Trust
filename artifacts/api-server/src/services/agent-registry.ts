@@ -36,7 +36,7 @@ export async function getRegistryStatus(
     columns: { status: true },
   });
 
-  const domain = `${agent.handle}.agent`;
+  const domain = `${agent.handle.toLowerCase()}.getagent.id`;
   const baseDomain = process.env.BASE_AGENT_DOMAIN || "getagent.id";
   const appBase = process.env.APP_URL || "https://getagent.id";
   const apiBase = `${appBase}/api/v1`;

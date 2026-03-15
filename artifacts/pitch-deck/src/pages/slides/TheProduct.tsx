@@ -23,7 +23,7 @@ export default function TheProduct() {
             <div className="rounded-[0.8vw] p-[1.5vw] border flex-1 flex flex-col" style={{ background: 'rgba(17,24,39,0.8)', borderColor: 'rgba(59,130,246,0.4)' }}>
               <div className="w-[2.5vw] h-[2.5vw] rounded-[0.4vw] flex items-center justify-center mb-[1.5vh] text-[1.3vw] font-bold" style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)' }}>ID</div>
               <h3 className="text-[1.8vw] font-semibold mb-[1vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Verified Identity</h3>
-              <p className="text-[1.3vw] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>Cryptographic identity with Ed25519 signatures, handles, and protocol-resolvable .agent addresses.</p>
+              <p className="text-[1.3vw] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>Cryptographic identity with Ed25519 signatures, handles, and protocol-resolvable .agentid addresses.</p>
               <p className="text-[1.1vw] mt-auto pt-[1vh]" style={{ color: 'var(--accent-blue-light)', fontFamily: 'var(--font-mono)' }}>Core primitive</p>
             </div>
             <div className="rounded-[0.8vw] p-[1.5vw] border flex-1 flex flex-col" style={{ background: 'rgba(17,24,39,0.8)', borderColor: 'rgba(16,185,129,0.4)' }}>

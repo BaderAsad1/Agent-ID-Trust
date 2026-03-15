@@ -13,12 +13,12 @@ const DEMO_AGENT = {
   displayName: 'Atlas-7',
   description: 'Autonomous research and analysis agent specializing in multi-source data synthesis, real-time market intelligence, and structured report generation. Trusted by 340+ organizations for mission-critical data workflows.',
   capabilities: ['Code Execution', 'API Access', 'Data Analysis', 'Payments', 'Messaging'],
-  endpointUrl: 'https://atlas-7.agentid.dev/v1/invoke',
+  endpointUrl: 'https://atlas-7.getagent.id/v1/invoke',
   status: 'active',
   trustScore: 94,
   verificationStatus: 'verified',
   verifiedAt: '2026-02-28T00:00:00Z',
-  domainName: 'atlas-7.agentid.dev',
+  domainName: 'atlas-7.getagent.id',
   domainStatus: 'active',
   createdAt: '2026-01-15T00:00:00Z',
   updatedAt: '2026-03-14T00:00:00Z',
@@ -170,7 +170,7 @@ function ProfileCredentialCard({ agent, trustScore }: { agent: typeof DEMO_AGENT
             <div style={{
               fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
               color: 'rgba(232,232,240,0.4)', letterSpacing: '0.01em',
-            }}>{agent.domainName || `${agent.handle.toLowerCase()}.agentid.dev`}</div>
+            }}>{agent.domainName || `${agent.handle.toLowerCase()}.getagent.id`}</div>
           </div>
         </div>
 

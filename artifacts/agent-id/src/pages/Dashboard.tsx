@@ -1032,9 +1032,9 @@ function DomainDashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Your .agent Domains</h1>
+      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Your .agentid Domains</h1>
       {agents.length === 0 ? (
-        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agent address." />
+        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agentid address." />
       ) : (
         <div className="space-y-6">
           {agents.map(agent => {
@@ -1043,7 +1043,7 @@ function DomainDashboard() {
               <GlassCard key={agent.id}>
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <div className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{agent.domainName || `${agent.handle}.agent`}</div>
+                    <div className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{agent.domainName || `${agent.handle}.agentid`}</div>
                     <StatusDot status={agent.domainStatus === 'active' ? 'active' : 'inactive'} />
                   </div>
                   <div className="flex gap-2">
@@ -1060,11 +1060,11 @@ function DomainDashboard() {
                     <div className="flex items-center gap-3">
                       <Globe className="w-5 h-5" style={{ color: 'var(--domain)' }} />
                       <div>
-                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>.agent Protocol Registry</div>
+                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>.agentid Protocol Registry</div>
                         <div className="text-xs" style={{ color: 'var(--text-dim)' }}>
                           {reg?.registered
                             ? `Registered — resolvable at ${reg.domain}`
-                            : 'Pending registration in .agent registry'}
+                            : 'Pending registration in .agentid registry'}
                         </div>
                       </div>
                     </div>
@@ -1097,7 +1097,7 @@ function DomainDashboard() {
 
           <div className="rounded-xl border p-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
             <p className="text-sm" style={{ color: 'var(--domain)' }}>
-              Your .agent address is part of a protocol-layer namespace — like ENS's .eth, but for AI agents. Every registered handle resolves through the Agent ID protocol (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agent</code>) with a web fallback at (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>).
+              Your .agentid address is part of a protocol-layer namespace — like ENS's .eth, but for AI agents. Every registered handle resolves through the Agent ID protocol (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agentid</code>) with a web domain at (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>).
             </p>
           </div>
         </div>

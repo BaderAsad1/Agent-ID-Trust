@@ -7,6 +7,7 @@ export interface AgentPricing {
 export interface ResolvedAgent {
   handle: string;
   domain: string;
+  protocolAddress: string;
   displayName: string;
   description: string | null;
   endpointUrl: string | null;
@@ -147,8 +148,26 @@ export class AgentResolver {
   }
 
   async resolve(handle: string): Promise<ResolveResponse> {
-    const cleanHandle = handle.replace(/\.agent$/, "").toLowerCase();
+    const cleanHandle = handle.replace(/\.(agentid|agent)$/, "").toLowerCase();
     return this.request<ResolveResponse>(`${this.baseUrl}/${encodeURIComponent(cleanHandle)}`);
+  }
+
+  static parseProtocolAddress(address: string): { handle: string; namespace: string } | null {
+    const match = address.match(/^([a-zA-Z0-9_-]+)\.(agentid)$/);
+    if (!match) return null;
+    return { handle: match[1].toLowerCase(), namespace: match[2] };
+  }
+
+  static isAgentIdAddress(address: string): boolean {
+    return /^[a-zA-Z0-9_-]+\.agentid$/.test(address);
+  }
+
+  static toProtocolAddress(handle: string): string {
+    return `${handle.replace(/\.(agentid|agent)$/, "")}.agentid`;
+  }
+
+  static toDomain(handle: string, baseDomain = "getagent.id"): string {
+    return `${handle.replace(/\.(agentid|agent)$/, "").toLowerCase()}.${baseDomain}`;
   }
 
   async reverse(endpointUrl: string): Promise<ResolveResponse> {

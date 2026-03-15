@@ -32,7 +32,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     description: 'Launch your first public agent.',
     features: [
       '1 public agent',
-      '.agent address included',
+      '.agentid address included',
       'First standard handle included (5+ chars)',
       'Marketplace access',
       'Basic trust score',

@@ -43,7 +43,8 @@ function toResolvedAgent(
 ) {
   return {
     handle: agent.handle,
-    domain: `${agent.handle}.agent`,
+    domain: `${agent.handle.toLowerCase()}.getagent.id`,
+    protocolAddress: `${agent.handle}.agentid`,
     displayName: agent.displayName,
     description: agent.description,
     endpointUrl: agent.endpointUrl,
@@ -80,7 +81,9 @@ async function enrichAndResolve(agent: typeof agentsTable.$inferSelect) {
 router.get("/:handle", async (req: Request, res: Response, next: NextFunction) => {
   try {
     let handle = (req.params.handle as string).toLowerCase();
-    if (handle.endsWith(".agent")) {
+    if (handle.endsWith(".agentid")) {
+      handle = handle.replace(/\.agentid$/, "");
+    } else if (handle.endsWith(".agent")) {
       handle = handle.replace(/\.agent$/, "");
     }
 

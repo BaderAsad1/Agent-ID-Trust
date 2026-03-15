@@ -4,7 +4,7 @@ import { Copy, Check, Terminal, Zap, Key, Globe } from 'lucide-react';
 import { GlassCard, PrimaryButton } from './components';
 import { Footer } from './Footer';
 
-const REGISTER_CURL = `curl -X POST https://api.agentid.dev/v1/agents/register \\
+const REGISTER_CURL = `curl -X POST https://getagent.id/api/v1/agents/register \\
   -H "Content-Type: application/json" \\
   -d '{
     "handle": "your-handle",
@@ -17,7 +17,7 @@ const REGISTER_CURL = `curl -X POST https://api.agentid.dev/v1/agents/register \
 const REGISTER_PYTHON = `import httpx
 
 response = httpx.post(
-    "https://api.agentid.dev/v1/agents/register",
+    "https://getagent.id/api/v1/agents/register",
     json={
         "handle": "your-handle",
         "display_name": "Your Agent Name",
@@ -29,11 +29,11 @@ response = httpx.post(
 
 data = response.json()
 print(data["agent_id"])   # agt_01j...
-print(data["domain"])     # your-handle.agent`;
+print(data["domain"])     # your-handle.getagent.id`;
 
 const REGISTER_NODE = `import fetch from 'node-fetch';
 
-const res = await fetch('https://api.agentid.dev/v1/agents/register', {
+const res = await fetch('https://getagent.id/api/v1/agents/register', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -47,10 +47,10 @@ const res = await fetch('https://api.agentid.dev/v1/agents/register', {
 
 const data = await res.json();
 console.log(data.agent_id);  // agt_01j...
-console.log(data.domain);    // your-handle.agent`;
+console.log(data.domain);    // your-handle.getagent.id`;
 
-const REGISTER_HTTP = `POST /v1/agents/register HTTP/1.1
-Host: api.agentid.dev
+const REGISTER_HTTP = `POST /api/v1/agents/register HTTP/1.1
+Host: getagent.id
 Content-Type: application/json
 
 {
@@ -64,13 +64,14 @@ Content-Type: application/json
 const REGISTER_RESPONSE = `{
   "agent_id": "agt_01j9x4k2mw3f8n1p7q5r6s0t",
   "handle": "your-handle",
-  "domain": "your-handle.agent",
+  "domain": "your-handle.getagent.id",
+  "protocol_address": "your-handle.agentid",
   "verification_token": "agid_verify_a3f7c2e1b8d4f912c1e5a7b3",
   "status": "pending_verification",
-  "profile_url": "https://agentid.dev/your-handle"
+  "profile_url": "https://getagent.id/your-handle"
 }`;
 
-const VERIFY_CURL = `curl -X POST https://api.agentid.dev/v1/agents/verify \\
+const VERIFY_CURL = `curl -X POST https://getagent.id/api/v1/agents/verify \\
   -H "Content-Type: application/json" \\
   -d '{
     "agent_id": "agt_01j9x4k2mw3f8n1p7q5r6s0t",
@@ -81,9 +82,10 @@ const VERIFY_CURL = `curl -X POST https://api.agentid.dev/v1/agents/verify \\
 const VERIFY_RESPONSE = `{
   "status": "verified",
   "trust_score": 45,
-  "domain": "your-handle.agent",
+  "domain": "your-handle.getagent.id",
+  "protocol_address": "your-handle.agentid",
   "domain_status": "propagating",
-  "profile_url": "https://agentid.dev/your-handle",
+  "profile_url": "https://getagent.id/your-handle",
   "message": "Identity verified. Domain will propagate in ~2 minutes."
 }`;
 
@@ -160,7 +162,7 @@ export function ForAgents() {
           {[
             { icon: Zap, title: 'One call to register', desc: 'POST your capabilities, endpoint, and public key. Get back a verified identity in seconds.' },
             { icon: Key, title: 'Cryptographic proof', desc: 'Sign the verification token with your private key. No human in the loop required.' },
-            { icon: Globe, title: '.agent address assigned', desc: 'Your handle.agent protocol address is provisioned automatically. Web fallback at handle.getagent.id.' },
+            { icon: Globe, title: '.agentid address assigned', desc: 'Your handle.agentid protocol address resolves via Agent ID protocol. Web domain at handle.getagent.id.' },
           ].map(f => (
             <GlassCard key={f.title} className="!p-5">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3" style={{ background: 'rgba(59,130,246,0.1)' }}>
@@ -228,11 +230,15 @@ export function ForAgents() {
               <div className="space-y-3 text-sm" style={{ fontFamily: 'var(--font-mono)' }}>
                 <div className="flex items-center gap-3">
                   <span style={{ color: 'var(--text-dim)' }}>Handle:</span>
-                  <span style={{ color: 'var(--text-primary)' }}>agent.id/your-handle</span>
+                  <span style={{ color: 'var(--text-primary)' }}>getagent.id/your-handle</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span style={{ color: 'var(--text-dim)' }}>Domain:</span>
-                  <span style={{ color: 'var(--domain)' }}>your-handle.agent</span>
+                  <span style={{ color: 'var(--domain)' }}>your-handle.getagent.id</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span style={{ color: 'var(--text-dim)' }}>Protocol:</span>
+                  <span style={{ color: 'var(--accent)' }}>your-handle.agentid</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span style={{ color: 'var(--text-dim)' }}>Trust Score:</span>

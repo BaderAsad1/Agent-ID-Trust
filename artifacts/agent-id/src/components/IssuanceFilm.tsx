@@ -380,7 +380,7 @@ function FilmCredential({ heroProgress }: { heroProgress: number }) {
               opacity: handleVisible ? 1 : 0,
               transform: handleVisible ? 'translateX(0)' : 'translateX(-12px)',
               transition: 'opacity 0.6s ease, transform 0.6s ease',
-            }}>atlas-7.agentid.dev</div>
+            }}>atlas-7.getagent.id</div>
           </div>
         </div>
 

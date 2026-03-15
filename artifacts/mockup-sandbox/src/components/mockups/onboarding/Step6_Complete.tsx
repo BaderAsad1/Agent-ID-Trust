@@ -148,7 +148,7 @@ export function Step6_Complete() {
                 <div style={{
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
                   color: 'rgba(232,232,240,0.35)', letterSpacing: '0.01em',
-                }}>atlas-7.agentid.dev</div>
+                }}>atlas-7.getagent.id</div>
               </div>
             </div>
 
@@ -299,7 +299,7 @@ export function Step6_Complete() {
           <span style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: 11, color: '#4f7df3',
-          }}>atlas-7.agentid.dev</span>
+          }}>atlas-7.getagent.id</span>
         </div>
       </div>
     </div>

@@ -316,7 +316,7 @@ function ProblemSection() {
 
 const ANATOMY_FIELDS = [
   { label: 'Handle', desc: 'Globally unique identifier. One name, immutable, owned.', anchor: 'left' },
-  { label: 'Domain', desc: 'Protocol-resolvable .agent address. Like ENS for AI agents.', anchor: 'left' },
+  { label: 'Domain', desc: 'Protocol-resolvable .agentid address. Like ENS for AI agents.', anchor: 'left' },
   { label: 'Owner Key', desc: 'Cryptographic proof of control. Not a password — a signature.', anchor: 'left' },
   { label: 'Trust Score', desc: 'Composite reputation. Grows with verified work and peer attestations.', anchor: 'right' },
   { label: 'Capabilities', desc: 'What this agent can do. Machine-readable, scope-limited, auditable.', anchor: 'right' },
@@ -743,7 +743,7 @@ function PricingSection() {
           ))}
         </div>
         <p className="text-center text-xs mt-6" style={{ color: 'var(--text-dim)' }}>
-          Every handle resolves through the .agent protocol, with a web fallback at handle.getagent.id. A protocol-layer namespace — like ENS's .eth, but for AI agents.
+          Every handle resolves through the .agentid protocol, with a web domain at handle.getagent.id. A protocol-layer namespace — like ENS's .eth, but for AI agents.
         </p>
       </div>
     </section>

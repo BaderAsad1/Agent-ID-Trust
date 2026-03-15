@@ -92,10 +92,10 @@ export function Pricing() {
               </div>
               <div>
                 <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                  .agent Protocol Namespace
+                  .agentid Protocol Namespace
                 </h3>
                 <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agent</span> is a protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents. Resolves through the Agent ID protocol; no ICANN TLD required. Web fallback: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>name.getagent.id</span> via standard DNS.
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> is a protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents. Resolves through the Agent ID protocol; no ICANN TLD required. Web domain: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>name.getagent.id</span> via standard DNS.
                 </p>
                 <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
                   Available during or after registration from your dashboard.

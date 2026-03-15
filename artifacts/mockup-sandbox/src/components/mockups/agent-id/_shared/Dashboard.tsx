@@ -448,16 +448,16 @@ function DomainDashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Your .agent Domains</h1>
+      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Your .agentid Domains</h1>
       {agents.length === 0 ? (
-        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agent address." />
+        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agentid address." />
       ) : (
         <div className="space-y-6">
           {agents.map(agent => (
             <GlassCard key={agent.id}>
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <div className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{agent.domainName || `${agent.handle}.agent`}</div>
+                  <div className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{agent.domainName || `${agent.handle}.agentid`}</div>
                   <StatusDot status={agent.domainStatus === 'active' ? 'active' : 'inactive'} />
                 </div>
                 <button className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Copy domain">Copy</button>
@@ -472,7 +472,7 @@ function DomainDashboard() {
 
           <div className="rounded-xl border p-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
             <p className="text-sm" style={{ color: 'var(--domain)' }}>
-              Your .agent address is a protocol-layer namespace — like ENS's .eth, but for AI agents. Resolves through the Agent ID protocol. Web fallback: {agents[0]?.handle || 'handle'}.getagent.id
+              Your .agentid address is a protocol-layer namespace — like ENS's .eth, but for AI agents. Resolves through the Agent ID protocol. Web domain: {agents[0]?.handle || 'handle'}.getagent.id
             </p>
           </div>
         </div>

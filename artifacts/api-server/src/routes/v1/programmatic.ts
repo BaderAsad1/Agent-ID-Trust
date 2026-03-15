@@ -134,7 +134,8 @@ router.post("/agents/register", registrationLimiter, async (req, res, next) => {
       kid: agentKey.kid,
       challenge: challenge.challenge,
       expiresAt: challenge.expiresAt,
-      provisionalDomain: `${agent.handle}.agent`,
+      provisionalDomain: `${agent.handle.toLowerCase()}.getagent.id`,
+      protocolAddress: `${agent.handle}.agentid`,
     });
   } catch (err) {
     next(err);
@@ -194,7 +195,8 @@ router.post("/agents/verify", registrationLimiter, async (req, res, next) => {
       verified: true,
       agentId,
       handle: agent.handle,
-      domain: `${agent.handle}.agent`,
+      domain: `${agent.handle.toLowerCase()}.getagent.id`,
+      protocolAddress: `${agent.handle}.agentid`,
       trustScore: trust.trustScore,
       trustTier: trust.trustTier,
       apiKey: apiKey.raw,

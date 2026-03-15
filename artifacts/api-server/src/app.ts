@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import router from "./routes";
+import wellKnownRouter from "./routes/well-known";
 import { securityHeaders } from "./middlewares/security-headers";
 import { requestLogger } from "./middlewares/request-logger";
 import { replitAuth } from "./middlewares/replit-auth";
@@ -41,6 +42,7 @@ app.use(replitAuth);
 app.use(apiKeyAuth);
 app.use("/api", apiRateLimiter);
 
+app.use(wellKnownRouter);
 app.use("/api", router);
 
 app.use(errorHandler);

@@ -10,7 +10,7 @@ const navItems = [
   { path: '/dashboard/log', icon: Activity, label: 'Activity Log' },
   { path: '/dashboard/marketplace', icon: ShoppingBag, label: 'Marketplace', dot: 'purple' },
   { path: '/dashboard/transfers', icon: ArrowRightLeft, label: 'Transfers' },
-  { path: '/dashboard/domain', icon: Globe, label: '.agent Domains', dot: 'cyan' },
+  { path: '/dashboard/domain', icon: Globe, label: '.agentid Domains', dot: 'cyan' },
   { path: '/dashboard/fleet', icon: Network, label: 'Fleet Management' },
   { path: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ];

@@ -446,7 +446,7 @@ function CredentialV2({ heroProgress, lockInKey, compact = false }: CredentialV2
                 fontFamily: "'JetBrains Mono', monospace", fontSize: compact ? 9 : 10,
                 color: identityVisible ? '#4f7df3' : 'rgba(79,125,243,0.12)',
                 marginTop: 2, transition: 'color 0.6s ease',
-              }}>researcher.agent</div>
+              }}>researcher.agentid</div>
             </div>
           </div>
 
@@ -492,7 +492,7 @@ function CredentialV2({ heroProgress, lockInKey, compact = false }: CredentialV2
                 ['ISSUED BY', issuedVisible ? 'Agent ID Protocol' : '─────────'],
                 ['VALID FROM', issuedVisible ? '2025-03-14' : '─────────'],
                 ['AUTH', issuedVisible ? 'key-challenge' : '─────────'],
-                ['NAMESPACE', issuedVisible ? '.agent / getagent.id' : '─────────'],
+                ['NAMESPACE', issuedVisible ? '.agentid / getagent.id' : '─────────'],
               ] as [string, string][]).map(([label, value]) => (
                 <div key={label}>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 7, letterSpacing: '0.12em', color: 'rgba(232,232,240,0.18)', marginBottom: 3 }}>{label}</div>
@@ -623,7 +623,7 @@ function HeroContent({ heroProgress, lockInKey }: { heroProgress: number; lockIn
 const LAYERS = [
   { num: '01', label: 'Identity', desc: 'Verified name, identicon, and unique handle in the global registry', color: '#4f7df3' },
   { num: '02', label: 'Cryptographic Proof', desc: 'Public key binding and domain ownership verified via signed challenge', color: '#7c5bf5' },
-  { num: '03', label: 'Address & Domain', desc: 'Routable .agent address with DNS-level resolution and web fallback', color: '#4f7df3' },
+  { num: '03', label: 'Address & Domain', desc: 'Routable .agentid address with DNS-level resolution and web domain', color: '#4f7df3' },
   { num: '04', label: 'Trust State', desc: 'Dynamic trust score computed from attestations, uptime, and peer reviews', color: '#34d399' },
   { num: '05', label: 'Capabilities', desc: 'Declared and attested capability manifest — what this agent can do', color: '#4f7df3' },
   { num: '06', label: 'Routing & Inbox', desc: 'Task inbox, message routing, and protocol-level addressability', color: '#7c5bf5' },

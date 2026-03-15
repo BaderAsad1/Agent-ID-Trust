@@ -38,7 +38,7 @@ import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents';
 
 const resolver = new AgentResolver();
 
-// Resolve a .agent name to get the endpoint
+// Resolve a .agentid name to get the endpoint
 const { agent } = await resolver.resolve('research-agent');
 
 // Use the resolved endpoint in your LangChain tool
@@ -64,18 +64,18 @@ const { agents } = await resolver.findAgents({
 
 console.log(\`Found \${agents.length} trusted research agents\`);
 
-// Build your LangChain agent with .agent-resolved tools
+// Build your LangChain agent with .agentid-resolved tools
 const model = new ChatOpenAI({ modelName: 'gpt-4' });
 // ... create agent with researchTool`;
 
 const CREWAI_EXAMPLE = `import httpx
 from crewai import Agent, Task, Crew
 
-# Resolve the .agent name via the REST API
+# Resolve the .agentid name via the REST API
 RESOLVE_URL = "https://getagent.id/api/v1"
 
 def resolve_agent(handle: str) -> dict:
-    """Resolve a .agent handle to its identity."""
+    """Resolve a .agentid handle to its identity."""
     response = httpx.get(f"{RESOLVE_URL}/resolve/{handle}")
     response.raise_for_status()
     return response.json()["agent"]
@@ -107,7 +107,7 @@ researcher = Agent(
 # Discover all agents with a capability
 support_agents = find_agents("customer-support", min_trust=70)
 for a in support_agents:
-    print(f"  {a['handle']}.agent — trust: {a['trustScore']}")
+    print(f"  {a['handle']}.agentid — trust: {a['trustScore']}")
 
 task = Task(
     description="Research the latest AI agent frameworks",
@@ -122,7 +122,7 @@ const AUTOGPT_EXAMPLE = `import { AgentResolver } from '@agentid/resolver';
 
 const resolver = new AgentResolver();
 
-// AutoGPT Plugin: resolve .agent names before dispatching
+// AutoGPT Plugin: resolve .agentid names before dispatching
 async function resolveAndDispatch(handle: string, task: object) {
   // Step 1: Resolve the agent identity
   const { agent } = await resolver.resolve(handle);
@@ -160,19 +160,19 @@ const agents = await resolver.findAgents({
 
 // Reverse-verify an endpoint
 const identity = await resolver.reverse(
-  'https://api.research.agent/v1/tasks'
+  'https://research-agent.getagent.id/v1/tasks'
 );
-console.log(\`Endpoint belongs to: \${identity.agent.handle}.agent\`);`;
+console.log(\`Endpoint belongs to: \${identity.agent.handle}.agentid\`);`;
 
-const RAW_FETCH_EXAMPLE = `// Forward Resolution — resolve a .agent name
+const RAW_FETCH_EXAMPLE = `// Forward Resolution — resolve a .agentid name
 const resolveRes = await fetch(
   'https://getagent.id/api/v1/resolve/research-agent'
 );
 const { agent } = await resolveRes.json();
 
 console.log(agent.handle);        // "research-agent"
-console.log(agent.domain);        // "research-agent.agent"
-console.log(agent.endpointUrl);   // "https://api.research.agent/v1/tasks"
+console.log(agent.domain);        // "research-agent.getagent.id"
+console.log(agent.endpointUrl);   // "https://research-agent.getagent.id/v1/tasks"
 console.log(agent.trustScore);    // 94
 console.log(agent.capabilities);  // ["research", "web-search", ...]
 
@@ -183,7 +183,7 @@ const reverseRes = await fetch(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      endpointUrl: 'https://api.research.agent/v1/tasks',
+      endpointUrl: 'https://research-agent.getagent.id/v1/tasks',
     }),
   }
 );
@@ -198,7 +198,7 @@ const { agents, total } = await searchRes.json();
 console.log(\`Found \${total} research agents\`);
 
 for (const a of agents) {
-  console.log(\`  \${a.handle}.agent — trust: \${a.trustScore}\`);
+  console.log(\`  \${a.handle}.agentid — trust: \${a.trustScore}\`);
 }`;
 
 const PYTHON_EXAMPLE = `import httpx
@@ -208,15 +208,15 @@ BASE = "https://getagent.id/api/v1"
 # Forward Resolution
 res = httpx.get(f"{BASE}/resolve/research-agent")
 agent = res.json()["agent"]
-print(f"{agent['handle']}.agent -> {agent['endpointUrl']}")
+print(f"{agent['handle']}.agentid -> {agent['endpointUrl']}")
 print(f"Trust: {agent['trustScore']}/100")
 
 # Reverse Resolution
 res = httpx.post(f"{BASE}/reverse", json={
-    "endpointUrl": "https://api.research.agent/v1/tasks"
+    "endpointUrl": "https://research-agent.getagent.id/v1/tasks"
 })
 identity = res.json()["agent"]
-print(f"Endpoint verified: {identity['handle']}.agent")
+print(f"Endpoint verified: {identity['handle']}.agentid")
 
 # Capability Discovery
 res = httpx.get(f"{BASE}/agents", params={
@@ -227,7 +227,7 @@ res = httpx.get(f"{BASE}/agents", params={
 data = res.json()
 print(f"Found {data['total']} agents")
 for a in data["agents"]:
-    print(f"  {a['handle']}.agent (trust: {a['trustScore']})")`;
+    print(f"  {a['handle']}.agentid (trust: {a['trustScore']})")`;
 
 type Tab = 'langchain' | 'crewai' | 'autogpt' | 'fetch' | 'python';
 
@@ -261,7 +261,7 @@ export function DocsIntegrations() {
             Framework Integrations
           </h1>
           <p className="text-xl leading-relaxed max-w-2xl" style={{ color: 'var(--text-muted)' }}>
-            Drop-in examples for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agent</span> protocol addresses from any orchestration framework. <span style={{ fontFamily: 'var(--font-mono)' }}>.agent</span> resolves through the Agent ID protocol, like <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span> resolves through ENS. Copy, paste, ship.
+            Drop-in examples for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> protocol addresses from any orchestration framework. <span style={{ fontFamily: 'var(--font-mono)' }}>.agentid</span> resolves through the Agent ID protocol, like <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span> resolves through ENS. Copy, paste, ship.
           </p>
         </div>
 
@@ -360,7 +360,7 @@ await fetch(agent.endpointUrl, { ... });`}
 const best = agents.sort((a, b) => b.trustScore - a.trustScore)[0];
 
 if (best) {
-  console.log(\`Delegating to \${best.handle}.agent (trust: \${best.trustScore})\`);
+  console.log(\`Delegating to \${best.handle}.agentid (trust: \${best.trustScore})\`);
   await fetch(best.endpointUrl, { ... });
 }`}
               lang="typescript"
@@ -380,7 +380,7 @@ const { agent } = await resolver.reverse(
 );
 
 if (agent) {
-  console.log(\`Endpoint verified: \${agent.handle}.agent\`);
+  console.log(\`Endpoint verified: \${agent.handle}.agentid\`);
   console.log(\`Trust: \${agent.trustScore}/100\`);
 } else {
   console.warn('Endpoint not registered — unknown identity');
