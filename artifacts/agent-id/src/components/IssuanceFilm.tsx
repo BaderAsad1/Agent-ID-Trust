@@ -1509,12 +1509,11 @@ function RegistryField({ progress }: { progress: number }) {
         background: 'rgba(8,10,22,0.88)',
         border: '1px solid rgba(79,125,243,0.12)',
         borderRadius: 12, padding: '12px 24px',
-        boxSizing: 'border-box',
-        width: 'calc(14ch + 48px)',
       }}>
-        {/* Name: fixed-width slot, right-aligned so text grows toward .AgentID */}
+        {/* Name: hard-clamped 6ch slot, text right-aligns toward .AgentID */}
         <span style={{
           ...monoStyle,
+          display: 'block',
           width: '6ch', minWidth: '6ch', maxWidth: '6ch',
           flexShrink: 0,
           textAlign: 'right',
@@ -1522,9 +1521,11 @@ function RegistryField({ progress }: { progress: number }) {
           whiteSpace: 'nowrap',
           color: '#e8e8f0',
         }}>{displayedName}</span>
-        {/* .AgentID: flex-shrink:0 + whiteSpace:nowrap — never moves */}
+        {/* .AgentID: pinned — width fixed, never moves */}
         <span style={{
           ...monoStyle,
+          display: 'block',
+          width: '8ch', minWidth: '8ch',
           flexShrink: 0,
           whiteSpace: 'nowrap',
           color: '#4f7df3',
