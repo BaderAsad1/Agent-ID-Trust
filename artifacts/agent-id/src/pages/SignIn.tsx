@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { PrimaryButton, InputField } from '@/components/shared';
 import { useAuth } from '@/lib/AuthContext';
@@ -7,6 +7,8 @@ import { api, ApiError } from '@/lib/api';
 
 export function SignIn() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirect = searchParams.get('redirect') || '/dashboard';
   const { login } = useAuth();
   const [userId, setUserId] = useState('');
   const [error, setError] = useState('');
@@ -25,7 +27,7 @@ export function SignIn() {
       if (!me || !me.id) {
         throw new Error('Invalid session');
       }
-      navigate('/dashboard');
+      navigate(redirect);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         setError('Authentication failed. Invalid user ID.');

@@ -133,22 +133,18 @@ export function Start() {
   const [mode, setMode] = useState<'choose' | 'human'>('choose');
   const [step, setStep] = useState(1);
 
-  // Step 3 — identity
   const [agentName, setAgentName] = useState('');
   const [handle, setHandle] = useState('');
   const [description, setDescription] = useState('');
   const [available, setAvailable] = useState<boolean | null>(null);
   const [checkingHandle, setCheckingHandle] = useState(false);
 
-  // Step 4 — verify
   const [selectedVerifyMethod, setSelectedVerifyMethod] = useState<'github' | 'wallet' | 'manual' | null>(null);
   const [verified, setVerified] = useState(false);
 
-  // Step 5 — capabilities
   const [selectedCaps, setSelectedCaps] = useState<string[]>([]);
   const [endpoint, setEndpoint] = useState('');
 
-  // Submit / success
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
@@ -185,10 +181,10 @@ export function Start() {
 
       if (selectedVerifyMethod) {
         try {
-          const r = await api.agents.verify.initiate(agent.id, 'github') as Record<string, unknown>;
+          const r = await api.agents.verify.initiate(agent.id, selectedVerifyMethod) as Record<string, unknown>;
           await api.agents.verify.complete(agent.id, { challenge: r?.challenge || '' });
           setVerified(true);
-        } catch { /* verification failure is non-fatal */ }
+        } catch { /* non-fatal */ }
       }
 
       await refreshAgents();
@@ -211,7 +207,7 @@ export function Start() {
     padding: '32px 20px',
   };
 
-  // ─── Welcome / mode select ───────────────────────────────────────────────
+  // ─── Welcome / mode select ─────────────────────────────────────────────
   if (mode === 'choose') {
     return (
       <div style={shell}>
@@ -221,11 +217,17 @@ export function Start() {
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, letterSpacing: '0.02em' }}>Agent ID</span>
           </div>
 
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.03em', margin: '0 0 12px', color: '#e8e8f0' }}>Get started</h1>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.03em', margin: '0 0 12px' }}>Get started</h1>
           <p style={{ fontSize: 15, color: 'rgba(232,232,240,0.5)', lineHeight: 1.6, margin: '0 0 40px' }}>Choose how you want to register your agent identity.</p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <button onClick={() => setMode('human')} style={{
+            <button onClick={() => {
+              if (!userId) {
+                navigate('/sign-in?redirect=/start');
+                return;
+              }
+              setMode('human');
+            }} style={{
               display: 'flex', alignItems: 'center', gap: 16,
               background: 'rgba(79,125,243,0.08)', border: '1px solid rgba(79,125,243,0.25)',
               borderRadius: 14, padding: '20px 24px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
@@ -269,7 +271,6 @@ export function Start() {
         <div style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, letterSpacing: '0.2em', color: 'rgba(52,211,153,0.5)', marginBottom: 16, textTransform: 'uppercase' }}>ISSUANCE COMPLETE</div>
 
-          {/* Credential card */}
           <div style={{
             position: 'relative', borderRadius: 18,
             border: '1px solid rgba(52,211,153,0.15)',
@@ -295,10 +296,10 @@ export function Start() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
                 <CredentialIdenticon />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, color: '#e8e8f0', letterSpacing: '-0.02em' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>
                     {agentName || handle}<span style={{ color: '#4f7df3' }}>.agentid</span>
                   </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(232,232,240,0.35)', letterSpacing: '0.01em' }}>{handle}.getagent.id</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(232,232,240,0.35)' }}>{handle}.getagent.id</div>
                 </div>
               </div>
 
@@ -327,7 +328,7 @@ export function Start() {
                 <TrustRing score={verified ? 55 : 35} />
                 <div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 7.5, fontWeight: 600, letterSpacing: '0.12em', color: 'rgba(232,232,240,0.18)', marginBottom: 3 }}>TRUST LEVEL</div>
-                  <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
                     New identity · {selectedCaps.length} capabilities · {verified ? 'Verified' : 'Unverified'}
                   </div>
                 </div>
@@ -350,7 +351,6 @@ export function Start() {
             </div>
           </div>
 
-          {/* Activate handle prompt */}
           {handle && annualPrice > 0 && (
             <div style={{ marginBottom: 12, padding: '14px 18px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 12, textAlign: 'left' }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -377,7 +377,6 @@ export function Start() {
             </div>
           )}
 
-          {/* CTAs */}
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
             <button onClick={() => navigate(`/${handle}`)} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,232,240,0.6)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>View Profile</button>
             <button onClick={() => navigate('/dashboard')} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, background: '#4f7df3', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Go to Dashboard →</button>
@@ -393,14 +392,15 @@ export function Start() {
     );
   }
 
-  // ─── Wizard steps ────────────────────────────────────────────────────────
+  // ─── Wizard (4 steps) ──────────────────────────────────────────────────
+  const TOTAL_STEPS = 4;
   const goNext = () => setStep(s => s + 1);
   const goBack = () => step === 1 ? setMode('choose') : setStep(s => s - 1);
 
   return (
     <div style={shell}>
-      <div style={{ width: '100%', maxWidth: step === 5 ? 520 : 480 }}>
-        <StepDots current={step} total={6} />
+      <div style={{ width: '100%', maxWidth: step === 3 ? 520 : 480 }}>
+        <StepDots current={step} total={TOTAL_STEPS} />
 
         {error && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: 13, marginBottom: 20 }}>
@@ -408,58 +408,15 @@ export function Start() {
           </div>
         )}
 
-        {/* ── Step 1: Authenticate ─────────────────────────────────────── */}
+        {/* ── Step 1: Name your agent ──────────────────────────────────── */}
         {step === 1 && (
-          <>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Authenticate</h1>
-            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Sign in to link your identity to your agent.</p>
-
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 28, textAlign: 'left' }}>
-              {userId ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'rgba(79,125,243,0.06)', border: '1px solid rgba(79,125,243,0.15)', borderRadius: 12, padding: '14px 18px', marginBottom: 24 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #4f7df3 0%, #7c5df3 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                      {(userId[0] || 'U').toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600 }}>{userId}</div>
-                      <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)' }}>Authenticated via Replit</div>
-                    </div>
-                    <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#34d399', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Check size={11} color="#fff" strokeWidth={2.5} />
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', lineHeight: 1.6, padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <span>User ID</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: 'rgba(232,232,240,0.5)' }}>{userId.slice(0, 12)}…</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Session</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: '#34d399' }}>Active</span>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
-                  <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', marginBottom: 20 }}>You need to sign in first to continue.</p>
-                  <button onClick={() => navigate('/sign-in')} style={{ padding: '12px 28px', borderRadius: 10, background: '#4f7df3', border: 'none', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Sign In</button>
-                </div>
-              )}
-            </div>
-
-            <NavButtons onBack={goBack} onContinue={goNext} continueDisabled={!userId} />
-          </>
-        )}
-
-        {/* ── Step 2: Name your agent ──────────────────────────────────── */}
-        {step === 2 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Name your agent</h1>
             <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Choose a display name and unique handle for your agent.</p>
 
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 28, display: 'flex', flexDirection: 'column', gap: 20 }}>
               <FieldGroup label="Display Name" value={agentName} onChange={setAgentName} placeholder="Atlas-7" />
+
               <FieldGroup label="Handle" value={handle} onChange={setHandle} placeholder="atlas-7" suffix=".agentid" normalizeHandle>
                 {handle && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
@@ -480,48 +437,30 @@ export function Start() {
                   </div>
                 )}
               </FieldGroup>
+
               <FieldGroup label="Description" value={description} onChange={setDescription} placeholder="Autonomous research agent specializing in…" isTextarea />
             </div>
+
+            {/* Inline address preview — shows after handle is valid */}
+            {handle && available && (
+              <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+                <div style={{ flex: 1, padding: '12px 14px', background: 'rgba(79,125,243,0.04)', border: '1px solid rgba(79,125,243,0.1)', borderRadius: 10 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(79,125,243,0.5)', marginBottom: 4 }}>WEB DOMAIN</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: '#e8e8f0' }}>{handle}.getagent.id</div>
+                </div>
+                <div style={{ flex: 1, padding: '12px 14px', background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.1)', borderRadius: 10 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(52,211,153,0.5)', marginBottom: 4 }}>PROTOCOL</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: '#e8e8f0' }}>{handle}.agentid</div>
+                </div>
+              </div>
+            )}
 
             <NavButtons onBack={goBack} onContinue={goNext} continueDisabled={!agentName || !handle || !available} />
           </>
         )}
 
-        {/* ── Step 3: .agentid address ─────────────────────────────────── */}
-        {step === 3 && (
-          <>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Claim your address</h1>
-            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Your agent gets two permanent, globally-resolvable addresses.</p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <AddressCard
-                label="WEB DOMAIN"
-                icon="🌐"
-                address={`${handle}.getagent.id`}
-                sub="Resolves via standard DNS — works in any browser"
-                color="#4f7df3"
-              />
-              <AddressCard
-                label="PROTOCOL ADDRESS"
-                icon="⬡"
-                address={`${handle}.agentid`}
-                sub="ENS-style protocol namespace — resolves through Agent ID protocol"
-                color="#34d399"
-              />
-            </div>
-
-            <div style={{ marginTop: 16, padding: '14px 18px', background: 'rgba(79,125,243,0.04)', border: '1px solid rgba(79,125,243,0.1)', borderRadius: 12 }}>
-              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.6 }}>
-                <span style={{ fontFamily: 'var(--font-mono)', color: '#4f7df3' }}>.agentid</span> is a protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents. No ICANN TLD required. Both addresses are included with your registration.
-              </div>
-            </div>
-
-            <NavButtons onBack={goBack} onContinue={goNext} />
-          </>
-        )}
-
-        {/* ── Step 4: Verify ownership ─────────────────────────────────── */}
-        {step === 4 && (
+        {/* ── Step 2: Verify ownership ─────────────────────────────────── */}
+        {step === 2 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Verify ownership</h1>
             <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Prove you control this agent. You can skip and verify later.</p>
@@ -532,12 +471,12 @@ export function Start() {
                 { id: 'wallet' as const, icon: '💎', title: 'Wallet Signature', desc: 'Sign with an EVM or Solana wallet' },
                 { id: 'manual' as const, icon: '🔒', title: 'Manual Key Signing', desc: 'Sign the challenge with your agent\'s private key' },
               ]).map(opt => {
-                const selected = selectedVerifyMethod === opt.id;
+                const sel = selectedVerifyMethod === opt.id;
                 return (
-                  <button key={opt.title} onClick={() => setSelectedVerifyMethod(selected ? null : opt.id)} style={{
+                  <button key={opt.title} onClick={() => setSelectedVerifyMethod(sel ? null : opt.id)} style={{
                     display: 'flex', alignItems: 'center', gap: 16,
-                    background: selected ? 'rgba(79,125,243,0.1)' : opt.recommended ? 'rgba(79,125,243,0.04)' : 'rgba(255,255,255,0.02)',
-                    border: `1px solid ${selected ? 'rgba(79,125,243,0.4)' : opt.recommended ? 'rgba(79,125,243,0.2)' : 'rgba(255,255,255,0.06)'}`,
+                    background: sel ? 'rgba(79,125,243,0.1)' : opt.recommended ? 'rgba(79,125,243,0.04)' : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${sel ? 'rgba(79,125,243,0.4)' : opt.recommended ? 'rgba(79,125,243,0.2)' : 'rgba(255,255,255,0.06)'}`,
                     borderRadius: 14, padding: '18px 20px', cursor: 'pointer', textAlign: 'left', width: '100%',
                     fontFamily: 'inherit', transition: 'all 0.15s ease',
                   }}>
@@ -545,14 +484,14 @@ export function Start() {
                       {opt.icon}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 15, fontWeight: 600 }}>{opt.title}</span>
                         {opt.recommended && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: '#4f7df3', background: 'rgba(79,125,243,0.12)', padding: '2px 7px', borderRadius: 4 }}>RECOMMENDED</span>}
                       </div>
                       <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.4)' }}>{opt.desc}</div>
                     </div>
-                    <div style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${selected ? '#4f7df3' : opt.recommended ? 'rgba(79,125,243,0.3)' : 'rgba(255,255,255,0.1)'}`, background: selected ? '#4f7df3' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
-                      {selected && <Check size={10} color="#fff" strokeWidth={3} />}
+                    <div style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${sel ? '#4f7df3' : opt.recommended ? 'rgba(79,125,243,0.3)' : 'rgba(255,255,255,0.1)'}`, background: sel ? '#4f7df3' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                      {sel && <Check size={10} color="#fff" strokeWidth={3} />}
                     </div>
                   </button>
                 );
@@ -567,12 +506,12 @@ export function Start() {
               </div>
             </div>
 
-            <NavButtons onBack={goBack} onContinue={goNext} skipLabel="Skip for now" onSkip={goNext} continueLabel={selectedVerifyMethod ? 'Continue →' : 'Continue →'} />
+            <NavButtons onBack={goBack} onContinue={goNext} skipLabel="Skip for now" onSkip={goNext} />
           </>
         )}
 
-        {/* ── Step 5: Capabilities ─────────────────────────────────────── */}
-        {step === 5 && (
+        {/* ── Step 3: Capabilities ─────────────────────────────────────── */}
+        {step === 3 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Capabilities</h1>
             <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Select what your agent can do. This helps with discovery.</p>
@@ -583,7 +522,7 @@ export function Start() {
                 return (
                   <button key={cap.id} onClick={() => setSelectedCaps(p => sel ? p.filter(x => x !== cap.label) : [...p, cap.label])} style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    padding: '18px 12px',
+                    padding: '18px 8px',
                     background: sel ? 'rgba(79,125,243,0.08)' : 'rgba(255,255,255,0.02)',
                     border: `1px solid ${sel ? 'rgba(79,125,243,0.25)' : 'rgba(255,255,255,0.06)'}`,
                     borderRadius: 12, cursor: 'pointer', position: 'relative',
@@ -595,7 +534,7 @@ export function Start() {
                       </div>
                     )}
                     <span style={{ fontSize: 22 }}>{cap.icon}</span>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: sel ? '#e8e8f0' : 'rgba(232,232,240,0.5)', textAlign: 'center' }}>{cap.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 500, color: sel ? '#e8e8f0' : 'rgba(232,232,240,0.5)', textAlign: 'center', lineHeight: 1.3 }}>{cap.label}</span>
                   </button>
                 );
               })}
@@ -606,10 +545,10 @@ export function Start() {
               <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden' }}>
                 <div style={{ padding: '11px 12px', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(232,232,240,0.25)', borderRight: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>https://</div>
                 <input
-                  value={endpoint.replace('https://', '')}
-                  onChange={e => setEndpoint(e.target.value ? `https://${e.target.value}` : '')}
+                  value={endpoint.replace(/^https?:\/\//, '')}
+                  onChange={e => setEndpoint(e.target.value ? `https://${e.target.value.replace(/^https?:\/\//, '')}` : '')}
                   placeholder={`api.${handle || 'your-agent'}.dev/tasks`}
-                  style={{ flex: 1, padding: '11px 12px', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'rgba(232,232,240,0.5)', background: 'none', border: 'none', outline: 'none' }}
+                  style={{ flex: 1, padding: '11px 12px', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'rgba(232,232,240,0.5)', background: 'none', border: 'none', outline: 'none', minWidth: 0 }}
                 />
               </div>
               <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)', marginTop: 8 }}>Where other agents and humans can send work requests</div>
@@ -619,8 +558,8 @@ export function Start() {
           </>
         )}
 
-        {/* ── Step 6: Review & Submit ──────────────────────────────────── */}
-        {step === 6 && (
+        {/* ── Step 4: Review & Create ──────────────────────────────────── */}
+        {step === 4 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Ready to launch</h1>
             <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Review your agent details and confirm.</p>
@@ -631,7 +570,7 @@ export function Start() {
               <ReviewRow label="Web domain" value={`${handle}.getagent.id`} mono />
               {description && <ReviewRow label="Description" value={description} />}
               <ReviewRow label="Verification" value={selectedVerifyMethod === 'github' ? 'GitHub Gist' : selectedVerifyMethod === 'wallet' ? 'Wallet Signature' : selectedVerifyMethod === 'manual' ? 'Manual Key Signing' : 'Skip — verify later'} ok={selectedVerifyMethod !== null} />
-              <ReviewRow label="Capabilities" value={selectedCaps.length > 0 ? selectedCaps.join(', ') : 'None selected'} last />
+              <ReviewRow label="Capabilities" value={selectedCaps.join(', ')} last />
             </div>
 
             <NavButtons
@@ -647,7 +586,7 @@ export function Start() {
   );
 }
 
-// ── Shared sub-components ──────────────────────────────────────────────────
+// ── Shared sub-components ─────────────────────────────────────────────────
 
 function FieldGroup({ label, value, onChange, placeholder, suffix, isTextarea, normalizeHandle, children }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string;
@@ -667,7 +606,7 @@ function FieldGroup({ label, value, onChange, placeholder, suffix, isTextarea, n
             value={value}
             onChange={e => onChange(normalizeHandle ? e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') : e.target.value)}
             placeholder={placeholder}
-            style={{ flex: 1, padding: '12px 14px', fontFamily: 'var(--font-body)', fontSize: 15, color: '#e8e8f0', background: 'none', border: 'none', outline: 'none' }}
+            style={{ flex: 1, padding: '12px 14px', fontFamily: 'var(--font-body)', fontSize: 15, color: '#e8e8f0', background: 'none', border: 'none', outline: 'none', minWidth: 0 }}
           />
           {suffix && (
             <div style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4f7df3', fontWeight: 500, borderLeft: '1px solid rgba(255,255,255,0.06)', background: 'rgba(79,125,243,0.04)', whiteSpace: 'nowrap' }}>{suffix}</div>
@@ -675,19 +614,6 @@ function FieldGroup({ label, value, onChange, placeholder, suffix, isTextarea, n
         </div>
       )}
       {children}
-    </div>
-  );
-}
-
-function AddressCard({ label, icon, address, sub, color }: { label: string; icon: string; address: string; sub: string; color: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, background: `${color}08`, border: `1px solid ${color}20`, borderRadius: 14, padding: '18px 20px' }}>
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{icon}</div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: `${color}99`, marginBottom: 4 }}>{label}</div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 600, color: '#e8e8f0', marginBottom: 4 }}>{address}</div>
-        <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', lineHeight: 1.4 }}>{sub}</div>
-      </div>
     </div>
   );
 }
