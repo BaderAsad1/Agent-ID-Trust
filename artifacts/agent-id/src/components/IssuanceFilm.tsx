@@ -1704,7 +1704,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
 
       <section ref={sectionRefs.hero as React.RefObject<HTMLElement>} style={{
         position: 'relative',
-        height: '400vh',
+        height: '550vh',
       }}>
         <div style={{
           position: 'sticky',
@@ -1767,8 +1767,8 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} className="anatomy-section-outer" style={{
         position: 'relative',
         minHeight: '300vh',
-        marginTop: '-100vh',
-        background: '#050711',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
         zIndex: 2,
       }}>
         <div className="anatomy-sticky-container" style={{
@@ -1791,8 +1791,8 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       <section ref={sectionRefs.unlocks as React.RefObject<HTMLElement>} style={{
         position: 'relative',
         minHeight: '280vh',
-        marginTop: '-100vh',
-        background: '#050711',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
         zIndex: 3,
       }}>
         <div style={{
@@ -1815,8 +1815,8 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       <section ref={sectionRefs.cta as React.RefObject<HTMLElement>} style={{
         position: 'relative',
         minHeight: '160vh',
-        marginTop: '-100vh',
-        background: '#050711',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
         zIndex: 4,
       }}>
         <div style={{
