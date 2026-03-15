@@ -1509,18 +1509,24 @@ function RegistryField({ progress }: { progress: number }) {
         background: 'rgba(8,10,22,0.88)',
         border: '1px solid rgba(79,125,243,0.12)',
         borderRadius: 12, padding: '12px 24px',
-        width: '14.5ch',
-        boxSizing: 'content-box',
+        boxSizing: 'border-box',
+        width: 'calc(14ch + 48px)',
       }}>
+        {/* Name: fixed-width slot, right-aligned so text grows toward .AgentID */}
         <span style={{
           ...monoStyle,
-          display: 'inline-block',
-          width: '6ch',
+          width: '6ch', minWidth: '6ch', maxWidth: '6ch',
+          flexShrink: 0,
           textAlign: 'right',
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
           color: '#e8e8f0',
         }}>{displayedName}</span>
+        {/* .AgentID: flex-shrink:0 + whiteSpace:nowrap — never moves */}
         <span style={{
           ...monoStyle,
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
           color: '#4f7df3',
         }}>.AgentID</span>
       </div>
