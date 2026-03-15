@@ -818,7 +818,7 @@ export default function IssuanceFilmV2() {
         <div style={{
           position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
           background: '#1c1c1e',
-          opacity: sectionOpacity(scroll.heroProgress),
+          opacity: scroll.heroProgress > 0.90 ? lerp(1, 0, (scroll.heroProgress - 0.90) / 0.10) : 1,
           transition: 'opacity 0.05s linear',
         }}>
           <HeroContent heroProgress={scroll.heroProgress} lockInKey={lockInKey} />
