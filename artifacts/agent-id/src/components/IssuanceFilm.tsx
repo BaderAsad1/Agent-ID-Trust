@@ -1509,6 +1509,8 @@ function RegistryField({ progress }: { progress: number }) {
         background: 'rgba(8,10,22,0.88)',
         border: '1px solid rgba(79,125,243,0.12)',
         borderRadius: 12, padding: '12px 24px',
+        width: '14.5ch',
+        boxSizing: 'content-box',
       }}>
         {/* Name: hard-clamped 6ch slot, text right-aligns toward .AgentID */}
         <span style={{
