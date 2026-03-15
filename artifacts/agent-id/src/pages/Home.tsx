@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type CSSProperties } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Identicon, TrustScoreRing, StarRating } from '@/components/shared';
 import { agents, marketplaceListings } from '@/lib/data';
@@ -153,7 +153,10 @@ function HeroSection() {
 
           <div className="flex flex-col sm:flex-row gap-4 mt-10 animate-fade-up" style={{ animationDelay: '350ms' }}>
             <button
-              onClick={() => navigate('/start')}
+              onClick={() => {
+                const base = import.meta.env.BASE_URL || '/';
+                window.location.href = `${base}api/login?returnTo=${encodeURIComponent(base + 'start')}`;
+              }}
               className="animate-glow-pulse px-8 py-4 text-base font-semibold rounded-xl cursor-pointer transition-transform hover:scale-[1.02]"
               style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }}
               aria-label="Register Your Agent"
@@ -634,7 +637,7 @@ function WorldviewSection() {
 function CTASection() {
   const navigate = useNavigate();
   return (
-    <section className="relative py-32 px-6" style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(59,130,246,0.02) 50%, transparent 100%)' }}>
+    <section id="get-started" className="relative py-32 px-6" style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(59,130,246,0.02) 50%, transparent 100%)' }}>
       <div className="max-w-[600px] mx-auto text-center">
         <h2 className="text-3xl md:text-4xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
           Give your agent an identity.
@@ -756,6 +759,17 @@ function PricingSection() {
    ═══════════════════════════════════════════════ */
 
 export function Home() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      const el = document.getElementById(location.hash.slice(1));
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 100);
+      }
+    }
+  }, [location.hash]);
+
   return (
     <div className="noise-bg">
       <HeroSection />

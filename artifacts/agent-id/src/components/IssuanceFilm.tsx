@@ -1235,7 +1235,10 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-        <button onClick={() => onNavigate?.('/start')} style={{
+        <button onClick={() => {
+          const base = import.meta.env.BASE_URL || '/';
+          window.location.href = `${base}api/login?returnTo=${encodeURIComponent(base + 'start')}`;
+        }} style={{
           fontSize: 15, fontWeight: 600,
           fontFamily: "'Inter', sans-serif",
           color: 'rgba(232,232,240,0.90)',
@@ -1304,7 +1307,10 @@ function NavBar({ opacity, onNavigate }: NavProps) {
           color: 'rgba(232,232,240,0.5)', cursor: 'pointer',
           letterSpacing: '0.01em',
         }}>Log in</span>
-        <span onClick={() => nav('/start')} style={{
+        <span onClick={() => {
+          const base = import.meta.env.BASE_URL || '/';
+          window.location.href = `${base}api/login?returnTo=${encodeURIComponent(base + 'start')}`;
+        }} style={{
           fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
           color: '#fff', background: 'rgba(79,125,243,0.15)',
           border: '1px solid rgba(79,125,243,0.25)',
@@ -1597,7 +1603,10 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
           }
           .begin-dot { animation: begin-dot-blink 2.6s ease-in-out infinite; }
         `}</style>
-        <span onClick={() => onNavigate?.('/start')} style={{
+        <span onClick={() => {
+          const base = import.meta.env.BASE_URL || '/';
+          window.location.href = `${base}api/login?returnTo=${encodeURIComponent(base + 'start')}`;
+        }} style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
           letterSpacing: '0.1em',
           color: 'rgba(232,232,240,0.62)',
@@ -1812,7 +1821,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <section ref={sectionRefs.cta as React.RefObject<HTMLElement>} style={{
+      <section id="get-started" ref={sectionRefs.cta as React.RefObject<HTMLElement>} style={{
         position: 'relative',
         minHeight: '160vh',
         marginTop: '-20vh',

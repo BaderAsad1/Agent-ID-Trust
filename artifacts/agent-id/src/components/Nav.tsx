@@ -122,7 +122,10 @@ export function Nav() {
                   aria-label="Sign In"
                 >Sign In</button>
                 <button
-                  onClick={() => navigate('/start')}
+                  onClick={() => {
+                    const base = import.meta.env.BASE_URL || '/';
+                    window.location.href = `${base}api/login?returnTo=${encodeURIComponent(base + 'start')}`;
+                  }}
                   className="px-5 py-1.5 text-sm font-semibold rounded-lg transition-all cursor-pointer hover:scale-[1.02]"
                   style={{
                     background: 'rgba(79,125,243,0.15)',
@@ -172,7 +175,7 @@ export function Nav() {
               ) : (
                 <>
                   <button onClick={() => { login(); }} className="py-3 text-center rounded-lg border cursor-pointer" style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.08)', background: 'none', fontFamily: 'var(--font-body)' }} aria-label="Sign In">Sign In</button>
-                  <button onClick={() => { navigate('/start'); setMobileOpen(false); }} className="py-3 text-center rounded-lg font-medium cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }} aria-label="Register">Register</button>
+                  <button onClick={() => { const base = import.meta.env.BASE_URL || '/'; window.location.href = `${base}api/login?returnTo=${encodeURIComponent(base + 'start')}`; setMobileOpen(false); }} className="py-3 text-center rounded-lg font-medium cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }} aria-label="Register">Register</button>
                 </>
               )}
             </div>

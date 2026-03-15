@@ -1,4 +1,5 @@
 import './styles/theme.css';
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { Nav } from '@/components/Nav';
@@ -28,6 +29,17 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 
 function LandingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.slice(1);
+    const timer = setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [location.hash]);
+
   return <IssuanceFilm onNavigate={(path) => navigate(path)} />;
 }
 
