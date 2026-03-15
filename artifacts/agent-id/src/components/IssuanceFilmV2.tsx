@@ -114,55 +114,35 @@ function GrainOverlay() {
 // AMBIENT RINGS
 // ─────────────────────────────────────────────────────────────────
 
-function AmbientRings({ ceremony, heroProgress }: { ceremony: CeremonyState; heroProgress: number }) {
+function ProductGlow({ ceremony, heroProgress }: { ceremony: CeremonyState; heroProgress: number }) {
   const isActive = ceremony === 'active';
   const isIssuing = ceremony === 'issuing';
-  const color = isActive ? '#34d399' : isIssuing ? '#f5a623' : '#4f7df3';
-  const opacity = Math.min(1, heroProgress / 0.05);
-
-  const rings = [
-    { r: 280, strokeOpacity: 0.07, dash: '3 10', duration: '22s', reverse: false },
-    { r: 360, strokeOpacity: 0.05, dash: '2 14', duration: '30s', reverse: true },
-    { r: 450, strokeOpacity: 0.035, dash: '1 22', duration: '38s', reverse: false },
-    { r: 550, strokeOpacity: 0.02, dash: undefined, duration: '50s', reverse: true },
-  ];
+  const color = isActive ? '52,211,153' : isIssuing ? '245,166,35' : '79,125,243';
+  const intensity = Math.min(1, heroProgress / 0.06);
 
   return (
     <div style={{
-      position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      pointerEvents: 'none', opacity, transition: 'opacity 1.2s ease',
+      position: 'absolute', inset: 0, pointerEvents: 'none',
+      opacity: intensity, transition: 'opacity 1s ease',
+      overflow: 'hidden',
     }}>
-      {rings.map((ring, i) => {
-        const size = ring.r * 2 + 4;
-        return (
-          <svg
-            key={i}
-            style={{
-              position: 'absolute',
-              width: size, height: size,
-              animation: `v2-ring-spin ${ring.duration} linear infinite${ring.reverse ? ' reverse' : ''}`,
-              filter: isActive ? `drop-shadow(0 0 6px ${color}25)` : 'none',
-              transition: 'filter 1.2s ease',
-            }}
-            viewBox={`0 0 ${size} ${size}`}
-          >
-            <circle
-              cx={size / 2} cy={size / 2} r={ring.r}
-              fill="none"
-              stroke={color}
-              strokeWidth="0.75"
-              strokeOpacity={ring.strokeOpacity * (isActive ? 2.8 : 1)}
-              strokeDasharray={ring.dash}
-              style={{ transition: 'stroke 1.2s ease, stroke-opacity 1.2s ease' }}
-            />
-          </svg>
-        );
-      })}
+      {/* Bottom specular — product sitting in light */}
       <div style={{
-        position: 'absolute', width: 300, height: 300, borderRadius: '50%',
-        background: `radial-gradient(ellipse, ${color}${isActive ? '07' : '05'} 0%, transparent 70%)`,
-        transition: 'background 1.2s ease',
-        transform: 'scale(2)',
+        position: 'absolute', bottom: '-10%', left: '50%',
+        transform: 'translateX(-50%)',
+        width: 800, height: 400, borderRadius: '50%',
+        background: `radial-gradient(ellipse, rgba(${color},${isActive ? 0.10 : isIssuing ? 0.08 : 0.06}) 0%, transparent 65%)`,
+        transition: 'background 1.4s ease',
+        filter: 'blur(40px)',
+      }} />
+      {/* Subtle top rim */}
+      <div style={{
+        position: 'absolute', top: '8%', left: '50%',
+        transform: 'translateX(-50%)',
+        width: 500, height: 200, borderRadius: '50%',
+        background: `radial-gradient(ellipse, rgba(${color},${isActive ? 0.04 : 0.025}) 0%, transparent 70%)`,
+        transition: 'background 1.4s ease',
+        filter: 'blur(30px)',
       }} />
     </div>
   );
@@ -261,7 +241,7 @@ function CredentialV2({ heroProgress, lockInKey, compact = false }: CredentialV2
 
   const scale = lerp(0.92, 1.0, Math.min(1, heroProgress / 0.3));
   const rotateX = lerp(4, 0, Math.min(1, heroProgress / 0.4));
-  const w = compact ? 260 : 480;
+  const w = compact ? 260 : 540;
 
   const cornerStyle = (top: boolean, left: boolean): React.CSSProperties => ({
     position: 'absolute',
@@ -290,7 +270,7 @@ function CredentialV2({ heroProgress, lockInKey, compact = false }: CredentialV2
             marginLeft: compact ? -150 : -280,
             borderRadius: '50%',
             border: '1.5px solid rgba(52,211,153,0.55)',
-            animation: 'v2-ring-pulse 1000ms cubic-bezier(0.15, 0, 0.5, 1) forwards',
+            animation: 'v2-ring-pulse 500ms cubic-bezier(0.15, 0, 0.5, 1) forwards',
             pointerEvents: 'none', zIndex: 0,
           }}
         />
@@ -305,9 +285,9 @@ function CredentialV2({ heroProgress, lockInKey, compact = false }: CredentialV2
       {/* Card */}
       <div style={{
         width: w, maxWidth: '88vw',
-        borderRadius: 14,
+        borderRadius: 20,
         border: `1px solid ${borderColor}`,
-        background: isPre ? 'rgba(8,10,22,0.5)' : 'rgba(8,10,22,0.98)',
+        background: isPre ? 'rgba(22,22,24,0.5)' : 'rgba(22,22,24,0.98)',
         backdropFilter: 'blur(30px)',
         overflow: 'hidden',
         transform: compact ? undefined : `perspective(1400px) rotateX(${rotateX}deg) scale(${scale})`,
@@ -474,65 +454,40 @@ function HeroContent({ heroProgress, lockInKey }: { heroProgress: number; lockIn
       width: '100%', height: '100%', padding: '0 24px',
       boxSizing: 'border-box',
     }}>
-      <AmbientRings ceremony={ceremony} heroProgress={heroProgress} />
+      <ProductGlow ceremony={ceremony} heroProgress={heroProgress} />
 
-      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', width: '100%', maxWidth: 700, margin: '0 auto' }}>
-        {/* Status indicator */}
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 36,
-        }}>
-          <div style={{
-            width: 6, height: 6, borderRadius: '50%', background: statusColor,
-            boxShadow: `0 0 12px ${statusColor}80`,
-            transition: 'background 0.6s ease, box-shadow 0.6s ease',
-            animation: isIssuing ? 'v2-pulse-dot 1.2s ease-in-out infinite' : undefined,
-          }} />
-          <span style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-            letterSpacing: '0.16em', color: statusColor, transition: 'color 0.6s ease',
-          }}>{statusLabel}</span>
-        </div>
-
-        {/* Headline */}
+      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', width: '100%', maxWidth: 760, margin: '0 auto' }}>
+        {/* Headline — Apple scale: enormous, tight, white */}
         <h1 style={{
           fontFamily: "'Bricolage Grotesque', sans-serif",
-          fontSize: 'clamp(34px, 5.5vw, 68px)',
-          fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05,
-          color: 'rgba(232,232,240,0.97)',
-          margin: '0 0 18px',
+          fontSize: 'clamp(44px, 7.5vw, 96px)',
+          fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1.02,
+          color: '#ffffff',
+          margin: '0 0 20px',
           opacity: headlineOpacity,
           transition: 'opacity 0.15s linear',
         }}>
           The identity layer<br />for the agent internet.
         </h1>
 
-        {/* Subheadline */}
+        {/* Subheadline — Apple 56% white, readable */}
         <p style={{
           fontFamily: "'Inter', sans-serif",
-          fontSize: 'clamp(14px, 1.3vw, 17px)',
-          color: 'rgba(232,232,240,0.4)',
-          lineHeight: 1.65,
-          margin: '0 auto 44px',
-          maxWidth: 400,
+          fontSize: 'clamp(16px, 1.55vw, 21px)',
+          color: 'rgba(255,255,255,0.56)',
+          lineHeight: 1.55,
+          margin: '0 auto 48px',
+          maxWidth: 460,
+          fontWeight: 400,
           opacity: headlineOpacity,
         }}>
           Verifiable. Resolvable. Trusted. One credential that makes autonomous agents usable by the rest of the internet.
         </p>
 
-        {/* Credential */}
+        {/* Credential — the product */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <CredentialV2 heroProgress={heroProgress} lockInKey={lockInKey} />
         </div>
-      </div>
-
-      {/* Scroll hint */}
-      <div style={{
-        position: 'absolute', bottom: 36, left: '50%', transform: 'translateX(-50%)',
-        opacity: heroProgress < 0.03 ? 0.55 : 0, transition: 'opacity 0.5s ease',
-        textAlign: 'center', pointerEvents: 'none',
-      }}>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: 'rgba(232,232,240,0.2)', letterSpacing: '0.12em', marginBottom: 6 }}>SCROLL</div>
-        <div style={{ width: 1, height: 26, margin: '0 auto', background: 'linear-gradient(180deg, rgba(79,125,243,0.4), transparent)' }} />
       </div>
     </div>
   );
@@ -574,9 +529,9 @@ function AnatomyContent({ anatomyProgress }: { anatomyProgress: number }) {
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.18em', color: 'rgba(232,232,240,0.18)', marginBottom: 14 }}>CREDENTIAL ANATOMY</div>
           <h2 style={{
             fontFamily: "'Bricolage Grotesque', sans-serif",
-            fontSize: 'clamp(26px, 3.5vw, 50px)',
-            fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1,
-            color: 'rgba(232,232,240,0.95)', margin: 0,
+            fontSize: 'clamp(32px, 4.5vw, 64px)',
+            fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05,
+            color: '#ffffff', margin: 0,
           }}>
             Seven layers.<br />
             <span style={{ color: '#4f7df3' }}>One credential.</span>
@@ -609,9 +564,9 @@ function AnatomyContent({ anatomyProgress }: { anatomyProgress: number }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 20, flexWrap: 'wrap' }}>
                   <div style={{
                     fontFamily: "'Bricolage Grotesque', sans-serif",
-                    fontSize: 'clamp(14px, 1.5vw, 19px)',
-                    fontWeight: 600, letterSpacing: '-0.02em',
-                    color: 'rgba(232,232,240,0.90)',
+                    fontSize: 'clamp(15px, 1.7vw, 22px)',
+                    fontWeight: 600, letterSpacing: '-0.025em',
+                    color: '#ffffff',
                     flex: '0 0 auto',
                   }}>{layer.label}</div>
                   <div style={{
@@ -661,9 +616,9 @@ function ActivationContent({ activationProgress }: { activationProgress: number 
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.18em', color: 'rgba(232,232,240,0.18)', marginBottom: 14 }}>SYSTEM ACTIVATION</div>
           <h2 style={{
             fontFamily: "'Bricolage Grotesque', sans-serif",
-            fontSize: 'clamp(26px, 3.5vw, 50px)',
-            fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1,
-            color: 'rgba(232,232,240,0.95)', margin: 0,
+            fontSize: 'clamp(32px, 4.5vw, 64px)',
+            fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05,
+            color: '#ffffff', margin: 0,
           }}>
             Identity issued.<br />
             <span style={{ color: '#4f7df3' }}>Everything opens.</span>
@@ -744,48 +699,42 @@ function CTAContent({ ctaProgress }: { ctaProgress: number }) {
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.18em', color: 'rgba(232,232,240,0.18)', marginBottom: 24 }}>AGENT ID PROTOCOL</div>
       <h2 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(32px, 4.5vw, 58px)',
+        fontSize: 'clamp(36px, 5vw, 64px)',
         fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05,
-        color: 'rgba(232,232,240,0.97)', margin: '0 0 14px',
+        color: '#ffffff', margin: '0 0 16px',
       }}>Register your agent.</h2>
       <p style={{
-        fontFamily: "'Inter', sans-serif", fontSize: 16,
-        color: 'rgba(232,232,240,0.38)', lineHeight: 1.65,
-        margin: '0 0 40px',
+        fontFamily: "'Inter', sans-serif", fontSize: 'clamp(16px, 1.4vw, 19px)',
+        color: 'rgba(255,255,255,0.52)', lineHeight: 1.6,
+        margin: '0 0 44px',
       }}>
-        Claim your .agent handle. Issue the credential. Enter the network.
+        Claim your .AgentID handle. Issue the credential. Enter the network.
       </p>
-      <a
-        href="/start"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 10,
-          padding: '14px 30px', borderRadius: 10,
-          border: '1px solid rgba(79,125,243,0.38)',
-          background: 'rgba(79,125,243,0.06)',
-          fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 600,
-          color: 'rgba(232,232,240,0.90)', textDecoration: 'none',
-          letterSpacing: '-0.01em',
-          transition: 'border-color 0.3s ease, background 0.3s ease',
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(79,125,243,0.65)';
-          (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(79,125,243,0.10)';
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(79,125,243,0.38)';
-          (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(79,125,243,0.06)';
-        }}
-      >
-        Register your agent →
-      </a>
-      <div style={{ marginTop: 18 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+        <a
+          href="/start"
+          style={{
+            display: 'inline-flex', alignItems: 'center',
+            padding: '16px 36px', borderRadius: 980,
+            background: '#4f7df3',
+            fontFamily: "'Inter', sans-serif", fontSize: 17, fontWeight: 600,
+            color: '#ffffff', textDecoration: 'none',
+            letterSpacing: '-0.01em',
+            transition: 'opacity 0.2s ease, transform 0.2s ease',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.opacity = '0.88'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.opacity = '1'; }}
+        >
+          Register your agent
+        </a>
         <a href="/for-agents" style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.10em',
-          color: 'rgba(232,232,240,0.18)', textDecoration: 'none',
-          transition: 'color 0.3s ease',
+          fontFamily: "'Inter', sans-serif", fontSize: 17, fontWeight: 400,
+          color: '#4f7df3', textDecoration: 'none',
+          letterSpacing: '-0.01em',
+          transition: 'opacity 0.2s ease',
         }}
-          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(232,232,240,0.5)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(232,232,240,0.18)'; }}
+          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.opacity = '0.7'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.opacity = '1'; }}
         >Autonomous registration via API →</a>
       </div>
     </div>
@@ -834,11 +783,6 @@ export default function IssuanceFilmV2() {
           0%, 100% { opacity: 1; }
           50%       { opacity: 0.28; }
         }
-        @keyframes v2-ring-spin {
-          from { transform: translate(-50%, -50%) rotate(0deg); }
-          to   { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-
         /* Mobile: remove sticky/fixed-height from anatomy + activation */
         @media (max-width: 768px) {
           .v2-anatomy-outer  { min-height: auto !important; }
