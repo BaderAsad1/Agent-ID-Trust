@@ -1506,8 +1506,8 @@ function RegistryField({ progress }: { progress: number }) {
     }}>
       <div style={{
         display: 'inline-flex', alignItems: 'center',
-        background: 'rgba(79,125,243,0.04)',
-        border: '1px solid rgba(79,125,243,0.08)',
+        background: 'rgba(8,10,22,0.88)',
+        border: '1px solid rgba(79,125,243,0.12)',
         borderRadius: 10, padding: '10px 20px',
         width: '14.5ch',
         boxSizing: 'content-box',
