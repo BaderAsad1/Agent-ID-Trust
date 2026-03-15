@@ -21,6 +21,20 @@ interface SectionRefs {
 
 type CeremonyState = 'unresolved' | 'validating' | 'binding' | 'issuing' | 'active';
 
+const CONSTELLATION_NODES = [
+  {x:7,y:10},{x:22,y:6},{x:40,y:14},{x:58,y:7},{x:74,y:18},{x:90,y:11},
+  {x:4,y:38},{x:18,y:52},{x:34,y:44},{x:50,y:58},{x:65,y:46},{x:80,y:56},{x:94,y:40},
+  {x:10,y:74},{x:28,y:82},{x:46,y:72},{x:62,y:84},{x:78,y:75},{x:92,y:88},
+];
+const CONSTELLATION_EDGES = [
+  [0,1],[1,2],[2,3],[3,4],[4,5],
+  [0,6],[2,8],[4,10],[5,12],
+  [6,7],[7,8],[8,9],[9,10],[10,11],[11,12],
+  [6,13],[8,14],[9,15],[10,16],[11,17],[12,18],
+  [13,14],[14,15],[15,16],[16,17],[17,18],
+  [1,7],[3,9],[5,11],[7,14],[9,16],[11,18],
+];
+
 // ─────────────────────────────────────────────────────────────────
 // HOOKS
 // ─────────────────────────────────────────────────────────────────
@@ -76,6 +90,21 @@ function useScrollFilm(refs: SectionRefs): ScrollState {
   return state;
 }
 
+function useCounter(target: number, duration = 2000): number {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    const startTime = Date.now();
+    const tick = () => {
+      const t = Math.min((Date.now() - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setVal(Math.round(eased * target));
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [target, duration]);
+  return val;
+}
+
 // ─────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────
@@ -108,6 +137,73 @@ function sectionOpacity(progress: number): number {
 
 function GrainOverlay() {
   return null;
+}
+
+function NetworkConstellation({ opacity = 1 }: { opacity?: number }) {
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', opacity }}>
+      <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+        {CONSTELLATION_EDGES.map(([a, b], i) => (
+          <line
+            key={i}
+            x1={`${CONSTELLATION_NODES[a].x}%`} y1={`${CONSTELLATION_NODES[a].y}%`}
+            x2={`${CONSTELLATION_NODES[b].x}%`} y2={`${CONSTELLATION_NODES[b].y}%`}
+            stroke="#4f7df3"
+            strokeWidth="0.7"
+            style={{ animation: `v2-edge-flow ${2.5 + (i % 7) * 0.5}s ease-in-out infinite`, animationDelay: `${(i * 0.18) % 3}s` }}
+          />
+        ))}
+        {CONSTELLATION_NODES.map((n, i) => (
+          <circle
+            key={i}
+            cx={`${n.x}%`} cy={`${n.y}%`} r={i % 5 === 0 ? 3.5 : 1.8}
+            fill="#4f7df3"
+            style={{ animation: `v2-node-pulse ${2 + (i % 5) * 0.45}s ease-in-out infinite`, animationDelay: `${(i * 0.22) % 2.5}s` }}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function HeroStats({ visible }: { visible: boolean }) {
+  const agents = useCounter(14247, 2200);
+  const creds = useCounter(98420, 2600);
+  const stats = [
+    { value: agents.toLocaleString() + '+', label: 'Agents Registered' },
+    { value: creds.toLocaleString() + '+', label: 'Credentials Issued' },
+    { value: '<50ms', label: 'Resolution Time' },
+  ];
+  return (
+    <div style={{
+      display: 'flex', marginBottom: 44,
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'none' : 'translateY(8px)',
+      transition: 'opacity 0.5s ease 0.3s, transform 0.5s ease 0.3s',
+      borderTop: '1px solid rgba(255,255,255,0.07)',
+      borderBottom: '1px solid rgba(255,255,255,0.07)',
+    }}>
+      {stats.map((s, i) => (
+        <div key={s.label} style={{
+          flex: 1, padding: '16px 0',
+          borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.07)' : 'none',
+          textAlign: 'center',
+        }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 'clamp(18px, 2vw, 26px)',
+            fontWeight: 700, color: '#ffffff',
+            letterSpacing: '-0.02em', marginBottom: 4,
+          }}>{s.value}</div>
+          <div style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 10, letterSpacing: '0.13em',
+            color: 'rgba(255,255,255,0.30)', fontWeight: 500,
+          }}>{s.label.toUpperCase()}</div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -435,17 +531,11 @@ function CredentialV2({ heroProgress, lockInKey, compact = false }: CredentialV2
 
 function HeroContent({ heroProgress, lockInKey }: { heroProgress: number; lockInKey: number }) {
   const ceremony = getCeremony(heroProgress);
-  const isActive = ceremony === 'active';
-  const isIssuing = ceremony === 'issuing';
-  const statusColor = isActive ? '#34d399' : isIssuing ? '#f5a623' : '#4f7df3';
-  const statusLabel =
-    ceremony === 'unresolved' ? 'UNRESOLVED' :
-    ceremony === 'validating' ? 'VALIDATING IDENTITY' :
-    ceremony === 'binding' ? 'BINDING DOMAIN' :
-    ceremony === 'issuing' ? 'ISSUING CREDENTIAL' :
-    'CREDENTIAL ACTIVE';
 
   const headlineOpacity = heroProgress < 0.55 ? 1 : lerp(1, 0, (heroProgress - 0.55) / 0.20);
+  const statsVisible = heroProgress < 0.28;
+  const headlineY = lerp(0, -30, Math.max(0, (heroProgress - 0.55) / 0.20));
+  const constOpacity = heroProgress < 0.65 ? 0.42 : lerp(0.42, 0, (heroProgress - 0.65) / 0.25);
 
   return (
     <div style={{
@@ -455,36 +545,69 @@ function HeroContent({ heroProgress, lockInKey }: { heroProgress: number; lockIn
       boxSizing: 'border-box',
     }}>
       <ProductGlow ceremony={ceremony} heroProgress={heroProgress} />
+      <NetworkConstellation opacity={constOpacity} />
 
-      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', width: '100%', maxWidth: 760, margin: '0 auto' }}>
-        {/* Headline — Apple scale: enormous, tight, white */}
-        <h1 style={{
-          fontFamily: "'Bricolage Grotesque', sans-serif",
-          fontSize: 'clamp(44px, 7.5vw, 96px)',
-          fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1.02,
-          color: '#ffffff',
-          margin: '0 0 20px',
+      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', width: '100%', maxWidth: 820, margin: '0 auto' }}>
+
+        {/* Protocol live badge */}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 28,
           opacity: headlineOpacity,
+          transform: `translateY(${headlineY}px)`,
           transition: 'opacity 0.15s linear',
         }}>
-          The identity layer<br />for the agent internet.
+          <div style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: '#34d399',
+            boxShadow: '0 0 10px rgba(52,211,153,0.7)',
+            animation: 'v2-pulse-dot 2s ease-in-out infinite',
+          }} />
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 11, fontWeight: 600, letterSpacing: '0.18em',
+            color: 'rgba(255,255,255,0.38)',
+          }}>IDENTITY PROTOCOL · LIVE</span>
+        </div>
+
+        {/* Massive headline */}
+        <h1 style={{
+          fontFamily: "'Bricolage Grotesque', sans-serif",
+          fontSize: 'clamp(52px, 9vw, 116px)',
+          fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 0.98,
+          color: '#ffffff',
+          margin: '0 0 24px',
+          opacity: headlineOpacity,
+          transform: `translateY(${headlineY}px)`,
+          transition: 'opacity 0.15s linear',
+        }}>
+          Every agent.<br />
+          <span style={{ color: 'rgba(255,255,255,0.38)' }}>One identity.</span>
         </h1>
 
-        {/* Subheadline — Apple 56% white, readable */}
+        {/* Subheadline */}
         <p style={{
           fontFamily: "'Inter', sans-serif",
-          fontSize: 'clamp(16px, 1.55vw, 21px)',
-          color: 'rgba(255,255,255,0.56)',
-          lineHeight: 1.55,
-          margin: '0 auto 48px',
-          maxWidth: 460,
+          fontSize: 'clamp(15px, 1.45vw, 19px)',
+          color: 'rgba(255,255,255,0.48)',
+          lineHeight: 1.6,
+          margin: '0 auto 36px',
+          maxWidth: 500,
           fontWeight: 400,
-          opacity: headlineOpacity,
+          opacity: headlineOpacity * 0.95,
+          transform: `translateY(${headlineY * 0.6}px)`,
         }}>
-          Verifiable. Resolvable. Trusted. One credential that makes autonomous agents usable by the rest of the internet.
+          The DNS, OAuth, and trust layer for autonomous agents — open protocol infrastructure for the agent internet.
         </p>
 
-        {/* Credential — the product */}
+        {/* Live stats */}
+        <div style={{
+          opacity: headlineOpacity,
+          transform: `translateY(${headlineY * 0.4}px)`,
+        }}>
+          <HeroStats visible={statsVisible} />
+        </div>
+
+        {/* Credential */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <CredentialV2 heroProgress={heroProgress} lockInKey={lockInKey} />
         </div>
@@ -770,6 +893,14 @@ export default function IssuanceFilmV2() {
 
         * { box-sizing: border-box; }
 
+        @keyframes v2-edge-flow {
+          0%, 100% { stroke-opacity: 0.05; }
+          50% { stroke-opacity: 0.18; }
+        }
+        @keyframes v2-node-pulse {
+          0%, 100% { opacity: 0.22; }
+          50% { opacity: 0.68; }
+        }
         @keyframes v2-ring-pulse {
           0%   { transform: scale(0.85); opacity: 0.75; }
           100% { transform: scale(1.9);  opacity: 0; }
