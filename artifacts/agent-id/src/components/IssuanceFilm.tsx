@@ -1207,70 +1207,51 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
         fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
         letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
         marginBottom: 'clamp(12px, 2vh, 24px)',
-      }}>YOUR AGENT AWAITS</div>
+      }}>AGENT ID PROTOCOL</div>
 
       <h2 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
         fontSize: 'clamp(30px, 4.5vw, 60px)',
-        fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1.05,
+        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05,
         color: '#e8e8f0',
-        marginBottom: 'clamp(12px, 2vh, 24px)',
+        marginBottom: 'clamp(12px, 2vh, 20px)',
       }}>
-        Claim Your Agent ID.
+        Register your agent.
       </h2>
 
       <p style={{
-        fontFamily: "'Inter', sans-serif", fontSize: 'clamp(14px, 1.5vw, 18px)', lineHeight: 1.55,
-        color: 'rgba(232,232,240,0.45)', maxWidth: 440, margin: '0 auto',
-        marginBottom: 'clamp(24px, 4vh, 48px)',
+        fontFamily: "'Inter', sans-serif", fontSize: 'clamp(14px, 1.3vw, 17px)', lineHeight: 1.65,
+        color: 'rgba(232,232,240,0.38)', maxWidth: 380, margin: '0 auto',
+        marginBottom: 'clamp(28px, 4vh, 48px)',
       }}>
-        Register an agent. Issue a credential.
-        Join the identity layer of the autonomous internet.
+        Claim your .AgentID handle.<br />
+        Issue the credential. Enter the network.
       </p>
 
-      <div style={{ display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <button onClick={() => onNavigate?.('/start')} style={{
-          position: 'relative', overflow: 'hidden',
-          fontSize: 16, fontWeight: 600,
+          fontSize: 15, fontWeight: 600,
           fontFamily: "'Inter', sans-serif",
-          color: '#fff',
-          background: '#4f7df3',
-          border: 'none', borderRadius: 12,
-          padding: '16px 40px',
+          color: 'rgba(232,232,240,0.90)',
+          background: 'rgba(79,125,243,0.06)',
+          border: '1px solid rgba(79,125,243,0.38)',
+          borderRadius: 10,
+          padding: '14px 30px',
           cursor: 'pointer', letterSpacing: '-0.01em',
-          boxShadow: '0 6px 30px rgba(79,125,243,0.35), 0 2px 8px rgba(79,125,243,0.2)',
+          display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          Register an Agent
+          Register your agent →
         </button>
-        <span style={{
+        <button onClick={() => onNavigate?.('/for-agents')} style={{
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 12, color: 'rgba(232,232,240,0.3)',
-          letterSpacing: '0.02em',
-        }}>Free to start</span>
-      </div>
-
-      <div style={{
-        marginTop: 'clamp(32px, 6vh, 80px)',
-        display: 'flex', justifyContent: 'center', gap: 'clamp(20px, 3vw, 40px)',
-      }}>
-        {[
-          { value: '4,291', label: 'Credentials issued' },
-          { value: '99.97%', label: 'Uptime' },
-          { value: '<2ms', label: 'Resolution' },
-        ].map(stat => (
-          <div key={stat.label}>
-            <div style={{
-              fontFamily: "'Bricolage Grotesque', sans-serif",
-              fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 700, color: '#e8e8f0',
-              marginBottom: 4,
-            }}>{stat.value}</div>
-            <div style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 10, color: 'rgba(232,232,240,0.3)',
-              letterSpacing: '0.06em',
-            }}>{stat.label}</div>
-          </div>
-        ))}
+          fontSize: 10, fontWeight: 600,
+          letterSpacing: '0.10em',
+          color: 'rgba(232,232,240,0.20)',
+          background: 'none', border: 'none',
+          cursor: 'pointer', padding: 0,
+        }}>
+          Autonomous registration via API →
+        </button>
       </div>
     </div>
   );
