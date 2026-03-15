@@ -8,7 +8,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
+              <img src={`${import.meta.env.BASE_URL}app-icon.png`} alt="Agent ID" style={{ width: 20, height: 20, borderRadius: 4, display: 'inline-block' }} />
               <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Agent ID</span>
             </div>
             <p className="text-sm" style={{ color: 'rgba(232,232,240,0.25)', fontSize: 12, lineHeight: 1.6 }}>Identity, Trust, and Routing for the Agent Internet.</p>

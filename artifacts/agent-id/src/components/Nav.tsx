@@ -45,12 +45,14 @@ export function Nav() {
             style={{ background: 'none', border: 'none' }}
             aria-label="Home"
           >
-            <span style={{
-              width: 7, height: 7, borderRadius: '50%',
-              background: 'var(--accent)',
-              boxShadow: '0 0 10px rgba(79,125,243,0.4)',
-              display: 'inline-block',
-            }} />
+            <img
+              src={`${import.meta.env.BASE_URL}app-icon.png`}
+              alt="Agent ID"
+              style={{
+                width: 26, height: 26, borderRadius: 5,
+                display: 'inline-block',
+              }}
+            />
             <span style={{
               fontFamily: 'var(--font-display)',
               fontSize: 15, fontWeight: 700, color: 'var(--text-primary)',

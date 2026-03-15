@@ -1270,23 +1270,24 @@ interface NavProps {
 
 function NavBar({ opacity, onNavigate }: NavProps) {
   const nav = (path: string) => onNavigate?.(path);
+  const bgAlpha = (0.7 * opacity).toFixed(2);
+  const borderAlpha = (0.04 * opacity).toFixed(3);
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '0 clamp(16px, 4vw, 48px)', height: 56,
-      background: 'rgba(5,7,17,0.7)',
+      background: `rgba(5,7,17,${bgAlpha})`,
       backdropFilter: 'blur(20px) saturate(1.8)',
-      borderBottom: '1px solid rgba(255,255,255,0.04)',
-      opacity,
-      transition: 'opacity 0.3s ease',
+      borderBottom: `1px solid rgba(255,255,255,${borderAlpha})`,
+      transition: 'background 0.3s ease, border-color 0.3s ease',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => nav('/')}>
-        <div style={{
-          width: 7, height: 7, borderRadius: '50%',
-          background: '#4f7df3',
-          boxShadow: '0 0 10px rgba(79,125,243,0.4)',
-        }} />
+        <img
+          src={`${import.meta.env.BASE_URL}app-icon.png`}
+          alt="Agent ID"
+          style={{ width: 26, height: 26, borderRadius: 5 }}
+        />
         <span style={{
           fontFamily: "'Bricolage Grotesque', sans-serif",
           fontSize: 15, fontWeight: 700, color: '#e8e8f0',
@@ -1837,7 +1838,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#4f7df3' }} />
+            <img src={`${import.meta.env.BASE_URL}app-icon.png`} alt="Agent ID" style={{ width: 20, height: 20, borderRadius: 4 }} />
             <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 13, fontWeight: 700, color: '#e8e8f0' }}>Agent ID</span>
           </div>
           <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)' }}>Identity, Trust, and Routing for the Agent Internet.</div>
