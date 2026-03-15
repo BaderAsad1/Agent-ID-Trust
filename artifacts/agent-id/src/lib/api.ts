@@ -200,8 +200,12 @@ export const api = {
         return request<{ orders: Order[] }>(`/marketplace/orders${qs}`);
       },
       create: (data: Record<string, unknown>) =>
-        request<Order>("/marketplace/orders", { method: "POST", body: JSON.stringify(data) }),
+        request<Order & { clientSecret?: string }>("/marketplace/orders", { method: "POST", body: JSON.stringify(data) }),
+      confirmPayment: (orderId: string) =>
+        request<Order>(`/marketplace/orders/${orderId}/confirm-payment`, { method: "POST" }),
     },
+    stripeConfig: () =>
+      request<{ publishableKey: string }>("/marketplace/stripe-config"),
     reviews: {
       byListing: (listingId: string) =>
         request<{ reviews: Review[] }>(`/marketplace/listings/${listingId}/reviews`),

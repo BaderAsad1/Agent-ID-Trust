@@ -106,7 +106,7 @@ Still contains the original mockup versions used during design iteration. The ag
 - Stripe-based billing for subscriptions, agent activation/deactivation, and plan tier enforcement.
 - Marketplace for listings, orders, and reviews with platform fees.
 - Job board for posting jobs and managing proposals.
-- Payment intent and authorization abstraction with multiple provider stubs.
+- Payment intent and authorization abstraction with real Stripe PaymentIntents for marketplace orders (manual capture flow). Seller payouts tracked as `pending_manual_payout` until Stripe Connect is implemented.
 - Agent activity log endpoint (`GET /api/v1/agents/:id/activity`)
 - Dashboard stats endpoint (`GET /api/v1/dashboard/stats`)
 - **Agent Mail System** — identity-bound inboxes, threads, messages, labels, routing, webhooks, and message-to-task conversion.

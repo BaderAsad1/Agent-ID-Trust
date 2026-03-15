@@ -6,32 +6,113 @@ import { Footer } from '@/components/Footer';
 import { api, type Listing, type Review } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { formatPrice } from '@/lib/pricing';
+import { loadStripe, type Stripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+let stripePromise: Promise<Stripe | null> | null = null;
+
+function getStripePromise() {
+  if (!stripePromise) {
+    stripePromise = api.marketplace.stripeConfig().then(({ publishableKey }) => {
+      if (!publishableKey) return null;
+      return loadStripe(publishableKey);
+    }).catch(() => null);
+  }
+  return stripePromise;
+}
+
+function CheckoutForm({ onSuccess, onError }: { onSuccess: () => void; onError: (msg: string) => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setProcessing(true);
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: window.location.href,
+      },
+      redirect: 'if_required',
+    });
+
+    if (error) {
+      onError(error.message ?? 'Payment failed');
+      setProcessing(false);
+    } else {
+      onSuccess();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      <PrimaryButton variant="purple" className="w-full" disabled={!stripe || processing}>
+        {processing ? 'Processing...' : 'Confirm Payment'}
+      </PrimaryButton>
+    </form>
+  );
+}
 
 function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing }) {
   const { userId } = useAuth();
   const [step, setStep] = useState(1);
   const [taskDesc, setTaskDesc] = useState('');
-  const [budget, setBudget] = useState(listing.priceAmount);
+  const [budget] = useState(listing.priceAmount);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [stripeReady, setStripeReady] = useState(false);
 
-  const handleOrder = async () => {
+  useEffect(() => {
+    getStripePromise().then((s) => setStripeReady(!!s));
+  }, []);
+
+  const handleCreateOrder = async () => {
     if (!userId) { setError('Please sign in first'); return; }
     setSubmitting(true);
     setError(null);
     try {
-      await api.marketplace.orders.create({
+      const result = await api.marketplace.orders.create({
         listingId: listing.id,
         taskDescription: taskDesc,
-        priceAmount: budget,
       });
-      setStep(3);
+      setOrderId(result.id);
+      if (!result.clientSecret) {
+        setError('Payment processing unavailable. Please try again later.');
+        return;
+      }
+      setClientSecret(result.clientSecret);
+      setStep(2);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to create order');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handlePaymentSuccess = async () => {
+    if (!orderId) {
+      setError('Order not found. Please contact support.');
+      return;
+    }
+    try {
+      await api.marketplace.orders.confirmPayment(orderId);
+      setStep(3);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Payment was authorized but order confirmation failed. Please contact support.');
+    }
+  };
+
+  const handlePaymentError = (msg: string) => {
+    setError(msg);
+  };
+
+  const stripePromiseVal = getStripePromise();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -63,23 +144,33 @@ function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing
               className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none resize-none"
               style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}
             />
-            <PrimaryButton variant="purple" className="w-full" onClick={() => setStep(2)} disabled={!taskDesc}>Continue</PrimaryButton>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-4">
-            <h3 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Review &amp; confirm</h3>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: 'var(--warning)' }}>
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> Payments are in sandbox mode — no real charges will occur.
-            </div>
             <div className="rounded-lg border p-4 space-y-2 text-sm" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-base)' }}>
               <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Service</span><span style={{ color: 'var(--text-primary)' }}>{listing.title}</span></div>
               <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Price</span><span style={{ color: 'var(--text-primary)' }}>${budget}</span></div>
             </div>
-            <PrimaryButton variant="purple" className="w-full" onClick={handleOrder} disabled={submitting}>
-              {submitting ? 'Creating order...' : `Pay $${budget}`}
+            <PrimaryButton variant="purple" className="w-full" onClick={handleCreateOrder} disabled={!taskDesc || submitting}>
+              {submitting ? 'Creating order...' : 'Continue to Payment'}
             </PrimaryButton>
+          </div>
+        )}
+
+        {step === 2 && clientSecret && stripeReady && (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Payment details</h3>
+            <div className="rounded-lg border p-4 space-y-2 text-sm mb-2" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-base)' }}>
+              <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Service</span><span style={{ color: 'var(--text-primary)' }}>{listing.title}</span></div>
+              <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Total</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>${budget}</span></div>
+            </div>
+            <Elements stripe={stripePromiseVal} options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#a855f7' } } }}>
+              <CheckoutForm onSuccess={handlePaymentSuccess} onError={handlePaymentError} />
+            </Elements>
+          </div>
+        )}
+
+        {step === 2 && (!clientSecret || !stripeReady) && (
+          <div className="text-center py-8">
+            <AlertCircle className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--warning)' }} />
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Payment processing is currently unavailable. Please try again later.</p>
           </div>
         )}
 
@@ -89,7 +180,7 @@ function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing
               <CheckCircle className="w-8 h-8" style={{ color: 'var(--success)' }} />
             </div>
             <h3 className="text-xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Order created!</h3>
-            <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Agent has been notified and will begin working on your task.</p>
+            <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Payment authorized. Agent has been notified and will begin working on your task.</p>
             <PrimaryButton variant="ghost" onClick={onClose}>Close</PrimaryButton>
           </div>
         )}

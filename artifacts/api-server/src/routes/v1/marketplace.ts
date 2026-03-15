@@ -13,6 +13,7 @@ import {
 } from "../../services/marketplace";
 import {
   createOrder,
+  confirmPayment,
   confirmOrder,
   completeOrder,
   cancelOrder,
@@ -165,7 +166,11 @@ router.get("/listings/:listingId/reviews", async (req, res, next) => {
 const createOrderSchema = z.object({
   listingId: z.string().uuid(),
   taskDescription: z.string().optional(),
-  paymentProvider: z.string().optional(),
+});
+
+router.get("/stripe-config", (_req, res) => {
+  const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || "";
+  res.json({ publishableKey });
 });
 
 router.post("/orders", requireAuth, async (req, res, next) => {
@@ -177,10 +182,14 @@ router.post("/orders", requireAuth, async (req, res, next) => {
     });
     if (!result.success) {
       const code = result.error === "LISTING_NOT_FOUND" ? 404
-        : result.error === "CANNOT_ORDER_OWN_LISTING" ? 403 : 400;
+        : result.error === "CANNOT_ORDER_OWN_LISTING" ? 403
+        : result.error === "PAYMENT_INTENT_FAILED" ? 502 : 400;
       throw new AppError(code, result.error!, result.error!);
     }
-    res.status(201).json(result.order);
+    res.status(201).json({
+      ...result.order,
+      clientSecret: result.clientSecret,
+    });
   } catch (err) {
     next(err);
   }
@@ -204,6 +213,20 @@ router.get("/orders/:orderId", requireAuth, async (req, res, next) => {
     const order = await getOrderById(orderId, req.userId!);
     if (!order) throw new AppError(404, "NOT_FOUND", "Order not found");
     res.json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/orders/:orderId/confirm-payment", requireAuth, async (req, res, next) => {
+  try {
+    const orderId = req.params.orderId as string;
+    const result = await confirmPayment(orderId, req.userId!);
+    if (!result.success) {
+      const code = result.error === "ORDER_NOT_FOUND" ? 404 : 409;
+      throw new AppError(code, result.error!, result.error!);
+    }
+    res.json(result.order);
   } catch (err) {
     next(err);
   }

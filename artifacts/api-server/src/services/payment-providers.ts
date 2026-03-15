@@ -8,6 +8,7 @@ import {
   type PaymentAuthorization,
   type PaymentLedgerEntry,
 } from "@workspace/db/schema";
+import { getStripe } from "./stripe-client";
 
 export interface PaymentProvider {
   name: string;
@@ -38,6 +39,7 @@ export interface AuthorizeParams {
 export interface ProviderIntentResult {
   success: boolean;
   providerReference?: string;
+  clientSecret?: string;
   error?: string;
 }
 
@@ -63,21 +65,55 @@ class StripeProvider implements PaymentProvider {
   supported = true;
 
   async createIntent(params: CreateIntentParams): Promise<ProviderIntentResult> {
-    const reference = `pi_sim_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    return { success: true, providerReference: reference };
+    try {
+      const stripe = getStripe();
+      const amountInCents = Math.round(params.amount * 100);
+      const pi = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: params.currency.toLowerCase(),
+        capture_method: "manual",
+        metadata: {
+          initiatorType: params.initiatorType,
+          initiatorId: params.initiatorId,
+          targetType: params.targetType,
+          targetId: params.targetId,
+        },
+      });
+      return {
+        success: true,
+        providerReference: pi.id,
+        clientSecret: pi.client_secret ?? undefined,
+      };
+    } catch (err) {
+      console.error("[StripeProvider] createIntent error:", err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "STRIPE_ERROR",
+      };
+    }
   }
 
   async authorizePayment(params: AuthorizeParams): Promise<ProviderAuthResult> {
-    const reference = `auth_sim_${Date.now()}`;
+    const reference = `auth_${Date.now()}`;
     return { success: true, providerReference: reference };
   }
 
-  async capturePayment(intentId: string): Promise<ProviderCaptureResult> {
-    return { success: true };
+  async capturePayment(providerReference: string): Promise<ProviderCaptureResult> {
+    try {
+      const stripe = getStripe();
+      await stripe.paymentIntents.capture(providerReference);
+      return { success: true };
+    } catch (err) {
+      console.error("[StripeProvider] capturePayment error:", err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "STRIPE_CAPTURE_ERROR",
+      };
+    }
   }
 
-  async refundPayment(intentId: string): Promise<ProviderRefundResult> {
-    return { success: true };
+  async refundPayment(providerReference: string): Promise<ProviderRefundResult> {
+    return { success: false, error: "REFUND_NOT_IMPLEMENTED" };
   }
 }
 
@@ -146,7 +182,7 @@ export function listProviders(): Array<{ name: string; displayName: string; supp
 export async function createPaymentIntent(
   providerName: string,
   params: CreateIntentParams,
-): Promise<{ success: boolean; intent?: PaymentIntent; error?: string }> {
+): Promise<{ success: boolean; intent?: PaymentIntent; clientSecret?: string; error?: string }> {
   const provider = getProvider(providerName);
   if (!provider) return { success: false, error: "PROVIDER_NOT_FOUND" };
   if (!provider.supported) return { success: false, error: "PROVIDER_NOT_AVAILABLE" };
@@ -172,7 +208,16 @@ export async function createPaymentIntent(
     })
     .returning();
 
-  return { success: true, intent };
+  return { success: true, intent, clientSecret: result.clientSecret };
+}
+
+export async function captureProviderPayment(
+  providerName: string,
+  providerReference: string,
+): Promise<ProviderCaptureResult> {
+  const provider = getProvider(providerName);
+  if (!provider) return { success: false, error: "PROVIDER_NOT_FOUND" };
+  return provider.capturePayment(providerReference);
 }
 
 export async function authorizePaymentIntent(

@@ -11,17 +11,25 @@ import {
 import { submitTask } from "./tasks";
 import { calculatePlatformFee } from "./marketplace";
 import { logActivity } from "./activity-logger";
+import { getStripe } from "./stripe-client";
+import { captureProviderPayment } from "./payment-providers";
 
 export interface CreateOrderInput {
   listingId: string;
   buyerUserId: string;
   taskDescription?: string;
-  paymentProvider?: string;
+}
+
+export interface CreateOrderResult {
+  success: boolean;
+  order?: MarketplaceOrder;
+  clientSecret?: string;
+  error?: string;
 }
 
 export async function createOrder(
   input: CreateOrderInput,
-): Promise<{ success: boolean; order?: MarketplaceOrder; error?: string }> {
+): Promise<CreateOrderResult> {
   const listing = await db.query.marketplaceListingsTable.findFirst({
     where: and(
       eq(marketplaceListingsTable.id, input.listingId),
@@ -37,6 +45,33 @@ export async function createOrder(
   const priceAmount = Number(listing.priceAmount ?? 0);
   const { platformFee, sellerPayout } = calculatePlatformFee(priceAmount);
 
+  let stripePaymentIntentId: string | undefined;
+  let clientSecret: string | undefined;
+
+  try {
+    const stripe = getStripe();
+    const amountInCents = Math.round(priceAmount * 100);
+    const pi = await stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency: "usd",
+      capture_method: "manual",
+      metadata: {
+        buyerUserId: input.buyerUserId,
+        sellerUserId: listing.userId,
+        listingId: listing.id,
+        listingTitle: listing.title,
+      },
+    });
+    stripePaymentIntentId = pi.id;
+    clientSecret = pi.client_secret ?? undefined;
+  } catch (err) {
+    console.error("[orders] Failed to create Stripe PaymentIntent:", err);
+    return {
+      success: false,
+      error: "PAYMENT_INTENT_FAILED",
+    };
+  }
+
   const [order] = await db
     .insert(marketplaceOrdersTable)
     .values({
@@ -48,46 +83,89 @@ export async function createOrder(
       priceAmount: priceAmount.toFixed(2),
       platformFee: platformFee.toFixed(2),
       sellerPayout: sellerPayout.toFixed(2),
-      status: "pending",
-      paymentProvider: input.paymentProvider ?? "stripe",
+      status: "payment_pending",
+      paymentProvider: "stripe",
+      providerPaymentReference: stripePaymentIntentId,
     })
     .returning();
 
+  return { success: true, order, clientSecret };
+}
+
+export async function confirmPayment(
+  orderId: string,
+  buyerUserId: string,
+): Promise<{ success: boolean; order?: MarketplaceOrder; error?: string }> {
+  const order = await db.query.marketplaceOrdersTable.findFirst({
+    where: and(
+      eq(marketplaceOrdersTable.id, orderId),
+      eq(marketplaceOrdersTable.buyerUserId, buyerUserId),
+    ),
+  });
+
+  if (!order) return { success: false, error: "ORDER_NOT_FOUND" };
+  if (order.status !== "payment_pending") {
+    return { success: false, error: `INVALID_STATUS:${order.status}` };
+  }
+
+  if (order.providerPaymentReference) {
+    try {
+      const stripe = getStripe();
+      const pi = await stripe.paymentIntents.retrieve(order.providerPaymentReference);
+      if (pi.status !== "requires_capture") {
+        return { success: false, error: `PAYMENT_NOT_AUTHORIZED:${pi.status}` };
+      }
+    } catch (err) {
+      console.error(`[orders] Failed to verify PaymentIntent for order ${orderId}:`, err);
+      return { success: false, error: "PAYMENT_VERIFICATION_FAILED" };
+    }
+  }
+
+  const [updated] = await db
+    .update(marketplaceOrdersTable)
+    .set({ status: "pending", updatedAt: new Date() })
+    .where(eq(marketplaceOrdersTable.id, orderId))
+    .returning();
+
+  const listing = await db.query.marketplaceListingsTable.findFirst({
+    where: eq(marketplaceListingsTable.id, order.listingId),
+  });
+
   const task = await submitTask({
-    recipientAgentId: listing.agentId,
-    senderUserId: input.buyerUserId,
+    recipientAgentId: order.agentId,
+    senderUserId: order.buyerUserId,
     taskType: "marketplace_order",
     payload: {
       orderId: order.id,
-      listingId: listing.id,
-      listingTitle: listing.title,
-      taskDescription: input.taskDescription,
+      listingId: order.listingId,
+      listingTitle: listing?.title ?? "Unknown",
+      taskDescription: order.taskDescription,
     },
     relatedOrderId: order.id,
   });
 
   await logActivity({
-    agentId: listing.agentId,
+    agentId: order.agentId,
     eventType: "agent.task_received",
     payload: {
       orderId: order.id,
       taskId: task.id,
-      listingTitle: listing.title,
+      listingTitle: listing?.title,
       source: "marketplace",
     },
   });
 
   try {
-    const seller = await db.query.usersTable.findFirst({ where: eq(usersTable.id, listing.userId) });
+    const seller = await db.query.usersTable.findFirst({ where: eq(usersTable.id, order.sellerUserId) });
     if (seller?.email) {
       const { sendMarketplaceOrderEmail } = await import("./email.js");
-      await sendMarketplaceOrderEmail(seller.email, listing.title, priceAmount.toFixed(2));
+      await sendMarketplaceOrderEmail(seller.email, listing?.title ?? "Marketplace Order", Number(order.priceAmount).toFixed(2));
     }
   } catch (err) {
     console.error(`[orders] Failed to send order email:`, err instanceof Error ? err.message : err);
   }
 
-  return { success: true, order };
+  return { success: true, order: updated };
 }
 
 export async function confirmOrder(
@@ -104,6 +182,17 @@ export async function confirmOrder(
   if (!order) return { success: false, error: "ORDER_NOT_FOUND" };
   if (order.status !== "pending") {
     return { success: false, error: `INVALID_STATUS:${order.status}` };
+  }
+
+  if (order.providerPaymentReference) {
+    const captureResult = await captureProviderPayment(
+      order.paymentProvider ?? "stripe",
+      order.providerPaymentReference,
+    );
+    if (!captureResult.success) {
+      console.error(`[orders] Failed to capture payment for order ${orderId}:`, captureResult.error);
+      return { success: false, error: `PAYMENT_CAPTURE_FAILED:${captureResult.error}` };
+    }
   }
 
   const [updated] = await db
@@ -149,18 +238,22 @@ export async function completeOrder(
     })
     .where(eq(marketplaceListingsTable.id, order.listingId));
 
+  const paymentRef = order.providerPaymentReference ?? undefined;
+
   await db.insert(payoutLedgerTable).values({
     relatedOrderId: orderId,
     sellerUserId: order.sellerUserId,
     provider: order.paymentProvider ?? "stripe",
     amount: order.sellerPayout,
     currency: "USD",
-    status: "pending",
+    status: "pending_manual_payout",
     metadata: {
       orderId,
       listingId: order.listingId,
       totalPrice: order.priceAmount,
       platformFee: order.platformFee,
+      stripePaymentIntentId: paymentRef,
+      note: "Stripe Connect seller payout not yet implemented — requires manual processing",
     },
   });
 
@@ -176,7 +269,11 @@ export async function completeOrder(
       amount: order.priceAmount,
       currency: "USD",
       entryType: "order_payment",
-      metadata: { orderId, listingId: order.listingId },
+      metadata: {
+        orderId,
+        listingId: order.listingId,
+        stripePaymentIntentId: paymentRef,
+      },
     },
     {
       relatedOrderId: orderId,
@@ -187,7 +284,11 @@ export async function completeOrder(
       amount: order.platformFee,
       currency: "USD",
       entryType: "platform_fee",
-      metadata: { orderId, buyerUserId: order.buyerUserId },
+      metadata: {
+        orderId,
+        buyerUserId: order.buyerUserId,
+        stripePaymentIntentId: paymentRef,
+      },
     },
     {
       relatedOrderId: orderId,
@@ -198,7 +299,12 @@ export async function completeOrder(
       amount: order.sellerPayout,
       currency: "USD",
       entryType: "seller_payout",
-      metadata: { orderId, listingId: order.listingId },
+      metadata: {
+        orderId,
+        listingId: order.listingId,
+        stripePaymentIntentId: paymentRef,
+        payoutStatus: "pending_manual_payout",
+      },
     },
   ]);
 
@@ -251,6 +357,15 @@ export async function cancelOrder(
   }
   if (order.status === "completed" || order.status === "cancelled") {
     return { success: false, error: `INVALID_STATUS:${order.status}` };
+  }
+
+  if (order.providerPaymentReference) {
+    try {
+      const stripe = getStripe();
+      await stripe.paymentIntents.cancel(order.providerPaymentReference);
+    } catch (err) {
+      console.error(`[orders] Failed to cancel Stripe PaymentIntent for order ${orderId}:`, err);
+    }
   }
 
   const [updated] = await db

@@ -70,6 +70,7 @@ export const listingStatusEnum = pgEnum("listing_status", [
 ]);
 
 export const orderStatusEnum = pgEnum("order_status", [
+  "payment_pending",
   "pending",
   "confirmed",
   "in_progress",
@@ -131,6 +132,7 @@ export const payoutStatusEnum = pgEnum("payout_status", [
   "processing",
   "completed",
   "failed",
+  "pending_manual_payout",
 ]);
 
 export const webhookStatusEnum = pgEnum("webhook_status", [
