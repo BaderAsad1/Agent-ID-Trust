@@ -40,14 +40,14 @@ async function getOwnerKey(agentId: string) {
       eq(agentKeysTable.agentId, agentId),
       eq(agentKeysTable.status, "active"),
     ),
-    columns: { kid: true, publicKey: true, algorithm: true },
+    columns: { kid: true, publicKey: true, keyType: true },
   });
   return key || null;
 }
 
 function buildAgentIdentityDocument(
   agent: typeof agentsTable.$inferSelect,
-  ownerKey: { kid: string; publicKey: string; algorithm: string } | null,
+  ownerKey: { kid: string; publicKey: string | null; keyType: string } | null,
 ) {
   const handle = agent.handle.toLowerCase();
   return {
@@ -69,7 +69,7 @@ function buildAgentIdentityDocument(
     verifiedAt: agent.verifiedAt,
     ownerKey: ownerKey ? {
       kid: ownerKey.kid,
-      algorithm: ownerKey.algorithm,
+      algorithm: ownerKey.keyType,
       publicKey: ownerKey.publicKey,
     } : null,
     links: {
