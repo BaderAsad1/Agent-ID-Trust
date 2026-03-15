@@ -1509,26 +1509,21 @@ function RegistryField({ progress }: { progress: number }) {
         background: 'rgba(8,10,22,0.88)',
         border: '1px solid rgba(79,125,243,0.12)',
         borderRadius: 12, padding: '12px 24px',
-        width: '14.5ch',
-        boxSizing: 'content-box',
+        overflow: 'hidden',
       }}>
-        {/* Name: hard-clamped 6ch slot, text right-aligns toward .AgentID */}
+        {/* Name: fixed 6ch flex basis — longest name is Harvey (6 chars) */}
         <span style={{
           ...monoStyle,
-          display: 'block',
-          width: '6ch', minWidth: '6ch', maxWidth: '6ch',
-          flexShrink: 0,
+          flex: '0 0 6ch',
           textAlign: 'right',
           overflow: 'hidden',
           whiteSpace: 'nowrap',
           color: '#e8e8f0',
         }}>{displayedName}</span>
-        {/* .AgentID: pinned — width fixed, never moves */}
+        {/* .AgentID: auto-sized to text — constant string so pill width never changes */}
         <span style={{
           ...monoStyle,
-          display: 'block',
-          width: '8ch', minWidth: '8ch',
-          flexShrink: 0,
+          flex: '0 0 auto',
           whiteSpace: 'nowrap',
           color: '#4f7df3',
         }}>.AgentID</span>
