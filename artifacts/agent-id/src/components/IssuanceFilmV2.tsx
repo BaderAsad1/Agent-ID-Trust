@@ -762,7 +762,7 @@ export default function IssuanceFilmV2() {
   }, [ceremony]);
 
   return (
-    <div style={{ background: '#000000', minHeight: '100vh', color: 'rgba(232,232,240,0.9)' }}>
+    <div style={{ background: '#1c1c1e', minHeight: '100vh', color: 'rgba(232,232,240,0.9)' }}>
       <GrainOverlay />
 
       <style>{`
@@ -817,7 +817,7 @@ export default function IssuanceFilmV2() {
       >
         <div style={{
           position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
-          background: '#000000',
+          background: '#1c1c1e',
           opacity: sectionOpacity(scroll.heroProgress),
           transition: 'opacity 0.05s linear',
         }}>
@@ -835,7 +835,7 @@ export default function IssuanceFilmV2() {
           className="v2-anatomy-sticky"
           style={{
             position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
-            background: '#000000',
+            background: '#1c1c1e',
             opacity: sectionOpacity(scroll.anatomyProgress),
             transition: 'opacity 0.05s linear',
           }}
@@ -854,7 +854,7 @@ export default function IssuanceFilmV2() {
           className="v2-activation-sticky"
           style={{
             position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
-            background: '#000000',
+            background: '#1c1c1e',
             opacity: sectionOpacity(scroll.activationProgress),
             transition: 'opacity 0.05s linear',
           }}
@@ -869,7 +869,7 @@ export default function IssuanceFilmV2() {
         style={{
           minHeight: '100vh',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: '#000000',
+          background: '#1c1c1e',
         }}
       >
         <CTAContent ctaProgress={scroll.ctaProgress} />
