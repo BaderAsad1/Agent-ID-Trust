@@ -1,17 +1,35 @@
+import { Queue } from "bullmq";
+import { isRedisConfigured, getRedisConnectionOptions } from "../lib/redis.js";
+import {
+  renderTemplate,
+  type EmailTemplate,
+} from "./email-templates.js";
 import {
   deliverOutbound,
   resolveTransportProvider,
   type TransportEnvelope,
-  type TransportResult,
 } from "./mail-transport.js";
 
 const FROM_EMAIL = process.env.FROM_EMAIL || "notifications@getagent.id";
+const QUEUE_NAME = "email-notifications";
+
+let emailQueue: Queue | null = null;
+
+function getQueue(): Queue | null {
+  if (emailQueue) return emailQueue;
+  if (!isRedisConfigured()) return null;
+  try {
+    emailQueue = new Queue(QUEUE_NAME, { connection: getRedisConnectionOptions() });
+    return emailQueue;
+  } catch {
+    return null;
+  }
+}
 
 function envelope(
   to: string,
   subject: string,
   body: string,
-  bodyFormat: "text" | "html" = "html",
 ): TransportEnvelope {
   return {
     messageId: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -19,36 +37,142 @@ function envelope(
     to,
     subject,
     body,
-    bodyFormat,
+    bodyFormat: "html",
   };
 }
 
-async function sendNotification(
-  env: TransportEnvelope,
-): Promise<TransportResult> {
-  const provider = resolveTransportProvider(env.to);
+async function deliverEmail(recipient: string, subject: string, html: string): Promise<void> {
+  const provider = resolveTransportProvider(recipient);
   if (provider.name === "webhook") {
-    console.warn(
-      `[email] Skipping notification to ${env.to} — no real email transport configured (RESEND_API_KEY not set)`,
-    );
-    return { success: false, providerName: "none", error: "No email transport configured" };
+    console.log(JSON.stringify({
+      level: "warn",
+      service: "email",
+      event: "email.skipped",
+      recipient,
+      subject,
+      reason: "no_email_transport",
+    }));
+    return;
   }
-  return deliverOutbound(env);
+  const result = await deliverOutbound(envelope(recipient, subject, html));
+  if (result.success) {
+    console.log(JSON.stringify({
+      level: "info",
+      service: "email",
+      event: "email.sent",
+      recipient,
+      subject,
+      provider: result.providerName,
+      providerMessageId: result.providerMessageId,
+    }));
+  } else {
+    console.log(JSON.stringify({
+      level: "error",
+      service: "email",
+      event: "email.failed",
+      recipient,
+      subject,
+      provider: result.providerName,
+      error: result.error,
+    }));
+  }
+}
+
+export async function sendEmail(
+  template: EmailTemplate,
+  recipient: string,
+): Promise<void> {
+  try {
+    if (!process.env.RESEND_API_KEY) {
+      console.log(JSON.stringify({
+        level: "warn",
+        service: "email",
+        event: "email.skipped",
+        template: template.type,
+        recipient,
+        reason: "RESEND_API_KEY not set",
+      }));
+      return;
+    }
+
+    const { subject, html } = renderTemplate(template);
+
+    const queue = getQueue();
+    if (queue) {
+      try {
+        await queue.add("send-email", { recipient, subject, html }, {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 2000 },
+          removeOnComplete: 100,
+          removeOnFail: 200,
+        });
+        console.log(JSON.stringify({
+          level: "info",
+          service: "email",
+          event: "email.queued",
+          template: template.type,
+          recipient,
+          subject,
+        }));
+        return;
+      } catch {
+        console.log(JSON.stringify({
+          level: "warn",
+          service: "email",
+          event: "email.queue_failed",
+          template: template.type,
+          recipient,
+          reason: "falling back to direct send",
+        }));
+      }
+    }
+
+    await deliverEmail(recipient, subject, html);
+  } catch (err) {
+    console.log(JSON.stringify({
+      level: "error",
+      service: "email",
+      event: "email.unexpected_error",
+      template: template.type,
+      recipient,
+      error: err instanceof Error ? err.message : String(err),
+    }));
+  }
 }
 
 export async function sendAgentRegisteredEmail(
   userEmail: string,
   agentHandle: string,
   agentDisplayName: string,
-) {
-  const html = `
-    <h2>Your agent has been registered</h2>
-    <p><strong>${agentDisplayName}</strong> (<code>@${agentHandle}</code>) is now registered on Agent ID.</p>
-    <p>Next step: verify your agent's identity to increase its trust score.</p>
-    <p>Visit your <a href="${process.env.APP_URL || "https://getagent.id"}/dashboard">dashboard</a> to manage your agent.</p>
-  `;
-  return sendNotification(
-    envelope(userEmail, `Agent registered: ${agentDisplayName}`, html),
+): Promise<void> {
+  await sendEmail(
+    { type: "welcome", data: { agentHandle, agentDisplayName } },
+    userEmail,
+  );
+}
+
+export async function sendVerificationCompleteEmail(
+  userEmail: string,
+  agentHandle: string,
+  agentDisplayName: string,
+  verificationMethod: string,
+): Promise<void> {
+  await sendEmail(
+    { type: "verification_complete", data: { agentHandle, agentDisplayName, verificationMethod } },
+    userEmail,
+  );
+}
+
+export async function sendNewTaskEmail(
+  userEmail: string,
+  agentHandle: string,
+  agentDisplayName: string,
+  taskType: string,
+  taskId: string,
+): Promise<void> {
+  await sendEmail(
+    { type: "new_task", data: { agentHandle, agentDisplayName, taskType, taskId } },
+    userEmail,
   );
 }
 
@@ -56,14 +180,10 @@ export async function sendCredentialIssuedEmail(
   userEmail: string,
   agentHandle: string,
   credentialType: string,
-) {
-  const html = `
-    <h2>Credential issued</h2>
-    <p>A new <strong>${credentialType}</strong> credential has been issued for <code>@${agentHandle}</code>.</p>
-    <p>If you did not initiate this, please review your agent's security settings immediately.</p>
-  `;
-  return sendNotification(
-    envelope(userEmail, `Credential issued for @${agentHandle}`, html),
+): Promise<void> {
+  await sendEmail(
+    { type: "credential_issued", data: { agentHandle, credentialType } },
+    userEmail,
   );
 }
 
@@ -71,14 +191,10 @@ export async function sendNewProposalEmail(
   userEmail: string,
   jobTitle: string,
   proposerHandle: string,
-) {
-  const html = `
-    <h2>New proposal received</h2>
-    <p><code>@${proposerHandle}</code> submitted a proposal for your job: <strong>${jobTitle}</strong>.</p>
-    <p>Review it in your <a href="${process.env.APP_URL || "https://getagent.id"}/dashboard/marketplace">dashboard</a>.</p>
-  `;
-  return sendNotification(
-    envelope(userEmail, `New proposal for: ${jobTitle}`, html),
+): Promise<void> {
+  await sendEmail(
+    { type: "new_proposal", data: { jobTitle, proposerHandle } },
+    userEmail,
   );
 }
 
@@ -86,13 +202,22 @@ export async function sendMarketplaceOrderEmail(
   userEmail: string,
   listingTitle: string,
   orderAmount: string,
-) {
-  const html = `
-    <h2>New marketplace order</h2>
-    <p>You received an order for <strong>${listingTitle}</strong> ($${orderAmount}).</p>
-    <p>Check your <a href="${process.env.APP_URL || "https://getagent.id"}/dashboard/marketplace">marketplace dashboard</a> for details.</p>
-  `;
-  return sendNotification(
-    envelope(userEmail, `New order: ${listingTitle}`, html),
+): Promise<void> {
+  await sendEmail(
+    { type: "order_placed", data: { listingTitle, orderAmount, orderId: "" } },
+    userEmail,
+  );
+}
+
+export async function sendOrderCompletedEmail(
+  userEmail: string,
+  listingTitle: string,
+  orderAmount: string,
+  orderId: string,
+  role: "buyer" | "seller",
+): Promise<void> {
+  await sendEmail(
+    { type: "order_completed", data: { listingTitle, orderAmount, orderId, role } },
+    userEmail,
   );
 }

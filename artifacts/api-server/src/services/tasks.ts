@@ -3,8 +3,21 @@ import { db } from "@workspace/db";
 import {
   tasksTable,
   agentsTable,
+  usersTable,
   type Task,
 } from "@workspace/db/schema";
+
+function hasEmailNotificationsEnabled(agentMetadata: unknown): boolean {
+  if (
+    agentMetadata &&
+    typeof agentMetadata === "object" &&
+    "emailNotificationsEnabled" in agentMetadata &&
+    (agentMetadata as Record<string, unknown>).emailNotificationsEnabled === false
+  ) {
+    return false;
+  }
+  return true;
+}
 
 export interface SubmitTaskInput {
   recipientAgentId: string;
@@ -68,6 +81,34 @@ export async function submitTask(input: SubmitTaskInput): Promise<Task> {
       updatedAt: new Date(),
     })
     .where(eq(agentsTable.id, input.recipientAgentId));
+
+  try {
+    const recipientAgent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, input.recipientAgentId),
+      columns: { handle: true, displayName: true, userId: true, metadata: true },
+    });
+    if (recipientAgent) {
+      const emailNotificationsEnabled = hasEmailNotificationsEnabled(recipientAgent.metadata);
+      const owner = emailNotificationsEnabled
+        ? await db.query.usersTable.findFirst({
+            where: eq(usersTable.id, recipientAgent.userId),
+            columns: { email: true },
+          })
+        : null;
+      if (owner?.email) {
+        const { sendNewTaskEmail } = await import("./email.js");
+        await sendNewTaskEmail(
+          owner.email,
+          recipientAgent.handle,
+          recipientAgent.displayName,
+          input.taskType,
+          task.id,
+        );
+      }
+    }
+  } catch (err) {
+    console.error(`[tasks] Failed to send new task email:`, err instanceof Error ? err.message : err);
+  }
 
   return task;
 }

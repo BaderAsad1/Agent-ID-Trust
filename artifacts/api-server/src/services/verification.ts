@@ -5,6 +5,7 @@ import {
   agentsTable,
   agentVerificationChallengesTable,
   agentKeysTable,
+  usersTable,
 } from "@workspace/db/schema";
 
 const CHALLENGE_EXPIRY_MS = 10 * 60 * 1000;
@@ -120,6 +121,30 @@ export async function verifyChallenge(
     await reissueCredential(agentId);
   } catch (err) {
     console.error(`[verification] Failed to reissue credential after verification:`, err instanceof Error ? err.message : err);
+  }
+
+  try {
+    const fullAgent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+      columns: { handle: true, displayName: true, userId: true },
+    });
+    if (fullAgent) {
+      const user = await db.query.usersTable.findFirst({
+        where: eq(usersTable.id, fullAgent.userId),
+        columns: { email: true },
+      });
+      if (user?.email) {
+        const { sendVerificationCompleteEmail } = await import("./email.js");
+        await sendVerificationCompleteEmail(
+          user.email,
+          fullAgent.handle,
+          fullAgent.displayName,
+          "key_challenge",
+        );
+      }
+    }
+  } catch (err) {
+    console.error(`[verification] Failed to send verification email for agent ${agentId}:`, err instanceof Error ? err.message : err);
   }
 
   return { success: true };

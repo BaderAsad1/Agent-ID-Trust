@@ -80,7 +80,7 @@ export async function createOrder(
   try {
     const seller = await db.query.usersTable.findFirst({ where: eq(usersTable.id, listing.userId) });
     if (seller?.email) {
-      const { sendMarketplaceOrderEmail } = await import("./email");
+      const { sendMarketplaceOrderEmail } = await import("./email.js");
       await sendMarketplaceOrderEmail(seller.email, listing.title, priceAmount.toFixed(2));
     }
   } catch (err) {
@@ -207,6 +207,32 @@ export async function completeOrder(
     eventType: "agent.task_completed",
     payload: { orderId, source: "marketplace", sellerPayout: order.sellerPayout },
   });
+
+  try {
+    const listing = await db.query.marketplaceListingsTable.findFirst({
+      where: eq(marketplaceListingsTable.id, order.listingId),
+      columns: { title: true },
+    });
+    const listingTitle = listing?.title || "Marketplace order";
+    const amount = String(order.priceAmount);
+
+    const [seller, buyer] = await Promise.all([
+      db.query.usersTable.findFirst({ where: eq(usersTable.id, order.sellerUserId), columns: { email: true } }),
+      db.query.usersTable.findFirst({ where: eq(usersTable.id, order.buyerUserId), columns: { email: true } }),
+    ]);
+
+    const { sendOrderCompletedEmail } = await import("./email.js");
+    const sends: Promise<void>[] = [];
+    if (seller?.email) {
+      sends.push(sendOrderCompletedEmail(seller.email, listingTitle, amount, orderId, "seller"));
+    }
+    if (buyer?.email) {
+      sends.push(sendOrderCompletedEmail(buyer.email, listingTitle, amount, orderId, "buyer"));
+    }
+    await Promise.all(sends);
+  } catch (err) {
+    console.error(`[orders] Failed to send order completed email:`, err instanceof Error ? err.message : err);
+  }
 
   return { success: true, order: updated };
 }

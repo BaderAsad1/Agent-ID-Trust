@@ -1,6 +1,7 @@
 import app from "./app";
 import { startDomainWorker, closeDomainWorker } from "./workers/domain-provisioning";
 import { initWebhookDeliveryWorker, closeWebhookWorker } from "./workers/webhook-delivery";
+import { initEmailDeliveryWorker, closeEmailWorker } from "./workers/email-delivery";
 import { closeRedis } from "./lib/redis";
 import { expireJobs } from "./services/jobs";
 
@@ -54,6 +55,7 @@ if (!isRedisConfigured()) {
 
 startDomainWorker();
 initWebhookDeliveryWorker();
+initEmailDeliveryWorker();
 
 const JOB_EXPIRY_INTERVAL_MS = 60 * 1000;
 let jobExpiryTimer: ReturnType<typeof setInterval> | null = null;
@@ -87,6 +89,7 @@ async function gracefulShutdown(signal: string) {
   server.close();
   await closeDomainWorker();
   await closeWebhookWorker();
+  await closeEmailWorker();
   await closeRedis();
   process.exit(0);
 }
