@@ -1763,6 +1763,9 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} className="anatomy-section-outer" style={{
         position: 'relative',
         minHeight: '300vh',
+        marginTop: '-100vh',
+        background: '#050711',
+        zIndex: 2,
       }}>
         <div className="anatomy-sticky-container" style={{
           position: 'sticky',
@@ -1772,13 +1775,10 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: scroll.anatomyProgress > 0.92
             ? lerp(1, 0, (scroll.anatomyProgress - 0.92) / 0.08)
-            : (scroll.anatomyProgress < 0.05
-              ? lerp(0, 1, scroll.anatomyProgress / 0.05)
-              : 1),
+            : 1,
           transform: scroll.anatomyProgress > 0.92
             ? `scale(${lerp(1, 0.97, (scroll.anatomyProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.anatomyProgress - 0.92) / 0.08)}px)`
             : undefined,
-          transition: 'opacity 0.05s linear',
         }}>
           <AnatomySection anatomyProgress={scroll.anatomyProgress} />
         </div>
@@ -1787,6 +1787,9 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       <section ref={sectionRefs.unlocks as React.RefObject<HTMLElement>} style={{
         position: 'relative',
         minHeight: '280vh',
+        marginTop: '-100vh',
+        background: '#050711',
+        zIndex: 3,
       }}>
         <div style={{
           position: 'sticky',
@@ -1796,13 +1799,10 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: scroll.unlocksProgress > 0.92
             ? lerp(1, 0, (scroll.unlocksProgress - 0.92) / 0.08)
-            : (scroll.unlocksProgress < 0.05
-              ? lerp(0, 1, scroll.unlocksProgress / 0.05)
-              : 1),
+            : 1,
           transform: scroll.unlocksProgress > 0.92
             ? `scale(${lerp(1, 0.97, (scroll.unlocksProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.unlocksProgress - 0.92) / 0.08)}px)`
             : undefined,
-          transition: 'opacity 0.05s linear',
         }}>
           <SystemActivationSection unlocksProgress={scroll.unlocksProgress} />
         </div>
@@ -1811,6 +1811,9 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       <section ref={sectionRefs.cta as React.RefObject<HTMLElement>} style={{
         position: 'relative',
         minHeight: '160vh',
+        marginTop: '-100vh',
+        background: '#050711',
+        zIndex: 4,
       }}>
         <div style={{
           position: 'sticky',
@@ -1818,13 +1821,6 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           height: '100vh',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: scroll.ctaProgress < 0.10
-            ? lerp(0, 1, scroll.ctaProgress / 0.10)
-            : 1,
-          transform: scroll.ctaProgress < 0.20
-            ? `translateY(${lerp(40, 0, scroll.ctaProgress / 0.20)}px)`
-            : undefined,
-          transition: 'opacity 0.05s linear',
         }}>
           <CTASection ctaProgress={scroll.ctaProgress} onNavigate={onNavigate} />
         </div>
