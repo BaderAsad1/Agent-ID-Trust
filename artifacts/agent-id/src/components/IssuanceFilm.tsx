@@ -40,14 +40,17 @@ function useScrollFilm(refs: SectionRefs): ScrollState {
     const sectionProgress = (el: HTMLElement | null) => {
       if (!el) return 0;
       const scrollY = window.scrollY;
+      const vh = window.innerHeight;
       const top = el.offsetTop;
       const height = el.offsetHeight;
-      const scrollableHeight = height - window.innerHeight;
-      if (scrollableHeight <= 0) {
+      const start = Math.max(0, top - vh);
+      const end = top + height - vh;
+      const range = end - start;
+      if (range <= 0) {
         const visible = scrollY >= top && scrollY < top + height;
         return visible ? 1 : (scrollY >= top + height ? 1 : 0);
       }
-      return Math.max(0, Math.min(1, (scrollY - top) / scrollableHeight));
+      return Math.max(0, Math.min(1, (scrollY - start) / range));
     };
 
     const onScroll = () => {
@@ -672,13 +675,14 @@ const ANATOMY_LAYERS = [
 
 function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
   const stagger = useCallback((index: number) => {
-    const layerStart = 0.08 + index * 0.10;
-    const layerEnd = layerStart + 0.20;
+    const layerStart = 0.36 + index * 0.07;
+    const layerEnd = layerStart + 0.14;
     return Math.max(0, Math.min(1, (anatomyProgress - layerStart) / (layerEnd - layerStart)));
   }, [anatomyProgress]);
 
-  const titleOpacity = Math.min(1, anatomyProgress / 0.12);
-  const titleTranslateY = lerp(40, 0, Math.min(1, anatomyProgress / 0.12));
+  const titleT = Math.max(0, Math.min(1, (anatomyProgress - 0.22) / 0.14));
+  const titleOpacity = titleT;
+  const titleTranslateY = lerp(40, 0, titleT);
 
   return (
     <div className="anatomy-wrapper" style={{
@@ -902,10 +906,11 @@ const UNLOCK_CHANNELS = [
 ];
 
 function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number }) {
-  const titleOpacity = Math.min(1, unlocksProgress / 0.12);
-  const titleTranslateY = lerp(40, 0, Math.min(1, unlocksProgress / 0.12));
+  const titleT = Math.max(0, Math.min(1, (unlocksProgress - 0.25) / 0.13));
+  const titleOpacity = titleT;
+  const titleTranslateY = lerp(40, 0, titleT);
 
-  const spineOpacity = Math.min(1, unlocksProgress / 0.15);
+  const spineOpacity = Math.max(0, Math.min(1, (unlocksProgress - 0.25) / 0.15));
 
   return (
     <div className="activation-wrapper" style={{
@@ -991,8 +996,8 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
           gap: 'clamp(6px, 1.2vh, 16px)',
         }}>
           {UNLOCK_CHANNELS.map((ch, i) => {
-            const channelStart = 0.15 + i * 0.13;
-            const channelEnd = channelStart + 0.18;
+            const channelStart = 0.38 + i * 0.09;
+            const channelEnd = channelStart + 0.14;
             const chProgress = Math.max(0, Math.min(1, (unlocksProgress - channelStart) / (channelEnd - channelStart)));
             const isLeft = i % 2 === 0;
 
@@ -1178,8 +1183,9 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
 }
 
 function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNavigate?: (path: string) => void }) {
-  const opacity = Math.min(1, ctaProgress / 0.25);
-  const translateY = lerp(60, 0, Math.min(1, ctaProgress / 0.3));
+  const ctaT = Math.max(0, Math.min(1, (ctaProgress - 0.50) / 0.20));
+  const opacity = ctaT;
+  const translateY = lerp(60, 0, Math.max(0, Math.min(1, (ctaProgress - 0.50) / 0.25)));
 
   return (
     <div style={{
@@ -1764,13 +1770,13 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           height: '100vh',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: scroll.anatomyProgress > 0.88
-            ? lerp(1, 0, (scroll.anatomyProgress - 0.88) / 0.12)
-            : (scroll.anatomyProgress < 0.08
-              ? lerp(0, 1, scroll.anatomyProgress / 0.08)
+          opacity: scroll.anatomyProgress > 0.92
+            ? lerp(1, 0, (scroll.anatomyProgress - 0.92) / 0.08)
+            : (scroll.anatomyProgress < 0.05
+              ? lerp(0, 1, scroll.anatomyProgress / 0.05)
               : 1),
-          transform: scroll.anatomyProgress > 0.88
-            ? `scale(${lerp(1, 0.97, (scroll.anatomyProgress - 0.88) / 0.12)}) translateY(${lerp(0, -30, (scroll.anatomyProgress - 0.88) / 0.12)}px)`
+          transform: scroll.anatomyProgress > 0.92
+            ? `scale(${lerp(1, 0.97, (scroll.anatomyProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.anatomyProgress - 0.92) / 0.08)}px)`
             : undefined,
           transition: 'opacity 0.05s linear',
         }}>
@@ -1788,13 +1794,13 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           height: '100vh',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: scroll.unlocksProgress > 0.88
-            ? lerp(1, 0, (scroll.unlocksProgress - 0.88) / 0.12)
-            : (scroll.unlocksProgress < 0.08
-              ? lerp(0, 1, scroll.unlocksProgress / 0.08)
+          opacity: scroll.unlocksProgress > 0.92
+            ? lerp(1, 0, (scroll.unlocksProgress - 0.92) / 0.08)
+            : (scroll.unlocksProgress < 0.05
+              ? lerp(0, 1, scroll.unlocksProgress / 0.05)
               : 1),
-          transform: scroll.unlocksProgress > 0.88
-            ? `scale(${lerp(1, 0.97, (scroll.unlocksProgress - 0.88) / 0.12)}) translateY(${lerp(0, -30, (scroll.unlocksProgress - 0.88) / 0.12)}px)`
+          transform: scroll.unlocksProgress > 0.92
+            ? `scale(${lerp(1, 0.97, (scroll.unlocksProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.unlocksProgress - 0.92) / 0.08)}px)`
             : undefined,
           transition: 'opacity 0.05s linear',
         }}>
@@ -1812,11 +1818,11 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           height: '100vh',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: scroll.ctaProgress < 0.1
-            ? lerp(0, 1, scroll.ctaProgress / 0.1)
+          opacity: scroll.ctaProgress < 0.10
+            ? lerp(0, 1, scroll.ctaProgress / 0.10)
             : 1,
-          transform: scroll.ctaProgress < 0.15
-            ? `translateY(${lerp(40, 0, scroll.ctaProgress / 0.15)}px)`
+          transform: scroll.ctaProgress < 0.20
+            ? `translateY(${lerp(40, 0, scroll.ctaProgress / 0.20)}px)`
             : undefined,
           transition: 'opacity 0.05s linear',
         }}>
