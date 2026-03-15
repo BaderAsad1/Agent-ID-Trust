@@ -58,27 +58,29 @@ export function Nav() {
             }}>Agent ID</span>
           </button>
 
-          <div className="hidden md:flex items-center gap-8">
-            {navLinks.map(l => (
-              <button
-                key={l.label}
-                onClick={l.onClick}
-                className="text-sm transition-colors cursor-pointer hover:opacity-80"
-                style={{
-                  color: l.highlight ? 'var(--accent)' : 'rgba(232,232,240,0.45)',
-                  background: 'none',
-                  border: 'none',
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: 13,
-                  letterSpacing: '0.01em',
-                }}
-                aria-label={l.label}
-              >
-                {l.label}
-              </button>
-            ))}
-          </div>
+          {userId && (
+            <div className="hidden md:flex items-center gap-8">
+              {navLinks.map(l => (
+                <button
+                  key={l.label}
+                  onClick={l.onClick}
+                  className="text-sm transition-colors cursor-pointer hover:opacity-80"
+                  style={{
+                    color: l.highlight ? 'var(--accent)' : 'rgba(232,232,240,0.45)',
+                    background: 'none',
+                    border: 'none',
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize: 13,
+                    letterSpacing: '0.01em',
+                  }}
+                  aria-label={l.label}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="hidden md:flex items-center gap-3">
             {userId ? (
@@ -150,7 +152,7 @@ export function Nav() {
       {mobileOpen && (
         <div className="fixed inset-0 z-40 pt-16 md:hidden" style={{ background: 'var(--bg-base)' }}>
           <div className="flex flex-col gap-4 p-6">
-            {navLinks.map(l => (
+            {userId && navLinks.map(l => (
               <button
                 key={l.label}
                 onClick={() => { l.onClick?.(); setMobileOpen(false); }}
