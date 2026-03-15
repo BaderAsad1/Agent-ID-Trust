@@ -37,7 +37,6 @@ const registrationLimiter = rateLimit({
     code: "RATE_LIMIT_EXCEEDED",
     retryAfterSeconds: 900,
   },
-  keyGenerator: (req) => req.ip || "unknown",
   validate: { xForwardedForHeader: false },
 });
 
