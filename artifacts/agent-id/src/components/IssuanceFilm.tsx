@@ -1493,7 +1493,7 @@ function RegistryField({ progress }: { progress: number }) {
 
   const monoStyle: CSSProperties = {
     fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 'clamp(14px, 1.6vw, 18px)',
+    fontSize: 'clamp(16px, 2vw, 22px)',
     fontWeight: 500,
     letterSpacing: '0.02em',
   };
@@ -1508,7 +1508,7 @@ function RegistryField({ progress }: { progress: number }) {
         display: 'inline-flex', alignItems: 'center',
         background: 'rgba(8,10,22,0.88)',
         border: '1px solid rgba(79,125,243,0.12)',
-        borderRadius: 10, padding: '10px 20px',
+        borderRadius: 12, padding: '12px 24px',
         width: '14.5ch',
         boxSizing: 'content-box',
       }}>
@@ -1544,12 +1544,12 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
 
       <h1 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(28px, 4vw, 52px)',
-        fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15,
+        fontSize: 'clamp(42px, 6.5vw, 80px)',
+        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.08,
         color: '#e8e8f0',
         textAlign: 'center',
-        margin: '0 0 16px',
-        maxWidth: 600,
+        margin: '0 0 20px',
+        maxWidth: 760,
         opacity: contentOpacity,
         transform: `translateY(${contentY}px)`,
       }}>
@@ -1559,11 +1559,11 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
 
       <p style={{
         fontFamily: "'Inter', sans-serif",
-        fontSize: 'clamp(13px, 1.4vw, 16px)',
+        fontSize: 'clamp(15px, 1.5vw, 19px)',
         fontWeight: 400, lineHeight: 1.6,
-        color: 'rgba(232,232,240,0.3)',
+        color: 'rgba(232,232,240,0.38)',
         textAlign: 'center',
-        maxWidth: 440, margin: '0 auto',
+        maxWidth: 520, margin: '0 auto',
         opacity: contentOpacity * 0.8,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
