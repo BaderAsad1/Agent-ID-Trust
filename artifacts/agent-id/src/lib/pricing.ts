@@ -33,7 +33,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       '1 public agent',
       '.agentid address included',
-      'First standard handle included (5+ chars)',
+      'First standard handle included (5+ chars) at founder pricing',
       'Marketplace access',
       'Basic trust score',
       'Email support',
@@ -89,7 +89,7 @@ export interface HandlePricingTier {
 export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
   { minLength: 3, maxLength: 3, label: '3-character', annualPrice: 640, description: 'Ultra-premium, scarce namespace' },
   { minLength: 4, maxLength: 4, label: '4-character', annualPrice: 160, description: 'Premium short handle' },
-  { minLength: 5, maxLength: 100, label: '5+ characters', annualPrice: 5, description: 'Standard handle' },
+  { minLength: 5, maxLength: 100, label: '5+ characters', annualPrice: new Date() >= new Date('2026-06-10') ? 12 : 9.99, description: new Date() >= new Date('2026-06-10') ? 'Standard handle' : 'Founder pricing — increases June 10' },
 ];
 
 export function getHandlePrice(handle: string): { annualPrice: number; tier: HandlePricingTier } {
