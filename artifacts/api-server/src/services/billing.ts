@@ -7,6 +7,7 @@ import {
   agentSubscriptionsTable,
   agentsTable,
   webhookEventsTable,
+  auditEventsTable,
   type Subscription,
   type AgentSubscription,
 } from "@workspace/db/schema";
@@ -617,12 +618,41 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
         const stripe = getStripe();
         await stripe.subscriptions.cancel(oldSubId, { prorate: true });
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        const errorStack = err instanceof Error ? err.stack : undefined;
         console.error("[billing] Failed to cancel previous subscription", {
           userId,
-          oldSubscriptionId: oldSubId,
+          subscriptionId: oldSubId,
           newSubscriptionId: subscriptionId,
-          error: err instanceof Error ? err.message : String(err),
+          error: errorMessage,
+          stack: errorStack,
         });
+        await Promise.all([
+          db.insert(webhookEventsTable).values({
+            provider: "stripe",
+            eventType: "subscription.cancel_failed",
+            providerEventId: `cancel_fail_${oldSubId}_${Date.now()}`,
+            payload: {
+              userId,
+              subscriptionId: oldSubId,
+              newSubscriptionId: subscriptionId,
+              error: errorMessage,
+              stack: errorStack,
+            },
+            status: "failed",
+          }),
+          db.insert(auditEventsTable).values({
+            actorType: "user",
+            actorId: userId,
+            eventType: "billing.subscription_cancel_failed",
+            payload: {
+              subscriptionId: oldSubId,
+              newSubscriptionId: subscriptionId,
+              error: errorMessage,
+            },
+          }),
+        ]).catch(() => {});
+        throw new Error(`Failed to cancel previous subscription ${oldSubId}: ${errorMessage}`);
       }
     }
 

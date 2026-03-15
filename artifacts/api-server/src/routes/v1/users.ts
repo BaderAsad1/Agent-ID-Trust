@@ -17,7 +17,11 @@ const updateUserSchema = z.object({
 
 router.get("/me", requireAuth, (req, res) => {
   const user = req.user!;
-  res.json(user);
+  const response: Record<string, unknown> = { ...user };
+  if (process.env.NODE_ENV === "production") {
+    delete response.replitUserId;
+  }
+  res.json(response);
 });
 
 router.patch("/me", requireAuth, async (req, res, next) => {

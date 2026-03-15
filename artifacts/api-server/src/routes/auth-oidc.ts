@@ -122,7 +122,11 @@ router.get("/auth/user", async (req: Request, res: Response) => {
     return;
   }
 
-  res.json({ user: session.user });
+  const userData = { ...session.user };
+  if (process.env.NODE_ENV === "production") {
+    delete (userData as Record<string, unknown>).replitUserId;
+  }
+  res.json({ user: userData });
 });
 
 router.get("/login", async (req: Request, res: Response) => {

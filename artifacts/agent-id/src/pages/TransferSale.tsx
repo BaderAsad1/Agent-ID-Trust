@@ -1,25 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRightLeft, AlertCircle, RefreshCw, X, Check, CheckCircle, ShieldCheck, Package, Link2, Ban, ChevronRight, ChevronLeft, DollarSign, FileText, AlertTriangle, Loader2, Flag, BadgeCheck } from 'lucide-react';
+import { ArrowRightLeft, AlertCircle, RefreshCw, X, Check, CheckCircle, ShieldCheck, Package, Link2, Ban, ChevronRight, ChevronLeft, FileText, AlertTriangle, Loader2, Flag, BadgeCheck } from 'lucide-react';
 import { GlassCard, PrimaryButton, Identicon, AgentHandle, TrustScoreRing, StatusDot, ListSkeleton, EmptyState } from '@/components/shared';
-import { api, type Agent, type TransferSale as TransferSaleType, type TransferType, type TransferStatus, type TransferReadinessReport, type TransferHandoff, type TransferHandoffItem, type TransferPublicListing, type TransferOwnershipFields } from '@/lib/api';
+import { api, type Agent, type TransferSale as TransferSaleType, type TransferType, type TransferStatus, type TransferReadinessReport, type TransferOwnershipFields } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 
 const TRANSFER_TYPE_INFO: Record<TransferType, { label: string; description: string; icon: typeof Package }> = {
-  identity_only: {
-    label: 'Identity Only',
-    description: 'Transfer the handle, identity document, and trust history. No operational assets (endpoints, API keys, integrations) are included. Buyer starts fresh operationally.',
+  private_transfer: {
+    label: 'Private Transfer',
+    description: 'Transfer this agent to a specific user privately. Both parties must agree before the handoff begins.',
     icon: FileText,
   },
-  operating_agent: {
-    label: 'Operating Agent',
-    description: 'Transfer the identity plus all operational configuration — endpoints, API keys, integrations, and capabilities. Buyer inherits the running agent as-is.',
+  internal_reassignment: {
+    label: 'Internal Reassignment',
+    description: 'Reassign this agent within your organization or team. Streamlined process for internal ownership changes.',
     icon: Link2,
-  },
-  full_agent_business: {
-    label: 'Full Agent Business',
-    description: 'Transfer everything: identity, operations, marketplace listings, client relationships, revenue history, and all associated data. Complete change of control.',
-    icon: Package,
   },
 };
 
@@ -27,10 +22,12 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   draft: { bg: 'rgba(148,163,184,0.1)', color: 'var(--text-dim)' },
   listed: { bg: 'rgba(59,130,246,0.1)', color: 'var(--accent)' },
   pending_acceptance: { bg: 'rgba(245,158,11,0.1)', color: 'var(--warning, #f59e0b)' },
+  hold_pending: { bg: 'rgba(245,158,11,0.1)', color: '#f59e0b' },
+  transfer_pending: { bg: 'rgba(245,158,11,0.1)', color: '#f59e0b' },
   in_handoff: { bg: 'rgba(168,85,247,0.1)', color: '#a855f7' },
   completed: { bg: 'rgba(16,185,129,0.1)', color: 'var(--success)' },
-  cancelled: { bg: 'rgba(239,68,68,0.1)', color: 'var(--danger)' },
   disputed: { bg: 'rgba(239,68,68,0.1)', color: 'var(--danger)' },
+  cancelled: { bg: 'rgba(239,68,68,0.1)', color: 'var(--danger)' },
 };
 
 function TransferStatusBadge({ status }: { status: TransferStatus | string }) {
@@ -44,13 +41,12 @@ function TransferStatusBadge({ status }: { status: TransferStatus | string }) {
 }
 
 export function TransferWizardModal({ agent, existingTransfer, onClose, onComplete }: { agent: Agent; existingTransfer?: TransferSaleType; onClose: () => void; onComplete: () => void }) {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [transferType, setTransferType] = useState<TransferType>(existingTransfer?.transferType || 'identity_only');
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [transferType, setTransferType] = useState<TransferType>(existingTransfer?.transferType || 'private_transfer');
   const [readiness, setReadiness] = useState<TransferReadinessReport | null>(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
   const [readinessError, setReadinessError] = useState<string | null>(null);
-  const [askingPrice, setAskingPrice] = useState(existingTransfer?.askingPrice || '');
-  const [currency, setCurrency] = useState(existingTransfer?.currency || 'USD');
+  const [buyerId, setBuyerId] = useState(existingTransfer?.buyerId || '');
   const [notes, setNotes] = useState(existingTransfer?.notes || '');
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -77,32 +73,25 @@ export function TransferWizardModal({ agent, existingTransfer, onClose, onComple
   }, [step, fetchReadiness]);
 
   const handlePublish = async () => {
-    if (!askingPrice.trim()) return;
     setPublishing(true);
     setPublishError(null);
     try {
       let transfer: TransferSaleType;
       if (draftId) {
-        transfer = await api.transferSale.update(draftId, {
-          transferType,
-          askingPrice: askingPrice.trim(),
-          currency,
+        transfer = await api.transferSale.update(agent.id, draftId, {
+          buyerId: buyerId.trim() || undefined,
           notes: notes.trim() || undefined,
         });
-        await api.transferSale.publish(draftId);
       } else {
-        transfer = await api.transferSale.create({
-          agentId: agent.id,
+        transfer = await api.transferSale.create(agent.id, {
           transferType,
-          askingPrice: askingPrice.trim(),
-          currency,
+          buyerId: buyerId.trim() || undefined,
           notes: notes.trim() || undefined,
         });
-        await api.transferSale.publish(transfer.id);
       }
       setCreatedTransfer(transfer);
     } catch (e: unknown) {
-      setPublishError(e instanceof Error ? e.message : 'Failed to publish listing');
+      setPublishError(e instanceof Error ? e.message : 'Failed to create transfer');
     } finally {
       setPublishing(false);
     }
@@ -147,21 +136,20 @@ export function TransferWizardModal({ agent, existingTransfer, onClose, onComple
         </div>
 
         <div className="flex items-center gap-2 mb-6">
-          {[1, 2, 3, 4].map(s => (
+          {[1, 2, 3].map(s => (
             <div key={s} className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{
                 background: step >= s ? 'var(--accent)' : 'var(--bg-base)',
                 color: step >= s ? '#fff' : 'var(--text-dim)',
                 border: step >= s ? 'none' : '1px solid var(--border-color)',
               }}>{step > s ? <Check className="w-4 h-4" /> : s}</div>
-              {s < 4 && <div className="w-8 h-0.5" style={{ background: step > s ? 'var(--accent)' : 'var(--border-color)' }} />}
+              {s < 3 && <div className="w-8 h-0.5" style={{ background: step > s ? 'var(--accent)' : 'var(--border-color)' }} />}
             </div>
           ))}
           <span className="ml-2 text-xs" style={{ color: 'var(--text-dim)' }}>
             {step === 1 && 'Transfer Type'}
             {step === 2 && 'Readiness Report'}
-            {step === 3 && 'Set Terms'}
-            {step === 4 && 'Confirmation'}
+            {step === 3 && 'Confirm & Create'}
           </span>
         </div>
 
@@ -300,68 +288,15 @@ export function TransferWizardModal({ agent, existingTransfer, onClose, onComple
           </div>
         )}
 
-        {step === 3 && (
+        {step === 3 && !createdTransfer && (
           <div>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Set the asking price and any terms for this transfer listing.</p>
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Asking Price *</label>
-                  <input
-                    type="number"
-                    value={askingPrice}
-                    onChange={e => setAskingPrice(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-                    style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Currency</label>
-                  <select
-                    value={currency}
-                    onChange={e => setCurrency(e.target.value)}
-                    className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-                    style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
-                  >
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Notes (optional)</label>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Any additional terms, conditions, or information for potential buyers..."
-                  rows={3}
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none"
-                  style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
-                />
-              </div>
-            </div>
-            <div className="flex justify-between mt-6">
-              <PrimaryButton variant="ghost" onClick={() => setStep(2)}>
-                <ChevronLeft className="w-4 h-4 mr-1" /> Back
-              </PrimaryButton>
-              <PrimaryButton onClick={() => setStep(4)} disabled={!askingPrice.trim()}>
-                Review <ChevronRight className="w-4 h-4 ml-1" />
-              </PrimaryButton>
-            </div>
-          </div>
-        )}
-
-        {step === 4 && !createdTransfer && (
-          <div>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Review all details before publishing. Once published, this listing will be visible to potential buyers.</p>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Review the transfer details and provide optional information before creating.</p>
             {publishError && (
               <div className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
                 <AlertCircle className="w-4 h-4 flex-shrink-0" /> {publishError}
               </div>
             )}
-            <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-color)' }}>
+            <div className="rounded-xl p-4 space-y-3 mb-4" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-color)' }}>
               <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-dim)' }}>Transfer Summary</div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between py-1 border-b" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
@@ -373,56 +308,52 @@ export function TransferWizardModal({ agent, existingTransfer, onClose, onComple
                   <span style={{ color: 'var(--text-primary)' }}>{TRANSFER_TYPE_INFO[transferType].label}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Asking Price</span>
-                  <span className="font-bold" style={{ color: 'var(--accent)' }}>${askingPrice} {currency}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Trust Score</span>
                   <span style={{ color: 'var(--text-primary)' }}>{agent.trustScore}</span>
                 </div>
-                {notes && (
-                  <div className="py-1">
-                    <span className="block mb-1" style={{ color: 'var(--text-muted)' }}>Notes</span>
-                    <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{notes}</span>
-                  </div>
-                )}
               </div>
-              {readiness && (
-                <div className="pt-3 border-t" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div className="text-center">
-                      <div className="font-bold" style={{ color: 'var(--success)' }}>{readiness.transferable.length}</div>
-                      <div style={{ color: 'var(--text-dim)' }}>Transferable</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-bold" style={{ color: 'var(--warning, #f59e0b)' }}>{readiness.mustReconnect.length}</div>
-                      <div style={{ color: 'var(--text-dim)' }}>Must Reconnect</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-bold" style={{ color: 'var(--text-dim)' }}>{readiness.excluded.length}</div>
-                      <div style={{ color: 'var(--text-dim)' }}>Excluded</div>
-                    </div>
-                  </div>
-                </div>
-              )}
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Recipient User ID (optional)</label>
+                <input
+                  type="text"
+                  value={buyerId}
+                  onChange={e => setBuyerId(e.target.value)}
+                  placeholder="UUID of the buyer, or leave blank"
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                  style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Notes (optional)</label>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Any additional terms or information..."
+                  rows={3}
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none"
+                  style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                />
+              </div>
             </div>
             <div className="flex justify-between mt-6">
-              <PrimaryButton variant="ghost" onClick={() => setStep(3)}>
+              <PrimaryButton variant="ghost" onClick={() => setStep(2)}>
                 <ChevronLeft className="w-4 h-4 mr-1" /> Back
               </PrimaryButton>
               <PrimaryButton onClick={handlePublish} disabled={publishing}>
-                {publishing ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Publishing...</> : <>Confirm &amp; Publish <DollarSign className="w-4 h-4 ml-1" /></>}
+                {publishing ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Creating...</> : <>Create Transfer <ChevronRight className="w-4 h-4 ml-1" /></>}
               </PrimaryButton>
             </div>
           </div>
         )}
 
-        {step === 4 && createdTransfer && (
+        {step === 3 && createdTransfer && (
           <div className="text-center py-8">
             <CheckCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--success)' }} />
-            <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer Listed</h3>
+            <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer Created</h3>
             <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-              Your agent @{agent.handle} is now listed for transfer at ${askingPrice} {currency}.
+              Your agent @{agent.handle} transfer has been initiated.
             </p>
             <div className="text-xs mb-6" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
               Transfer ID: {createdTransfer.id}
@@ -435,10 +366,10 @@ export function TransferWizardModal({ agent, existingTransfer, onClose, onComple
   );
 }
 
-export function HandoffChecklist({ transferId }: { transferId: string }) {
+export function HandoffChecklist({ agentId, transferId }: { agentId: string; transferId: string }) {
   const { userId } = useAuth();
   const [transfer, setTransfer] = useState<TransferSaleType | null>(null);
-  const [handoff, setHandoff] = useState<TransferHandoff | null>(null);
+  const [events, setEvents] = useState<Array<{ id: string; eventType: string; payload: Record<string, unknown>; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -447,21 +378,22 @@ export function HandoffChecklist({ transferId }: { transferId: string }) {
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
 
   const fetchData = useCallback(async () => {
+    if (!transferId || !agentId) return;
     setLoading(true);
     setError(null);
     try {
-      const [t, h] = await Promise.all([
-        api.transferSale.get(transferId),
-        api.transferSale.handoff.get(transferId),
+      const [t, evts] = await Promise.all([
+        api.transferSale.get(agentId, transferId),
+        api.transferSale.events(agentId, transferId),
       ]);
       setTransfer(t);
-      setHandoff(h);
+      setEvents(evts.events || []);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load handoff data');
+      setError(e instanceof Error ? e.message : 'Failed to load transfer data');
     } finally {
       setLoading(false);
     }
-  }, [transferId]);
+  }, [agentId, transferId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -471,23 +403,22 @@ export function HandoffChecklist({ transferId }: { transferId: string }) {
     return () => clearInterval(interval);
   }, [transfer?.status, fetchData]);
 
-  const isSeller = transfer?.sellerUserId === userId;
-  const isBuyer = transfer?.buyerUserId === userId;
+  const isSeller = transfer?.sellerId === userId;
+  const isBuyer = transfer?.buyerId === userId;
 
-  const handleAcknowledgeItem = async (itemId: string) => {
-    setActionLoading(itemId);
+  const handleAdvance = async () => {
+    setActionLoading('advance');
     try {
-      await api.transferSale.handoff.acknowledgeItem(transferId, itemId);
+      await api.transferSale.advance(agentId, transferId);
       await fetchData();
     } catch { /* handled by re-fetch */ }
     finally { setActionLoading(null); }
   };
 
-  const handleAcknowledge = async (role: 'seller' | 'buyer') => {
-    setActionLoading(`ack_${role}`);
+  const handleStartHandoff = async () => {
+    setActionLoading('start-handoff');
     try {
-      if (role === 'seller') await api.transferSale.handoff.acknowledgeSeller(transferId);
-      else await api.transferSale.handoff.acknowledgeBuyer(transferId);
+      await api.transferSale.startHandoff(agentId, transferId);
       await fetchData();
     } catch { /* handled by re-fetch */ }
     finally { setActionLoading(null); }
@@ -496,7 +427,7 @@ export function HandoffChecklist({ transferId }: { transferId: string }) {
   const handleComplete = async () => {
     setActionLoading('complete');
     try {
-      await api.transferSale.handoff.complete(transferId);
+      await api.transferSale.complete(agentId, transferId);
       await fetchData();
     } catch { /* handled by re-fetch */ }
     finally { setActionLoading(null); }
@@ -506,7 +437,7 @@ export function HandoffChecklist({ transferId }: { transferId: string }) {
     if (!disputeReason.trim()) return;
     setDisputeSubmitting(true);
     try {
-      await api.transferSale.handoff.dispute(transferId, disputeReason.trim());
+      await api.transferSale.dispute(agentId, transferId, disputeReason.trim());
       setShowDispute(false);
       await fetchData();
     } catch { /* handled by re-fetch */ }
@@ -521,17 +452,17 @@ export function HandoffChecklist({ transferId }: { transferId: string }) {
       <PrimaryButton variant="ghost" onClick={fetchData}><RefreshCw className="w-4 h-4 mr-2" /> Retry</PrimaryButton>
     </div>
   );
-  if (!transfer || !handoff) return null;
+  if (!transfer) return null;
 
-  const systemItems = handoff.items.filter(i => i.category === 'system_validated');
-  const manualItems = handoff.items.filter(i => i.category === 'manual_acknowledgment');
-  const canComplete = handoff.allSystemValidated && handoff.sellerAcknowledged && handoff.buyerAcknowledged;
+  const STATUS_STEPS = ['pending_acceptance', 'hold_pending', 'transfer_pending', 'in_handoff', 'completed'] as const;
+  const currentIdx = STATUS_STEPS.indexOf(transfer.status as typeof STATUS_STEPS[number]);
+  const progress = currentIdx >= 0 ? (currentIdx + 1) / STATUS_STEPS.length : 0;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Handoff Checklist</h2>
+          <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Transfer Progress</h2>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
             @{transfer.agentHandle} — {TRANSFER_TYPE_INFO[transfer.transferType]?.label || transfer.transferType}
           </p>
@@ -542,10 +473,10 @@ export function HandoffChecklist({ transferId }: { transferId: string }) {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium" style={{ color: 'var(--text-dim)' }}>Progress</span>
-          <span className="text-xs font-bold" style={{ color: 'var(--accent)' }}>{Math.round(handoff.progress * 100)}%</span>
+          <span className="text-xs font-bold" style={{ color: 'var(--accent)' }}>{Math.round(progress * 100)}%</span>
         </div>
         <div className="h-2 rounded-full" style={{ background: 'var(--bg-base)' }}>
-          <div className="h-2 rounded-full transition-all" style={{ width: `${handoff.progress * 100}%`, background: 'var(--accent)' }} />
+          <div className="h-2 rounded-full transition-all" style={{ width: `${progress * 100}%`, background: 'var(--accent)' }} />
         </div>
       </div>
 
@@ -553,84 +484,66 @@ export function HandoffChecklist({ transferId }: { transferId: string }) {
         <GlassCard>
           <div className="flex items-center gap-2 mb-4">
             <ShieldCheck className="w-5 h-5" style={{ color: 'var(--domain)' }} />
-            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>System-Validated Items</h3>
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer Steps</h3>
           </div>
-          <p className="text-xs mb-4" style={{ color: 'var(--text-dim)' }}>These items are automatically verified by the platform when conditions are met.</p>
           <div className="space-y-2">
-            {systemItems.map(item => (
-              <HandoffItemRow key={item.id} item={item} isSystem loading={actionLoading === item.id} />
+            {STATUS_STEPS.map((step, idx) => (
+              <div key={step} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--bg-base)' }}>
+                <div className="flex-shrink-0">
+                  {idx <= currentIdx ? (
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.15)' }}>
+                      <Check className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
+                    </div>
+                  ) : (
+                    <div className="w-6 h-6 rounded-full border-2" style={{ borderColor: 'var(--border-color)' }} />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium capitalize" style={{ color: idx <= currentIdx ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                    {step.replace(/_/g, ' ')}
+                  </div>
+                </div>
+              </div>
             ))}
-            {systemItems.length === 0 && <p className="text-xs" style={{ color: 'var(--text-dim)' }}>No system-validated items for this transfer type.</p>}
           </div>
         </GlassCard>
 
-        <GlassCard>
-          <div className="flex items-center gap-2 mb-4">
-            <Check className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Manual Acknowledgments</h3>
-          </div>
-          <p className="text-xs mb-4" style={{ color: 'var(--text-dim)' }}>These items require explicit confirmation from the buyer or seller.</p>
-          <div className="space-y-2">
-            {manualItems.map(item => (
-              <HandoffItemRow
-                key={item.id}
-                item={item}
-                isSystem={false}
-                loading={actionLoading === item.id}
-                onAcknowledge={() => handleAcknowledgeItem(item.id)}
-                canAcknowledge={isSeller || isBuyer}
-              />
-            ))}
-            {manualItems.length === 0 && <p className="text-xs" style={{ color: 'var(--text-dim)' }}>No manual acknowledgments for this transfer type.</p>}
-          </div>
-        </GlassCard>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {events.length > 0 && (
           <GlassCard>
-            <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Seller Acknowledgment</h4>
-            {handoff.sellerAcknowledged ? (
-              <div className="flex items-center gap-2">
-                <BadgeCheck className="w-5 h-5" style={{ color: 'var(--success)' }} />
-                <span className="text-sm" style={{ color: 'var(--success)' }}>Seller has acknowledged</span>
-              </div>
-            ) : isSeller ? (
-              <PrimaryButton onClick={() => handleAcknowledge('seller')} disabled={actionLoading === 'ack_seller'}>
-                {actionLoading === 'ack_seller' ? 'Acknowledging...' : 'Acknowledge as Seller'}
-              </PrimaryButton>
-            ) : (
-              <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Waiting for seller acknowledgment...</p>
-            )}
+            <div className="flex items-center gap-2 mb-4">
+              <Check className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer Events</h3>
+            </div>
+            <div className="space-y-2">
+              {events.map(evt => (
+                <div key={evt.id} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: 'var(--bg-base)' }}>
+                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{evt.eventType.replace(/_/g, ' ')}</div>
+                  <div className="text-xs ml-auto" style={{ color: 'var(--text-dim)' }}>{new Date(evt.createdAt).toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
           </GlassCard>
-
-          <GlassCard>
-            <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Buyer Acknowledgment</h4>
-            {handoff.buyerAcknowledged ? (
-              <div className="flex items-center gap-2">
-                <BadgeCheck className="w-5 h-5" style={{ color: 'var(--success)' }} />
-                <span className="text-sm" style={{ color: 'var(--success)' }}>Buyer has acknowledged</span>
-              </div>
-            ) : isBuyer ? (
-              <PrimaryButton onClick={() => handleAcknowledge('buyer')} disabled={actionLoading === 'ack_buyer'}>
-                {actionLoading === 'ack_buyer' ? 'Acknowledging...' : 'Acknowledge as Buyer'}
-              </PrimaryButton>
-            ) : (
-              <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Waiting for buyer acknowledgment...</p>
-            )}
-          </GlassCard>
-        </div>
+        )}
 
         <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
-          {transfer.status === 'in_handoff' && (isSeller || isBuyer) && (
+          {(transfer.status === 'in_handoff' || transfer.status === 'hold_pending' || transfer.status === 'transfer_pending') && (isSeller || isBuyer) && (
             <PrimaryButton variant="ghost" onClick={() => setShowDispute(true)}>
               <Flag className="w-4 h-4 mr-1" /> Raise Dispute
             </PrimaryButton>
           )}
-          {!canComplete && transfer.status === 'in_handoff' && (
-            <div className="text-xs" style={{ color: 'var(--text-dim)' }}>All items must be validated and both parties must acknowledge before handoff can be completed.</div>
+          {(transfer.status === 'pending_acceptance' || transfer.status === 'hold_pending') && isSeller && (
+            <PrimaryButton onClick={handleAdvance} disabled={actionLoading === 'advance'}>
+              {actionLoading === 'advance' ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Advancing...</> : 'Advance Transfer'}
+            </PrimaryButton>
           )}
-          {canComplete && transfer.status === 'in_handoff' && (
+          {transfer.status === 'transfer_pending' && isSeller && (
+            <PrimaryButton onClick={handleStartHandoff} disabled={actionLoading === 'start-handoff'}>
+              {actionLoading === 'start-handoff' ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Starting...</> : 'Start Handoff'}
+            </PrimaryButton>
+          )}
+          {transfer.status === 'in_handoff' && isSeller && (
             <PrimaryButton onClick={handleComplete} disabled={actionLoading === 'complete'}>
-              {actionLoading === 'complete' ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Completing...</> : 'Complete Handoff'}
+              {actionLoading === 'complete' ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Completing...</> : 'Complete Transfer'}
             </PrimaryButton>
           )}
         </div>
@@ -684,88 +597,48 @@ export function HandoffChecklist({ transferId }: { transferId: string }) {
   );
 }
 
-function HandoffItemRow({ item, isSystem, loading, onAcknowledge, canAcknowledge }: {
-  item: TransferHandoffItem;
-  isSystem: boolean;
-  loading?: boolean;
-  onAcknowledge?: () => void;
-  canAcknowledge?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--bg-base)' }}>
-      <div className="flex-shrink-0">
-        {item.completed ? (
-          isSystem ? (
-            <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(6,182,212,0.15)' }}>
-              <ShieldCheck className="w-3.5 h-3.5" style={{ color: 'var(--domain)' }} />
-            </div>
-          ) : (
-            <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.15)' }}>
-              <Check className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
-            </div>
-          )
-        ) : (
-          <div className="w-6 h-6 rounded-full border-2" style={{ borderColor: 'var(--border-color)' }} />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium" style={{ color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)' }}>{item.label}</div>
-        <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{item.description}</div>
-        {item.completed && item.completedAt && (
-          <div className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
-            {isSystem ? 'System verified' : 'Acknowledged'} {new Date(item.completedAt).toLocaleString()}
-          </div>
-        )}
-      </div>
-      {!item.completed && !isSystem && onAcknowledge && canAcknowledge && (
-        <PrimaryButton variant="ghost" onClick={onAcknowledge} disabled={loading} className="!text-xs !py-1 !px-2">
-          {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Confirm'}
-        </PrimaryButton>
-      )}
-      {item.completed && isSystem && (
-        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(6,182,212,0.1)', color: 'var(--domain)' }}>Verified</span>
-      )}
-    </div>
-  );
-}
-
 export function BuyerAcquisitionView() {
-  const { transferId } = useParams();
+  const { agentId, transferId } = useParams();
   const navigate = useNavigate();
   const { userId } = useAuth();
-  const [listing, setListing] = useState<TransferPublicListing | null>(null);
+  const [transfer, setTransfer] = useState<TransferSaleType | null>(null);
+  const [assets, setAssets] = useState<Array<{ id: string; label: string; category: string; description: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [purchasing, setPurchasing] = useState(false);
-  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
 
   const fetchListing = useCallback(async () => {
-    if (!transferId) return;
+    if (!transferId || !agentId) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await api.transferSale.publicListing(transferId);
-      setListing(data);
+      const [t, a] = await Promise.all([
+        api.transferSale.get(agentId, transferId),
+        api.transferSale.assets(agentId, transferId).catch(() => ({ assets: [] })),
+      ]);
+      setTransfer(t);
+      setAssets(a.assets || []);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load transfer listing');
+      setError(e instanceof Error ? e.message : 'Failed to load transfer');
     } finally {
       setLoading(false);
     }
-  }, [transferId]);
+  }, [agentId, transferId]);
 
   useEffect(() => { fetchListing(); }, [fetchListing]);
 
-  const handlePurchase = async () => {
-    if (!transferId) return;
-    setPurchasing(true);
-    setPurchaseError(null);
+  const handleAccept = async () => {
+    if (!transferId || !agentId) return;
+    setAccepting(true);
+    setAcceptError(null);
     try {
-      await api.transferSale.purchase(transferId);
-      navigate(`/dashboard/transfers/${transferId}`);
+      await api.transferSale.accept(agentId, transferId);
+      navigate(`/dashboard/transfers/${agentId}/${transferId}`);
     } catch (e: unknown) {
-      setPurchaseError(e instanceof Error ? e.message : 'Failed to initiate purchase');
+      setAcceptError(e instanceof Error ? e.message : 'Failed to accept transfer');
     } finally {
-      setPurchasing(false);
+      setAccepting(false);
     }
   };
 
@@ -775,19 +648,18 @@ export function BuyerAcquisitionView() {
     </div>
   );
 
-  if (error || !listing) return (
+  if (error || !transfer) return (
     <div className="pt-16" style={{ background: 'var(--bg-base)' }}>
       <div className="max-w-[900px] mx-auto px-6 py-10 text-center">
         <AlertCircle className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--danger)' }} />
-        <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Listing not found</h3>
-        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>{error || 'This transfer listing does not exist or is no longer available.'}</p>
+        <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer not found</h3>
+        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>{error || 'This transfer does not exist or is no longer available.'}</p>
         <PrimaryButton variant="ghost" onClick={fetchListing}><RefreshCw className="w-4 h-4 mr-2" /> Retry</PrimaryButton>
       </div>
     </div>
   );
 
-  const { transfer, agent, transferable, mustReconnect } = listing;
-  const typeInfo = TRANSFER_TYPE_INFO[transfer.transferType] || TRANSFER_TYPE_INFO.identity_only;
+  const typeInfo = TRANSFER_TYPE_INFO[transfer.transferType] || TRANSFER_TYPE_INFO.private_transfer;
 
   return (
     <div className="pt-16" style={{ background: 'var(--bg-base)' }}>
@@ -798,9 +670,9 @@ export function BuyerAcquisitionView() {
             <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(59,130,246,0.1)', color: 'var(--accent)' }}>{typeInfo.label}</span>
           </div>
           <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-            Agent Transfer: @{agent.handle}
+            Agent Transfer: @{transfer.agentHandle || 'Unknown'}
           </h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{agent.displayName} — {agent.description || 'No description provided'}</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{transfer.agentDisplayName || ''}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -808,43 +680,23 @@ export function BuyerAcquisitionView() {
             <GlassCard>
               <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Agent Identity</h3>
               <div className="flex items-center gap-4 mb-4">
-                <Identicon handle={agent.handle} size={48} />
+                <Identicon handle={transfer.agentHandle || ''} size={48} />
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{agent.displayName}</span>
-                    <StatusDot status={agent.status as 'active' | 'inactive' | 'draft'} />
+                    <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{transfer.agentDisplayName || 'Unknown Agent'}</span>
                   </div>
-                  <AgentHandle handle={agent.handle} size="sm" />
+                  {transfer.agentHandle && <AgentHandle handle={transfer.agentHandle} size="sm" />}
                 </div>
               </div>
             </GlassCard>
 
-            <GlassCard>
-              <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Included Assets</h3>
-              {transferable.length === 0 ? (
-                <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Asset details will be available after readiness check.</p>
-              ) : (
+            {assets.length > 0 && (
+              <GlassCard>
+                <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer Assets</h3>
                 <div className="space-y-2">
-                  {transferable.map(item => (
+                  {assets.map(item => (
                     <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: 'rgba(16,185,129,0.05)' }}>
                       <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--success)' }} />
-                      <div>
-                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.label}</div>
-                        <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{item.description}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </GlassCard>
-
-            {mustReconnect.length > 0 && (
-              <GlassCard>
-                <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Buyer Must Reconnect</h3>
-                <div className="space-y-2">
-                  {mustReconnect.map(item => (
-                    <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: 'rgba(245,158,11,0.05)' }}>
-                      <Link2 className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--warning, #f59e0b)' }} />
                       <div>
                         <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.label}</div>
                         <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{item.description}</div>
@@ -858,54 +710,51 @@ export function BuyerAcquisitionView() {
 
           <div className="space-y-6">
             <GlassCard>
-              <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Asking Price</h3>
-              <div className="text-3xl font-bold mb-1" style={{ color: 'var(--accent)' }}>${transfer.askingPrice}</div>
-              <div className="text-xs mb-4" style={{ color: 'var(--text-dim)' }}>{transfer.currency}</div>
+              <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer Details</h3>
               {transfer.notes && (
                 <div className="rounded-lg p-3 mb-4" style={{ background: 'var(--bg-base)' }}>
-                  <div className="text-xs font-medium mb-1" style={{ color: 'var(--text-dim)' }}>Seller Notes</div>
+                  <div className="text-xs font-medium mb-1" style={{ color: 'var(--text-dim)' }}>Notes</div>
                   <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{transfer.notes}</p>
                 </div>
               )}
-              {purchaseError && (
+              {acceptError && (
                 <div className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {purchaseError}
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {acceptError}
                 </div>
               )}
-              {transfer.status === 'listed' && userId && (
-                <PrimaryButton className="w-full" onClick={handlePurchase} disabled={purchasing}>
-                  {purchasing ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Processing...</> : 'Initiate Purchase'}
+              {(transfer.status === 'draft' || transfer.status === 'listed') && userId && (
+                <PrimaryButton className="w-full" onClick={handleAccept} disabled={accepting}>
+                  {accepting ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Processing...</> : 'Accept Transfer'}
                 </PrimaryButton>
               )}
-              {transfer.status === 'listed' && !userId && (
-                <PrimaryButton className="w-full" onClick={() => navigate('/sign-in')} variant="ghost">Sign in to Purchase</PrimaryButton>
+              {(transfer.status === 'draft' || transfer.status === 'listed') && !userId && (
+                <PrimaryButton className="w-full" onClick={() => navigate('/sign-in')} variant="ghost">Sign in to Accept</PrimaryButton>
               )}
-              {transfer.status !== 'listed' && (
-                <p className="text-sm text-center" style={{ color: 'var(--text-dim)' }}>This listing is no longer available for purchase.</p>
+              {transfer.status !== 'draft' && transfer.status !== 'listed' && (
+                <p className="text-sm text-center" style={{ color: 'var(--text-dim)' }}>This transfer is no longer available for acceptance.</p>
               )}
             </GlassCard>
 
-            <GlassCard>
-              <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Trust Profile</h3>
-              <div className="flex justify-center mb-4">
-                <TrustScoreRing score={transfer.agentTrustScore} size={80} />
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--text-muted)' }}>Current Score</span>
-                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{transfer.agentTrustScore}</span>
+            {transfer.agentTrustScore !== undefined && (
+              <GlassCard>
+                <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Trust Profile</h3>
+                <div className="flex justify-center mb-4">
+                  <TrustScoreRing score={transfer.agentTrustScore} size={80} />
                 </div>
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--text-muted)' }}>Historical Peak</span>
-                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{transfer.historicalTrustPeak}</span>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--text-muted)' }}>Current Score</span>
+                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{transfer.agentTrustScore}</span>
+                  </div>
+                  {transfer.historicalTrustPeak !== undefined && (
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--text-muted)' }}>Historical Peak</span>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{transfer.historicalTrustPeak}</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="mt-3 pt-3 border-t" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-                <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-                  Trust scores may change after transfer due to operator re-verification requirements.
-                </p>
-              </div>
-            </GlassCard>
+              </GlassCard>
+            )}
           </div>
         </div>
       </div>
@@ -916,16 +765,17 @@ export function BuyerAcquisitionView() {
 export function TransferDashboardPage() {
   const routerLocation = useLocation();
   const pathname = routerLocation.pathname;
-  const transferMatch = pathname.match(/\/dashboard\/transfers\/([^/]+)/);
-  const transferId = transferMatch ? transferMatch[1] : null;
+  const transferMatch = pathname.match(/\/dashboard\/transfers\/([^/]+)\/([^/]+)/);
+  const agentId = transferMatch ? transferMatch[1] : null;
+  const transferId = transferMatch ? transferMatch[2] : null;
   const isHandoff = pathname.endsWith('/handoff');
 
-  if (isHandoff && transferId) {
-    return <HandoffChecklist transferId={transferId} />;
+  if (isHandoff && agentId && transferId) {
+    return <HandoffChecklist agentId={agentId} transferId={transferId} />;
   }
 
-  if (transferId) {
-    return <TransferDetailView transferId={transferId} />;
+  if (agentId && transferId) {
+    return <TransferDetailView agentId={agentId} transferId={transferId} />;
   }
 
   return <TransferListView />;
@@ -941,8 +791,16 @@ function TransferListView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.transferSale.list();
-      setTransfers(res.transfers || []);
+      const agentsRes = await api.agents.list();
+      const agents = agentsRes.agents || [];
+      const allTransfers: TransferSaleType[] = [];
+      await Promise.all(agents.map(async (agent) => {
+        try {
+          const res = await api.transferSale.list(agent.id);
+          allTransfers.push(...(res.transfers || []));
+        } catch { /* agent may have no transfers */ }
+      }));
+      setTransfers(allTransfers);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load transfers');
     } finally {
@@ -980,19 +838,19 @@ function TransferListView() {
         <div className="space-y-3">
           {transfers.map(t => (
             <GlassCard key={t.id} hover className="cursor-pointer !p-4" onClick={() => {
-              if (t.status === 'in_handoff') navigate(`/dashboard/transfers/${t.id}/handoff`);
-              else navigate(`/dashboard/transfers/${t.id}`);
+              if (t.status === 'in_handoff') navigate(`/dashboard/transfers/${t.agentId}/${t.id}/handoff`);
+              else navigate(`/dashboard/transfers/${t.agentId}/${t.id}`);
             }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <Identicon handle={t.agentHandle} size={36} />
+                  <Identicon handle={t.agentHandle || ''} size={36} />
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>@{t.agentHandle}</span>
+                      <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>@{t.agentHandle || 'unknown'}</span>
                       <TransferStatusBadge status={t.status} />
                     </div>
                     <div className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
-                      {TRANSFER_TYPE_INFO[t.transferType]?.label || t.transferType} — ${t.askingPrice} {t.currency}
+                      {TRANSFER_TYPE_INFO[t.transferType]?.label || t.transferType}
                     </div>
                   </div>
                 </div>
@@ -1006,7 +864,7 @@ function TransferListView() {
   );
 }
 
-function TransferDetailView({ transferId }: { transferId: string }) {
+function TransferDetailView({ agentId, transferId }: { agentId: string; transferId: string }) {
   const navigate = useNavigate();
   const [transfer, setTransfer] = useState<TransferSaleType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1017,21 +875,21 @@ function TransferDetailView({ transferId }: { transferId: string }) {
     setLoading(true);
     setError(null);
     try {
-      const t = await api.transferSale.get(transferId);
+      const t = await api.transferSale.get(agentId, transferId);
       setTransfer(t);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load transfer');
     } finally {
       setLoading(false);
     }
-  }, [transferId]);
+  }, [agentId, transferId]);
 
   useEffect(() => { fetchTransfer(); }, [fetchTransfer]);
 
   const handleCancel = async () => {
     setCancelling(true);
     try {
-      await api.transferSale.cancel(transferId);
+      await api.transferSale.cancel(agentId, transferId);
       await fetchTransfer();
     } catch { /* handled by re-fetch */ }
     finally { setCancelling(false); }
@@ -1054,20 +912,16 @@ function TransferDetailView({ transferId }: { transferId: string }) {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Transfer: @{transfer.agentHandle}</h2>
+          <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Transfer: @{transfer.agentHandle || 'Unknown'}</h2>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{TRANSFER_TYPE_INFO[transfer.transferType]?.label || transfer.transferType}</p>
         </div>
         <TransferStatusBadge status={transfer.status} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <GlassCard className="!p-4">
-          <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Asking Price</div>
-          <div className="text-xl font-bold" style={{ color: 'var(--accent)' }}>${transfer.askingPrice} {transfer.currency}</div>
-        </GlassCard>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <GlassCard className="!p-4">
           <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Trust Score</div>
-          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{transfer.agentTrustScore}</div>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{transfer.agentTrustScore ?? '—'}</div>
         </GlassCard>
         <GlassCard className="!p-4">
           <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Created</div>
@@ -1088,14 +942,14 @@ function TransferDetailView({ transferId }: { transferId: string }) {
             Continue Setup <ChevronRight className="w-4 h-4 ml-1" />
           </PrimaryButton>
         )}
-        {transfer.status === 'in_handoff' && (
-          <PrimaryButton onClick={() => navigate(`/dashboard/transfers/${transfer.id}/handoff`)}>
-            Open Handoff Checklist <ChevronRight className="w-4 h-4 ml-1" />
+        {(transfer.status === 'in_handoff' || transfer.status === 'hold_pending' || transfer.status === 'transfer_pending') && (
+          <PrimaryButton onClick={() => navigate(`/dashboard/transfers/${agentId}/${transfer.id}/handoff`)}>
+            View Transfer Progress <ChevronRight className="w-4 h-4 ml-1" />
           </PrimaryButton>
         )}
-        {(transfer.status === 'listed' || transfer.status === 'draft') && (
+        {(transfer.status === 'listed' || transfer.status === 'draft' || transfer.status === 'pending_acceptance') && (
           <PrimaryButton variant="danger" onClick={handleCancel} disabled={cancelling}>
-            {cancelling ? 'Cancelling...' : 'Cancel Listing'}
+            {cancelling ? 'Cancelling...' : 'Cancel Transfer'}
           </PrimaryButton>
         )}
       </div>

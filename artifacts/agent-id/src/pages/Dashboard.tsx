@@ -189,13 +189,19 @@ function Overview() {
       setStats(dashStats as unknown as Record<string, unknown>);
       setRecentActivity((dashStats as unknown as Record<string, unknown>).recentActivity as ActivityItem[] || []);
       try {
-        const transferRes = await api.transferSale.list();
         const transferMap: Record<string, TransferSaleType> = {};
-        const activeStatuses = ['in_handoff', 'pending_acceptance', 'listed', 'draft', 'disputed'];
-        const sorted = (transferRes.transfers || [])
-          .filter(t => activeStatuses.includes(t.status))
-          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-        sorted.forEach(t => { if (!transferMap[t.agentId]) transferMap[t.agentId] = t; });
+        const activeStatuses = ['in_handoff', 'pending_acceptance', 'hold_pending', 'transfer_pending', 'listed', 'draft', 'disputed'];
+        await Promise.all(agents.map(async (agent) => {
+          try {
+            const transferRes = await api.transferSale.list(agent.id);
+            const sorted = (transferRes.transfers || [])
+              .filter(t => activeStatuses.includes(t.status))
+              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+            if (sorted.length > 0 && !transferMap[agent.id]) {
+              transferMap[agent.id] = sorted[0];
+            }
+          } catch { /* agent may have no transfers */ }
+        }));
         setAgentTransfers(transferMap);
       } catch { /* transfers not available */ }
     } catch (e: unknown) {
@@ -203,7 +209,7 @@ function Overview() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [agents]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -286,9 +292,9 @@ function Overview() {
                         if (t.status === 'draft') {
                           setTransferringAgent(agent);
                         } else if (t.status === 'in_handoff') {
-                          navigate(`/dashboard/transfers/${t.id}/handoff`);
+                          navigate(`/dashboard/transfers/${agent.id}/${t.id}/handoff`);
                         } else {
-                          navigate(`/dashboard/transfers/${t.id}`);
+                          navigate(`/dashboard/transfers/${agent.id}/${t.id}`);
                         }
                       }}
                     >
@@ -334,9 +340,9 @@ function Overview() {
                     if (t.status === 'draft') {
                       setTransferringAgent(agent);
                     } else if (t.status === 'in_handoff') {
-                      navigate(`/dashboard/transfers/${t.id}/handoff`);
+                      navigate(`/dashboard/transfers/${agent.id}/${t.id}/handoff`);
                     } else {
-                      navigate(`/dashboard/transfers/${t.id}`);
+                      navigate(`/dashboard/transfers/${agent.id}/${t.id}`);
                     }
                   }}>
                     <ArrowRightLeft className="w-3.5 h-3.5 mr-1" />
@@ -1168,7 +1174,7 @@ function SettingsPage() {
           <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Account</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-              <div><div className="text-sm" style={{ color: 'var(--text-muted)' }}>User ID</div><div className="text-sm" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{userId || '—'}</div></div>
+              <div><div className="text-sm" style={{ color: 'var(--text-muted)' }}>Account</div><div className="text-sm" style={{ color: 'var(--text-primary)' }}>Active</div></div>
             </div>
             <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
               <div><div className="text-sm" style={{ color: 'var(--text-muted)' }}>Agents</div><div className="text-sm" style={{ color: 'var(--text-primary)' }}>{agents.length} registered</div></div>

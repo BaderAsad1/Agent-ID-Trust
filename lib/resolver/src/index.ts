@@ -186,9 +186,8 @@ export class AgentResolver {
     if (options.limit !== undefined) params.set("limit", String(options.limit));
     if (options.offset !== undefined) params.set("offset", String(options.offset));
 
-    const agentsUrl = this.baseUrl.replace(/\/resolve\/?$/, "/agents");
     const qs = params.toString();
-    return this.request<FindAgentsResponse>(`${agentsUrl}${qs ? `?${qs}` : ""}`);
+    return this.request<FindAgentsResponse>(`${this.baseUrl}${qs ? `?${qs}` : ""}`);
   }
 }
 

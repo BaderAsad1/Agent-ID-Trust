@@ -5,16 +5,19 @@ const router = Router();
 
 router.get("/me", requireAuth, (req, res) => {
   const user = req.user!;
-  res.json({
+  const response: Record<string, unknown> = {
     id: user.id,
-    replitUserId: user.replitUserId,
     username: user.username,
     displayName: user.displayName,
     email: user.email,
     avatarUrl: user.avatarUrl,
     plan: user.plan,
     createdAt: user.createdAt.toISOString(),
-  });
+  };
+  if (process.env.NODE_ENV !== "production") {
+    response.replitUserId = user.replitUserId;
+  }
+  res.json(response);
 });
 
 export default router;

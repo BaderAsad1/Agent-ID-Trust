@@ -3,7 +3,7 @@ import { api, type Agent } from './api';
 
 interface AuthUser {
   id: string;
-  replitUserId: string;
+  replitUserId?: string;
   username: string | null;
   displayName: string | null;
   email: string | null;

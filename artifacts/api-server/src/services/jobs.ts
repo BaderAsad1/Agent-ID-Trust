@@ -347,13 +347,16 @@ export async function expireJobs(): Promise<number> {
         ),
       );
 
-    await Promise.all(
-      result.map((job) =>
-        logJobEvent(job.posterUserId, "job.expired", {
+    await db.insert(auditEventsTable).values(
+      result.map((job) => ({
+        actorType: "user" as const,
+        actorId: job.posterUserId,
+        eventType: "job.expired",
+        payload: {
           jobId: job.id,
           title: job.title,
-        }),
-      ),
+        },
+      })),
     );
   }
 

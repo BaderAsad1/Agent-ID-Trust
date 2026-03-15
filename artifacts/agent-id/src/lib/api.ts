@@ -75,11 +75,11 @@ async function request<T>(
 
 export const api = {
   auth: {
-    me: () => request<{ id: string; replitUserId: string; email?: string }>("/auth/me"),
+    me: () => request<{ id: string; replitUserId?: string; email?: string }>("/auth/me"),
   },
 
   users: {
-    me: () => request<{ id: string; replitUserId: string; email?: string; displayName?: string }>("/users/me"),
+    me: () => request<{ id: string; replitUserId?: string; email?: string; displayName?: string }>("/users/me"),
     update: (data: Record<string, unknown>) =>
       request("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
     deleteAccount: () =>
@@ -136,40 +136,32 @@ export const api = {
   },
 
   transferSale: {
-    list: () =>
-      request<{ transfers: TransferSale[] }>("/transfers"),
-    get: (transferId: string) =>
-      request<TransferSale>(`/transfers/${transferId}`),
-    getByAgent: (agentId: string) =>
-      request<TransferSale>(`/agents/${agentId}/transfer-sale`),
-    create: (data: CreateTransferSaleInput) =>
-      request<TransferSale>("/transfers", { method: "POST", body: JSON.stringify(data) }),
-    update: (transferId: string, data: Record<string, unknown>) =>
-      request<TransferSale>(`/transfers/${transferId}`, { method: "PATCH", body: JSON.stringify(data) }),
-    publish: (transferId: string) =>
-      request<TransferSale>(`/transfers/${transferId}/publish`, { method: "POST" }),
-    cancel: (transferId: string) =>
-      request<TransferSale>(`/transfers/${transferId}/cancel`, { method: "POST" }),
+    list: (agentId: string) =>
+      request<{ transfers: TransferSale[] }>(`/agents/${agentId}/transfers`),
+    get: (agentId: string, transferId: string) =>
+      request<TransferSale>(`/agents/${agentId}/transfers/${transferId}`),
+    create: (agentId: string, data: CreateTransferInput) =>
+      request<TransferSale>(`/agents/${agentId}/transfers`, { method: "POST", body: JSON.stringify(data) }),
+    update: (agentId: string, transferId: string, data: Record<string, unknown>) =>
+      request<TransferSale>(`/agents/${agentId}/transfers/${transferId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    cancel: (agentId: string, transferId: string, reason?: string) =>
+      request<TransferSale>(`/agents/${agentId}/transfers/${transferId}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
     readiness: (agentId: string) =>
-      request<TransferReadinessReport>(`/agents/${agentId}/transfer-readiness`),
-    purchase: (transferId: string) =>
-      request<TransferSale>(`/transfers/${transferId}/purchase`, { method: "POST" }),
-    handoff: {
-      get: (transferId: string) =>
-        request<TransferHandoff>(`/transfers/${transferId}/handoff`),
-      acknowledgeItem: (transferId: string, itemId: string) =>
-        request<TransferHandoffItem>(`/transfers/${transferId}/handoff/items/${itemId}/acknowledge`, { method: "POST" }),
-      acknowledgeSeller: (transferId: string) =>
-        request<TransferHandoff>(`/transfers/${transferId}/handoff/acknowledge-seller`, { method: "POST" }),
-      acknowledgeBuyer: (transferId: string) =>
-        request<TransferHandoff>(`/transfers/${transferId}/handoff/acknowledge-buyer`, { method: "POST" }),
-      complete: (transferId: string) =>
-        request<TransferSale>(`/transfers/${transferId}/handoff/complete`, { method: "POST" }),
-      dispute: (transferId: string, reason: string) =>
-        request<TransferSale>(`/transfers/${transferId}/handoff/dispute`, { method: "POST", body: JSON.stringify({ reason }) }),
-    },
-    publicListing: (transferId: string) =>
-      request<TransferPublicListing>(`/transfers/${transferId}/public`),
+      request<TransferReadinessReport>(`/agents/${agentId}/transfers/readiness`),
+    accept: (agentId: string, transferId: string, agreedPrice?: number) =>
+      request<TransferSale>(`/agents/${agentId}/transfers/${transferId}/accept`, { method: "POST", body: JSON.stringify({ agreedPrice }) }),
+    advance: (agentId: string, transferId: string) =>
+      request<TransferSale>(`/agents/${agentId}/transfers/${transferId}/advance`, { method: "POST" }),
+    startHandoff: (agentId: string, transferId: string) =>
+      request<TransferSale>(`/agents/${agentId}/transfers/${transferId}/start-handoff`, { method: "POST" }),
+    complete: (agentId: string, transferId: string) =>
+      request<TransferSale>(`/agents/${agentId}/transfers/${transferId}/complete`, { method: "POST" }),
+    dispute: (agentId: string, transferId: string, reason: string) =>
+      request<TransferSale>(`/agents/${agentId}/transfers/${transferId}/dispute`, { method: "POST", body: JSON.stringify({ reason }) }),
+    events: (agentId: string, transferId: string) =>
+      request<{ events: Array<{ id: string; eventType: string; payload: Record<string, unknown>; createdAt: string }> }>(`/agents/${agentId}/transfers/${transferId}/events`),
+    assets: (agentId: string, transferId: string) =>
+      request<{ assets: TransferAssetItem[] }>(`/agents/${agentId}/transfers/${transferId}/assets`),
   },
 
   fleet: {
@@ -652,34 +644,30 @@ export interface InboxStats {
   threads: { total: number; open: number };
 }
 
-export type TransferType = 'identity_only' | 'operating_agent' | 'full_agent_business';
-export type TransferStatus = 'draft' | 'listed' | 'pending_acceptance' | 'in_handoff' | 'completed' | 'cancelled' | 'disputed';
+export type TransferType = 'private_transfer' | 'internal_reassignment';
+export type TransferStatus = 'draft' | 'listed' | 'pending_acceptance' | 'hold_pending' | 'transfer_pending' | 'in_handoff' | 'completed' | 'disputed' | 'cancelled';
 
 export interface TransferSale {
   id: string;
   agentId: string;
-  sellerUserId: string;
-  buyerUserId?: string;
+  sellerId: string;
+  buyerId?: string;
   transferType: TransferType;
   status: TransferStatus;
-  askingPrice: string;
-  currency: string;
+  askingPrice?: number;
   notes?: string;
-  agentHandle: string;
-  agentDisplayName: string;
-  agentTrustScore: number;
-  historicalTrustPeak: number;
+  agentHandle?: string;
+  agentDisplayName?: string;
+  agentTrustScore?: number;
+  historicalTrustPeak?: number;
   createdAt: string;
   updatedAt: string;
-  publishedAt?: string;
   completedAt?: string;
 }
 
-export interface CreateTransferSaleInput {
-  agentId: string;
+export interface CreateTransferInput {
   transferType: TransferType;
-  askingPrice: string;
-  currency: string;
+  buyerId?: string;
   notes?: string;
 }
 
@@ -699,29 +687,9 @@ export interface TransferAssetItem {
   description: string;
 }
 
-export interface TransferHandoff {
-  transferId: string;
-  items: TransferHandoffItem[];
-  sellerAcknowledged: boolean;
-  buyerAcknowledged: boolean;
-  allSystemValidated: boolean;
-  progress: number;
-}
-
-export interface TransferHandoffItem {
+export interface TransferEvent {
   id: string;
-  label: string;
-  category: 'system_validated' | 'manual_acknowledgment';
-  description: string;
-  completed: boolean;
-  completedAt?: string;
-  completedBy?: string;
-}
-
-export interface TransferPublicListing {
-  transfer: TransferSale;
-  agent: Agent;
-  transferable: TransferAssetItem[];
-  mustReconnect: TransferAssetItem[];
-  trustBreakdown?: Record<string, number>;
+  eventType: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
 }
