@@ -20,6 +20,14 @@ const ALL_CAPABILITIES = [
   { id: 'api', label: 'API Integration', icon: '⚡' },
 ];
 
+const ATTESTATION_CHIPS = [
+  { label: 'Code Execution', icon: '▸' },
+  { label: 'API Access', icon: '∼' },
+  { label: 'Data Analysis', icon: '≡' },
+  { label: 'Payments', icon: '¤' },
+  { label: 'Messaging', icon: '@' },
+];
+
 function StepDots({ current, total }: { current: number; total: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 32 }}>
@@ -118,20 +126,55 @@ function MachineReadableZone() {
   );
 }
 
-const ATTESTATION_CHIPS = [
-  { label: 'Code Execution', icon: '▸' },
-  { label: 'API Access', icon: '∼' },
-  { label: 'Data Analysis', icon: '≡' },
-  { label: 'Payments', icon: '¤' },
-  { label: 'Messaging', icon: '@' },
-];
+function FieldGroup({ label, value, onChange, placeholder, suffix, isTextarea, normalizeHandle, children }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+  suffix?: string; isTextarea?: boolean; normalizeHandle?: boolean; children?: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', color: 'rgba(232,232,240,0.3)', marginBottom: 8, textTransform: 'uppercase' }}>{label}</div>
+      {isTextarea ? (
+        <textarea
+          value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+          style={{ width: '100%', minHeight: 72, padding: '12px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, fontFamily: 'var(--font-body)', fontSize: 15, color: '#e8e8f0', lineHeight: 1.5, boxSizing: 'border-box', resize: 'vertical', outline: 'none' }}
+        />
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden' }}>
+          <input
+            value={value}
+            onChange={e => onChange(normalizeHandle ? e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') : e.target.value)}
+            placeholder={placeholder}
+            style={{ flex: 1, padding: '12px 14px', fontFamily: 'var(--font-body)', fontSize: 15, color: '#e8e8f0', background: 'none', border: 'none', outline: 'none', minWidth: 0 }}
+          />
+          {suffix && (
+            <div style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4f7df3', fontWeight: 500, borderLeft: '1px solid rgba(255,255,255,0.06)', background: 'rgba(79,125,243,0.04)', whiteSpace: 'nowrap' }}>{suffix}</div>
+          )}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function ReviewRow({ label, value, mono, ok, last }: { label: string; value: string; mono?: boolean; ok?: boolean; last?: boolean }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, padding: '14px 20px', borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.04)' }}>
+      <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.4)', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 13, fontFamily: mono ? 'var(--font-mono)' : 'var(--font-body)', color: ok === true ? '#34d399' : ok === false ? 'rgba(232,232,240,0.35)' : '#e8e8f0', textAlign: 'right', wordBreak: 'break-all' }}>{value}</span>
+    </div>
+  );
+}
 
 export function Start() {
   const navigate = useNavigate();
-  const { userId, refreshAgents } = useAuth();
+  const { userId, login, refreshAgents } = useAuth();
 
   const [mode, setMode] = useState<'choose' | 'human'>('choose');
   const [step, setStep] = useState(1);
+  const [inlineSignIn, setInlineSignIn] = useState(false);
+  const [inlineUserId, setInlineUserId] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState('');
 
   const [agentName, setAgentName] = useState('');
   const [handle, setHandle] = useState('');
@@ -139,7 +182,7 @@ export function Start() {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [checkingHandle, setCheckingHandle] = useState(false);
 
-  const [selectedVerifyMethod, setSelectedVerifyMethod] = useState<'github' | 'wallet' | 'manual' | null>(null);
+  const [selectedAuthMethod, setSelectedAuthMethod] = useState<'github' | 'wallet' | 'manual' | null>(null);
   const [verified, setVerified] = useState(false);
 
   const [selectedCaps, setSelectedCaps] = useState<string[]>([]);
@@ -166,6 +209,20 @@ export function Start() {
     return () => clearTimeout(t);
   }, [handle]);
 
+  const handleInlineSignIn = async () => {
+    if (!inlineUserId.trim()) { setSignInError('Enter your user ID'); return; }
+    setSigningIn(true);
+    setSignInError('');
+    try {
+      login(inlineUserId.trim());
+      await api.auth.me();
+      setInlineSignIn(false);
+      setMode('human');
+    } catch {
+      setSignInError('Authentication failed. Try again.');
+    } finally { setSigningIn(false); }
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     setError(null);
@@ -179,9 +236,9 @@ export function Start() {
       });
       setCreatedAgentId(agent.id);
 
-      if (selectedVerifyMethod) {
+      if (selectedAuthMethod) {
         try {
-          const r = await api.agents.verify.initiate(agent.id, selectedVerifyMethod) as Record<string, unknown>;
+          const r = await api.agents.verify.initiate(agent.id, selectedAuthMethod) as Record<string, unknown>;
           await api.agents.verify.complete(agent.id, { challenge: r?.challenge || '' });
           setVerified(true);
         } catch { /* non-fatal */ }
@@ -207,7 +264,9 @@ export function Start() {
     padding: '32px 20px',
   };
 
-  // ─── Welcome / mode select ─────────────────────────────────────────────
+  /* ═══════════════════════════════════════════════════════════════════════
+     SCREEN 1 — Welcome / mode select
+     ═══════════════════════════════════════════════════════════════════════ */
   if (mode === 'choose') {
     return (
       <div style={shell}>
@@ -223,7 +282,7 @@ export function Start() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <button onClick={() => {
               if (!userId) {
-                navigate('/sign-in?redirect=/start');
+                setInlineSignIn(true);
                 return;
               }
               setMode('human');
@@ -254,6 +313,39 @@ export function Start() {
             </button>
           </div>
 
+          {/* Inline sign-in (dev mode) — appears when not logged in */}
+          {inlineSignIn && (
+            <div style={{ marginTop: 24, padding: '20px 24px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, textAlign: 'left' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Sign in to continue</div>
+              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', marginBottom: 16, lineHeight: 1.5 }}>
+                {import.meta.env.DEV
+                  ? 'Enter your Replit User ID. In production, this is handled automatically.'
+                  : 'Sign in with your Replit account to register an agent.'}
+              </div>
+              {signInError && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', color: '#ef4444', fontSize: 12, marginBottom: 12 }}>
+                  <AlertCircle size={12} /> {signInError}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={inlineUserId}
+                  onChange={e => setInlineUserId(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleInlineSignIn()}
+                  placeholder="your-user-id"
+                  style={{ flex: 1, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontFamily: 'var(--font-mono)', fontSize: 13, color: '#e8e8f0', outline: 'none' }}
+                />
+                <button onClick={handleInlineSignIn} disabled={signingIn} style={{
+                  padding: '10px 20px', borderRadius: 8, background: '#4f7df3', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  {signingIn && <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />}
+                  Continue
+                </button>
+              </div>
+            </div>
+          )}
+
           <p style={{ fontSize: 12, color: 'rgba(232,232,240,0.25)', marginTop: 32 }}>
             Already have an account?{' '}
             <span onClick={() => navigate('/sign-in')} style={{ color: '#4f7df3', cursor: 'pointer' }}>Sign in</span>
@@ -263,7 +355,9 @@ export function Start() {
     );
   }
 
-  // ─── Success / credential card ──────────────────────────────────────────
+  /* ═══════════════════════════════════════════════════════════════════════
+     SCREEN 6 — Complete / credential card
+     ═══════════════════════════════════════════════════════════════════════ */
   if (showSuccess) {
     const { annualPrice } = handle ? getHandlePrice(handle) : { annualPrice: 0 };
     return (
@@ -271,6 +365,7 @@ export function Start() {
         <div style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, letterSpacing: '0.2em', color: 'rgba(52,211,153,0.5)', marginBottom: 16, textTransform: 'uppercase' }}>ISSUANCE COMPLETE</div>
 
+          {/* Credential card — matches canvas Step6_Complete */}
           <div style={{
             position: 'relative', borderRadius: 18,
             border: '1px solid rgba(52,211,153,0.15)',
@@ -290,6 +385,9 @@ export function Start() {
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: domainActive ? '#34d399' : '#f59e0b', boxShadow: domainActive ? '0 0 12px rgba(52,211,153,0.6)' : '0 0 8px rgba(245,158,11,0.5)' }} />
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, letterSpacing: '0.16em', color: domainActive ? '#34d399' : '#f59e0b' }}>
                   {domainActive ? 'CREDENTIAL ACTIVE' : 'PROVISIONING…'}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, color: 'rgba(232,232,240,0.25)', marginLeft: 6 }}>
+                  TRUST {verified ? 55 : 35}
                 </span>
               </div>
 
@@ -339,10 +437,21 @@ export function Start() {
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 7.5, fontWeight: 600, letterSpacing: '0.12em', color: 'rgba(232,232,240,0.18)', marginBottom: 6 }}>CAPABILITY ATTESTATIONS</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                 {(selectedCaps.length > 0 ? selectedCaps.slice(0, 5) : ATTESTATION_CHIPS.map(a => a.label)).map(cap => (
-                  <span key={cap} style={{ fontSize: 9.5, fontFamily: 'var(--font-mono)', color: 'rgba(232,232,240,0.45)', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 3, padding: '2px 6px' }}>
+                  <span key={cap} style={{ fontSize: 9.5, fontFamily: 'var(--font-mono)', color: 'rgba(232,232,240,0.45)', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 3, padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 3 }}>
                     {cap}
                   </span>
                 ))}
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)', padding: '10px 28px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 7.5, fontWeight: 600, letterSpacing: '0.12em', color: 'rgba(232,232,240,0.18)', marginBottom: 2 }}>MARKETPLACE</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(232,232,240,0.45)' }}>Unlisted</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 7.5, fontWeight: 600, letterSpacing: '0.12em', color: 'rgba(232,232,240,0.18)', marginBottom: 2 }}>ROUTING</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#34d399' }}>Addressable</div>
               </div>
             </div>
 
@@ -377,6 +486,23 @@ export function Start() {
             </div>
           )}
 
+          <button style={{
+            width: '100%', padding: '13px 20px', borderRadius: 12,
+            background: 'linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            marginBottom: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.4)', fontFamily: 'inherit',
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
+              <rect x="2" y="4" width="20" height="5" rx="3" fill="currentColor" opacity="0.3" />
+              <rect x="5" y="12" width="6" height="1.5" rx="0.75" fill="currentColor" opacity="0.5" />
+              <rect x="5" y="15" width="4" height="1.5" rx="0.75" fill="currentColor" opacity="0.3" />
+            </svg>
+            Add to Apple Wallet
+          </button>
+
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
             <button onClick={() => navigate(`/${handle}`)} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,232,240,0.6)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>View Profile</button>
             <button onClick={() => navigate('/dashboard')} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, background: '#4f7df3', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Go to Dashboard →</button>
@@ -392,14 +518,21 @@ export function Start() {
     );
   }
 
-  // ─── Wizard (4 steps) ──────────────────────────────────────────────────
-  const TOTAL_STEPS = 4;
+  /* ═══════════════════════════════════════════════════════════════════════
+     SCREENS 2–5 — Wizard (5 steps with dots)
+     Step 1: Name your agent
+     Step 2: Authenticate ownership (GitHub / Wallet / Key)
+     Step 3: Claim your addresses
+     Step 4: Capabilities
+     Step 5: Review & Launch
+     ═══════════════════════════════════════════════════════════════════════ */
+  const TOTAL_STEPS = 5;
   const goNext = () => setStep(s => s + 1);
   const goBack = () => step === 1 ? setMode('choose') : setStep(s => s - 1);
 
   return (
     <div style={shell}>
-      <div style={{ width: '100%', maxWidth: step === 3 ? 520 : 480 }}>
+      <div style={{ width: '100%', maxWidth: step === 4 ? 520 : 480 }}>
         <StepDots current={step} total={TOTAL_STEPS} />
 
         {error && (
@@ -408,7 +541,7 @@ export function Start() {
           </div>
         )}
 
-        {/* ── Step 1: Name your agent ──────────────────────────────────── */}
+        {/* ── Step 1: Name your agent (canvas Step 3 — Identity) ───────── */}
         {step === 1 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Name your agent</h1>
@@ -439,41 +572,41 @@ export function Start() {
               </FieldGroup>
 
               <FieldGroup label="Description" value={description} onChange={setDescription} placeholder="Autonomous research agent specializing in…" isTextarea />
-            </div>
 
-            {/* Inline address preview — shows after handle is valid */}
-            {handle && available && (
-              <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1, padding: '12px 14px', background: 'rgba(79,125,243,0.04)', border: '1px solid rgba(79,125,243,0.1)', borderRadius: 10 }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(79,125,243,0.5)', marginBottom: 4 }}>WEB DOMAIN</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: '#e8e8f0' }}>{handle}.getagent.id</div>
+              {handle && available && (
+                <div style={{ padding: '14px 16px', background: 'rgba(79,125,243,0.06)', borderRadius: 10, border: '1px solid rgba(79,125,243,0.1)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.5)' }}>Handle cost</span>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: '#34d399' }}>
+                      {getHandlePrice(handle).annualPrice > 0 ? `$${getHandlePrice(handle).annualPrice}/yr` : 'Included'}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.3)', marginTop: 4 }}>
+                    {getHandlePrice(handle).annualPrice > 0 ? `Premium handle (${handle.length} chars)` : 'Standard handles (7+ chars) are free with any plan'}
+                  </div>
                 </div>
-                <div style={{ flex: 1, padding: '12px 14px', background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.1)', borderRadius: 10 }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(52,211,153,0.5)', marginBottom: 4 }}>PROTOCOL</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: '#e8e8f0' }}>{handle}.agentid</div>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
 
             <NavButtons onBack={goBack} onContinue={goNext} continueDisabled={!agentName || !handle || !available} />
           </>
         )}
 
-        {/* ── Step 2: Verify ownership ─────────────────────────────────── */}
+        {/* ── Step 2: Authenticate ownership (canvas Step 2/4) ─────────── */}
         {step === 2 && (
           <>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Verify ownership</h1>
-            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Prove you control this agent. You can skip and verify later.</p>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Authenticate</h1>
+            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Prove you control this agent. You can skip and authenticate later.</p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {([
                 { id: 'github' as const, icon: '🔑', title: 'GitHub Gist', desc: 'Sign a verification token in a public gist', recommended: true },
                 { id: 'wallet' as const, icon: '💎', title: 'Wallet Signature', desc: 'Sign with an EVM or Solana wallet' },
-                { id: 'manual' as const, icon: '🔒', title: 'Manual Key Signing', desc: 'Sign the challenge with your agent\'s private key' },
+                { id: 'manual' as const, icon: '🔒', title: 'Manual Key Signing', desc: "Sign the challenge with your agent's private key" },
               ]).map(opt => {
-                const sel = selectedVerifyMethod === opt.id;
+                const sel = selectedAuthMethod === opt.id;
                 return (
-                  <button key={opt.title} onClick={() => setSelectedVerifyMethod(sel ? null : opt.id)} style={{
+                  <button key={opt.id} onClick={() => setSelectedAuthMethod(sel ? null : opt.id)} style={{
                     display: 'flex', alignItems: 'center', gap: 16,
                     background: sel ? 'rgba(79,125,243,0.1)' : opt.recommended ? 'rgba(79,125,243,0.04)' : 'rgba(255,255,255,0.02)',
                     border: `1px solid ${sel ? 'rgba(79,125,243,0.4)' : opt.recommended ? 'rgba(79,125,243,0.2)' : 'rgba(255,255,255,0.06)'}`,
@@ -501,8 +634,8 @@ export function Start() {
             <div style={{ marginTop: 16, padding: '14px 18px', background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.12)', borderRadius: 12, display: 'flex', gap: 12 }}>
               <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#f5a623', marginBottom: 4 }}>Why verify?</div>
-                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>Verified agents get a trust score boost and a verified badge on their profile. Unverified agents can still operate but have limited discovery.</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#f5a623', marginBottom: 4 }}>Why authenticate?</div>
+                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>Authenticated agents get a trust score boost and a verified badge on their profile. Unauthenticated agents can still operate but have limited discovery.</div>
               </div>
             </div>
 
@@ -510,8 +643,40 @@ export function Start() {
           </>
         )}
 
-        {/* ── Step 3: Capabilities ─────────────────────────────────────── */}
+        {/* ── Step 3: Claim your addresses ─────────────────────────────── */}
         {step === 3 && (
+          <>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Claim your addresses</h1>
+            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Your agent gets two addresses — a web domain and a protocol namespace.</p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ padding: '22px 24px', background: 'rgba(79,125,243,0.04)', border: '1px solid rgba(79,125,243,0.15)', borderRadius: 14 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(79,125,243,0.6)', marginBottom: 10, textTransform: 'uppercase' }}>Web Domain</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 600, color: '#e8e8f0', marginBottom: 6 }}>
+                  {handle}<span style={{ color: '#4f7df3' }}>.getagent.id</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', lineHeight: 1.5 }}>
+                  Canonical web address. Resolves your .well-known identity document, agent profile, and API endpoints.
+                </div>
+              </div>
+
+              <div style={{ padding: '22px 24px', background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.15)', borderRadius: 14 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(52,211,153,0.6)', marginBottom: 10, textTransform: 'uppercase' }}>Protocol Address</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 600, color: '#e8e8f0', marginBottom: 6 }}>
+                  {handle}<span style={{ color: '#34d399' }}>.agentid</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', lineHeight: 1.5 }}>
+                  Protocol namespace address. Used for agent-to-agent messaging, trust resolution, and marketplace discovery.
+                </div>
+              </div>
+            </div>
+
+            <NavButtons onBack={goBack} onContinue={goNext} />
+          </>
+        )}
+
+        {/* ── Step 4: Capabilities ─────────────────────────────────────── */}
+        {step === 4 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Capabilities</h1>
             <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Select what your agent can do. This helps with discovery.</p>
@@ -558,8 +723,8 @@ export function Start() {
           </>
         )}
 
-        {/* ── Step 4: Review & Create ──────────────────────────────────── */}
-        {step === 4 && (
+        {/* ── Step 5: Review & Launch ──────────────────────────────────── */}
+        {step === 5 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Ready to launch</h1>
             <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Review your agent details and confirm.</p>
@@ -569,7 +734,7 @@ export function Start() {
               <ReviewRow label="Handle" value={`${handle}.agentid`} mono />
               <ReviewRow label="Web domain" value={`${handle}.getagent.id`} mono />
               {description && <ReviewRow label="Description" value={description} />}
-              <ReviewRow label="Verification" value={selectedVerifyMethod === 'github' ? 'GitHub Gist' : selectedVerifyMethod === 'wallet' ? 'Wallet Signature' : selectedVerifyMethod === 'manual' ? 'Manual Key Signing' : 'Skip — verify later'} ok={selectedVerifyMethod !== null} />
+              <ReviewRow label="Authentication" value={selectedAuthMethod === 'github' ? 'GitHub Gist' : selectedAuthMethod === 'wallet' ? 'Wallet Signature' : selectedAuthMethod === 'manual' ? 'Manual Key Signing' : 'Skip — authenticate later'} ok={selectedAuthMethod !== null} />
               <ReviewRow label="Capabilities" value={selectedCaps.join(', ')} last />
             </div>
 
@@ -582,47 +747,6 @@ export function Start() {
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-// ── Shared sub-components ─────────────────────────────────────────────────
-
-function FieldGroup({ label, value, onChange, placeholder, suffix, isTextarea, normalizeHandle, children }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
-  suffix?: string; isTextarea?: boolean; normalizeHandle?: boolean; children?: React.ReactNode;
-}) {
-  return (
-    <div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', color: 'rgba(232,232,240,0.3)', marginBottom: 8, textTransform: 'uppercase' }}>{label}</div>
-      {isTextarea ? (
-        <textarea
-          value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          style={{ width: '100%', minHeight: 72, padding: '12px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, fontFamily: 'var(--font-body)', fontSize: 15, color: '#e8e8f0', lineHeight: 1.5, boxSizing: 'border-box', resize: 'vertical', outline: 'none' }}
-        />
-      ) : (
-        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden' }}>
-          <input
-            value={value}
-            onChange={e => onChange(normalizeHandle ? e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') : e.target.value)}
-            placeholder={placeholder}
-            style={{ flex: 1, padding: '12px 14px', fontFamily: 'var(--font-body)', fontSize: 15, color: '#e8e8f0', background: 'none', border: 'none', outline: 'none', minWidth: 0 }}
-          />
-          {suffix && (
-            <div style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 14, color: '#4f7df3', fontWeight: 500, borderLeft: '1px solid rgba(255,255,255,0.06)', background: 'rgba(79,125,243,0.04)', whiteSpace: 'nowrap' }}>{suffix}</div>
-          )}
-        </div>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function ReviewRow({ label, value, mono, ok, last }: { label: string; value: string; mono?: boolean; ok?: boolean; last?: boolean }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, padding: '14px 20px', borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.04)' }}>
-      <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.4)', flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 13, fontFamily: mono ? 'var(--font-mono)' : 'var(--font-body)', color: ok === true ? '#34d399' : ok === false ? 'rgba(232,232,240,0.35)' : '#e8e8f0', textAlign: 'right', wordBreak: 'break-all' }}>{value}</span>
     </div>
   );
 }
