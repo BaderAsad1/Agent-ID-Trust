@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/AuthContext';
 export function Nav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userId, logout } = useAuth();
+  const { userId, login, logout } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const isDashboard = location.pathname.startsWith('/dashboard');
@@ -108,7 +108,7 @@ export function Nav() {
             ) : (
               <>
                 <button
-                  onClick={() => navigate('/sign-in')}
+                  onClick={login}
                   className="px-4 py-1.5 text-sm rounded-lg transition-all cursor-pointer hover:bg-white/5"
                   style={{
                     color: 'rgba(232,232,240,0.45)',
@@ -169,7 +169,7 @@ export function Nav() {
                 </>
               ) : (
                 <>
-                  <button onClick={() => { navigate('/sign-in'); setMobileOpen(false); }} className="py-3 text-center rounded-lg border cursor-pointer" style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.08)', background: 'none', fontFamily: 'var(--font-body)' }} aria-label="Sign In">Sign In</button>
+                  <button onClick={() => { login(); }} className="py-3 text-center rounded-lg border cursor-pointer" style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.08)', background: 'none', fontFamily: 'var(--font-body)' }} aria-label="Sign In">Sign In</button>
                   <button onClick={() => { navigate('/start'); setMobileOpen(false); }} className="py-3 text-center rounded-lg font-medium cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }} aria-label="Register">Register</button>
                 </>
               )}

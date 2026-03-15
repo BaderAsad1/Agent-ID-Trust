@@ -167,14 +167,9 @@ function ReviewRow({ label, value, mono, ok, last }: { label: string; value: str
 
 export function Start() {
   const navigate = useNavigate();
-  const { userId, login, refreshAgents } = useAuth();
+  const { userId, loading: authLoading, login, refreshAgents } = useAuth();
 
-  const [mode, setMode] = useState<'choose' | 'human'>('choose');
   const [step, setStep] = useState(1);
-  const [inlineSignIn, setInlineSignIn] = useState(false);
-  const [inlineUserId, setInlineUserId] = useState('');
-  const [signingIn, setSigningIn] = useState(false);
-  const [signInError, setSignInError] = useState('');
 
   const [agentName, setAgentName] = useState('');
   const [handle, setHandle] = useState('');
@@ -208,20 +203,6 @@ export function Start() {
     }, 400);
     return () => clearTimeout(t);
   }, [handle]);
-
-  const handleInlineSignIn = async () => {
-    if (!inlineUserId.trim()) { setSignInError('Enter your user ID'); return; }
-    setSigningIn(true);
-    setSignInError('');
-    try {
-      login(inlineUserId.trim());
-      await api.auth.me();
-      setInlineSignIn(false);
-      setMode('human');
-    } catch {
-      setSignInError('Authentication failed. Try again.');
-    } finally { setSigningIn(false); }
-  };
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -264,100 +245,47 @@ export function Start() {
     padding: '32px 20px',
   };
 
-  /* ═══════════════════════════════════════════════════════════════════════
-     SCREEN 1 — Welcome / mode select
-     ═══════════════════════════════════════════════════════════════════════ */
-  if (mode === 'choose') {
+  if (authLoading) {
     return (
       <div style={shell}>
-        <div style={{ width: '100%', maxWidth: 480, textAlign: 'center' }}>
+        <Loader2 size={24} style={{ color: '#4f7df3', animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div style={shell}>
+        <div style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 40 }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#4f7df3', boxShadow: '0 0 12px rgba(79,125,243,0.5)' }} />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, letterSpacing: '0.02em' }}>Agent ID</span>
           </div>
 
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.03em', margin: '0 0 12px' }}>Get started</h1>
-          <p style={{ fontSize: 15, color: 'rgba(232,232,240,0.5)', lineHeight: 1.6, margin: '0 0 40px' }}>Choose how you want to register your agent identity.</p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.03em', margin: '0 0 12px' }}>Register your agent</h1>
+          <p style={{ fontSize: 15, color: 'rgba(232,232,240,0.5)', lineHeight: 1.6, margin: '0 0 36px' }}>Sign in to claim your agent identity and enter the network.</p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <button onClick={() => {
-              if (!userId) {
-                setInlineSignIn(true);
-                return;
-              }
-              setMode('human');
-            }} style={{
-              display: 'flex', alignItems: 'center', gap: 16,
-              background: 'rgba(79,125,243,0.08)', border: '1px solid rgba(79,125,243,0.25)',
-              borderRadius: 14, padding: '20px 24px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
-            }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(79,125,243,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>👤</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 3 }}>I'm a human</div>
-                <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.4)' }}>Register and manage an agent through the dashboard</div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="rgba(232,232,240,0.3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-
-            <button onClick={() => navigate('/for-agents')} style={{
-              display: 'flex', alignItems: 'center', gap: 16,
-              background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: 14, padding: '20px 24px', cursor: 'pointer', textAlign: 'left',
-            }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🤖</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 3 }}>I'm an agent</div>
-                <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.4)' }}>Self-register via the programmatic API</div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="rgba(232,232,240,0.3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-          </div>
-
-          {/* Inline sign-in (dev mode) — appears when not logged in */}
-          {inlineSignIn && (
-            <div style={{ marginTop: 24, padding: '20px 24px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, textAlign: 'left' }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Sign in to continue</div>
-              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', marginBottom: 16, lineHeight: 1.5 }}>
-                {import.meta.env.DEV
-                  ? 'Enter your Replit User ID. In production, this is handled automatically.'
-                  : 'Sign in with your Replit account to register an agent.'}
-              </div>
-              {signInError && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', color: '#ef4444', fontSize: 12, marginBottom: 12 }}>
-                  <AlertCircle size={12} /> {signInError}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  value={inlineUserId}
-                  onChange={e => setInlineUserId(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleInlineSignIn()}
-                  placeholder="your-user-id"
-                  style={{ flex: 1, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontFamily: 'var(--font-mono)', fontSize: 13, color: '#e8e8f0', outline: 'none' }}
-                />
-                <button onClick={handleInlineSignIn} disabled={signingIn} style={{
-                  padding: '10px 20px', borderRadius: 8, background: '#4f7df3', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}>
-                  {signingIn && <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />}
-                  Continue
-                </button>
-              </div>
-            </div>
-          )}
+          <button onClick={login} style={{
+            padding: '14px 32px', borderRadius: 12,
+            background: '#4f7df3', border: 'none',
+            color: '#fff', fontSize: 15, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'inherit',
+            display: 'inline-flex', alignItems: 'center', gap: 10,
+            boxShadow: '0 4px 20px rgba(79,125,243,0.3)',
+            transition: 'transform 0.15s ease',
+          }}>
+            Sign in to continue
+          </button>
 
           <p style={{ fontSize: 12, color: 'rgba(232,232,240,0.25)', marginTop: 32 }}>
-            Already have an account?{' '}
-            <span onClick={() => navigate('/sign-in')} style={{ color: '#4f7df3', cursor: 'pointer' }}>Sign in</span>
+            Already have agents?{' '}
+            <span onClick={login} style={{ color: '#4f7df3', cursor: 'pointer' }}>Sign in to your dashboard</span>
           </p>
         </div>
       </div>
     );
   }
 
-  /* ═══════════════════════════════════════════════════════════════════════
-     SCREEN 6 — Complete / credential card
-     ═══════════════════════════════════════════════════════════════════════ */
   if (showSuccess) {
     const { annualPrice } = handle ? getHandlePrice(handle) : { annualPrice: 0 };
     return (
@@ -365,7 +293,6 @@ export function Start() {
         <div style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, letterSpacing: '0.2em', color: 'rgba(52,211,153,0.5)', marginBottom: 16, textTransform: 'uppercase' }}>ISSUANCE COMPLETE</div>
 
-          {/* Credential card — matches canvas Step6_Complete */}
           <div style={{
             position: 'relative', borderRadius: 18,
             border: '1px solid rgba(52,211,153,0.15)',
@@ -518,17 +445,9 @@ export function Start() {
     );
   }
 
-  /* ═══════════════════════════════════════════════════════════════════════
-     SCREENS 2–5 — Wizard (5 steps with dots)
-     Step 1: Name your agent
-     Step 2: Authenticate ownership (GitHub / Wallet / Key)
-     Step 3: Claim your addresses
-     Step 4: Capabilities
-     Step 5: Review & Launch
-     ═══════════════════════════════════════════════════════════════════════ */
   const TOTAL_STEPS = 5;
   const goNext = () => setStep(s => s + 1);
-  const goBack = () => step === 1 ? setMode('choose') : setStep(s => s - 1);
+  const goBack = () => step === 1 ? navigate('/') : setStep(s => s - 1);
 
   return (
     <div style={shell}>
@@ -541,7 +460,6 @@ export function Start() {
           </div>
         )}
 
-        {/* ── Step 1: Name your agent (canvas Step 3 — Identity) ───────── */}
         {step === 1 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Name your agent</h1>
@@ -592,7 +510,6 @@ export function Start() {
           </>
         )}
 
-        {/* ── Step 2: Authenticate ownership (canvas Step 2/4) ─────────── */}
         {step === 2 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Authenticate</h1>
@@ -643,7 +560,6 @@ export function Start() {
           </>
         )}
 
-        {/* ── Step 3: Claim your addresses ─────────────────────────────── */}
         {step === 3 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Claim your addresses</h1>
@@ -675,7 +591,6 @@ export function Start() {
           </>
         )}
 
-        {/* ── Step 4: Capabilities ─────────────────────────────────────── */}
         {step === 4 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Capabilities</h1>
@@ -723,7 +638,6 @@ export function Start() {
           </>
         )}
 
-        {/* ── Step 5: Review & Launch ──────────────────────────────────── */}
         {step === 5 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Ready to launch</h1>

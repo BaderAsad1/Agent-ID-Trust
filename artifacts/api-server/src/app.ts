@@ -1,7 +1,9 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import router from "./routes";
 import wellKnownRouter from "./routes/well-known";
+import authOidcRouter from "./routes/auth-oidc";
 import { securityHeaders } from "./middlewares/security-headers";
 import { requestLogger } from "./middlewares/request-logger";
 import { replitAuth } from "./middlewares/replit-auth";
@@ -25,6 +27,7 @@ const corsOrigins: cors.CorsOptions["origin"] = (() => {
 })();
 
 app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(cookieParser());
 
 app.use(cliDetect);
 app.use(cliMarkdownRoot);
@@ -43,6 +46,7 @@ app.use(apiKeyAuth);
 app.use("/api", apiRateLimiter);
 
 app.use(wellKnownRouter);
+app.use("/api", authOidcRouter);
 app.use("/api", router);
 
 app.use(errorHandler);

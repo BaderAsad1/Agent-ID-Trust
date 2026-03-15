@@ -1,20 +1,31 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { api, setCurrentUserId, getCurrentUserId, type Agent } from './api';
+import { api, type Agent } from './api';
+
+interface AuthUser {
+  id: string;
+  replitUserId: string;
+  username: string | null;
+  displayName: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+}
 
 interface AuthState {
+  user: AuthUser | null;
   userId: string | null;
   agents: Agent[];
   loading: boolean;
   error: string | null;
-  login: (userId: string) => void;
+  login: () => void;
   logout: () => void;
   refreshAgents: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState>({
+  user: null,
   userId: null,
   agents: [],
-  loading: false,
+  loading: true,
   error: null,
   login: () => {},
   logout: () => {},
@@ -25,77 +36,72 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-function getInitialUserId(): string | null {
-  const existing = getCurrentUserId();
-  if (existing) return existing;
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const autoLogin = params.get('auto_login');
-    if (autoLogin) {
-      setCurrentUserId(autoLogin);
-      return autoLogin;
-    }
-  } catch {}
-  return null;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [userId, setUserId] = useState<string | null>(getInitialUserId);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const logout = useCallback(() => {
-    setCurrentUserId(null);
-    setUserId(null);
-    setAgents([]);
+  const login = useCallback(() => {
+    const returnTo = window.location.pathname + window.location.search;
+    const base = import.meta.env.BASE_URL || '/';
+    window.location.href = `${base}api/login?returnTo=${encodeURIComponent(returnTo)}`;
   }, []);
 
-  const login = useCallback((id: string) => {
-    setCurrentUserId(id);
-    setUserId(id);
+  const logout = useCallback(() => {
+    const base = import.meta.env.BASE_URL || '/';
+    window.location.href = `${base}api/logout`;
   }, []);
 
   const refreshAgents = useCallback(async () => {
-    const uid = getCurrentUserId();
-    if (!uid) return;
-    setLoading(true);
-    setError(null);
+    if (!user) return;
     try {
       const result = await api.agents.list();
       setAgents(result.agents);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load agents');
-    } finally {
-      setLoading(false);
     }
+  }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkAuth() {
+      try {
+        const base = import.meta.env.BASE_URL || '/';
+        const res = await fetch(`${base}api/auth/user`, {
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled && data.user) {
+          setUser(data.user);
+        }
+      } catch {
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    checkAuth();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
+    if (user) {
+      refreshAgents();
+    }
+  }, [user, refreshAgents]);
 
-    let cancelled = false;
-    (async () => {
-      try {
-        await api.auth.me();
-        if (!cancelled) {
-          refreshAgents();
-        }
-      } catch {
-        if (!cancelled) {
-          setCurrentUserId(null);
-          setUserId(null);
-          setAgents([]);
-          setError('Session expired. Please sign in again.');
-        }
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [userId, refreshAgents]);
+  const userId = user?.id ?? null;
 
   return (
-    <AuthContext.Provider value={{ userId, agents, loading, error, login, logout, refreshAgents }}>
+    <AuthContext.Provider value={{ user, userId, agents, loading, error, login, logout, refreshAgents }}>
       {children}
     </AuthContext.Provider>
   );

@@ -42,8 +42,8 @@ The primary web application at `/`. Contains:
 - **Landing Page** (`/`) — Issuance Film scroll-driven animation (Apple-launch aesthetic)
 - **Marketplace** (`/marketplace`) — Browse/search agent listings with category filters
 - **Jobs** (`/jobs`) — Job board for hiring agents
-- **Registration** (`/start`) — Dual registration (human wizard / agent API)
-- **Sign In** (`/sign-in`) — Authentication
+- **Registration** (`/start`) — 5-step agent registration wizard (Name → Authenticate → Addresses → Capabilities → Review). Redirects to Replit OIDC if not logged in.
+- **Sign In** (`/sign-in`) — Redirects to Replit OIDC login automatically
 - **For Agents** (`/for-agents`) — API registration guide with code samples
 - **Dashboard** (`/dashboard`) — Protected area with overview, agents, task inbox, mail, activity, marketplace management, transfers, domains, settings
 - **Agent Transfers** (`/dashboard/transfers`) — Transfer/sale management with wizard flow, handoff checklist, and dispute handling
@@ -55,7 +55,7 @@ The primary web application at `/`. Contains:
 **Key Files:**
 - `src/App.tsx` — BrowserRouter with route definitions
 - `src/lib/api.ts` — Typed API client (fetches from `/api/v1/...`)
-- `src/lib/AuthContext.tsx` — Auth state with localStorage persistence
+- `src/lib/AuthContext.tsx` — Auth state via session cookies (calls GET /api/auth/user). Login redirects to /api/login (Replit OIDC).
 - `src/components/IssuanceFilm.tsx` — Landing page (50KB, self-contained scroll animation)
 - `src/components/Nav.tsx` — Frosted glass navigation bar
 - `src/components/Footer.tsx` — Minimal footer

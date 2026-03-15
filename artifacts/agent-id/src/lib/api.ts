@@ -1,38 +1,5 @@
 const BASE = `${import.meta.env.BASE_URL}api/v1`.replace(/\/\//g, '/');
 
-const STORAGE_KEY = 'agentid_user_id';
-
-declare global {
-  interface Window {
-    __agentid_uid?: string | null;
-  }
-}
-
-export function setCurrentUserId(userId: string | null) {
-  window.__agentid_uid = userId;
-  try {
-    if (userId) {
-      localStorage.setItem(STORAGE_KEY, userId);
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {}
-}
-
-try {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) window.__agentid_uid = stored;
-} catch {}
-
-export function getCurrentUserId(): string | null {
-  if (window.__agentid_uid) return window.__agentid_uid;
-  try {
-    return localStorage.getItem(STORAGE_KEY) || null;
-  } catch {
-    return null;
-  }
-}
-
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -64,12 +31,6 @@ async function request<T>(
     ...(options.headers as Record<string, string> || {}),
   };
 
-  const uid = getCurrentUserId();
-  if (uid) {
-    headers["X-Replit-User-Id"] = uid;
-    headers["X-AgentID-User-Id"] = uid;
-  }
-
   let lastError: ApiError | Error | null = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -77,6 +38,7 @@ async function request<T>(
       const res = await fetch(`${BASE}${path}`, {
         ...options,
         headers,
+        credentials: 'include',
       });
 
       if (!res.ok) {

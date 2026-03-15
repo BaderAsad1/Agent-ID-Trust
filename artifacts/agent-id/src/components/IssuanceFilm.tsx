@@ -1295,7 +1295,10 @@ function NavBar({ opacity, onNavigate }: NavProps) {
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <span onClick={() => nav('/sign-in')} style={{
+        <span onClick={() => {
+          const base = import.meta.env.BASE_URL || '/';
+          window.location.href = `${base}api/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+        }} style={{
           fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 500,
           color: 'rgba(232,232,240,0.5)', cursor: 'pointer',
           letterSpacing: '0.01em',

@@ -29,3 +29,4 @@ export * from "./agent-transfer-assets";
 export * from "./agent-transfer-events";
 export * from "./agent-transfer-snapshots";
 export * from "./agent-operator-history";
+export * from "./sessions";
