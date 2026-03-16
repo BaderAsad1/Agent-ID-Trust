@@ -2,6 +2,7 @@ import './styles/theme.css';
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { Toaster } from 'sonner';
 import { Nav } from '@/components/Nav';
 import { Start } from '@/pages/Start';
 import { SignIn } from '@/pages/SignIn';
@@ -90,6 +91,7 @@ function App() {
           <Route path="/*" element={<AppContent />} />
         </Routes>
       </BrowserRouter>
+      <Toaster theme="dark" position="bottom-center" />
     </AuthProvider>
   );
 }

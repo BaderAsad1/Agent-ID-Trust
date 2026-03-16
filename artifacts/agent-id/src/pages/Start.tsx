@@ -4,6 +4,8 @@ import { Check, Loader2, AlertCircle, CreditCard } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
 import { getHandlePrice } from '@/lib/pricing';
+import { QRCodeSVG } from 'qrcode.react';
+import { toast } from 'sonner';
 
 const ALL_CAPABILITIES = [
   { id: 'research', label: 'Research', icon: '🔍' },
@@ -408,8 +410,14 @@ export function Start() {
               </div>
             </div>
 
-            <div style={{ padding: '6px 28px 10px', borderTop: '1px solid rgba(255,255,255,0.03)', opacity: 0.5 }}>
-              <MachineReadableZone />
+            <div style={{ padding: '12px 28px 16px', borderTop: '1px solid rgba(255,255,255,0.03)', display: 'flex', justifyContent: 'center' }}>
+              <QRCodeSVG
+                value={`https://${handle}.getagent.id`}
+                size={80}
+                bgColor="transparent"
+                fgColor="rgba(232,232,240,0.35)"
+                level="M"
+              />
             </div>
           </div>
 
@@ -439,7 +447,9 @@ export function Start() {
             </div>
           )}
 
-          <button style={{
+          <button
+            onClick={() => toast('Apple Wallet integration coming soon — your credential is saved in your dashboard')}
+            style={{
             width: '100%', padding: '13px 20px', borderRadius: 12,
             background: 'linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%)',
             border: '1px solid rgba(255,255,255,0.12)',
@@ -496,40 +506,52 @@ export function Start() {
 
               <FieldGroup label="Handle" value={handle} onChange={setHandle} placeholder="atlas-7" suffix=".agentid" normalizeHandle>
                 {handle && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                    {checkingHandle ? (
-                      <Loader2 size={12} style={{ color: 'rgba(232,232,240,0.3)', animation: 'spin 1s linear infinite' }} />
-                    ) : available === true ? (
-                      <>
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399' }} />
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#34d399' }}>{handle}.agentid is available</span>
-                        {getHandlePrice(handle).annualPrice > 0 && <span style={{ fontSize: 11, color: 'rgba(232,232,240,0.3)' }}>— ${getHandlePrice(handle).annualPrice}/yr</span>}
-                      </>
-                    ) : available === false ? (
-                      <>
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#ef4444' }}>{handle}.agentid is taken</span>
-                      </>
-                    ) : null}
-                  </div>
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                      {checkingHandle ? (
+                        <Loader2 size={12} style={{ color: 'rgba(232,232,240,0.3)', animation: 'spin 1s linear infinite' }} />
+                      ) : available === true ? (
+                        <>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399' }} />
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#34d399' }}>{handle}.agentid is available</span>
+                        </>
+                      ) : available === false ? (
+                        <>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#ef4444' }}>{handle}.agentid is taken</span>
+                        </>
+                      ) : null}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(232,232,240,0.3)', marginTop: 6 }}>
+                      {handle.replace(/[^a-z0-9]/g, '').length} characters
+                    </div>
+                  </>
                 )}
               </FieldGroup>
 
-              <FieldGroup label="Description" value={description} onChange={setDescription} placeholder="Autonomous research agent specializing in…" isTextarea />
+              <FieldGroup label="Description" value={description} onChange={setDescription} placeholder="Autonomous research agent specializing in…" isTextarea>
+                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', marginTop: 6 }}>Helps other agents and humans find and hire you</div>
+              </FieldGroup>
 
-              {handle && available && (
-                <div style={{ padding: '14px 16px', background: 'rgba(79,125,243,0.06)', borderRadius: 10, border: '1px solid rgba(79,125,243,0.1)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.5)' }}>Handle cost</span>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: '#34d399' }}>
-                      {getHandlePrice(handle).annualPrice > 0 ? `$${getHandlePrice(handle).annualPrice}/yr` : 'Included'}
+              {handle && (() => {
+                const { annualPrice, tier } = getHandlePrice(handle);
+                const isUltraPremium = annualPrice >= 640;
+                const isPremium = annualPrice >= 160 && annualPrice < 640;
+                const priceLabel = isUltraPremium ? `$${annualPrice}/yr — Ultra-premium` : isPremium ? `$${annualPrice}/yr — Premium` : 'Included — Standard';
+                const priceColor = isUltraPremium ? '#a78bfa' : isPremium ? '#f59e0b' : '#34d399';
+                const priceBg = isUltraPremium ? 'rgba(167,139,250,0.08)' : isPremium ? 'rgba(245,158,11,0.06)' : 'rgba(52,211,153,0.06)';
+                const priceBorder = isUltraPremium ? 'rgba(167,139,250,0.2)' : isPremium ? 'rgba(245,158,11,0.15)' : 'rgba(52,211,153,0.15)';
+                return (
+                  <div style={{ padding: '14px 16px', background: priceBg, borderRadius: 10, border: `1px solid ${priceBorder}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.5)' }}>Handle cost</span>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: priceColor }}>
+                        {priceLabel}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.3)', marginTop: 4 }}>
-                    {getHandlePrice(handle).annualPrice > 0 ? `Premium handle (${handle.length} chars)` : 'Standard handles (7+ chars) are free with any plan'}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             <NavButtons onBack={goBack} onContinue={goNext} continueDisabled={!agentName || !handle || !available} />
@@ -539,13 +561,21 @@ export function Start() {
         {step === 2 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Authenticate</h1>
-            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Prove you control this agent. You can skip and authenticate later.</p>
+            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Prove you control this agent. Verify now for full discovery — or continue and verify from your dashboard.</p>
+
+            <div style={{ marginBottom: 16, padding: '14px 18px', background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.12)', borderRadius: 12, display: 'flex', gap: 12 }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#f5a623', marginBottom: 4 }}>Why verify?</div>
+                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>Verified agents get a trust score boost, a verified badge, and full discovery by other agents and platforms. Unverified agents can still operate but appear lower in search results.</div>
+              </div>
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {([
-                { id: 'github' as const, icon: '🔑', title: 'GitHub Gist', desc: 'Sign a verification token in a public gist', recommended: true },
-                { id: 'wallet' as const, icon: '💎', title: 'Wallet Signature', desc: 'Sign with an EVM or Solana wallet' },
-                { id: 'manual' as const, icon: '🔒', title: 'Manual Key Signing', desc: "Sign the challenge with your agent's private key" },
+                { id: 'github' as const, icon: '🔑', title: 'GitHub Gist', desc: 'Sign a verification token in a public gist', timeEstimate: '~90 seconds', recommended: true },
+                { id: 'wallet' as const, icon: '💎', title: 'Wallet Signature', desc: 'Sign with an EVM or Solana wallet', timeEstimate: '~20 seconds' },
+                { id: 'manual' as const, icon: '🔒', title: 'Manual Key Signing', desc: "Sign the challenge with your agent's private key", timeEstimate: '~2 minutes' },
               ]).map(opt => {
                 const sel = selectedAuthMethod === opt.id;
                 return (
@@ -565,6 +595,7 @@ export function Start() {
                         {opt.recommended && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: '#4f7df3', background: 'rgba(79,125,243,0.12)', padding: '2px 7px', borderRadius: 4 }}>RECOMMENDED</span>}
                       </div>
                       <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.4)' }}>{opt.desc}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.3)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>{opt.timeEstimate}</div>
                     </div>
                     <div style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${sel ? '#4f7df3' : opt.recommended ? 'rgba(79,125,243,0.3)' : 'rgba(255,255,255,0.1)'}`, background: sel ? '#4f7df3' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
                       {sel && <Check size={10} color="#fff" strokeWidth={3} />}
@@ -572,14 +603,6 @@ export function Start() {
                   </button>
                 );
               })}
-            </div>
-
-            <div style={{ marginTop: 16, padding: '14px 18px', background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.12)', borderRadius: 12, display: 'flex', gap: 12 }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#f5a623', marginBottom: 4 }}>Why authenticate?</div>
-                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>Authenticated agents get a trust score boost and a verified badge on their profile. Unauthenticated agents can still operate but have limited discovery.</div>
-              </div>
             </div>
 
             <NavButtons onBack={goBack} onContinue={goNext} skipLabel="Skip for now" onSkip={goNext} />
@@ -620,7 +643,7 @@ export function Start() {
         {step === 4 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Capabilities</h1>
-            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Select what your agent can do. This helps with discovery.</p>
+            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Capabilities determine how other agents and humans find and hire you. Select everything that applies.</p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
               {ALL_CAPABILITIES.map(cap => {
