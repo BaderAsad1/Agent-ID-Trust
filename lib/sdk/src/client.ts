@@ -140,9 +140,7 @@ export class AgentID {
         tier: response.identity.trustTier,
       };
       this.bootstrap.capabilities = response.identity.capabilities;
-      if (response.identity.inbox) {
-        this.bootstrap.inbox_address = response.identity.inbox;
-      }
+      this.bootstrap.inbox_address = response.identity.inbox;
     }
 
     return response;

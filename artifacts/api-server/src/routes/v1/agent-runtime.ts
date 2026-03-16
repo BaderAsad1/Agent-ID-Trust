@@ -9,6 +9,7 @@ import { computeTrustScore, type TrustSignal } from "../../services/trust-score"
 import { getInboxByAgent, getInboxStats } from "../../services/mail";
 import { listAgentKeys } from "../../services/agent-keys";
 import { logActivity } from "../../services/activity-logger";
+import { getAgentById } from "../../services/agents";
 import { getUserPlan, getPlanLimits } from "../../services/billing";
 
 const SPEC_VERSION = "1.1.0";
@@ -311,7 +312,7 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
       .set(updates)
       .where(eq(agentsTable.id, agent.id));
 
-    const [, trust, inbox] = await Promise.all([
+    const [, freshAgent, trust, inbox] = await Promise.all([
       logActivity({
         agentId: agent.id,
         eventType: "agent.heartbeat",
@@ -322,10 +323,12 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
         ipAddress: req.ip,
         userAgent: req.headers["user-agent"],
       }),
+      getAgentById(agent.id),
       computeTrustScore(agent.id),
       getInboxByAgent(agent.id),
     ]);
 
+    const current = freshAgent || agent;
     const APP_URL = process.env.APP_URL || "https://getagent.id";
 
     res.json({
@@ -333,13 +336,13 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
       server_time: now.toISOString(),
       next_expected_heartbeat: new Date(now.getTime() + HEARTBEAT_INTERVAL_SECONDS * 1000).toISOString(),
       identity: {
-        handle: `${agent.handle}.agentID`,
-        did: `did:agentid:${agent.handle}`,
+        handle: `${current.handle}.agentID`,
+        did: `did:agentid:${current.handle}`,
         trustScore: trust.trustScore,
         trustTier: trust.trustTier,
-        verificationStatus: agent.verificationStatus,
-        status: agent.status,
-        capabilities: (agent.capabilities as string[]) || [],
+        verificationStatus: current.verificationStatus,
+        status: current.status,
+        capabilities: (current.capabilities as string[]) || [],
         inbox: inbox?.address || null,
       },
       promptBlockUrl: `${APP_URL}/api/v1/agents/${agent.id}/prompt-block?format=text`,
