@@ -1,4 +1,7 @@
 import { Router } from "express";
+import { eq } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { humanProfilesTable, agentsTable } from "@workspace/db/schema";
 import { AppError } from "../../middlewares/error-handler";
 import { getAgentByHandle, toPublicProfile } from "../../services/agents";
 import {
@@ -16,8 +19,44 @@ const router = Router();
 router.get("/:handle", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
+
     if (!agent || agent.status !== "active") {
-      throw new AppError(404, "NOT_FOUND", "Agent not found");
+      const handle = (req.params.handle as string).toLowerCase();
+      const humanProfile = await db.query.humanProfilesTable.findFirst({
+        where: eq(humanProfilesTable.handle, handle),
+      });
+
+      if (humanProfile && humanProfile.isPublic) {
+        const ownedAgents = await db.query.agentsTable.findMany({
+          where: eq(agentsTable.userId, humanProfile.ownerUserId),
+          columns: {
+            id: true,
+            handle: true,
+            displayName: true,
+            description: true,
+            avatarUrl: true,
+            status: true,
+            trustScore: true,
+            verificationStatus: true,
+            capabilities: true,
+            isPublic: true,
+          },
+        });
+        const publicAgents = ownedAgents.filter((a) => a.isPublic);
+
+        res.json({
+          type: "human",
+          profile: {
+            ...humanProfile,
+            did: `did:agentid:human:${humanProfile.handle}`,
+          },
+          agents: publicAgents,
+          agentCount: publicAgents.length,
+        });
+        return;
+      }
+
+      throw new AppError(404, "NOT_FOUND", "Profile not found");
     }
 
     const [credential, activityResult, listingsResult, reviewsResult] =

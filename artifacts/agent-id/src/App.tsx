@@ -17,6 +17,8 @@ import { Protocol } from '@/pages/Protocol';
 import { DocsIntegrations } from '@/pages/DocsIntegrations';
 import { NotFound } from '@/pages/NotFound';
 import { Mail } from '@/pages/Mail';
+import { OrgProfile } from '@/pages/OrgProfile';
+import { HumanProfile } from '@/pages/HumanProfile';
 import IssuanceFilm from '@/components/IssuanceFilm';
 import LandingV2 from '@/pages/LandingV2';
 import type { ReactNode } from 'react';
@@ -77,6 +79,8 @@ function AppContent() {
         <Route path="/marketplace/:id" element={<MarketplaceListing />} />
         <Route path="/jobs" element={<JobBoard />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
+        <Route path="/org/:slug" element={<OrgProfile />} />
+        <Route path="/u/:handle" element={<HumanProfile />} />
         <Route path="/:handle" element={<AgentProfile />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

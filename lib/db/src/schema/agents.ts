@@ -66,6 +66,8 @@ export const agentsTable = pgTable(
     tasksCompleted: integer("tasks_completed").default(0).notNull(),
     transferStatus: transferStatusEnum("transfer_status"),
     transferredAt: timestamp("transferred_at", { withTimezone: true }),
+    orgId: uuid("org_id"),
+    orgNamespace: varchar("org_namespace", { length: 200 }),
     historicalAgentReputation: real("historical_agent_reputation"),
     currentOperatorReputation: real("current_operator_reputation"),
     effectiveLiveTrust: real("effective_live_trust"),

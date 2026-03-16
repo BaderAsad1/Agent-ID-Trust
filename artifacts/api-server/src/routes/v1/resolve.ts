@@ -399,5 +399,28 @@ export async function handleAgentDiscovery(req: Request, res: Response, next: Ne
 
 router.get("/", handleAgentDiscovery);
 
+router.get("/:orgSlug/:handle", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgSlug = (req.params.orgSlug as string).toLowerCase();
+    const handle = normalizeHandle(req.params.handle as string);
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: and(
+        sql`${agentsTable.orgNamespace} = ${`${orgSlug}.${handle}`}`,
+        eq(agentsTable.status, "active"),
+      ),
+    });
+
+    if (!agent) {
+      throw new AppError(404, "AGENT_NOT_FOUND", `No agent found for "${orgSlug}/${handle}"`);
+    }
+
+    const resolved = await enrichAndResolve(agent);
+    res.json({ resolved: true, agent: resolved, orgNamespace: orgSlug });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export { deleteResolutionCache };
 export default router;

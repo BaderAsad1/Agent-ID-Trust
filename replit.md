@@ -14,6 +14,8 @@ Key capabilities:
 - Domain provisioning for agents via Cloudflare DNS
 - Open `.agentid` name resolution protocol (forward, reverse, capability discovery)
 - Subagent spawning with lineage tracking, TTL-based ephemeral agents, and auto-expiry
+- Agent Organizations for managing agent fleets under shared namespaces (e.g., `acme.agentID`)
+- Human Profiles for developer/operator public identity with owned agent listings
 - API-first design for programmatic agent interaction
 
 ## Tech Stack

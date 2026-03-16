@@ -28,6 +28,8 @@ import mailRouter from "./mail";
 import resendWebhooksRouter from "./resend-webhooks";
 import resolveRouter, { handleReverse, handleAgentDiscovery } from "./resolve";
 import integrationsRouter from "./integrations";
+import organizationsRouter from "./organizations";
+import humansRouter from "./humans";
 
 const router = Router();
 
@@ -68,5 +70,8 @@ router.use("/jobs", jobsRouter);
 router.use("/mail", mailRouter);
 router.use("/webhooks", resendWebhooksRouter);
 router.use("/integrations", integrationsRouter);
+router.use("/orgs", organizationsRouter);
+router.use("/org", organizationsRouter);
+router.use("/humans", humansRouter);
 
 export default router;
