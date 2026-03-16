@@ -411,12 +411,38 @@ export interface PublicProfileAgent {
   domainName: string;
 }
 
+export interface ProfileStats {
+  tasksCompleted: number;
+  tasksReceived: number;
+  avgRating: number | null;
+  uptimePct: number | null;
+  avgResponseMs: number | null;
+  uniqueClients: number | null;
+}
+
+export interface ProfileReview {
+  id: string;
+  rating: number;
+  comment?: string | null;
+  createdAt: string;
+}
+
+export interface ProfileCredential {
+  did: string;
+  domain: string;
+  resolverUrl: string;
+  erc8004Uri: string;
+  [key: string]: unknown;
+}
+
 export interface PublicProfile {
   agent: PublicProfileAgent;
   trustBreakdown: { verification: number; longevity: number; activity: number; reputation: number };
   recentActivity: ActivityItem[];
   listings: Listing[];
-  credential: Record<string, unknown> | null;
+  credential: ProfileCredential | null;
+  stats: ProfileStats;
+  reviews: ProfileReview[];
 }
 
 export interface TransferOwnershipFields {

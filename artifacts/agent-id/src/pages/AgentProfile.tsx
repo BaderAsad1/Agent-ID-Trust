@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Check, Send, AlertCircle, RefreshCw, ExternalLink, Copy, Star, Clock, Zap, Globe, Activity } from 'lucide-react';
 import { Footer } from '@/components/Footer';
-import { api, type PublicProfile, type ActivityItem } from '@/lib/api';
+import { api, type PublicProfile, type ActivityItem, type ProfileReview } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { formatPrice } from '@/lib/pricing';
 
@@ -58,7 +58,7 @@ function MachineReadableZone() {
 
 const CAP_ICONS: Record<string, string> = { 'Code Execution': '▸', 'API Access': '∼', 'Data Analysis': '≡', 'Payments': '¤', 'Messaging': '@' };
 
-function ProfileCredentialCard({ agent, trustScore }: { agent: { handle: string; displayName: string; description?: string; capabilities?: string[]; endpointUrl?: string; status: string; verificationStatus?: string; verifiedAt?: string; domainName?: string; domainStatus?: string; createdAt: string; metadata?: Record<string, unknown> }; trustScore: number }) {
+function ProfileCredentialCard({ agent, trustScore, listings, stats }: { agent: { handle: string; displayName: string; description?: string; capabilities?: string[]; endpointUrl?: string; status: string; verificationStatus?: string; verifiedAt?: string; domainName?: string; domainStatus?: string; createdAt: string; tasksCompleted?: number; metadata?: Record<string, unknown> }; trustScore: number; listings?: Array<{ status: string; avgRating?: string }>; stats?: { tasksCompleted: number; avgRating: number | null; uptimePct: number | null } }) {
   return (
     <div style={{
       position: 'relative', width: 520, maxWidth: '92vw', borderRadius: 22,
@@ -175,7 +175,11 @@ function ProfileCredentialCard({ agent, trustScore }: { agent: { handle: string;
             <div style={{
               fontFamily: "'Inter', sans-serif", fontSize: 12.5,
               color: 'rgba(232,232,240,0.5)', lineHeight: 1.5,
-            }}>Verified identity &middot; 1.2M invocations &middot; 99.97% uptime</div>
+            }}>{[
+              agent.verificationStatus === 'verified' ? 'Verified identity' : 'Unverified',
+              stats?.tasksCompleted != null ? `${stats.tasksCompleted} tasks completed` : null,
+              stats?.uptimePct != null ? `${stats.uptimePct}% uptime` : null,
+            ].filter(Boolean).join(' · ') || 'No activity yet'}</div>
           </div>
         </div>
       </div>
@@ -212,7 +216,12 @@ function ProfileCredentialCard({ agent, trustScore }: { agent: { handle: string;
             letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 3,
           }}>MARKETPLACE</div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: 'rgba(232,232,240,0.55)' }}>
-            Listed &middot; 4.9 &#9733;
+            {(() => {
+              const activeListing = (listings || []).find(l => l.status === 'active');
+              if (!activeListing) return 'Not listed';
+              const rating = activeListing.avgRating ? parseFloat(activeListing.avgRating) : null;
+              return rating ? `Listed · ${rating.toFixed(1)} ★` : 'Listed';
+            })()}
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -377,7 +386,15 @@ export function AgentProfile() {
   const listings = profile.listings || [];
   const listing = listings[0];
   const agentCaps = (agent.capabilities || []);
-  const skills = agentCaps.map(c => ({ icon: CAP_ICONS[c] || '▸', label: c, desc: '', stats: '' }));
+  const profileReviews = profile.reviews || [];
+  const defaultSkills = [
+    { icon: '🔑', label: 'Ed25519 Cryptographic Identity', desc: `Cryptographic key pair bound to ${agent.handle}.agentid`, stats: '' },
+    { icon: '📨', label: 'Agent Inbox', desc: `Receives messages at ${agent.handle}@agentid.email`, stats: '' },
+    { icon: '🌐', label: 'DID Resolution', desc: profile.credential?.resolverUrl ? `Resolvable via ${profile.credential.resolverUrl}` : 'DID document resolution', stats: '' },
+  ];
+  const skills = agentCaps.length > 0
+    ? agentCaps.map(c => ({ icon: CAP_ICONS[c] || '▸', label: c, desc: '', stats: '' }))
+    : defaultSkills;
 
   return (
     <div style={{ background: '#050711', minHeight: '100vh', color: '#e8e8f0', fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -408,7 +425,7 @@ export function AgentProfile() {
           }}>VERIFIED AGENT IDENTITY</div>
 
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 40 }}>
-            <ProfileCredentialCard agent={agent} trustScore={trustScore} />
+            <ProfileCredentialCard agent={agent} trustScore={trustScore} listings={listings} stats={profile.stats} />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -436,11 +453,11 @@ export function AgentProfile() {
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 64 }}>
-          <StatCard value="1.2M" label="Invocations" icon={Zap} />
-          <StatCard value="99.97%" label="Uptime" icon={Activity} />
-          <StatCard value="4.9" label="Avg Rating" icon={Star} />
-          <StatCard value="< 2h" label="Avg Response" icon={Clock} />
-          <StatCard value="340+" label="Clients" icon={Globe} />
+          <StatCard value={profile.stats?.tasksCompleted != null ? String(profile.stats.tasksCompleted) : 'N/A'} label="Tasks Completed" icon={Zap} />
+          <StatCard value={profile.stats?.uptimePct != null ? `${profile.stats.uptimePct}%` : 'N/A'} label="Uptime" icon={Activity} />
+          <StatCard value={profile.stats?.avgRating != null ? profile.stats.avgRating.toFixed(1) : 'N/A'} label="Avg Rating" icon={Star} />
+          <StatCard value={profile.stats?.avgResponseMs != null ? `${Math.round(profile.stats.avgResponseMs / 60000)}m` : 'N/A'} label="Avg Response" icon={Clock} />
+          <StatCard value={profile.stats?.uniqueClients != null ? String(profile.stats.uniqueClients) : 'N/A'} label="Clients" icon={Globe} />
         </div>
 
         {agent.description && (
@@ -585,16 +602,45 @@ export function AgentProfile() {
 
         <div style={{ marginBottom: 64 }}>
           <SectionLabel>REVIEWS</SectionLabel>
-          <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-            <div style={{
-              width: 56, height: 56, borderRadius: 14, margin: '0 auto 12px',
-              background: 'rgba(232,232,240,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(232,232,240,0.25)" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+          {profileReviews.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: 14, margin: '0 auto 12px',
+                background: 'rgba(232,232,240,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(232,232,240,0.25)" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+              </div>
+              <div style={{ color: 'rgba(232,232,240,0.7)', fontSize: 15, fontWeight: 600, fontFamily: "'Bricolage Grotesque', sans-serif", marginBottom: 4 }}>No reviews yet</div>
+              <div style={{ color: 'rgba(232,232,240,0.3)', fontSize: 13 }}>Reviews will appear here once clients rate this agent's work.</div>
             </div>
-            <div style={{ color: 'rgba(232,232,240,0.7)', fontSize: 15, fontWeight: 600, fontFamily: "'Bricolage Grotesque', sans-serif", marginBottom: 4 }}>No reviews yet</div>
-            <div style={{ color: 'rgba(232,232,240,0.3)', fontSize: 13 }}>Reviews will appear here once clients rate this agent's work.</div>
-          </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {profileReviews.map((review: ProfileReview) => (
+                <div key={review.id} style={{
+                  background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                  borderRadius: 12, padding: '16px 20px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star key={i} size={14} style={{
+                          color: i < review.rating ? '#f5a623' : 'rgba(232,232,240,0.15)',
+                          fill: i < review.rating ? '#f5a623' : 'none',
+                        }} />
+                      ))}
+                    </div>
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                      color: 'rgba(232,232,240,0.25)',
+                    }}>{new Date(review.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  {review.comment && (
+                    <p style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(232,232,240,0.5)', margin: 0 }}>{review.comment}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {listing && (
