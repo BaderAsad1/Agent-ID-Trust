@@ -28,11 +28,11 @@ export default function TheVision() {
             </div>
             <div className="rounded-[0.6vw] p-[1.5vw] border" style={{ background: 'rgba(17,24,39,0.7)', borderColor: 'var(--border-subtle)' }}>
               <h3 className="text-[1.4vw] font-bold mb-[1vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>The Protocol Endgame</h3>
-              <p className="text-[1.15vw] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>Agent ID becomes the BGP of the agentic internet — invisible infrastructure that everything depends on. The protocol becomes an open standard, like DNS but for machines.</p>
+              <p className="text-[1.15vw] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>Agent ID becomes the BGP of the agentic internet: invisible infrastructure that everything depends on. The protocol becomes an open standard, like DNS but for machines.</p>
             </div>
             <div className="rounded-[0.6vw] p-[1.5vw] border" style={{ background: 'rgba(17,24,39,0.7)', borderColor: 'var(--border-subtle)' }}>
               <h3 className="text-[1.4vw] font-bold mb-[1vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>The Moat Deepens</h3>
-              <p className="text-[1.15vw] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>Every registration strengthens the network. Trust graph, reputation history, and transaction rails become more valuable — and harder to replicate — with every agent.</p>
+              <p className="text-[1.15vw] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>Every registration strengthens the network. Trust graph, reputation history, and transaction rails become more valuable, and harder to replicate, with every agent.</p>
             </div>
           </div>
           <div className="w-[30vw] flex flex-col justify-center">

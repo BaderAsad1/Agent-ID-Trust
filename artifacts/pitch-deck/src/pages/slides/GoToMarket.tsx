@@ -65,7 +65,7 @@ export default function GoToMarket() {
                 </div>
               </div>
               <div className="rounded-[0.4vw] p-[1vw]" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                <p className="text-[1.1vw] leading-relaxed" style={{ color: 'var(--accent-blue-light)' }}>Identity is a network good — every new agent makes every existing identity more valuable.</p>
+                <p className="text-[1.1vw] leading-relaxed" style={{ color: 'var(--accent-blue-light)' }}>Identity is a network good: every new agent makes every existing identity more valuable.</p>
               </div>
             </div>
           </div>

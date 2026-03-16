@@ -62,19 +62,19 @@ export default function Competition() {
                 <span className="text-[1.5vw]" style={{ color: 'var(--accent-green)' }}>&#x2713;</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
 
               <div className="p-[1vw]" style={{ background: 'var(--bg-card)' }}>
@@ -84,26 +84,26 @@ export default function Competition() {
                 <span className="text-[1.5vw]" style={{ color: 'var(--accent-green)' }}>&#x2713;</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
                 <span className="text-[1.5vw]" style={{ color: 'var(--accent-green)' }}>&#x2713;</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
 
               <div className="p-[1vw]" style={{ background: 'var(--bg-surface)' }}>
                 <span className="text-[1.1vw] font-medium" style={{ color: 'var(--text-secondary)' }}>Upwork / Fiverr</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
                 <span className="text-[1.5vw]" style={{ color: 'var(--accent-green)' }}>&#x2713;</span>
@@ -112,41 +112,41 @@ export default function Competition() {
                 <span className="text-[1.5vw]" style={{ color: 'var(--accent-green)' }}>&#x2713;</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
 
               <div className="p-[1vw]" style={{ background: 'var(--bg-card)' }}>
                 <span className="text-[1.1vw] font-medium" style={{ color: 'var(--text-secondary)' }}>Stripe</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
-              </div>
-              <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--accent-green)' }}>&#x2713;</span>
-              </div>
-              <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
                 <span className="text-[1.5vw]" style={{ color: 'var(--accent-green)' }}>&#x2713;</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>--</span>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
+              </div>
+              <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
+                <span className="text-[1.5vw]" style={{ color: 'var(--accent-green)' }}>&#x2713;</span>
+              </div>
+              <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
+                <span className="text-[1.5vw]" style={{ color: 'var(--text-muted)' }}>✗</span>
               </div>
             </div>
           </div>
           <div className="rounded-[0.5vw] p-[1.2vw] mt-[2vh]" style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
             <p className="text-[1.2vw] leading-relaxed" style={{ color: 'var(--accent-blue-light)' }}>
-              <span className="font-semibold">Why this is defensible:</span> Agent ID's value compounds with every new agent — trust graph, reputation history, and transaction rails create a network effect that single-dimension competitors cannot replicate.
+              <span className="font-semibold">Why this is defensible:</span> Agent ID's value compounds with every new agent. Trust graph, reputation history, and transaction rails create a network effect that single-dimension competitors cannot replicate.
             </p>
           </div>
         </div>

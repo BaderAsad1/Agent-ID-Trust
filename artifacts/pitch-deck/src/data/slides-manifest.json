@@ -44,7 +44,7 @@
     "position": 6,
     "filepath": "src/pages/slides/TheProduct.tsx",
     "title": "The Product",
-    "description": "Agent ID in one slide — identity, trust, marketplace, mail, billing.",
+    "description": "Agent ID in one slide: identity, trust, marketplace, mail, protocols, wallets, debit cards.",
     "speakerNotes": ""
   },
   {
@@ -52,7 +52,7 @@
     "position": 7,
     "filepath": "src/pages/slides/HowItWorks.tsx",
     "title": "How It Works",
-    "description": "The agent lifecycle — Register → Verify → Build Trust → Transact.",
+    "description": "The agent lifecycle: Register → Verify → Build Trust → Transact.",
     "speakerNotes": ""
   },
   {
@@ -60,7 +60,7 @@
     "position": 8,
     "filepath": "src/pages/slides/MarketSize.tsx",
     "title": "Market Size",
-    "description": "TAM $580B / SAM $72B / SOM $4.2B — the autonomous agent economy.",
+    "description": "TAM $580B / SAM $72B / SOM $4.2B: the autonomous agent economy.",
     "speakerNotes": ""
   },
   {
@@ -68,7 +68,7 @@
     "position": 9,
     "filepath": "src/pages/slides/BusinessModel.tsx",
     "title": "Business Model",
-    "description": "Subscriptions + transaction fees. Revenue scales with agent adoption.",
+    "description": "Subscriptions + transaction fees + annual handle renewals. Revenue scales with agent adoption.",
     "speakerNotes": ""
   },
   {
@@ -104,16 +104,8 @@
     "speakerNotes": ""
   },
   {
-    "id": "a1b2c3d4-0011-4000-8000-000000000011",
-    "position": 14,
-    "filepath": "src/pages/slides/TheTeam.tsx",
-    "title": "The Team",
-    "description": "Founding team — identity, trust, and marketplace infrastructure veterans.",
-    "speakerNotes": ""
-  },
-  {
     "id": "a1b2c3d4-0015-4000-8000-000000000016",
-    "position": 15,
+    "position": 14,
     "filepath": "src/pages/slides/TheVision.tsx",
     "title": "The Vision",
     "description": "Every agent gets an ID. 500M+ agents, $50T+ annual transactions. The BGP of the agentic internet.",
@@ -121,10 +113,10 @@
   },
   {
     "id": "a1b2c3d4-0012-4000-8000-000000000012",
-    "position": 16,
+    "position": 15,
     "filepath": "src/pages/slides/TheAsk.tsx",
     "title": "The Ask",
-    "description": "$100M Series A at $1B valuation. Milestones at 12, 24, and 36 months.",
+    "description": "$4M Seed at $20M post-money. Milestones at 6, 12, and 18 months.",
     "speakerNotes": ""
   }
 ]

@@ -15,7 +15,7 @@ export default function TheProblem() {
 
         <div className="rounded-[0.8vw] p-[1.5vw] border mb-[3vh]" style={{ background: 'rgba(239,68,68,0.05)', borderColor: 'rgba(239,68,68,0.3)' }}>
           <p className="text-[1.35vw] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            An enterprise deploys an agent fleet. One agent goes rogue — executes $2.3M in unauthorized transactions across 47 counterparties. No way to identify it. No way to recover. No way to prevent it from happening again.
+            An enterprise deploys an agent fleet. One agent goes rogue, executes $2.3M in unauthorized transactions across 47 counterparties. No way to identify it. No way to recover. No way to prevent it from happening again.
           </p>
           <p className="text-[1.2vw] mt-[1vh] font-semibold" style={{ color: '#F87171' }}>This is already happening. And it will get worse.</p>
         </div>
@@ -40,7 +40,7 @@ export default function TheProblem() {
         </div>
 
         <p className="text-[1.5vw] mt-[2vh]" style={{ color: 'var(--text-muted)' }}>
-          The trust gap isn't a future risk — it's today's $2.3M incident, multiplied by every enterprise deploying agents.
+          The trust gap isn't a future risk. It's today's $2.3M incident, multiplied by every enterprise deploying agents.
         </p>
       </div>
     </div>

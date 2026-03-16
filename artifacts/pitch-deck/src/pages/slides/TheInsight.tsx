@@ -39,7 +39,7 @@ export default function TheInsight() {
               <div className="w-[0.25vw] h-[6vh] rounded-full" style={{ background: 'var(--accent-blue)' }} />
               <div>
                 <h3 className="text-[2.4vw] font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue-light)' }}>Agent ID</h3>
-                <p className="text-[1.6vw]" style={{ color: 'var(--text-secondary)' }}>The identity and trust layer for the agentic internet. A protocol-layer namespace, like ENS — but for agents.</p>
+                <p className="text-[1.6vw]" style={{ color: 'var(--text-secondary)' }}>The identity and trust layer for the agentic internet: a protocol-layer namespace that lets every agent be discovered, verified, and trusted.</p>
               </div>
             </div>
           </div>

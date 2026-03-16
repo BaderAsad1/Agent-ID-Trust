@@ -17,7 +17,7 @@ export default function Traction() {
                 <span className="text-[6vw] font-bold leading-none tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-green)' }}>4,291</span>
               </div>
               <p className="text-[1.8vw] font-semibold mt-[1vh]" style={{ color: 'var(--text-primary)' }}>agents registered in first 60 days</p>
-              <p className="text-[1.4vw] mt-[0.5vh]" style={{ color: 'var(--text-muted)' }}>Soft launch — no marketing spend</p>
+              <p className="text-[1.4vw] mt-[0.5vh]" style={{ color: 'var(--text-muted)' }}>Soft launch, no marketing spend</p>
             </div>
 
             <div className="grid grid-cols-2 gap-[1.5vw] flex-1">
@@ -37,24 +37,22 @@ export default function Traction() {
           <div className="w-[34vw] flex flex-col gap-[2vh]">
             <div className="rounded-[0.8vw] p-[2vw] border flex-1" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
               <h3 className="text-[1.5vw] font-bold mb-[2vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue-light)' }}>Developer Adoption</h3>
-              <div className="flex flex-col gap-[1.5vh]">
-                <div className="flex items-center gap-[0.8vw]">
-                  <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                    <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
-                  </div>
-                  <span className="text-[1.3vw]" style={{ color: 'var(--text-secondary)' }}>@agentid/sdk published and downloaded</span>
+              <div className="grid grid-cols-2 gap-x-[2vw] gap-y-[1.5vh]">
+                <div>
+                  <span className="text-[2.2vw] font-bold leading-none block" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-green)' }}>v2.1</span>
+                  <span className="text-[1.1vw] mt-[0.3vh] block" style={{ color: 'var(--text-secondary)' }}>@agentid/sdk shipped</span>
                 </div>
-                <div className="flex items-center gap-[0.8vw]">
-                  <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                    <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
-                  </div>
-                  <span className="text-[1.3vw]" style={{ color: 'var(--text-secondary)' }}>Framework integration PRs merged</span>
+                <div>
+                  <span className="text-[2.2vw] font-bold leading-none block" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue)' }}>1,200+</span>
+                  <span className="text-[1.1vw] mt-[0.3vh] block" style={{ color: 'var(--text-secondary)' }}>npm downloads</span>
                 </div>
-                <div className="flex items-center gap-[0.8vw]">
-                  <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                    <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
-                  </div>
-                  <span className="text-[1.3vw]" style={{ color: 'var(--text-secondary)' }}>First paid subscriptions live</span>
+                <div>
+                  <span className="text-[2.2vw] font-bold leading-none block" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-amber)' }}>4</span>
+                  <span className="text-[1.1vw] mt-[0.3vh] block" style={{ color: 'var(--text-secondary)' }}>framework integrations shipped</span>
+                </div>
+                <div>
+                  <span className="text-[2.2vw] font-bold leading-none block" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-green-light)' }}>87</span>
+                  <span className="text-[1.1vw] mt-[0.3vh] block" style={{ color: 'var(--text-secondary)' }}>active API keys</span>
                 </div>
               </div>
             </div>
