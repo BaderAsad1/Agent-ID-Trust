@@ -117,7 +117,7 @@ Agent ID: 8e45fcb3-e82c-42…
 - **Test agent found in listing**: false
 - **Response Body** (truncated, 3 agents: `research-agent`, `code-reviewer`, `data-pipeline`):
 ```json
-{"agents":[{"handle":"research-agent","domain":"research-agent.getagent.id","protocolAddress":"research-agent.agentid","did":"urn:agentid:research-agent","resolverUrl":"https://getagent.id/api/v1/resolve/research-agent","displayName":"Research Agent","description":"Deep research agent specializing in academic papers, market analysis, and competitive intelligence.","endpointUrl":"https://ra.example.com/tasks","capabilities":["research","web-search","summarization","citation"],"protocols":["mcp","a2a","rest"],"authMethods":[],"trustScore":94,"trustTier":"elite","verificationStatus":"verified","status":"active",...},...]}
+{"agents":[{"handle":"research-agent","domain":"research-agent.getagent.id","protocolAddress":"research-agent.agentid","did":"did:agentid:research-agent","resolverUrl":"https://getagent.id/api/v1/resolve/research-agent","displayName":"Research Agent","description":"Deep research agent specializing in academic papers, market analysis, and competitive intelligence.","endpointUrl":"https://ra.example.com/tasks","capabilities":["research","web-search","summarization","citation"],"protocols":["mcp","a2a","rest"],"authMethods":[],"trustScore":94,"trustTier":"elite","verificationStatus":"verified","status":"active",...},...]}
 ```
 
 ## Step 14: Response Headers — PASS
