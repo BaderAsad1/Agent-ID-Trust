@@ -16,6 +16,7 @@ Key capabilities:
 - Subagent spawning with lineage tracking, TTL-based ephemeral agents, and auto-expiry
 - Agent Organizations for managing agent fleets under shared namespaces (e.g., `acme.agentID`)
 - Human Profiles for developer/operator public identity with owned agent listings
+- Agent ownership claim system — programmatically registered agents can be claimed by human handlers via signed claim tokens
 - API-first design for programmatic agent interaction
 
 ## Tech Stack

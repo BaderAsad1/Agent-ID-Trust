@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -267,9 +267,39 @@ function Overview() {
           </GlassCard>
         ))}
       </div>
-      <h2 className="text-lg font-semibold mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>My Agents</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>My Agents</h2>
+        {agents.length > 0 && (
+          <button
+            onClick={() => navigate('/claim')}
+            className="text-xs flex items-center gap-1.5 cursor-pointer"
+            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}
+          >
+            <Link className="w-3 h-3" /> Claim agent
+          </button>
+        )}
+      </div>
       {agents.length === 0 ? (
-        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents yet" description="Register your first agent to get started." action={<PrimaryButton onClick={() => navigate('/start')}>Register Agent</PrimaryButton>} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/start')}>
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(79,125,243,0.1)' }}>
+                <Plus className="w-6 h-6" style={{ color: 'var(--accent)' }} />
+              </div>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Register an agent</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Create a new agent identity from scratch with the setup wizard.</p>
+            </div>
+          </GlassCard>
+          <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/claim')}>
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.1)' }}>
+                <Link className="w-6 h-6" style={{ color: 'var(--success)' }} />
+              </div>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Claim an existing agent</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Link a programmatically registered agent to your account using a claim URL.</p>
+            </div>
+          </GlassCard>
+        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
           {agents.map(agent => (

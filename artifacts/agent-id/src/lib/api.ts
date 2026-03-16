@@ -113,6 +113,11 @@ export const api = {
       const raw = await request<RawVerifiableCredential>(`/agents/${id}/credential/reissue`, { method: "POST" });
       return mapCredential(raw);
     },
+    claim: (data: { token: string }) =>
+      request<{ success: boolean; agentId: string; handle: string; displayName: string; claimedAt: string }>("/agents/claim", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     verify: {
       initiate: (id: string, method: string) =>
         request(`/agents/${id}/verify/initiate`, {
@@ -405,6 +410,8 @@ export interface PublicProfileAgent {
   tasksCompleted: number;
   createdAt: string;
   endpointUrl?: string;
+  isClaimed?: boolean;
+  ownerVerifiedAt?: string;
   did: string;
   protocolAddress: string;
   erc8004Uri: string;

@@ -64,6 +64,8 @@ export type ActivityEventType =
   | "agent.handle_transferred"
   | "agent.sub_handle_created"
   | "agent.sub_handle_deleted"
+  | "agent.claimed"
+  | "agent.claim_token_regenerated"
   | "transfer.created"
   | "transfer.readiness_report_generated"
   | "transfer.hold_funded"

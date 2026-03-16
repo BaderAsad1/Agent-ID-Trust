@@ -39,4 +39,5 @@ export * from "./agent-webhooks";
 export * from "./task-messages";
 export * from "./agent-attestations";
 export * from "./agent-signed-activity";
+export * from "./agent-claim-tokens";
 export { agentLineageTable, type AgentLineage } from "./agents";

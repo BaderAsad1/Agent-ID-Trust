@@ -56,6 +56,8 @@ export interface BootstrapBundle {
   status: string;
   prompt_block: string;
   uuid_resolution_url: string;
+  claim_url: string | null;
+  is_owned: boolean;
 }
 
 export interface HeartbeatIdentity {

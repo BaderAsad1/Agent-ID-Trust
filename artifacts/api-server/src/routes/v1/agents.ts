@@ -24,9 +24,10 @@ import {
   reissueCredential,
 } from "../../services/credentials";
 import { buildBootstrapBundle } from "./agent-runtime";
-import { desc, eq } from "drizzle-orm";
+import { verifyClaimToken, generateClaimToken } from "../../utils/claim-token";
+import { desc, eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentActivityLogTable } from "@workspace/db/schema";
+import { agentActivityLogTable, agentsTable, agentClaimTokensTable } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -486,6 +487,128 @@ router.get("/:agentId/credential", requireAuth, async (req, res, next) => {
     }
 
     res.json(credential);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/claim", requireAuth, async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    if (!token || typeof token !== "string") {
+      throw new AppError(400, "VALIDATION_ERROR", "Token is required");
+    }
+
+    const verified = verifyClaimToken(token);
+    if (!verified.valid || !verified.agentId) {
+      throw new AppError(400, "INVALID_TOKEN", "Invalid or malformed claim token");
+    }
+
+    const now = new Date();
+    const result = await db.transaction(async (tx) => {
+      const claimRecord = await tx.query.agentClaimTokensTable.findFirst({
+        where: and(
+          eq(agentClaimTokensTable.token, token),
+          eq(agentClaimTokensTable.isActive, true),
+          eq(agentClaimTokensTable.isUsed, false),
+        ),
+      });
+
+      if (!claimRecord) {
+        throw new AppError(400, "TOKEN_EXPIRED", "This claim token has already been used or deactivated");
+      }
+
+      const [tokenUpdate] = await tx
+        .update(agentClaimTokensTable)
+        .set({ isUsed: true, usedAt: now, usedByUserId: req.userId! })
+        .where(
+          and(
+            eq(agentClaimTokensTable.id, claimRecord.id),
+            eq(agentClaimTokensTable.isUsed, false),
+          )
+        )
+        .returning({ id: agentClaimTokensTable.id });
+
+      if (!tokenUpdate) {
+        throw new AppError(409, "ALREADY_CLAIMED", "This claim token was just used by another request");
+      }
+
+      const [agentUpdate] = await tx
+        .update(agentsTable)
+        .set({
+          ownerUserId: req.userId!,
+          ownerVerifiedAt: now,
+          ownerVerificationMethod: "claim_token",
+          isClaimed: true,
+          claimedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(agentsTable.id, claimRecord.agentId),
+            eq(agentsTable.isClaimed, false),
+          )
+        )
+        .returning({ id: agentsTable.id, handle: agentsTable.handle, displayName: agentsTable.displayName });
+
+      if (!agentUpdate) {
+        throw new AppError(409, "ALREADY_CLAIMED", "This agent has already been claimed");
+      }
+
+      return agentUpdate;
+    });
+
+    await logActivity({
+      agentId: result.id,
+      eventType: "agent.claimed",
+      payload: { claimedByUserId: req.userId!, method: "claim_token" },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    res.json({
+      success: true,
+      agentId: result.id,
+      handle: result.handle,
+      displayName: result.displayName,
+      claimedAt: now.toISOString(),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/:agentId/regenerate-claim-token", requireAgentAuth, async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const agent = req.authenticatedAgent;
+    if (!agent || agent.id !== agentId) {
+      throw new AppError(403, "FORBIDDEN", "You can only regenerate tokens for your own agent");
+    }
+
+    await db
+      .update(agentClaimTokensTable)
+      .set({ isActive: false })
+      .where(eq(agentClaimTokensTable.agentId, agentId));
+
+    const newToken = generateClaimToken(agentId, "regen");
+    await db.insert(agentClaimTokensTable).values({
+      agentId,
+      token: newToken,
+    });
+
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
+    const claimUrl = `${APP_URL}/claim?token=${encodeURIComponent(newToken)}`;
+
+    await logActivity({
+      agentId,
+      eventType: "agent.claim_token_regenerated",
+      payload: {},
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    res.json({ claimUrl });
   } catch (err) {
     next(err);
   }

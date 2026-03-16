@@ -96,6 +96,16 @@ export class AgentID {
     return this.bootstrap.capabilities;
   }
 
+  get isOwned(): boolean {
+    if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
+    return this.bootstrap.is_owned;
+  }
+
+  getClaimUrl(): string | null {
+    if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
+    return this.bootstrap.claim_url;
+  }
+
   static async init(config: AgentIDConfig): Promise<AgentID> {
     const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
     const http = new HttpClient({ baseUrl, apiKey: config.apiKey });

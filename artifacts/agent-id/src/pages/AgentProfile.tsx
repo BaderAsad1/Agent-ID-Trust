@@ -107,7 +107,7 @@ function relativeTime(dateStr: string): string {
   return `${Math.floor(diffMonth / 12)}y ago`;
 }
 
-function ProfileCredentialCard({ agent, trustScore, listings, stats }: { agent: { handle: string; displayName: string; description?: string; capabilities?: string[]; endpointUrl?: string; status: string; verificationStatus?: string; verifiedAt?: string; domainName?: string; domainStatus?: string; createdAt: string; tasksCompleted?: number; metadata?: Record<string, unknown> }; trustScore: number; listings?: Array<{ status: string; avgRating?: string }>; stats?: { tasksCompleted: number; avgRating: number | null; uptimePct: number | null } }) {
+function ProfileCredentialCard({ agent, trustScore, listings, stats }: { agent: { handle: string; displayName: string; description?: string; capabilities?: string[]; endpointUrl?: string; status: string; verificationStatus?: string; verifiedAt?: string; domainName?: string; domainStatus?: string; createdAt: string; tasksCompleted?: number; metadata?: Record<string, unknown>; isClaimed?: boolean }; trustScore: number; listings?: Array<{ status: string; avgRating?: string }>; stats?: { tasksCompleted: number; avgRating: number | null; uptimePct: number | null } }) {
   return (
     <div style={{
       position: 'relative', width: 520, maxWidth: '92vw', borderRadius: 22,
@@ -161,6 +161,18 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats }: { agent: 
             fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
             letterSpacing: '0.16em', color: '#34d399',
           }}>CREDENTIAL ACTIVE</span>
+          {agent.isClaimed && (
+            <>
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%', background: '#4f7df3',
+                boxShadow: '0 0 16px rgba(79,125,243,0.6)', marginLeft: 12,
+              }} />
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                letterSpacing: '0.16em', color: '#4f7df3',
+              }}>HANDLER VERIFIED</span>
+            </>
+          )}
           <span style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
             color: 'rgba(232,232,240,0.3)', marginLeft: 8,

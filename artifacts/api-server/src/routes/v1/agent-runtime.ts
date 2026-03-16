@@ -1,8 +1,8 @@
 import { Router, type Request } from "express";
 import { z } from "zod/v4";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, agentMessagesTable, type Agent, type AgentInbox } from "@workspace/db/schema";
+import { agentsTable, agentMessagesTable, agentClaimTokensTable, type Agent, type AgentInbox } from "@workspace/db/schema";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { computeTrustScore, type TrustSignal } from "../../services/trust-score";
@@ -56,6 +56,20 @@ async function buildBootstrapBundle(agent: Agent) {
 
   const promptBlock = buildPromptBlockText(agent, trust, effectiveInbox, capabilities, limits, APP_URL, plan);
 
+  let claimUrl: string | null = null;
+  if (!agent.isClaimed) {
+    const activeClaimToken = await db.query.agentClaimTokensTable.findFirst({
+      where: and(
+        eq(agentClaimTokensTable.agentId, agent.id),
+        eq(agentClaimTokensTable.isActive, true),
+        eq(agentClaimTokensTable.isUsed, false),
+      ),
+    });
+    if (activeClaimToken) {
+      claimUrl = `${APP_URL}/claim?token=${encodeURIComponent(activeClaimToken.token)}`;
+    }
+  }
+
   const bundle: Record<string, unknown> = {
     spec_version: SPEC_VERSION,
     agent_id: agent.id,
@@ -82,6 +96,8 @@ async function buildBootstrapBundle(agent: Agent) {
     status: agent.status,
     prompt_block: promptBlock,
     uuid_resolution_url: `${APP_URL}/api/v1/resolve/id/${agent.id}`,
+    claim_url: claimUrl,
+    is_owned: !!agent.isClaimed,
   };
 
   if (!limits.canReceiveMail) {

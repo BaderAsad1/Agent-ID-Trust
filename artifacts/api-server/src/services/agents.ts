@@ -228,6 +228,8 @@ export function toPublicProfile(agent: Agent, credential?: Record<string, unknow
       tasksCompleted: agent.tasksCompleted,
       createdAt: agent.createdAt,
       endpointUrl: agent.endpointUrl,
+      isClaimed: agent.isClaimed,
+      ownerVerifiedAt: agent.ownerVerifiedAt,
       did,
       protocolAddress,
       erc8004Uri,

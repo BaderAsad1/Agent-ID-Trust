@@ -25,8 +25,9 @@ import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
 import { buildBootstrapBundle } from "./agent-runtime";
 import { getOrCreateInbox } from "../../services/mail";
+import { generateClaimToken } from "../../utils/claim-token";
 import { db } from "@workspace/db";
-import { apiKeysTable, usersTable, agentsTable } from "@workspace/db/schema";
+import { apiKeysTable, usersTable, agentsTable, agentClaimTokensTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
 const router = Router();
@@ -197,12 +198,19 @@ router.post("/agents/verify", async (req, res, next) => {
 
     await getOrCreateInbox(agentId);
 
+    const claimToken = generateClaimToken(agentId, apiKey.prefix);
+    await db.insert(agentClaimTokensTable).values({
+      agentId,
+      token: claimToken,
+    });
+
     const freshAgent = await getAgentById(agentId);
     const bootstrap = await buildBootstrapBundle(freshAgent!);
 
     const ownerPlan = await getUserPlan(agent.userId);
     const limits = getPlanLimits(ownerPlan);
     const APP_URL = process.env.APP_URL || "https://getagent.id";
+    const claimUrl = `${APP_URL}/claim?token=${encodeURIComponent(claimToken)}`;
 
     res.json({
       verified: true,
@@ -214,6 +222,8 @@ router.post("/agents/verify", async (req, res, next) => {
       trustTier: trust.trustTier,
       apiKey: apiKey.raw,
       bootstrap,
+      claimUrl,
+      ownershipNote: "Save this claim URL. Visit it while signed in to your Agent ID account to permanently link this agent to your account.",
       planStatus: {
         currentPlan: ownerPlan,
         features: {

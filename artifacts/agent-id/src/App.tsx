@@ -16,6 +16,7 @@ import { Pricing } from '@/pages/Pricing';
 import { Protocol } from '@/pages/Protocol';
 import { DocsIntegrations } from '@/pages/DocsIntegrations';
 import { NotFound } from '@/pages/NotFound';
+import { ClaimPage } from '@/pages/Claim';
 import { Mail } from '@/pages/Mail';
 import { OrgProfile } from '@/pages/OrgProfile';
 import { HumanProfile } from '@/pages/HumanProfile';
@@ -67,6 +68,7 @@ function AppContent() {
       <Nav />
       <Routes>
         <Route path="/start" element={<Start />} />
+        <Route path="/claim" element={<ClaimPage />} />
         <Route path="/sign-in" element={<SignIn />} />
         <Route path="/for-agents" element={<ForAgents />} />
         <Route path="/pricing" element={<Pricing />} />
