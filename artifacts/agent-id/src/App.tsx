@@ -69,6 +69,7 @@ function AppContent() {
         <Route path="/for-agents" element={<ForAgents />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/protocol" element={<Protocol />} />
+        <Route path="/integrations" element={<DocsIntegrations />} />
         <Route path="/docs/integrations" element={<DocsIntegrations />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

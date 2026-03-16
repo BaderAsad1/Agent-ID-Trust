@@ -1,7 +1,50 @@
 import { useState } from 'react';
-import { Copy, Check, Code2, Blocks, Bot, Zap } from 'lucide-react';
+import { Copy, Check, Code2, Blocks, Bot, Zap, Sparkles, ArrowRight } from 'lucide-react';
 import { GlassCard } from '@/components/shared';
 import { Footer } from '@/components/Footer';
+
+const FRAMEWORK_CARDS = [
+  {
+    slug: 'langchain',
+    name: 'LangChain',
+    icon: Blocks,
+    description: 'Integrate Agent ID resolution into your LangChain agents and tools for identity-aware orchestration.',
+    language: 'TypeScript',
+    color: '#10B981',
+  },
+  {
+    slug: 'crewai',
+    name: 'CrewAI',
+    icon: Bot,
+    description: 'Use Agent ID resolution in CrewAI crews to delegate tasks to verified, trusted agents.',
+    language: 'Python',
+    color: '#8B5CF6',
+  },
+  {
+    slug: 'openai_assistants',
+    name: 'OpenAI Assistants',
+    icon: Sparkles,
+    description: 'Connect OpenAI Assistants to the Agent ID network with function-calling tools.',
+    language: 'TypeScript',
+    color: '#3B82F6',
+  },
+  {
+    slug: 'vercel_ai',
+    name: 'Vercel AI SDK',
+    icon: Zap,
+    description: 'Integrate Agent ID into Vercel AI SDK apps with tool-based resolution and streaming.',
+    language: 'TypeScript',
+    color: '#F59E0B',
+  },
+  {
+    slug: 'autogen',
+    name: 'AutoGen',
+    icon: Code2,
+    description: 'Build multi-agent conversations with AutoGen using Agent ID for identity and trust verification.',
+    language: 'Python',
+    color: '#EF4444',
+  },
+];
 
 function CodeBlock({ code, lang = 'typescript', title }: { code: string; lang?: string; title?: string }) {
   const [copied, setCopied] = useState(false);
@@ -118,51 +161,186 @@ task = Task(
 crew = Crew(agents=[researcher], tasks=[task])
 result = crew.kickoff()`;
 
-const AUTOGPT_EXAMPLE = `import { AgentResolver } from '@agentid/resolver';
+const OPENAI_ASSISTANTS_EXAMPLE = `import OpenAI from 'openai';
+import { AgentResolver } from '@agentid/resolver';
+
+const openai = new OpenAI();
+const resolver = new AgentResolver();
+
+// Define the resolve tool for the assistant
+const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'resolve_agent',
+      description: 'Resolve a .agentid handle to get endpoint and trust.',
+      parameters: {
+        type: 'object',
+        properties: {
+          handle: { type: 'string', description: 'The .agentid handle' },
+        },
+        required: ['handle'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'find_agents',
+      description: 'Discover agents by capability and trust.',
+      parameters: {
+        type: 'object',
+        properties: {
+          capability: { type: 'string' },
+          minTrust: { type: 'number' },
+        },
+        required: ['capability'],
+      },
+    },
+  },
+];
+
+// Handle tool calls
+async function handleToolCall(name: string, args: Record<string, unknown>) {
+  if (name === 'resolve_agent') {
+    const { agent } = await resolver.resolve(args.handle as string);
+    return JSON.stringify({
+      handle: agent.handle,
+      endpointUrl: agent.endpointUrl,
+      trustScore: agent.trustScore,
+      capabilities: agent.capabilities,
+    });
+  }
+  if (name === 'find_agents') {
+    const { agents } = await resolver.findAgents({
+      capability: args.capability as string,
+      minTrust: (args.minTrust as number) || 0,
+      verifiedOnly: true,
+    });
+    return JSON.stringify(agents.map(a => ({
+      handle: a.handle,
+      trustScore: a.trustScore,
+    })));
+  }
+  return JSON.stringify({ error: 'Unknown tool' });
+}
+
+const response = await openai.chat.completions.create({
+  model: 'gpt-4',
+  tools,
+  messages: [
+    { role: 'user', content: 'Find a research agent with trust > 80' },
+  ],
+});`;
+
+const VERCEL_AI_EXAMPLE = `import { generateText, tool } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import { AgentResolver } from '@agentid/resolver';
+import { z } from 'zod';
 
 const resolver = new AgentResolver();
 
-// AutoGPT Plugin: resolve .agentid names before dispatching
-async function resolveAndDispatch(handle: string, task: object) {
-  // Step 1: Resolve the agent identity
-  const { agent } = await resolver.resolve(handle);
-
-  // Step 2: Verify trust before delegating
-  if (agent.trustScore < 60) {
-    throw new Error(
-      \`Agent \${handle} trust score (\${agent.trustScore}) below threshold\`
-    );
-  }
-
-  if (agent.verificationStatus !== 'verified') {
-    throw new Error(\`Agent \${handle} is not verified\`);
-  }
-
-  // Step 3: Dispatch the task to the resolved endpoint
-  const response = await fetch(agent.endpointUrl!, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Agent-Protocol': agent.protocols?.[0] || 'default',
-    },
-    body: JSON.stringify(task),
-  });
-
-  return response.json();
-}
-
-// Discover agents dynamically
-const agents = await resolver.findAgents({
-  capability: 'code-generation',
-  minTrust: 80,
-  protocol: 'agent-protocol-v1',
+const resolveAgentTool = tool({
+  description: 'Resolve a .agentid handle to get endpoint and trust.',
+  parameters: z.object({
+    handle: z.string().describe('The .agentid handle to resolve'),
+  }),
+  execute: async ({ handle }) => {
+    const { agent } = await resolver.resolve(handle);
+    return {
+      handle: agent.handle,
+      displayName: agent.displayName,
+      endpointUrl: agent.endpointUrl,
+      trustScore: agent.trustScore,
+      capabilities: agent.capabilities,
+      verified: agent.verificationStatus === 'verified',
+    };
+  },
 });
 
-// Reverse-verify an endpoint
-const identity = await resolver.reverse(
-  'https://research-agent.getagent.id/v1/tasks'
-);
-console.log(\`Endpoint belongs to: \${identity.agent.handle}.agentid\`);`;
+const discoverAgentsTool = tool({
+  description: 'Discover agents by capability and trust score.',
+  parameters: z.object({
+    capability: z.string().describe('Required capability'),
+    minTrust: z.number().optional().describe('Min trust (0-100)'),
+  }),
+  execute: async ({ capability, minTrust }) => {
+    const { agents } = await resolver.findAgents({
+      capability,
+      minTrust: minTrust || 0,
+      verifiedOnly: true,
+    });
+    return agents.map(a => ({
+      handle: a.handle,
+      trustScore: a.trustScore,
+      endpointUrl: a.endpointUrl,
+    }));
+  },
+});
+
+const { text } = await generateText({
+  model: openai('gpt-4'),
+  tools: {
+    resolveAgent: resolveAgentTool,
+    discoverAgents: discoverAgentsTool,
+  },
+  prompt: 'Find a code-generation agent with trust > 80',
+});
+
+console.log(text);`;
+
+const AUTOGEN_EXAMPLE = `import httpx
+import autogen
+
+RESOLVE_URL = "https://getagent.id/api/v1"
+
+def resolve_agent(handle: str) -> dict:
+    """Resolve a .agentid handle to its identity."""
+    response = httpx.get(f"{RESOLVE_URL}/resolve/{handle}")
+    response.raise_for_status()
+    return response.json()["agent"]
+
+def find_agents(capability: str, min_trust: int = 0) -> list:
+    """Discover agents by capability."""
+    response = httpx.get(f"{RESOLVE_URL}/agents", params={
+        "capability": capability,
+        "minTrust": min_trust,
+        "verifiedOnly": "true",
+    })
+    response.raise_for_status()
+    return response.json()["agents"]
+
+# Resolve an agent identity
+research = resolve_agent("research-agent")
+print(f"Resolved: {research['displayName']} (trust: {research['trustScore']}/100)")
+
+# Trust gate: only delegate if trust is high enough
+if research["trustScore"] < 70:
+    raise ValueError(f"Agent trust too low: {research['trustScore']}")
+
+# Create AutoGen agents with resolved identity context
+assistant = autogen.AssistantAgent(
+    name="assistant",
+    system_message=f"""You can delegate research tasks to
+    {research['displayName']}, a verified agent at
+    {research['endpointUrl']} with trust {research['trustScore']}/100.""",
+    llm_config={"model": "gpt-4"},
+)
+
+user_proxy = autogen.UserProxyAgent(
+    name="user_proxy",
+    human_input_mode="NEVER",
+    code_execution_config={"work_dir": "output"},
+)
+
+# Discover available agents
+available = find_agents("research", min_trust=80)
+print(f"Found {len(available)} trusted research agents")
+
+user_proxy.initiate_chat(
+    assistant,
+    message="Research the latest AI agent protocols",
+)`;
 
 const RAW_FETCH_EXAMPLE = `// Forward Resolution — resolve a .agentid name
 const resolveRes = await fetch(
@@ -229,12 +407,14 @@ print(f"Found {data['total']} agents")
 for a in data["agents"]:
     print(f"  {a['handle']}.agentid (trust: {a['trustScore']})")`;
 
-type Tab = 'langchain' | 'crewai' | 'autogpt' | 'fetch' | 'python';
+type Tab = 'langchain' | 'crewai' | 'openai_assistants' | 'vercel_ai' | 'autogen' | 'fetch' | 'python';
 
 const TABS: { id: Tab; label: string; icon: typeof Code2; lang: string }[] = [
   { id: 'langchain', label: 'LangChain', icon: Blocks, lang: 'typescript' },
   { id: 'crewai', label: 'CrewAI', icon: Bot, lang: 'python' },
-  { id: 'autogpt', label: 'AutoGPT', icon: Zap, lang: 'typescript' },
+  { id: 'openai_assistants', label: 'OpenAI Assistants', icon: Sparkles, lang: 'typescript' },
+  { id: 'vercel_ai', label: 'Vercel AI SDK', icon: Zap, lang: 'typescript' },
+  { id: 'autogen', label: 'AutoGen', icon: Code2, lang: 'python' },
   { id: 'fetch', label: 'Raw Fetch', icon: Code2, lang: 'typescript' },
   { id: 'python', label: 'Python', icon: Code2, lang: 'python' },
 ];
@@ -242,7 +422,9 @@ const TABS: { id: Tab; label: string; icon: typeof Code2; lang: string }[] = [
 const CODE_MAP: Record<Tab, string> = {
   langchain: LANGCHAIN_EXAMPLE,
   crewai: CREWAI_EXAMPLE,
-  autogpt: AUTOGPT_EXAMPLE,
+  openai_assistants: OPENAI_ASSISTANTS_EXAMPLE,
+  vercel_ai: VERCEL_AI_EXAMPLE,
+  autogen: AUTOGEN_EXAMPLE,
   fetch: RAW_FETCH_EXAMPLE,
   python: PYTHON_EXAMPLE,
 };
@@ -263,6 +445,35 @@ export function DocsIntegrations() {
           <p className="text-xl leading-relaxed max-w-2xl" style={{ color: 'var(--text-muted)' }}>
             Drop-in examples for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> protocol addresses from any orchestration framework. <span style={{ fontFamily: 'var(--font-mono)' }}>.agentid</span> resolves through the Agent ID protocol, like <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span> resolves through ENS. Copy, paste, ship.
           </p>
+        </div>
+
+        <div className="mb-16">
+          <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Supported Frameworks</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FRAMEWORK_CARDS.map(fw => (
+              <div key={fw.slug} className="rounded-xl border p-5 transition-all hover:border-opacity-60" style={{ background: 'var(--bg-elevated)', borderColor: fw.color + '33' }}>
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: fw.color + '15', border: `1px solid ${fw.color}33` }}>
+                    <fw.icon className="w-4.5 h-4.5" style={{ color: fw.color }} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{fw.name}</h3>
+                    <span className="text-xs" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{fw.language}</span>
+                  </div>
+                </div>
+                <p className="text-xs leading-relaxed mb-4" style={{ color: 'var(--text-muted)' }}>{fw.description}</p>
+                <a
+                  href={`/api/v1/integrations/${fw.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium transition-colors hover:opacity-80"
+                  style={{ color: fw.color, textDecoration: 'none' }}
+                >
+                  View Quickstart <ArrowRight className="w-3 h-3" />
+                </a>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">

@@ -27,6 +27,7 @@ import jobsRouter from "./jobs";
 import mailRouter from "./mail";
 import resendWebhooksRouter from "./resend-webhooks";
 import resolveRouter, { handleReverse, handleAgentDiscovery } from "./resolve";
+import integrationsRouter from "./integrations";
 
 const router = Router();
 
@@ -66,5 +67,6 @@ router.use("/payments", paymentsRouter);
 router.use("/jobs", jobsRouter);
 router.use("/mail", mailRouter);
 router.use("/webhooks", resendWebhooksRouter);
+router.use("/integrations", integrationsRouter);
 
 export default router;

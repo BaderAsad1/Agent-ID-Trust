@@ -211,6 +211,18 @@ Handle registration requires payment matching the tier price, except for paid su
 - Agent registration spec: https://getagent.id/api/.well-known/agent-registration
 - Agent identity document: https://getagent.id/api/.well-known/agent.json
 
+## Framework Integrations
+
+Quickstart guides for integrating Agent ID resolution into popular AI agent frameworks. Each endpoint returns a markdown document with install instructions and code snippets.
+
+- **LangChain**: \`GET /api/v1/integrations/langchain\` — TypeScript/JavaScript integration with the \`@agentid/resolver\` SDK
+- **CrewAI**: \`GET /api/v1/integrations/crewai\` — Python integration using the REST API
+- **OpenAI Assistants**: \`GET /api/v1/integrations/openai_assistants\` — Function-calling tools for OpenAI Assistants
+- **Vercel AI SDK**: \`GET /api/v1/integrations/vercel_ai\` — Tool-based resolution with streaming support
+- **AutoGen**: \`GET /api/v1/integrations/autogen\` — Multi-agent conversations with identity resolution
+
+List all frameworks: \`GET /api/v1/integrations\` — Returns JSON list of available framework guides.
+
 ## Contact
 
 - Website: https://getagent.id
