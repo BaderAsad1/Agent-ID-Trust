@@ -9,6 +9,7 @@ import { initWebhookDeliveryWorker, closeWebhookWorker } from "./workers/webhook
 import { initEmailDeliveryWorker, closeEmailWorker } from "./workers/email-delivery";
 import { initUndeliverableCleanupWorker, stopUndeliverableCleanupWorker } from "./workers/undeliverable-cleanup";
 import { initOutboundMailWorker, closeOutboundMailWorker } from "./workers/outbound-mail";
+import { startAgentExpiryWorker, stopAgentExpiryWorker } from "./workers/agent-expiry";
 import { closeOutboundQueue } from "./services/mail-transport";
 import { closeRedis } from "./lib/redis";
 import { expireJobs } from "./services/jobs";
@@ -58,6 +59,7 @@ initWebhookDeliveryWorker();
 initEmailDeliveryWorker();
 initUndeliverableCleanupWorker();
 initOutboundMailWorker();
+startAgentExpiryWorker();
 
 const JOB_EXPIRY_INTERVAL_MS = 60 * 1000;
 let jobExpiryTimer: ReturnType<typeof setInterval> | null = null;
@@ -84,6 +86,7 @@ const server = app.listen(port, () => {
 async function gracefulShutdown(signal: string) {
   logger.info({ signal }, "Shutting down gracefully");
   if (jobExpiryTimer) clearInterval(jobExpiryTimer);
+  await stopAgentExpiryWorker();
   server.close();
   await closeDomainWorker();
   await closeWebhookWorker();

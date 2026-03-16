@@ -17,6 +17,11 @@ import type {
   AgentIDCredential,
   RegisterOptions,
   RegisterResult,
+  SpawnSubagentOptions,
+  SpawnSubagentResult,
+  ListSubagentsOptions,
+  ListSubagentsResult,
+  TerminateSubagentResult,
 } from "./types.js";
 
 const DEFAULT_BASE_URL = "https://getagent.id";
@@ -196,5 +201,28 @@ export class AgentID {
     baseUrl = DEFAULT_BASE_URL,
   ): Promise<RegisterResult> {
     return registerAgentHelper(options, baseUrl);
+  }
+
+  async spawnSubagent(options: SpawnSubagentOptions): Promise<SpawnSubagentResult> {
+    return this.http.post<SpawnSubagentResult>(
+      `/api/v1/agents/${this._agentId}/subagents`,
+      options,
+    );
+  }
+
+  async listSubagents(options: ListSubagentsOptions = {}): Promise<ListSubagentsResult> {
+    const params = new URLSearchParams();
+    if (options.status) params.set("status", options.status);
+    if (options.agentType) params.set("agentType", options.agentType);
+    const qs = params.toString();
+    return this.http.get<ListSubagentsResult>(
+      `/api/v1/agents/${this._agentId}/subagents${qs ? `?${qs}` : ""}`,
+    );
+  }
+
+  async terminateSubagent(subagentId: string): Promise<TerminateSubagentResult> {
+    return this.http.delete<TerminateSubagentResult>(
+      `/api/v1/agents/${this._agentId}/subagents/${subagentId}`,
+    );
   }
 }

@@ -224,14 +224,6 @@ const externalSignalProvider: TrustProvider = {
   },
 };
 
-const SPONSORSHIP_BONUS: Record<TrustTier, number> = {
-  unverified: 0,
-  basic: 2,
-  verified: 5,
-  trusted: 8,
-  elite: 10,
-};
-
 const BASIC_TIER_CEILING = 39;
 
 const lineageSponsorshipProvider: TrustProvider = {
@@ -243,15 +235,15 @@ const lineageSponsorshipProvider: TrustProvider = {
 
     const parent = await db.query.agentsTable.findFirst({
       where: eq(agentsTable.id, agent.parentAgentId),
-      columns: { trustTier: true, handle: true },
+      columns: { trustScore: true, trustTier: true, handle: true },
     });
 
     if (!parent) return { score: 0 };
 
-    const bonus = SPONSORSHIP_BONUS[parent.trustTier as TrustTier] ?? 0;
+    const bonus = Math.min(10, Math.floor(parent.trustScore / 10));
     return {
       score: bonus,
-      metadata: { parentTier: parent.trustTier, parentHandle: parent.handle },
+      metadata: { parentTrustScore: parent.trustScore, parentTier: parent.trustTier, parentHandle: parent.handle },
     };
   },
 };

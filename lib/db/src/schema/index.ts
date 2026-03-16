@@ -32,3 +32,4 @@ export * from "./agent-operator-history";
 export * from "./sessions";
 export * from "./agent-credentials";
 export * from "./resolution-events";
+export { agentLineageTable, type AgentLineage } from "./agents";

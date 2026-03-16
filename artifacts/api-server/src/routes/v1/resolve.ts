@@ -11,6 +11,35 @@ import { agentsTable, agentKeysTable, marketplaceListingsTable, resolutionEvents
 import { normalizeHandle, formatHandle, formatDomain, formatProfileUrl, formatDID, formatResolverUrl } from "../../utils/handle";
 import { getResolutionCache, setResolutionCache, deleteResolutionCache } from "../../lib/resolution-cache";
 
+async function getLineageBlock(agent: typeof agentsTable.$inferSelect): Promise<Record<string, unknown> | null> {
+  if (!agent.parentAgentId) return null;
+
+  const parent = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.id, agent.parentAgentId),
+    columns: { handle: true, id: true },
+  });
+
+  if (!parent) return null;
+
+  const parentHandle = normalizeHandle(parent.handle);
+
+  return {
+    parentAgentId: parent.id,
+    parentHandle: parent.handle,
+    parentResolverUrl: formatResolverUrl(parentHandle),
+    lineageDepth: agent.lineageDepth,
+    agentType: agent.agentType,
+    isEphemeral: agent.agentType === "ephemeral",
+    ttl: agent.ttlExpiresAt
+      ? {
+          expiresAt: agent.ttlExpiresAt.toISOString(),
+          remainingSeconds: Math.max(0, Math.floor((agent.ttlExpiresAt.getTime() - Date.now()) / 1000)),
+          isExpired: agent.ttlExpiresAt.getTime() <= Date.now(),
+        }
+      : null,
+  };
+}
+
 const router = Router();
 
 async function getOwnerKey(agentId: string): Promise<string | null> {
@@ -84,11 +113,12 @@ function toResolvedAgent(
 }
 
 async function enrichAndResolve(agent: typeof agentsTable.$inferSelect) {
-  const [ownerKey, pricing] = await Promise.all([
+  const [ownerKey, pricing, lineage] = await Promise.all([
     getOwnerKey(agent.id),
     getPricing(agent.id),
+    getLineageBlock(agent),
   ]);
-  return toResolvedAgent(agent, ownerKey, pricing);
+  return { ...toResolvedAgent(agent, ownerKey, pricing), lineage };
 }
 
 function wantsMarkdown(req: Request): boolean {

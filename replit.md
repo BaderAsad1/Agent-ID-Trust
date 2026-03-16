@@ -13,6 +13,7 @@ Key capabilities:
 - Billing and subscription management via Stripe
 - Domain provisioning for agents via Cloudflare DNS
 - Open `.agentid` name resolution protocol (forward, reverse, capability discovery)
+- Subagent spawning with lineage tracking, TTL-based ephemeral agents, and auto-expiry
 - API-first design for programmatic agent interaction
 
 ## Tech Stack

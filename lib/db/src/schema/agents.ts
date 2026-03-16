@@ -21,6 +21,7 @@ import {
   verificationMethodEnum,
   trustTierEnum,
   transferStatusEnum,
+  agentTypeEnum,
 } from "./enums";
 
 export const agentsTable = pgTable(
@@ -53,9 +54,14 @@ export const agentsTable = pgTable(
       .notNull(),
     verificationMethod: verificationMethodEnum("verification_method"),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    agentType: agentTypeEnum("agent_type").default("primary").notNull(),
     parentAgentId: uuid("parent_agent_id"),
     lineageDepth: integer("lineage_depth").default(0).notNull(),
     sponsoredBy: uuid("sponsored_by"),
+    maxSubagents: integer("max_subagents").default(10).notNull(),
+    subagentCount: integer("subagent_count").default(0).notNull(),
+    ttlExpiresAt: timestamp("ttl_expires_at", { withTimezone: true }),
+    spawnedByKeyId: uuid("spawned_by_key_id"),
     tasksReceived: integer("tasks_received").default(0).notNull(),
     tasksCompleted: integer("tasks_completed").default(0).notNull(),
     transferStatus: transferStatusEnum("transfer_status"),
@@ -80,6 +86,31 @@ export const agentsTable = pgTable(
     index("agents_status_idx").on(table.status),
     index("agents_verification_status_idx").on(table.verificationStatus),
     index("agents_trust_score_idx").on(table.trustScore),
+    index("agents_parent_agent_id_idx").on(table.parentAgentId),
+    index("agents_agent_type_idx").on(table.agentType),
+    index("agents_ttl_expires_at_idx").on(table.ttlExpiresAt),
+  ],
+);
+
+export const agentLineageTable = pgTable(
+  "agent_lineage",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => agentsTable.id, { onDelete: "cascade" }),
+    ancestorId: uuid("ancestor_id")
+      .notNull()
+      .references(() => agentsTable.id, { onDelete: "cascade" }),
+    depth: integer("depth").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("agent_lineage_agent_id_idx").on(table.agentId),
+    index("agent_lineage_ancestor_id_idx").on(table.ancestorId),
+    uniqueIndex("agent_lineage_agent_ancestor_idx").on(table.agentId, table.ancestorId),
   ],
 );
 
@@ -90,3 +121,4 @@ export const insertAgentSchema = createInsertSchema(agentsTable).omit({
 });
 export type InsertAgent = z.infer<typeof insertAgentSchema>;
 export type Agent = typeof agentsTable.$inferSelect;
+export type AgentLineage = typeof agentLineageTable.$inferSelect;

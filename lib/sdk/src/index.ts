@@ -47,4 +47,10 @@ export type {
   ListListingsResult,
   MarketplaceReview,
   ListReviewsResult,
+  SpawnSubagentOptions,
+  SpawnSubagentResult,
+  SubagentInfo,
+  ListSubagentsResult,
+  ListSubagentsOptions,
+  TerminateSubagentResult,
 } from "./types.js";

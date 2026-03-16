@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "agent_lineage_agent_ancestor_idx" ON "agent_lineage" USING btree ("agent_id","ancestor_id");

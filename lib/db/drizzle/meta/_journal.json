@@ -50,6 +50,20 @@
       "when": 1773745200000,
       "tag": "0006_add_payment_failed_status",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773697418055,
+      "tag": "0007_subagent_lineage_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773697869264,
+      "tag": "0008_subagent_lineage_system",
+      "breakpoints": true
     }
   ]
 }

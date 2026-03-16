@@ -233,3 +233,9 @@ export const transferAssetTypeEnum = pgEnum("transfer_asset_type", [
   "buyer_must_reconnect",
   "excluded_by_default",
 ]);
+
+export const agentTypeEnum = pgEnum("agent_type", [
+  "primary",
+  "subagent",
+  "ephemeral",
+]);

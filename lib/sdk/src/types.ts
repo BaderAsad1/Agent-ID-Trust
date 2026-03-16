@@ -382,5 +382,72 @@ export interface ListReviewsResult {
   total: number;
 }
 
+export interface SpawnSubagentOptions {
+  handle: string;
+  displayName: string;
+  description?: string;
+  agentType?: "subagent" | "ephemeral";
+  ttlSeconds?: number;
+  publicKey?: string;
+  keyType?: string;
+  capabilities?: string[];
+  protocols?: string[];
+  endpointUrl?: string;
+}
+
+export interface SpawnSubagentResult {
+  agentId: string;
+  handle: string;
+  status: string;
+  agentType: string;
+  parentAgentId: string;
+  lineageDepth: number;
+  apiKey: string;
+  kid?: string;
+  ttl?: {
+    expiresAt: string;
+    remainingSeconds: number;
+    isEphemeral: boolean;
+  };
+}
+
+export interface SubagentInfo {
+  id: string;
+  handle: string;
+  displayName: string;
+  status: string;
+  agentType: string;
+  lineageDepth: number;
+  ttlExpiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  ttl: {
+    expiresAt: string;
+    remainingSeconds: number;
+    isExpired: boolean;
+    isEphemeral: boolean;
+  } | null;
+}
+
+export interface ListSubagentsResult {
+  parentAgentId: string;
+  subagents: SubagentInfo[];
+  total: number;
+  maxSubagents: number;
+  subagentCount: number;
+}
+
+export interface ListSubagentsOptions {
+  status?: string;
+  agentType?: "subagent" | "ephemeral";
+}
+
+export interface TerminateSubagentResult {
+  success: boolean;
+  subagentId: string;
+  status: string;
+  terminatedAt: string;
+}
+
 export type TaskHandler = (task: Task) => void | Promise<void>;
 export type MessageHandler = (message: MailMessage) => void | Promise<void>;

@@ -122,6 +122,15 @@ export function requireAgentAuth(
     for (const strategy of strategyRegistry) {
       const agent = await strategy.authenticate(req);
       if (agent) {
+        if (agent.status === "inactive" || agent.status === "suspended") {
+          res.status(403).json({
+            error: "Agent is no longer active",
+            code: "AGENT_INACTIVE",
+            status: agent.status,
+          });
+          return;
+        }
+
         const isExempt = VERIFICATION_EXEMPT_PATHS.some(p => p.test(req.path));
         if (!isExempt && agent.verificationStatus !== "verified") {
           res.status(403).json({
