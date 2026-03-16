@@ -16,7 +16,7 @@ export function formatResolverUrl(handle: string): string {
 }
 
 export function formatDID(handle: string): string {
-  return `urn:agentid:${normalizeHandle(handle)}`;
+  return `did:agentid:${normalizeHandle(handle)}`;
 }
 
 export function formatInboxAddress(handle: string): string {

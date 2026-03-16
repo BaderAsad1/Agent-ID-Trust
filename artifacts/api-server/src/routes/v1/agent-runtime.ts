@@ -99,45 +99,61 @@ function buildPromptBlockText(
   limits?: ReturnType<typeof getPlanLimits>,
   appUrl?: string,
 ): string {
-  const scopes = (agent.scopes as string[]) || [];
   const APP_URL = appUrl || process.env.APP_URL || "https://getagent.id";
 
-  const lines = [
-    `=== AGENT IDENTITY ===`,
-    `Name: ${agent.displayName}`,
-    `Handle: @${agent.handle}`,
-    `Protocol Address: ${agent.handle}.agentid`,
-    `Agent ID: ${agent.id}`,
-    `UUID Resolution: ${APP_URL}/api/v1/resolve/id/${agent.id}`,
-  ];
+  const inboxSection = inbox?.address
+    ? `Your inbox address: ${inbox.address}
+Check inbox:    GET  ${APP_URL}/api/v1/mail/agents/${agent.id}/inbox
+List messages:  GET  ${APP_URL}/api/v1/mail/agents/${agent.id}/messages
+Send message:   POST ${APP_URL}/api/v1/mail/agents/${agent.id}/messages
+  Body: { "recipientAddress": "<addr>", "subject": "...", "body": "...", "direction": "outbound", "senderType": "agent" }`
+    : `Inbox: not available — upgrade at ${APP_URL}/pricing`;
 
-  if (agent.isPublic) {
-    lines.push(`Public Profile: /api/v1/public/agents/${agent.handle}`);
-  }
+  return `=== AGENT ID IDENTITY ===
+Name:             ${agent.displayName}
+Handle:           ${agent.handle}.agentID
+DID:              did:agentid:${agent.handle}
+Agent ID:         ${agent.id}
+Protocol Address: ${agent.handle}.agentid
+Trust Score:      ${trust.trustScore} / 100
+Trust Tier:       ${trust.trustTier}
+Verification:     ${agent.verificationStatus}
+Plan:             ${(limits as any)?.plan || 'free'}
 
-  if (inbox) {
-    lines.push(`Inbox Address: ${inbox.address}`);
-  } else if (limits && !limits.canReceiveMail) {
-    lines.push(`Inbox: not available (requires paid plan)`);
-  }
+=== RESOLUTION ===
+Resolve by UUID:   GET ${APP_URL}/api/v1/resolve/id/${agent.id}
+Resolve by handle: GET ${APP_URL}/api/v1/resolve/${agent.handle}
+Public profile:    ${APP_URL}/${agent.handle}
+ERC-8004 export:   ${APP_URL}/api/v1/p/${agent.handle}/erc8004
 
-  lines.push(`Trust Tier: ${trust.trustTier}`);
+=== MAIL ===
+${inboxSection}
 
-  if (capabilities.length > 0) {
-    lines.push(`Capabilities: ${capabilities.join(", ")}`);
-  }
+=== API ACCESS ===
+Base URL:    ${APP_URL}/api/v1
+Auth header: X-Agent-Key: <your-api-key>
+Heartbeat:   POST ${APP_URL}/api/v1/agents/${agent.id}/heartbeat
+Bootstrap:   GET  ${APP_URL}/api/v1/agents/${agent.id}/bootstrap
+Prompt:      GET  ${APP_URL}/api/v1/agents/${agent.id}/prompt-block
 
-  if (agent.description) {
-    lines.push(`Description: ${agent.description}`);
-  }
+=== CAPABILITIES ===
+${capabilities.length ? capabilities.join(', ') : 'None declared — update via PATCH /api/v1/agents/' + agent.id}
 
-  if (scopes.length > 0) {
-    lines.push(`Policy Constraints: allowed scopes [${scopes.join(", ")}]`);
-  }
+=== DISCOVER OTHER AGENTS ===
+By handle:      GET ${APP_URL}/api/v1/resolve/<handle>
+By capability:  GET ${APP_URL}/api/v1/resolve?capability=<cap>
+By trust:       GET ${APP_URL}/api/v1/resolve?minTrust=<score>&verifiedOnly=true
+Browse all:     GET ${APP_URL}/api/v1/resolve?limit=20
 
-  lines.push(`=== END AGENT IDENTITY ===`);
+=== TRUST TIERS ===
+unverified: 0-19  | basic: 20-39   | verified: 40-69
+trusted:   70-89  | elite:  90-100
 
-  return lines.join("\n");
+=== PLATFORM ===
+Full docs:    ${APP_URL}/api/llms.txt
+API browser:  ${APP_URL}/api/docs
+Register:     POST ${APP_URL}/api/v1/programmatic/agents/register
+=== END AGENT ID IDENTITY ===`.trim();
 }
 
 function buildPromptBlockJson(

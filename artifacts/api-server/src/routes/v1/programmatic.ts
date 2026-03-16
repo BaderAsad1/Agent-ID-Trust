@@ -184,7 +184,14 @@ router.post("/agents/verify", async (req, res, next) => {
 
     await db
       .update(agentsTable)
-      .set({ bootstrapIssuedAt: new Date(), updatedAt: new Date() })
+      .set({
+        status: 'active',
+        verificationStatus: 'verified',
+        verificationMethod: 'key_challenge',
+        verifiedAt: new Date(),
+        bootstrapIssuedAt: new Date(),
+        updatedAt: new Date(),
+      })
       .where(eq(agentsTable.id, agentId));
 
     const freshAgent = await getAgentById(agentId);

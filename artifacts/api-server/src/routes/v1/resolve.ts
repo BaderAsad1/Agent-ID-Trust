@@ -74,7 +74,7 @@ function toResolvedAgent(
     createdAt: agent.createdAt,
     updatedAt: agent.updatedAt,
     profileUrl: formatProfileUrl(handle),
-    erc8004Uri: `erc8004://${handle}.agentid`,
+    erc8004Uri: `${process.env.APP_URL || 'https://getagent.id'}/api/v1/p/${handle}/erc8004`,
     credential: {
       namespace: ".agentid",
       did: formatDID(handle),
