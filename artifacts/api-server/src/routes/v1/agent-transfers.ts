@@ -95,7 +95,7 @@ router.get("/:agentId/transfers/readiness", requireTransferAuth, requireTransfer
       payload: { summary: report.summary },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
-    });
+    }).catch(() => {});
 
     res.json(report);
   } catch (err) {
@@ -118,6 +118,14 @@ router.post("/:agentId/transfers", requireTransferAuth, requireTransferScope("tr
       sellerId: req.userId!,
       ...parsed.data,
     });
+
+    await logActivity({
+      agentId: req.params.agentId as string,
+      eventType: "transfer.created",
+      payload: { transferId: transfer.id, transferType: parsed.data.transferType },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    }).catch(() => {});
 
     res.status(201).json(transfer);
   } catch (err) {
@@ -192,6 +200,15 @@ router.post("/:agentId/transfers/:transferId/accept", requireTransferAuth, requi
     }
 
     const updated = await acceptTransfer(req.params.transferId as string, req.userId!, parsed.data.agreedPrice);
+
+    await logActivity({
+      agentId: req.params.agentId as string,
+      eventType: "transfer.hold_funded",
+      payload: { transferId: req.params.transferId, agreedPrice: parsed.data.agreedPrice },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    }).catch(() => {});
+
     res.json(updated);
   } catch (err) {
     if (err instanceof Error) {
@@ -225,6 +242,15 @@ router.post("/:agentId/transfers/:transferId/fund-hold", (_req, _res, next) => {
 router.post("/:agentId/transfers/:transferId/start-handoff", requireTransferAuth, requireTransferScope("transfer:write"), async (req, res, next) => {
   try {
     const updated = await startHandoff(req.params.transferId as string, req.userId!);
+
+    await logActivity({
+      agentId: req.params.agentId as string,
+      eventType: "transfer.handoff_started",
+      payload: { transferId: req.params.transferId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    }).catch(() => {});
+
     res.json(updated);
   } catch (err) {
     if (err instanceof Error) {
@@ -240,6 +266,15 @@ router.post("/:agentId/transfers/:transferId/start-handoff", requireTransferAuth
 router.post("/:agentId/transfers/:transferId/complete", requireTransferAuth, requireTransferScope("transfer:write"), async (req, res, next) => {
   try {
     const updated = await completeHandoff(req.params.transferId as string, req.userId!);
+
+    await logActivity({
+      agentId: req.params.agentId as string,
+      eventType: "transfer.handoff_completed",
+      payload: { transferId: req.params.transferId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    }).catch(() => {});
+
     res.json(updated);
   } catch (err) {
     if (err instanceof Error) {
@@ -256,6 +291,15 @@ router.post("/:agentId/transfers/:transferId/cancel", requireTransferAuth, requi
   try {
     const parsed = cancelTransferSchema.safeParse(req.body || {});
     const updated = await cancelTransfer(req.params.transferId as string, req.userId!, parsed.success ? parsed.data.reason : undefined);
+
+    await logActivity({
+      agentId: req.params.agentId as string,
+      eventType: "transfer.cancelled",
+      payload: { transferId: req.params.transferId, reason: parsed.success ? parsed.data.reason : undefined },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    }).catch(() => {});
+
     res.json(updated);
   } catch (err) {
     if (err instanceof Error) {
@@ -275,6 +319,15 @@ router.post("/:agentId/transfers/:transferId/dispute", requireTransferAuth, requ
     }
 
     const updated = await disputeTransfer(req.params.transferId as string, req.userId!, parsed.data.reason);
+
+    await logActivity({
+      agentId: req.params.agentId as string,
+      eventType: "transfer.dispute_raised",
+      payload: { transferId: req.params.transferId, reason: parsed.data.reason },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    }).catch(() => {});
+
     res.json(updated);
   } catch (err) {
     if (err instanceof Error) {

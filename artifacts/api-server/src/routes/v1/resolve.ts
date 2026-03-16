@@ -5,7 +5,7 @@ import { AppError } from "../../middlewares/error-handler";
 import { getAgentByHandle, getAgentById } from "../../services/agents";
 import { detectAgent } from "../../middlewares/cli-markdown";
 import { generateAgentProfileMarkdown } from "../../services/agent-markdown";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte, desc as drizzleDesc, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, agentKeysTable, marketplaceListingsTable, resolutionEventsTable } from "@workspace/db/schema";
 import { normalizeHandle, formatHandle, formatDomain, formatProfileUrl, formatDID, formatResolverUrl } from "../../utils/handle";
@@ -345,9 +345,12 @@ router.post("/reverse", handleReverse);
 
 export async function handleAgentDiscovery(req: Request, res: Response, next: NextFunction) {
   try {
+    const q = req.query.q as string | undefined;
     const capability = req.query.capability as string | undefined;
     const minTrust = req.query.minTrust ? parseInt(req.query.minTrust as string, 10) : undefined;
     const protocol = req.query.protocol as string | undefined;
+    const verifiedOnly = req.query.verifiedOnly === "true";
+    const sort = (req.query.sort as string) || "trust";
     const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 100);
     const offset = parseInt(req.query.offset as string, 10) || 0;
 
@@ -360,7 +363,22 @@ export async function handleAgentDiscovery(req: Request, res: Response, next: Ne
       conditions.push(gte(agentsTable.trustScore, minTrust));
     }
 
+    if (verifiedOnly) {
+      conditions.push(eq(agentsTable.verificationStatus, "verified"));
+    }
+
     let whereClause = and(...conditions);
+
+    if (q && q.trim().length > 0) {
+      const sanitized = q.trim().replace(/[<>&'"]/g, "");
+      const tsQuery = sanitized.split(/\s+/).filter(Boolean).map(w => w + ":*").join(" & ");
+      const fullTextFilter = sql`(
+        "search_vector" @@ to_tsquery('english', ${tsQuery})
+        OR ${agentsTable.handle} % ${sanitized}
+        OR ${agentsTable.displayName} % ${sanitized}
+      )`;
+      whereClause = and(whereClause, fullTextFilter);
+    }
 
     if (capability) {
       const capFilter = sql`${agentsTable.capabilities}::jsonb @> ${JSON.stringify([capability])}::jsonb`;
@@ -372,9 +390,15 @@ export async function handleAgentDiscovery(req: Request, res: Response, next: Ne
       whereClause = and(whereClause, protoFilter);
     }
 
+    const orderByFn = sort === "recent"
+      ? [drizzleDesc(agentsTable.createdAt)]
+      : sort === "activity"
+        ? [drizzleDesc(agentsTable.updatedAt)]
+        : [drizzleDesc(agentsTable.trustScore)];
+
     const agents = await db.query.agentsTable.findMany({
       where: whereClause,
-      orderBy: (agents, { desc }) => [desc(agents.trustScore)],
+      orderBy: orderByFn,
       limit,
       offset,
     });

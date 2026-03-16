@@ -58,6 +58,55 @@ function MachineReadableZone() {
 
 const CAP_ICONS: Record<string, string> = { 'Code Execution': '▸', 'API Access': '∼', 'Data Analysis': '≡', 'Payments': '¤', 'Messaging': '@' };
 
+const EVENT_LABELS: Record<string, string> = {
+  'agent.created': 'Agent registered',
+  'agent.updated': 'Profile updated',
+  'agent.deleted': 'Agent deleted',
+  'agent.verified': 'Identity verified',
+  'agent.verification_failed': 'Verification failed',
+  'agent.endpoint_updated': 'Endpoint updated',
+  'agent.key_created': 'Key created',
+  'agent.key_rotated': 'Key rotated',
+  'agent.key_revoked': 'Key revoked',
+  'agent.task_received': 'Task received',
+  'agent.task_delivered': 'Task delivered',
+  'agent.task_acknowledged': 'Task acknowledged',
+  'agent.task_completed': 'Task completed',
+  'agent.listing_created': 'Marketplace listing created',
+  'agent.listing_updated': 'Marketplace listing updated',
+  'agent.trust_updated': 'Trust score updated',
+  'agent.status_changed': 'Status changed',
+  'agent.programmatic_registered': 'Programmatic registration',
+  'agent.domain_provisioned': 'Domain provisioned',
+  'agent.message_received': 'Mail received',
+  'agent.message_sent': 'Mail sent',
+  'agent.spawned': 'Sub-agent spawned',
+  'agent.handle_transferred': 'Handle transferred',
+  'transfer.created': 'Transfer initiated',
+  'transfer.handoff_started': 'Handoff started',
+  'transfer.handoff_completed': 'Transfer completed',
+  'transfer.cancelled': 'Transfer cancelled',
+  'transfer.dispute_raised': 'Dispute raised',
+  'transfer.hold_funded': 'Hold funded',
+  'transfer.readiness_report_generated': 'Readiness report generated',
+};
+
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffSec = Math.floor((now - then) / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return `${diffDay}d ago`;
+  const diffMonth = Math.floor(diffDay / 30);
+  if (diffMonth < 12) return `${diffMonth}mo ago`;
+  return `${Math.floor(diffMonth / 12)}y ago`;
+}
+
 function ProfileCredentialCard({ agent, trustScore, listings, stats }: { agent: { handle: string; displayName: string; description?: string; capabilities?: string[]; endpointUrl?: string; status: string; verificationStatus?: string; verifiedAt?: string; domainName?: string; domainStatus?: string; createdAt: string; tasksCompleted?: number; metadata?: Record<string, unknown> }; trustScore: number; listings?: Array<{ status: string; avgRating?: string }>; stats?: { tasksCompleted: number; avgRating: number | null; uptimePct: number | null } }) {
   return (
     <div style={{
@@ -549,50 +598,34 @@ export function AgentProfile() {
 
           <div>
             <SectionLabel>RECENT ACTIVITY</SectionLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {recentActivity.length === 0 && (
                 <div style={{ padding: '24px 20px', textAlign: 'center', color: 'rgba(232,232,240,0.3)', fontSize: 13 }}>
                   No recent activity recorded for this agent.
                 </div>
               )}
-              {recentActivity.slice(0, 5).map((evt: ActivityItem) => ({
-                id: evt.id, type: 'completed', title: evt.eventType, requester: '', time: new Date(evt.createdAt).toLocaleString(), status: 'Done', rating: 0,
-              })).map(task => (
-                <div key={task.id} style={{
-                  background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
-                  borderRadius: 12, padding: '16px 20px',
+              {recentActivity.slice(0, 10).map((evt: ActivityItem, idx: number) => (
+                <div key={evt.id} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0',
+                  borderBottom: idx < Math.min(recentActivity.length, 10) - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontSize: 13, fontWeight: 500, color: 'rgba(232,232,240,0.7)',
-                        marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>{task.title}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        {task.requester && (
-                          <span style={{
-                            fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
-                            color: 'rgba(79,125,243,0.5)',
-                          }}>{task.requester}</span>
-                        )}
-                        <span style={{
-                          fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
-                          color: 'rgba(232,232,240,0.2)',
-                        }}>{task.time}</span>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      {task.rating > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Star size={11} style={{ color: '#f5a623', fill: '#f5a623' }} />
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'rgba(232,232,240,0.4)' }}>{task.rating}</span>
-                        </div>
-                      )}
-                      <span style={{
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
-                        letterSpacing: '0.08em', color: '#34d399', textTransform: 'uppercase',
-                      }}>{task.status}</span>
-                    </div>
+                  <div style={{
+                    width: 8, height: 8, borderRadius: '50%', marginTop: 5, flexShrink: 0,
+                    background: evt.eventType.includes('completed') || evt.eventType.includes('verified')
+                      ? '#34d399'
+                      : evt.eventType.includes('failed') || evt.eventType.includes('dispute')
+                        ? '#ef4444'
+                        : 'rgba(79,125,243,0.5)',
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 13, fontWeight: 500, color: 'rgba(232,232,240,0.7)',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>{EVENT_LABELS[evt.eventType] || evt.eventType.replace(/[._]/g, ' ')}</div>
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                      color: 'rgba(232,232,240,0.25)',
+                    }}>{relativeTime(evt.createdAt)}</span>
                   </div>
                 </div>
               ))}

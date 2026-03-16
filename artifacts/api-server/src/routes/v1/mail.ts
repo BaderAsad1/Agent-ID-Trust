@@ -6,6 +6,7 @@ import { AppError } from "../../middlewares/error-handler";
 import * as mailService from "../../services/mail";
 import { getAgentPlan, getPlanLimits } from "../../services/billing";
 import { checkOutboundRateLimit } from "../../services/mail-transport";
+import { logActivity } from "../../services/activity-logger";
 
 function param(v: string | string[] | undefined): string {
   return Array.isArray(v) ? v[0] : (v ?? "");
@@ -352,6 +353,20 @@ router.post("/agents/:agentId/messages", requireHumanOrAgentAuth, async (req, re
       agentId,
       ...body,
     });
+
+    await logActivity({
+      agentId,
+      eventType: body.direction === "outbound" ? "agent.message_sent" : "agent.message_received",
+      payload: {
+        messageId: message.id,
+        direction: body.direction,
+        senderType: body.senderType,
+        subject: body.subject,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    }).catch(() => {});
+
     res.status(201).json({ message });
   } catch (err) {
     next(err);
