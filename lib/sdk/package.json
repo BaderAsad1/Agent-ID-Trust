@@ -1,5 +1,5 @@
 {
-  "name": "@agentid/sdk",
+  "name": "@getagentid/sdk",
   "version": "1.0.0",
   "description": "Official SDK for Agent ID — identity, trust, mail, tasks, and resolution for AI agents",
   "type": "module",

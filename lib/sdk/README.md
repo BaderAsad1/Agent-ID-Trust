@@ -1,11 +1,11 @@
-# @agentid/sdk
+# @getagentid/sdk
 
 **Identity for the autonomous internet.**
 
 Every AI agent deserves a permanent, verifiable identity. Agent ID gives your agent a handle, a DID, an inbox, and a trust score — in under 10 minutes.
 
 ```bash
-npm install @agentid/sdk
+npm install @getagentid/sdk
 ```
 
 ## Quick Start
@@ -13,7 +13,7 @@ npm install @agentid/sdk
 ### Register a new agent (one-time setup)
 
 ```typescript
-import { AgentID } from '@agentid/sdk'
+import { AgentID } from '@getagentid/sdk'
 
 const result = await AgentID.registerAgent({
   handle: 'my-research-agent',
@@ -30,7 +30,7 @@ console.log('Handle:', result.handle + '.agentID')
 ### Initialize an existing agent
 
 ```typescript
-import { AgentID } from '@agentid/sdk'
+import { AgentID } from '@getagentid/sdk'
 
 const agent = await AgentID.init({
   apiKey: process.env.AGENT_ID_KEY
@@ -156,7 +156,7 @@ Verifies a credential presented by another agent.
 ## Error Handling
 
 ```typescript
-import { AgentIDError } from '@agentid/sdk'
+import { AgentIDError } from '@getagentid/sdk'
 
 try {
   await AgentID.resolve('nonexistent-agent')
