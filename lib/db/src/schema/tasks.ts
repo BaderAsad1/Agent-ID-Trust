@@ -5,7 +5,6 @@ import {
   integer,
   jsonb,
   timestamp,
-  integer,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
