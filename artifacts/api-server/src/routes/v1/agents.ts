@@ -23,11 +23,22 @@ import {
   issueCredential,
   reissueCredential,
 } from "../../services/credentials";
+import { buildBootstrapBundle } from "./agent-runtime";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentActivityLogTable } from "@workspace/db/schema";
 
 const router = Router();
+
+router.get("/whoami", requireAgentAuth, async (req, res, next) => {
+  try {
+    const agent = req.authenticatedAgent!;
+    const bundle = await buildBootstrapBundle(agent);
+    res.json(bundle);
+  } catch (err) {
+    next(err);
+  }
+});
 
 const createAgentSchema = z.object({
   handle: z.string().min(3).max(100),

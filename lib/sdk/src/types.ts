@@ -53,6 +53,7 @@ export interface BootstrapBundle {
   key_ids: Array<{ kid: string; key_type: string; status: string }>;
   status: string;
   prompt_block: string;
+  uuid_resolution_url: string;
 }
 
 export interface HeartbeatIdentity {
@@ -224,6 +225,8 @@ export interface ResolvedAgent {
   createdAt: string;
   updatedAt: string;
   profileUrl: string;
+  did: string;
+  erc8004Uri: string | null;
 }
 
 export interface ResolutionResult {
@@ -298,6 +301,9 @@ export interface RegisterResult {
   apiKey: string;
   credential: AgentIDCredential | null;
   privateKey: CryptoKey;
+  trustScore: number;
+  trustTier: string;
+  planStatus: string;
 }
 
 export interface RegisterOptions {

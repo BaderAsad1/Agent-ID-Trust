@@ -57,7 +57,8 @@ export class AgentID {
   }
 
   get did(): string {
-    return `did:agentid:${this._agentId}`;
+    if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
+    return `did:agentid:${this.bootstrap.handle}`;
   }
 
   get trustScore(): number {
@@ -81,7 +82,8 @@ export class AgentID {
   }
 
   get resolverUrl(): string {
-    return `${this._baseUrl}/api/v1/resolve`;
+    if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
+    return `${this._baseUrl}/api/v1/resolve/${this.bootstrap.handle}`;
   }
 
   get capabilities(): string[] {

@@ -95,6 +95,9 @@ export async function registerAgent(
     handle: string;
     apiKey: string;
     bootstrap?: BootstrapBundle;
+    trustScore: number;
+    trustTier: string;
+    planStatus: string;
   }>("/api/v1/programmatic/agents/verify", {
     agentId: registerResponse.agentId,
     challenge: registerResponse.challenge,
@@ -118,6 +121,9 @@ export async function registerAgent(
     apiKey: verifyResponse.apiKey,
     credential,
     privateKey: keyPair.privateKey,
+    trustScore: verifyResponse.trustScore,
+    trustTier: verifyResponse.trustTier,
+    planStatus: verifyResponse.planStatus,
   };
 }
 

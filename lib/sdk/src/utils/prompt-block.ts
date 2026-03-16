@@ -10,6 +10,7 @@ export function formatPromptBlock(bundle: BootstrapBundle, options?: PromptBlock
     `=== AGENT IDENTITY ===`,
     `Name: ${bundle.display_name}`,
     `Handle: @${bundle.handle}`,
+    `DID: did:agentid:${bundle.handle}`,
     `Protocol Address: ${bundle.handle}.agentid`,
     `Public Profile: ${bundle.public_profile_url}`,
     `Agent ID: ${bundle.agent_id}`,
