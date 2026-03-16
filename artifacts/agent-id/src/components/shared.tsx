@@ -48,8 +48,8 @@ export function TrustScoreRing({ score, size = 64 }: { score: number; size?: num
   );
 }
 
-export function StatusDot({ status }: { status: 'active' | 'inactive' | 'draft' | 'propagating' }) {
-  const colors: Record<string, string> = { active: 'var(--success)', inactive: 'var(--text-dim)', draft: 'var(--text-dim)', propagating: 'var(--warning)' };
+export function StatusDot({ status }: { status: 'active' | 'inactive' | 'draft' | 'propagating' | 'verified' | 'pending' | 'unverified' }) {
+  const colors: Record<string, string> = { active: 'var(--success)', inactive: 'var(--text-dim)', draft: 'var(--text-dim)', propagating: 'var(--warning)', verified: 'var(--success)', pending: 'var(--warning)', unverified: 'var(--text-dim)' };
   return (
     <span className="inline-flex items-center gap-1.5">
       <span

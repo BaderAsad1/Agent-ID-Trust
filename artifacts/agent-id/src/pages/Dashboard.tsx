@@ -1346,7 +1346,7 @@ function CredentialDashboard() {
                     </div>
                     <div>
                       <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Verification</div>
-                      <StatusDot status={credential.verificationStatus === 'verified' ? 'verified' : 'pending'} label={credential.verificationStatus} />
+                      <StatusDot status={credential.verificationStatus} />
                     </div>
                   </div>
 

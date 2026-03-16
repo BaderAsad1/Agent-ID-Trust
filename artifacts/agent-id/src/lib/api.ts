@@ -124,7 +124,7 @@ export const api = {
           method: "POST",
           body: JSON.stringify(data),
         }),
-      status: (id: string) => request<{ verificationStatus: string }>(`/agents/${id}/verify/status`),
+      status: (id: string) => request<{ verificationStatus: VerificationStatus }>(`/agents/${id}/verify/status`),
     },
   },
 
@@ -343,6 +343,8 @@ export const api = {
   },
 };
 
+export type VerificationStatus = 'verified' | 'pending' | 'unverified';
+
 export interface Agent {
   id: string;
   userId: string;
@@ -353,7 +355,7 @@ export interface Agent {
   endpointUrl?: string;
   status: string;
   trustScore: number;
-  verificationStatus: string;
+  verificationStatus: VerificationStatus;
   verificationMethod?: string;
   verifiedAt?: string;
   domainName?: string;
@@ -725,7 +727,7 @@ export interface RawVerifiableCredential {
     protocols: string[];
     authMethods: string[];
     paymentMethods: string[];
-    verificationStatus: string;
+    verificationStatus: VerificationStatus;
     verificationMethod: string | null;
     verifiedAt: string | null;
     trustScore: number;
@@ -747,7 +749,7 @@ export interface AgentCredential {
   serialNumber: string;
   trustScore: number;
   trustTier: string;
-  verificationStatus: string;
+  verificationStatus: VerificationStatus;
   issuedAt: string;
   expiresAt: string;
   capabilities: string[];
