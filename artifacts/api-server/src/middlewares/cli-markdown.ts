@@ -25,12 +25,36 @@ const CLI_USER_AGENTS = [
   "powershell",
 ];
 
+const LLM_AND_BOT_USER_AGENTS = [
+  "claude",
+  "gpt",
+  "openai",
+  "langchain",
+  "llamaindex",
+  "autogen",
+  "crewai",
+  "agentid-sdk",
+  "googlebot",
+  "bingbot",
+  "gptbot",
+  "claudebot",
+  "openai-searchbot",
+  "perplexitybot",
+  "aiohttp",
+];
+
 const BROWSER_UA_PATTERNS = ["mozilla", "chrome", "safari", "edge", "opera"];
 
-function detectCliClient(req: Request): boolean {
+export function detectCliClient(req: Request): boolean {
   const ua = (req.headers["user-agent"] || "").toLowerCase();
 
+  if (req.headers["x-agent-key"]) return true;
+
   for (const pattern of CLI_USER_AGENTS) {
+    if (ua.includes(pattern)) return true;
+  }
+
+  for (const pattern of LLM_AND_BOT_USER_AGENTS) {
     if (ua.includes(pattern)) return true;
   }
 
@@ -49,6 +73,8 @@ function detectCliClient(req: Request): boolean {
 
   return false;
 }
+
+export const detectAgent = detectCliClient;
 
 export function cliDetect(
   req: Request,

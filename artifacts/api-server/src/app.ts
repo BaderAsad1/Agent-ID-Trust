@@ -12,6 +12,7 @@ import { apiKeyAuth } from "./middlewares/api-key-auth";
 import { errorHandler } from "./middlewares/error-handler";
 import { cliDetect, cliMarkdownRoot } from "./middlewares/cli-markdown";
 import { apiRateLimiter } from "./middlewares/rate-limit";
+import { generateAgentRegistrationMarkdown } from "./services/agent-markdown";
 import { env } from "./lib/env";
 
 const config = env();
@@ -49,6 +50,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(replitAuth);
 app.use(apiKeyAuth);
 app.use("/api", apiRateLimiter);
+
+app.get("/agent", (_req, res) => {
+  const md = generateAgentRegistrationMarkdown();
+  res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.send(md);
+});
 
 app.use(wellKnownRouter);
 app.use("/api", authOidcRouter);

@@ -3,6 +3,8 @@ import type { Request, Response, NextFunction } from "express";
 import { z } from "zod/v4";
 import { AppError } from "../../middlewares/error-handler";
 import { getAgentByHandle } from "../../services/agents";
+import { detectAgent } from "../../middlewares/cli-markdown";
+import { generateAgentProfileMarkdown } from "../../services/agent-markdown";
 import { eq, and, gte, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, agentKeysTable, marketplaceListingsTable, resolutionEventsTable } from "@workspace/db/schema";
@@ -89,20 +91,11 @@ async function enrichAndResolve(agent: typeof agentsTable.$inferSelect) {
   return toResolvedAgent(agent, ownerKey, pricing);
 }
 
-function isMachineClient(req: Request): boolean {
-  if (req.headers["x-agent-client"] === "true") return true;
-
+function wantsMarkdown(req: Request): boolean {
   const accept = req.headers["accept"] || "";
-  if (accept.includes("application/json")) return true;
-
-  if (
-    accept.includes("text/html") &&
-    !accept.includes("application/json")
-  ) {
-    return false;
-  }
-
-  return true;
+  if (accept.includes("text/markdown")) return true;
+  if (req.query.format === "markdown") return true;
+  return false;
 }
 
 function logResolutionEvent(
@@ -129,7 +122,7 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
   const startTime = Date.now();
   try {
     const handle = normalizeHandle(req.params.handle as string);
-    const machine = isMachineClient(req);
+    const machine = detectAgent(req);
 
     if (!machine) {
       logResolutionEvent(handle, null, "browser", Date.now() - startTime, "NONE");
@@ -138,7 +131,7 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
     }
 
     const cached = await getResolutionCache(handle);
-    if (cached) {
+    if (cached && !wantsMarkdown(req)) {
       const responseTimeMs = Date.now() - startTime;
       logResolutionEvent(handle, null, "machine", responseTimeMs, "HIT");
       res.setHeader("X-Cache", "HIT");
@@ -152,6 +145,16 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
     }
 
     const resolved = await enrichAndResolve(agent);
+
+    if (wantsMarkdown(req)) {
+      const md = generateAgentProfileMarkdown(resolved);
+      const responseTimeMs = Date.now() - startTime;
+      logResolutionEvent(handle, agent.id, "machine", responseTimeMs, "MISS");
+      res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=300");
+      res.send(md);
+      return;
+    }
 
     const responseBody = {
       resolved: true,

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, Terminal, Zap, Key, Globe } from 'lucide-react';
+import { Copy, Check, Terminal, Zap, Key, Globe, FileText } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { Footer } from '@/components/Footer';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://getagent.id/api/v1';
 
-const REGISTER_CURL = `curl -X POST ${API_BASE}/agents/register \\
+const REGISTER_CURL = `curl -X POST ${API_BASE}/programmatic/agents/register \\
   -H "Content-Type: application/json" \\
   -d '{
     "handle": "your-handle",
@@ -19,7 +19,7 @@ const REGISTER_CURL = `curl -X POST ${API_BASE}/agents/register \\
 const REGISTER_PYTHON = `import httpx
 
 response = httpx.post(
-    "${API_BASE}/agents/register",
+    "${API_BASE}/programmatic/agents/register",
     json={
         "handle": "your-handle",
         "display_name": "Your Agent Name",
@@ -35,7 +35,7 @@ print(data["domain"])     # your-handle.getagent.id`;
 
 const REGISTER_NODE = `import fetch from 'node-fetch';
 
-const res = await fetch('${API_BASE}/agents/register', {
+const res = await fetch('${API_BASE}/programmatic/agents/register', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -51,8 +51,8 @@ const data = await res.json();
 console.log(data.agent_id);  // agt_01j...
 console.log(data.domain);    // your-handle.getagent.id`;
 
-const REGISTER_HTTP = `POST ${API_BASE.replace(/^https?:\/\/[^/]+/, '')}/agents/register HTTP/1.1
-Host: ${(() => { try { return new URL(API_BASE).host; } catch { return 'api.getagent.id'; } })()}
+const REGISTER_HTTP = `POST /api/v1/programmatic/agents/register HTTP/1.1
+Host: getagent.id
 Content-Type: application/json
 
 {
@@ -73,7 +73,7 @@ const REGISTER_RESPONSE = `{
   "profile_url": "https://getagent.id/your-handle"
 }`;
 
-const VERIFY_CURL = `curl -X POST ${API_BASE}/agents/verify \\
+const VERIFY_CURL = `curl -X POST ${API_BASE}/programmatic/agents/verify \\
   -H "Content-Type: application/json" \\
   -d '{
     "agent_id": "agt_01j9x4k2mw3f8n1p7q5r6s0t",
@@ -256,6 +256,31 @@ export function ForAgents() {
             <div className="flex gap-3">
               <PrimaryButton variant="ghost" onClick={() => window.open('/api/docs', '_blank')}>View API Docs</PrimaryButton>
               <PrimaryButton variant="ghost" onClick={() => window.open('/api/docs/openapi.yaml', '_blank')}>OpenAPI Spec</PrimaryButton>
+            </div>
+          </div>
+
+          <div className="rounded-xl border p-6" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-color)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Machine-readable resources</h3>
+            </div>
+            <div className="space-y-2 text-sm" style={{ fontFamily: 'var(--font-mono)' }}>
+              <div className="flex items-center gap-2">
+                <span style={{ color: 'var(--text-dim)' }}>Platform config:</span>
+                <a href="/.well-known/agentid-configuration" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>/.well-known/agentid-configuration</a>
+              </div>
+              <div className="flex items-center gap-2">
+                <span style={{ color: 'var(--text-dim)' }}>Registration spec:</span>
+                <a href="/.well-known/agent-registration" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>/.well-known/agent-registration</a>
+              </div>
+              <div className="flex items-center gap-2">
+                <span style={{ color: 'var(--text-dim)' }}>LLMs.txt:</span>
+                <a href="/api/llms.txt" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>/api/llms.txt</a>
+              </div>
+              <div className="flex items-center gap-2">
+                <span style={{ color: 'var(--text-dim)' }}>Agent guide:</span>
+                <a href="/agent" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>/agent</a>
+              </div>
             </div>
           </div>
 

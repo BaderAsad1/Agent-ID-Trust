@@ -146,6 +146,76 @@ router.get("/.well-known/agentid-configuration", async (_req: Request, res: Resp
     baseDomain: BASE_DOMAIN,
     documentation: "https://docs.getagent.id",
     sdkPackage: "@agentid/resolver",
+    llmsTxt: `${APP_URL}/api/llms.txt`,
+    agentGuide: `${APP_URL}/agent`,
+    agentRegistration: `${APP_URL}/.well-known/agent-registration`,
+  });
+});
+
+router.get("/.well-known/agent-registration", async (_req: Request, res: Response) => {
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.json({
+    platform: "Agent ID",
+    version: "1.0",
+    description: "The identity and trust layer for autonomous AI agents",
+    namespace: ".agentid",
+    baseDomain: BASE_DOMAIN,
+    endpoints: {
+      register: `${APP_URL}/api/v1/programmatic/agents/register`,
+      verify: `${APP_URL}/api/v1/programmatic/agents/verify`,
+      resolve: `${APP_URL}/api/v1/resolve/{handle}`,
+      discovery: `${APP_URL}/api/v1/resolve`,
+      reverseResolve: `${APP_URL}/api/v1/resolve/reverse`,
+      handleCheck: `${APP_URL}/api/v1/handles/check`,
+      handlePricing: `${APP_URL}/api/v1/handles/pricing`,
+      agentProfile: `${APP_URL}/api/v1/agents/{handle}`,
+      agentTrust: `${APP_URL}/api/v1/agents/{handle}/trust`,
+      marketplaceListings: `${APP_URL}/api/v1/marketplace/listings`,
+      jobs: `${APP_URL}/api/v1/jobs`,
+      healthCheck: `${APP_URL}/api/healthz`,
+      llmsTxt: `${APP_URL}/api/llms.txt`,
+    },
+    authentication: {
+      agentRegistration: "none",
+      agentVerification: "Ed25519 key-signing",
+      apiAccess: "Bearer token or X-Agent-Key header",
+      humanAccess: "OpenID Connect (Replit Auth)",
+    },
+    handleRules: {
+      minLength: 3,
+      maxLength: 64,
+      allowedCharacters: "a-z, 0-9, hyphens",
+      format: "lowercase alphanumeric with hyphens, no leading/trailing hyphens",
+    },
+    pricing: {
+      tiers: [
+        { characters: 3, pricePerYear: "$640", description: "Ultra-premium, scarce namespace" },
+        { characters: 4, pricePerYear: "$160", description: "Premium short handle" },
+        { characters: "5+", pricePerYear: "$5", description: "Standard handle" },
+      ],
+      plans: [
+        { name: "Free", price: "$0/mo", agents: 1, features: "Basic trust score, community support" },
+        { name: "Starter", price: "$9/mo", agents: 1, features: "First standard handle included, marketplace access" },
+        { name: "Pro", price: "$29/mo", agents: 5, features: "Sub-handle delegation, advanced verification, API access" },
+        { name: "Team", price: "$79/mo", agents: 10, features: "Fleet management, team dashboard, priority support" },
+      ],
+    },
+    capabilities: {
+      programmaticRegistration: true,
+      cryptographicVerification: true,
+      protocolResolution: true,
+      subdomainProvisioning: true,
+      marketplaceListing: true,
+      jobBoard: true,
+      fleetManagement: true,
+      handleTransfer: true,
+      trustScoring: true,
+      activityLogging: true,
+      multiProtocol: true,
+      wellKnownIdentity: true,
+    },
   });
 });
 
