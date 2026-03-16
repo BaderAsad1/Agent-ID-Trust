@@ -2,7 +2,7 @@ import { Queue, Worker, type Job } from "bullmq";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentDomainsTable } from "@workspace/db/schema";
-import { getRedisConnectionOptions, isRedisConfigured } from "../lib/redis";
+import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
 import { logActivity } from "../services/activity-logger";
 import { logger } from "../middlewares/request-logger";
 
@@ -27,7 +27,7 @@ export function getDomainQueue(): Queue<DomainProvisioningJobData> | null {
   if (queue) return queue;
 
   queue = new Queue(QUEUE_NAME, {
-    connection: getRedisConnectionOptions(),
+    ...getBullMQConnection(),
     defaultJobOptions: {
       attempts: 5,
       backoff: { type: "exponential", delay: 5000 },
@@ -252,7 +252,7 @@ export function startDomainWorker(): Worker<DomainProvisioningJobData> | null {
       logger.info({ jobId: job.id, fqdn: job.data.fqdn }, "[domain-worker] Completed job");
     },
     {
-      connection: getRedisConnectionOptions(),
+      ...getBullMQConnection(),
       concurrency: 3,
     },
   );

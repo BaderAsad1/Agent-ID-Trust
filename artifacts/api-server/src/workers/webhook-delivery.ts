@@ -1,5 +1,5 @@
 import { Queue, Worker, type Job } from "bullmq";
-import { getRedisConnectionOptions, isRedisConfigured } from "../lib/redis";
+import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { inboxWebhooksTable, messageEventsTable } from "@workspace/db/schema";
@@ -74,9 +74,7 @@ export function initWebhookDeliveryWorker(): void {
     return;
   }
 
-  const connection = getRedisConnectionOptions();
-
-  webhookQueue = new Queue<WebhookDeliveryJob>(QUEUE_NAME, { connection });
+  webhookQueue = new Queue<WebhookDeliveryJob>(QUEUE_NAME, { ...getBullMQConnection() });
   webhookQueue.on("error", (err) => {
     logger.warn({ err: err.message }, "[webhook-worker] Queue connection error");
   });
@@ -85,7 +83,7 @@ export function initWebhookDeliveryWorker(): void {
     QUEUE_NAME,
     processWebhookJob,
     {
-      connection,
+      ...getBullMQConnection(),
       concurrency: 5,
     },
   );

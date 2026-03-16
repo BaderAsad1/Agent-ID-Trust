@@ -1,25 +1,61 @@
 import { Redis } from "ioredis";
 import { env } from "./env";
 
-let _redis: Redis | null = null;
+let _initialized = false;
+let _redis!: Redis;
+let _redisSub!: Redis;
+let _bullMQRedis!: Redis;
 
-export function getSharedRedis(): Redis {
-  if (_redis) return _redis;
+function initInstances(): void {
+  if (_initialized) return;
   const url = env().REDIS_URL;
   if (!url) throw new Error("REDIS_URL not configured");
+
   _redis = new Redis(url, {
     maxRetriesPerRequest: null,
     enableOfflineQueue: false,
-    lazyConnect: true,
+  });
+  _redis.on("error", (err) => {
+    console.error(`[redis:commands] ${err.message}`);
   });
   _redis.on("connect", () => {
-    _redis?.config("SET", "maxmemory-policy", "noeviction").catch(() => {});
+    _redis.config("SET", "maxmemory-policy", "noeviction").catch(() => {});
   });
+
+  _redisSub = new Redis(url, {
+    maxRetriesPerRequest: null,
+    enableOfflineQueue: false,
+  });
+  _redisSub.on("error", (err) => {
+    console.error(`[redis:subscriber] ${err.message}`);
+  });
+
+  _bullMQRedis = new Redis(url, {
+    maxRetriesPerRequest: null,
+    enableOfflineQueue: false,
+  });
+  _bullMQRedis.on("error", (err) => {
+    console.error(`[redis:bullmq] ${err.message}`);
+  });
+
+  _initialized = true;
+}
+
+export function getRedis(): Redis {
+  initInstances();
   return _redis;
 }
 
-export function getRedisConnectionOptions(): Redis {
-  return getSharedRedis();
+export const getSharedRedis = getRedis;
+
+export function getRedisSub(): Redis {
+  initInstances();
+  return _redisSub;
+}
+
+export function getBullMQConnection(): { connection: Redis } {
+  initInstances();
+  return { connection: _bullMQRedis };
 }
 
 export function isRedisConfigured(): boolean {
@@ -27,8 +63,9 @@ export function isRedisConfigured(): boolean {
 }
 
 export async function closeRedis(): Promise<void> {
-  if (_redis) {
-    try { await _redis.quit(); } catch {}
-    _redis = null;
-  }
+  if (!_initialized) return;
+  await Promise.allSettled(
+    [_redis, _redisSub, _bullMQRedis].map((inst) => inst.quit().catch(() => {})),
+  );
+  _initialized = false;
 }

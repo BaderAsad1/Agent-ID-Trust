@@ -1,5 +1,5 @@
 import { Worker, type Job } from "bullmq";
-import { getRedisConnectionOptions, isRedisConfigured } from "../lib/redis";
+import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
 import { logger } from "../middlewares/request-logger";
 import {
   type TransportEnvelope,
@@ -50,13 +50,11 @@ export function initOutboundMailWorker(): void {
     return;
   }
 
-  const connection = getRedisConnectionOptions();
-
   outboundWorker = new Worker(
     QUEUE_NAME,
     processOutboundJob,
     {
-      connection,
+      ...getBullMQConnection(),
       concurrency: 5,
     },
   );
