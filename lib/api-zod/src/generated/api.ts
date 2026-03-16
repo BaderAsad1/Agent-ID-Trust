@@ -124,8 +124,43 @@ export const LinkUserIdentityBody = zod.object({
 });
 
 /**
- * @summary List user's agents
+ * When called with an authentication header, returns the authenticated user's agents. When called without authentication but with discovery query parameters (capability, minTrust, protocol, verifiedOnly), returns publicly discoverable agents sorted by trust score.
+
+ * @summary List user's agents or discover public agents
  */
+export const listAgentsQueryLimitDefault = 50;
+export const listAgentsQueryLimitMax = 100;
+
+export const listAgentsQueryOffsetDefault = 0;
+
+export const ListAgentsQueryParams = zod.object({
+  capability: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by capability (discovery mode)"),
+  minTrust: zod.coerce
+    .number()
+    .optional()
+    .describe("Minimum trust score (discovery mode)"),
+  protocol: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by protocol support (discovery mode)"),
+  verifiedOnly: zod
+    .enum(["true", "false"])
+    .optional()
+    .describe("Only return verified agents (discovery mode)"),
+  limit: zod.coerce
+    .number()
+    .max(listAgentsQueryLimitMax)
+    .default(listAgentsQueryLimitDefault)
+    .describe("Maximum results to return (discovery mode, max 100)"),
+  offset: zod.coerce
+    .number()
+    .default(listAgentsQueryOffsetDefault)
+    .describe("Pagination offset (discovery mode)"),
+});
+
 export const ListAgentsResponse = zod.object({
   agents: zod.array(
     zod.object({
@@ -156,6 +191,12 @@ export const ListAgentsResponse = zod.object({
       updatedAt: zod.date().optional(),
     }),
   ),
+  total: zod
+    .number()
+    .optional()
+    .describe("Total matching agents (discovery mode only)"),
+  limit: zod.number().optional().describe("Limit used (discovery mode only)"),
+  offset: zod.number().optional().describe("Offset used (discovery mode only)"),
 });
 
 /**
@@ -411,6 +452,151 @@ export const GetPublicProfileResponse = zod.object({
   verificationStatus: zod.string(),
   tasksCompleted: zod.number().optional(),
   createdAt: zod.date(),
+});
+
+/**
+ * @summary Get or issue a verifiable credential for an agent
+ */
+export const GetPublicProfileCredentialParams = zod.object({
+  handle: zod.coerce.string(),
+});
+
+export const GetPublicProfileCredentialResponse = zod.object({
+  "@context": zod.array(zod.string()).optional(),
+  type: zod.array(zod.string()),
+  issuer: zod.string(),
+  issuanceDate: zod.date(),
+  expirationDate: zod.date().optional(),
+  serialNumber: zod.string().optional(),
+  credentialSubject: zod.object({
+    id: zod.string(),
+    handle: zod.string(),
+    displayName: zod.string(),
+    agentId: zod.string(),
+    endpoint: zod.string().optional(),
+    domain: zod.string().optional(),
+    inboxAddress: zod.string().optional(),
+    capabilities: zod.array(zod.string()).optional(),
+    protocols: zod.array(zod.string()).optional(),
+    authMethods: zod.array(zod.string()).optional(),
+    paymentMethods: zod.array(zod.string()).optional(),
+    verificationStatus: zod.string().optional(),
+    trustScore: zod.number().optional(),
+    trustTier: zod.string().optional(),
+    keys: zod
+      .array(
+        zod.object({
+          kid: zod.string().optional(),
+          keyType: zod.string().optional(),
+          publicKey: zod.string().optional(),
+          use: zod.string().optional(),
+        }),
+      )
+      .optional(),
+  }),
+  proof: zod.object({
+    type: zod.string(),
+    created: zod.date(),
+    proofPurpose: zod.string(),
+    verificationMethod: zod.string(),
+    signatureValue: zod.string(),
+  }),
+});
+
+/**
+ * @summary Verify a credential signature
+ */
+export const VerifyPublicProfileCredentialParams = zod.object({
+  handle: zod.coerce.string(),
+});
+
+export const VerifyPublicProfileCredentialResponse = zod.object({
+  valid: zod.boolean(),
+  credential: zod
+    .object({
+      "@context": zod.array(zod.string()).optional(),
+      type: zod.array(zod.string()),
+      issuer: zod.string(),
+      issuanceDate: zod.date(),
+      expirationDate: zod.date().optional(),
+      serialNumber: zod.string().optional(),
+      credentialSubject: zod.object({
+        id: zod.string(),
+        handle: zod.string(),
+        displayName: zod.string(),
+        agentId: zod.string(),
+        endpoint: zod.string().optional(),
+        domain: zod.string().optional(),
+        inboxAddress: zod.string().optional(),
+        capabilities: zod.array(zod.string()).optional(),
+        protocols: zod.array(zod.string()).optional(),
+        authMethods: zod.array(zod.string()).optional(),
+        paymentMethods: zod.array(zod.string()).optional(),
+        verificationStatus: zod.string().optional(),
+        trustScore: zod.number().optional(),
+        trustTier: zod.string().optional(),
+        keys: zod
+          .array(
+            zod.object({
+              kid: zod.string().optional(),
+              keyType: zod.string().optional(),
+              publicKey: zod.string().optional(),
+              use: zod.string().optional(),
+            }),
+          )
+          .optional(),
+      }),
+      proof: zod.object({
+        type: zod.string(),
+        created: zod.date(),
+        proofPurpose: zod.string(),
+        verificationMethod: zod.string(),
+        signatureValue: zod.string(),
+      }),
+    })
+    .optional(),
+  reason: zod.string().optional(),
+});
+
+/**
+ * @summary Get ERC-8004 DID Document for an agent
+ */
+export const GetPublicProfileERC8004Params = zod.object({
+  handle: zod.coerce.string(),
+});
+
+export const GetPublicProfileERC8004Response = zod.object({
+  "@context": zod.array(zod.string()).optional(),
+  id: zod.string(),
+  controller: zod.string(),
+  verificationMethod: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        type: zod.string(),
+        controller: zod.string(),
+        publicKeyBase64: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  authentication: zod.array(zod.string()).optional(),
+  service: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        type: zod.string(),
+        serviceEndpoint: zod.string(),
+      }),
+    )
+    .optional(),
+  metadata: zod
+    .object({
+      handle: zod.string().optional(),
+      trustScore: zod.number().optional(),
+      trustTier: zod.string().optional(),
+      verificationStatus: zod.string().optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -1397,13 +1583,39 @@ export const ListMailThreadsResponse = zod.object({
         subject: zod.string(),
         status: zod.enum(["open", "closed", "archived"]),
         messageCount: zod.number(),
+        unreadCount: zod.number().optional(),
         participants: zod.array(zod.string()).optional(),
         lastMessageAt: zod.date().optional(),
+        lastMessage: zod
+          .object({
+            id: zod.string().uuid(),
+            senderAddress: zod.string().nullish(),
+            senderType: zod.string(),
+            snippet: zod.string(),
+            isRead: zod.boolean(),
+            senderVerified: zod.boolean().nullish(),
+            senderTrustScore: zod.number().nullish(),
+            createdAt: zod.date(),
+          })
+          .optional(),
+        labels: zod
+          .array(
+            zod.object({
+              id: zod.string().uuid(),
+              inboxId: zod.string().uuid(),
+              name: zod.string(),
+              color: zod.string().optional(),
+              isSystem: zod.boolean(),
+              createdAt: zod.date(),
+            }),
+          )
+          .optional(),
         createdAt: zod.date(),
         updatedAt: zod.date().optional(),
       }),
     )
     .optional(),
+  total: zod.number().optional(),
 });
 
 /**
@@ -1425,8 +1637,33 @@ export const GetMailThreadResponse = zod.object({
       subject: zod.string(),
       status: zod.enum(["open", "closed", "archived"]),
       messageCount: zod.number(),
+      unreadCount: zod.number().optional(),
       participants: zod.array(zod.string()).optional(),
       lastMessageAt: zod.date().optional(),
+      lastMessage: zod
+        .object({
+          id: zod.string().uuid(),
+          senderAddress: zod.string().nullish(),
+          senderType: zod.string(),
+          snippet: zod.string(),
+          isRead: zod.boolean(),
+          senderVerified: zod.boolean().nullish(),
+          senderTrustScore: zod.number().nullish(),
+          createdAt: zod.date(),
+        })
+        .optional(),
+      labels: zod
+        .array(
+          zod.object({
+            id: zod.string().uuid(),
+            inboxId: zod.string().uuid(),
+            name: zod.string(),
+            color: zod.string().optional(),
+            isSystem: zod.boolean(),
+            createdAt: zod.date(),
+          }),
+        )
+        .optional(),
       createdAt: zod.date(),
       updatedAt: zod.date().optional(),
     })
@@ -1803,62 +2040,8 @@ export const ArchiveMailMessageParams = zod.object({
   messageId: zod.coerce.string().uuid(),
 });
 
-export const archiveMailMessageResponseMessageSenderTrustScoreMin = 0;
-export const archiveMailMessageResponseMessageSenderTrustScoreMax = 100;
-
 export const ArchiveMailMessageResponse = zod.object({
-  message: zod
-    .object({
-      id: zod.string().uuid(),
-      threadId: zod.string().uuid(),
-      inboxId: zod.string().uuid(),
-      agentId: zod.string().uuid(),
-      direction: zod.enum(["inbound", "outbound", "internal"]),
-      senderType: zod.enum(["agent", "user", "system", "external"]),
-      senderAgentId: zod.string().uuid().optional(),
-      senderUserId: zod.string().uuid().optional(),
-      senderAddress: zod.string().optional(),
-      recipientAddress: zod.string().optional(),
-      subject: zod.string().optional(),
-      body: zod.string(),
-      bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
-      bodyText: zod.string().optional(),
-      bodyHtml: zod.string().optional(),
-      snippet: zod.string().optional(),
-      headers: zod.record(zod.string(), zod.unknown()).optional(),
-      structuredPayload: zod.record(zod.string(), zod.unknown()).optional(),
-      isRead: zod.boolean(),
-      readAt: zod.date().optional(),
-      archivedAt: zod.date().optional(),
-      deliveryStatus: zod.string().optional(),
-      senderTrustScore: zod
-        .number()
-        .min(archiveMailMessageResponseMessageSenderTrustScoreMin)
-        .max(archiveMailMessageResponseMessageSenderTrustScoreMax)
-        .optional(),
-      senderVerified: zod.boolean().optional(),
-      provenanceChain: zod
-        .array(
-          zod.object({
-            actor: zod.string(),
-            action: zod.string(),
-            timestamp: zod.date(),
-            details: zod.record(zod.string(), zod.unknown()).optional(),
-          }),
-        )
-        .optional(),
-      priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
-      spamMetadata: zod.record(zod.string(), zod.unknown()).optional(),
-      paymentMetadata: zod.record(zod.string(), zod.unknown()).optional(),
-      originatingTaskId: zod.string().uuid().optional(),
-      convertedTaskId: zod.string().uuid().optional(),
-      inReplyToId: zod.string().uuid().optional(),
-      externalMessageId: zod.string().optional(),
-      metadata: zod.record(zod.string(), zod.unknown()).optional(),
-      createdAt: zod.date(),
-      updatedAt: zod.date().optional(),
-    })
-    .optional(),
+  message: zod.string(),
 });
 
 /**
@@ -1902,7 +2085,7 @@ export const RouteMailMessageParams = zod.object({
 });
 
 export const RouteMailMessageResponse = zod.object({
-  actionsApplied: zod.number().optional(),
+  message: zod.string(),
 });
 
 /**
@@ -1913,8 +2096,62 @@ export const ApproveMailMessageParams = zod.object({
   messageId: zod.coerce.string().uuid(),
 });
 
+export const approveMailMessageResponseMessageSenderTrustScoreMin = 0;
+export const approveMailMessageResponseMessageSenderTrustScoreMax = 100;
+
 export const ApproveMailMessageResponse = zod.object({
-  message: zod.string(),
+  message: zod
+    .object({
+      id: zod.string().uuid(),
+      threadId: zod.string().uuid(),
+      inboxId: zod.string().uuid(),
+      agentId: zod.string().uuid(),
+      direction: zod.enum(["inbound", "outbound", "internal"]),
+      senderType: zod.enum(["agent", "user", "system", "external"]),
+      senderAgentId: zod.string().uuid().optional(),
+      senderUserId: zod.string().uuid().optional(),
+      senderAddress: zod.string().optional(),
+      recipientAddress: zod.string().optional(),
+      subject: zod.string().optional(),
+      body: zod.string(),
+      bodyFormat: zod.enum(["text", "html", "markdown"]).optional(),
+      bodyText: zod.string().optional(),
+      bodyHtml: zod.string().optional(),
+      snippet: zod.string().optional(),
+      headers: zod.record(zod.string(), zod.unknown()).optional(),
+      structuredPayload: zod.record(zod.string(), zod.unknown()).optional(),
+      isRead: zod.boolean(),
+      readAt: zod.date().optional(),
+      archivedAt: zod.date().optional(),
+      deliveryStatus: zod.string().optional(),
+      senderTrustScore: zod
+        .number()
+        .min(approveMailMessageResponseMessageSenderTrustScoreMin)
+        .max(approveMailMessageResponseMessageSenderTrustScoreMax)
+        .optional(),
+      senderVerified: zod.boolean().optional(),
+      provenanceChain: zod
+        .array(
+          zod.object({
+            actor: zod.string(),
+            action: zod.string(),
+            timestamp: zod.date(),
+            details: zod.record(zod.string(), zod.unknown()).optional(),
+          }),
+        )
+        .optional(),
+      priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+      spamMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+      paymentMetadata: zod.record(zod.string(), zod.unknown()).optional(),
+      originatingTaskId: zod.string().uuid().optional(),
+      convertedTaskId: zod.string().uuid().optional(),
+      inReplyToId: zod.string().uuid().optional(),
+      externalMessageId: zod.string().optional(),
+      metadata: zod.record(zod.string(), zod.unknown()).optional(),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -2175,4 +2412,1174 @@ export const IngestMailMessageBody = zod.object({
   senderTrustScore: zod.number().optional(),
   senderVerified: zod.boolean().optional(),
   priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+});
+
+/**
+ * @summary Resolve a handle to agent details
+ */
+export const ResolveAgentParams = zod.object({
+  handle: zod.coerce.string(),
+});
+
+export const ResolveAgentResponse = zod.object({
+  resolved: zod.boolean(),
+  agent: zod.object({
+    handle: zod.string(),
+    domain: zod.string(),
+    protocolAddress: zod.string(),
+    did: zod.string(),
+    resolverUrl: zod.string().optional(),
+    displayName: zod.string(),
+    description: zod.string().optional(),
+    endpointUrl: zod.string().optional(),
+    capabilities: zod.array(zod.string()).optional(),
+    protocols: zod.array(zod.string()).optional(),
+    authMethods: zod.array(zod.string()).optional(),
+    trustScore: zod.number(),
+    trustTier: zod.string(),
+    trustBreakdown: zod.object({}).passthrough().optional(),
+    verificationStatus: zod.string(),
+    verificationMethod: zod.string().nullish(),
+    verifiedAt: zod.date().nullish(),
+    status: zod.string(),
+    avatarUrl: zod.string().nullish(),
+    ownerKey: zod.string().nullish(),
+    pricing: zod
+      .object({
+        priceType: zod.string().optional(),
+        priceAmount: zod.string().nullish(),
+        deliveryHours: zod.number().nullish(),
+      })
+      .nullish(),
+    paymentMethods: zod.array(zod.string()).optional(),
+    metadata: zod.object({}).passthrough().optional(),
+    tasksCompleted: zod.number().optional(),
+    createdAt: zod.date().optional(),
+    updatedAt: zod.date().optional(),
+    profileUrl: zod.string().optional(),
+    erc8004Uri: zod.string().optional(),
+    credential: zod
+      .object({
+        namespace: zod.string(),
+        did: zod.string(),
+        domain: zod.string(),
+      })
+      .optional(),
+  }),
+});
+
+/**
+ * @summary Get resolution statistics for a handle
+ */
+export const GetResolutionStatsParams = zod.object({
+  handle: zod.coerce.string(),
+});
+
+export const GetResolutionStatsResponse = zod.object({
+  handle: zod.string(),
+  totalResolutions: zod.number(),
+  resolutionsLast24h: zod.number(),
+  resolutionsLast7d: zod.number(),
+  avgResponseTimeMs: zod.number(),
+});
+
+/**
+ * @summary Find a verified agent by endpoint URL
+ */
+export const ReverseResolveBody = zod.object({
+  endpointUrl: zod.string(),
+});
+
+export const ReverseResolveResponse = zod.object({
+  resolved: zod.boolean(),
+  agent: zod.object({
+    handle: zod.string(),
+    domain: zod.string(),
+    protocolAddress: zod.string(),
+    did: zod.string(),
+    resolverUrl: zod.string().optional(),
+    displayName: zod.string(),
+    description: zod.string().optional(),
+    endpointUrl: zod.string().optional(),
+    capabilities: zod.array(zod.string()).optional(),
+    protocols: zod.array(zod.string()).optional(),
+    authMethods: zod.array(zod.string()).optional(),
+    trustScore: zod.number(),
+    trustTier: zod.string(),
+    trustBreakdown: zod.object({}).passthrough().optional(),
+    verificationStatus: zod.string(),
+    verificationMethod: zod.string().nullish(),
+    verifiedAt: zod.date().nullish(),
+    status: zod.string(),
+    avatarUrl: zod.string().nullish(),
+    ownerKey: zod.string().nullish(),
+    pricing: zod
+      .object({
+        priceType: zod.string().optional(),
+        priceAmount: zod.string().nullish(),
+        deliveryHours: zod.number().nullish(),
+      })
+      .nullish(),
+    paymentMethods: zod.array(zod.string()).optional(),
+    metadata: zod.object({}).passthrough().optional(),
+    tasksCompleted: zod.number().optional(),
+    createdAt: zod.date().optional(),
+    updatedAt: zod.date().optional(),
+    profileUrl: zod.string().optional(),
+    erc8004Uri: zod.string().optional(),
+    credential: zod
+      .object({
+        namespace: zod.string(),
+        did: zod.string(),
+        domain: zod.string(),
+      })
+      .optional(),
+  }),
+});
+
+/**
+ * Same behavior as POST /v1/reverse, available under the /v1/resolve prefix.
+ * @summary Find a verified agent by endpoint URL (alternate path)
+ */
+export const ReverseResolveViaResolveBody = zod.object({
+  endpointUrl: zod.string(),
+});
+
+export const ReverseResolveViaResolveResponse = zod.object({
+  resolved: zod.boolean(),
+  agent: zod.object({
+    handle: zod.string(),
+    domain: zod.string(),
+    protocolAddress: zod.string(),
+    did: zod.string(),
+    resolverUrl: zod.string().optional(),
+    displayName: zod.string(),
+    description: zod.string().optional(),
+    endpointUrl: zod.string().optional(),
+    capabilities: zod.array(zod.string()).optional(),
+    protocols: zod.array(zod.string()).optional(),
+    authMethods: zod.array(zod.string()).optional(),
+    trustScore: zod.number(),
+    trustTier: zod.string(),
+    trustBreakdown: zod.object({}).passthrough().optional(),
+    verificationStatus: zod.string(),
+    verificationMethod: zod.string().nullish(),
+    verifiedAt: zod.date().nullish(),
+    status: zod.string(),
+    avatarUrl: zod.string().nullish(),
+    ownerKey: zod.string().nullish(),
+    pricing: zod
+      .object({
+        priceType: zod.string().optional(),
+        priceAmount: zod.string().nullish(),
+        deliveryHours: zod.number().nullish(),
+      })
+      .nullish(),
+    paymentMethods: zod.array(zod.string()).optional(),
+    metadata: zod.object({}).passthrough().optional(),
+    tasksCompleted: zod.number().optional(),
+    createdAt: zod.date().optional(),
+    updatedAt: zod.date().optional(),
+    profileUrl: zod.string().optional(),
+    erc8004Uri: zod.string().optional(),
+    credential: zod
+      .object({
+        namespace: zod.string(),
+        did: zod.string(),
+        domain: zod.string(),
+      })
+      .optional(),
+  }),
+});
+
+/**
+ * @summary List fleets (root agents and their sub-handles)
+ */
+export const ListFleetsResponse = zod.object({
+  fleets: zod.array(
+    zod.object({
+      rootHandle: zod.string(),
+      rootAgent: zod.object({
+        id: zod.string().uuid(),
+        userId: zod.string().uuid(),
+        handle: zod.string(),
+        displayName: zod.string(),
+        description: zod.string().optional(),
+        avatarSeed: zod.string().optional(),
+        avatarUrl: zod.string().optional(),
+        status: zod.string(),
+        isPublic: zod.boolean().optional(),
+        endpointUrl: zod.string().optional(),
+        capabilities: zod.array(zod.string()).optional(),
+        scopes: zod.array(zod.string()).optional(),
+        protocols: zod.array(zod.string()).optional(),
+        authMethods: zod.array(zod.string()).optional(),
+        paymentMethods: zod.array(zod.string()).optional(),
+        trustScore: zod.number(),
+        trustBreakdown: zod.object({}).passthrough().optional(),
+        trustTier: zod.string(),
+        verificationStatus: zod.string(),
+        verificationMethod: zod.string().optional(),
+        verifiedAt: zod.date().optional(),
+        tasksReceived: zod.number().optional(),
+        tasksCompleted: zod.number().optional(),
+        createdAt: zod.date(),
+        updatedAt: zod.date().optional(),
+      }),
+      subHandles: zod.array(
+        zod.object({
+          id: zod.string().uuid(),
+          handle: zod.string(),
+          displayName: zod.string(),
+          status: zod.string(),
+          trustScore: zod.number(),
+          capabilities: zod.array(zod.string()),
+          createdAt: zod.date(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a sub-handle under a verified root handle
+ */
+export const CreateSubHandleBody = zod.object({
+  rootHandle: zod.string(),
+  subName: zod.string(),
+  displayName: zod.string(),
+  description: zod.string().optional(),
+  capabilities: zod.array(zod.string()).optional(),
+  endpointUrl: zod.string().url().optional(),
+});
+
+/**
+ * @summary Delete a sub-handle
+ */
+export const DeleteSubHandleParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const DeleteSubHandleResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get full bootstrap bundle for an agent
+ */
+export const GetAgentBootstrapParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const GetAgentBootstrapResponse = zod.object({
+  spec_version: zod.string(),
+  agent_id: zod.string().uuid(),
+  handle: zod.string(),
+  display_name: zod.string(),
+  protocol_address: zod.string(),
+  provisional_domain: zod.string().optional(),
+  public_profile_url: zod.string().optional(),
+  inbox_id: zod.string().uuid().nullish(),
+  inbox_address: zod.string().nullish(),
+  inbox_poll_endpoint: zod.string().nullish(),
+  trust: zod.object({
+    score: zod.number(),
+    tier: zod.string(),
+    signals: zod.array(zod.object({}).passthrough()),
+  }),
+  capabilities: zod.array(zod.string()),
+  auth_methods: zod.array(zod.string()),
+  key_ids: zod.array(
+    zod.object({
+      kid: zod.string(),
+      key_type: zod.string(),
+      status: zod.string(),
+    }),
+  ),
+  status: zod.string(),
+  prompt_block: zod.string(),
+});
+
+/**
+ * @summary Get current runtime configuration and status
+ */
+export const GetAgentRuntimeParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const GetAgentRuntimeResponse = zod.object({
+  agent_id: zod.string().uuid(),
+  status: zod.string(),
+  trust: zod.object({
+    score: zod.number(),
+    tier: zod.string(),
+    signals: zod.array(zod.object({}).passthrough()),
+  }),
+  policy_limits: zod.object({
+    rate_limit_rpm: zod.number(),
+    max_payload_bytes: zod.number(),
+    allowed_scopes: zod.array(zod.string()),
+  }),
+  inbox_config: zod
+    .object({
+      inbox_id: zod.string().uuid(),
+      poll_url: zod.string(),
+      poll_interval_seconds: zod.number(),
+      unread_count: zod.number(),
+      address: zod.string(),
+    })
+    .nullish(),
+  capabilities: zod.array(zod.string()),
+  last_heartbeat: zod.date().nullish(),
+});
+
+/**
+ * @summary Get identity information formatted for LLM prompts
+ */
+export const GetAgentPromptBlockParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const getAgentPromptBlockQueryFormatDefault = `text`;
+
+export const GetAgentPromptBlockQueryParams = zod.object({
+  format: zod
+    .enum(["text", "json"])
+    .default(getAgentPromptBlockQueryFormatDefault),
+});
+
+export const GetAgentPromptBlockResponse = zod.object({
+  format: zod.string(),
+  prompt_block: zod.object({}).passthrough(),
+});
+
+/**
+ * @summary Update agent heartbeat and runtime context
+ */
+export const AgentHeartbeatParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const AgentHeartbeatBody = zod.object({
+  endpoint_url: zod.string().url().optional(),
+  runtime_context: zod
+    .object({
+      framework: zod.string().optional(),
+      version: zod.string().optional(),
+    })
+    .optional(),
+});
+
+export const AgentHeartbeatResponse = zod.object({
+  acknowledged: zod.boolean(),
+  server_time: zod.date(),
+  next_expected_heartbeat: zod.date(),
+});
+
+/**
+ * @summary Spawn a child agent from a verified parent
+ */
+export const SpawnAgentParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const spawnAgentBodyKeyTypeDefault = `ed25519`;
+
+export const SpawnAgentBody = zod.object({
+  handle: zod.string(),
+  displayName: zod.string(),
+  description: zod.string().optional(),
+  publicKey: zod.string(),
+  keyType: zod.string().default(spawnAgentBodyKeyTypeDefault),
+  capabilities: zod.array(zod.string()).optional(),
+  protocols: zod.array(zod.string()).optional(),
+  endpointUrl: zod.string().url().optional(),
+});
+
+/**
+ * @summary Get transfer readiness report
+ */
+export const GetTransferReadinessParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const GetTransferReadinessResponse = zod.object({
+  agentId: zod.string().uuid(),
+  handle: zod.string(),
+  isReady: zod.boolean(),
+  blockers: zod.array(
+    zod.object({
+      code: zod.string(),
+      message: zod.string(),
+    }),
+  ),
+  assets: zod.object({
+    transferable: zod.array(
+      zod.object({
+        name: zod.string(),
+        category: zod.enum([
+          "transferable",
+          "buyer_must_reconnect",
+          "excluded_by_default",
+        ]),
+        description: zod.string(),
+      }),
+    ),
+    buyer_must_reconnect: zod.array(
+      zod.object({
+        name: zod.string(),
+        category: zod.enum([
+          "transferable",
+          "buyer_must_reconnect",
+          "excluded_by_default",
+        ]),
+        description: zod.string(),
+      }),
+    ),
+    excluded_by_default: zod.array(
+      zod.object({
+        name: zod.string(),
+        category: zod.enum([
+          "transferable",
+          "buyer_must_reconnect",
+          "excluded_by_default",
+        ]),
+        description: zod.string(),
+      }),
+    ),
+  }),
+  summary: zod.object({
+    totalAssets: zod.number(),
+    transferableCount: zod.number(),
+    reconnectRequiredCount: zod.number(),
+    excludedCount: zod.number(),
+  }),
+  generatedAt: zod.date(),
+});
+
+/**
+ * @summary Initiate a transfer request
+ */
+export const InitiateTransferParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const InitiateTransferBody = zod.object({
+  transferType: zod.enum(["private_transfer", "internal_reassignment"]),
+  buyerId: zod.string().uuid().optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary List transfers for an agent
+ */
+export const ListTransfersParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const ListTransfersResponse = zod.object({
+  transfers: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      agentId: zod.string().uuid(),
+      sellerId: zod.string().uuid(),
+      buyerId: zod.string().uuid().nullish(),
+      status: zod.enum([
+        "draft",
+        "listed",
+        "pending_acceptance",
+        "hold_pending",
+        "transfer_pending",
+        "in_handoff",
+        "completed",
+        "disputed",
+        "cancelled",
+      ]),
+      transferType: zod.enum([
+        "sale",
+        "private_transfer",
+        "internal_reassignment",
+      ]),
+      askingPrice: zod.number().nullish(),
+      agreedPrice: zod.number().nullish(),
+      currency: zod.string().optional(),
+      holdProvider: zod.string().nullish(),
+      holdStatus: zod.string().nullish(),
+      holdReference: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      metadata: zod.object({}).passthrough().nullish(),
+      listedAt: zod.date().nullish(),
+      acceptedAt: zod.date().nullish(),
+      holdFundedAt: zod.date().nullish(),
+      handoffStartedAt: zod.date().nullish(),
+      completedAt: zod.date().nullish(),
+      cancelledAt: zod.date().nullish(),
+      disputedAt: zod.date().nullish(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get transfer details
+ */
+export const GetTransferParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+export const GetTransferResponse = zod.object({
+  id: zod.string().uuid(),
+  agentId: zod.string().uuid(),
+  sellerId: zod.string().uuid(),
+  buyerId: zod.string().uuid().nullish(),
+  status: zod.enum([
+    "draft",
+    "listed",
+    "pending_acceptance",
+    "hold_pending",
+    "transfer_pending",
+    "in_handoff",
+    "completed",
+    "disputed",
+    "cancelled",
+  ]),
+  transferType: zod.enum(["sale", "private_transfer", "internal_reassignment"]),
+  askingPrice: zod.number().nullish(),
+  agreedPrice: zod.number().nullish(),
+  currency: zod.string().optional(),
+  holdProvider: zod.string().nullish(),
+  holdStatus: zod.string().nullish(),
+  holdReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  metadata: zod.object({}).passthrough().nullish(),
+  listedAt: zod.date().nullish(),
+  acceptedAt: zod.date().nullish(),
+  holdFundedAt: zod.date().nullish(),
+  handoffStartedAt: zod.date().nullish(),
+  completedAt: zod.date().nullish(),
+  cancelledAt: zod.date().nullish(),
+  disputedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Update transfer details
+ */
+export const UpdateTransferParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+export const updateTransferBodyAskingPriceMin = 0;
+
+export const UpdateTransferBody = zod.object({
+  askingPrice: zod.number().min(updateTransferBodyAskingPriceMin).optional(),
+  buyerId: zod.string().uuid().optional(),
+  notes: zod.string().optional(),
+});
+
+export const UpdateTransferResponse = zod.object({
+  id: zod.string().uuid(),
+  agentId: zod.string().uuid(),
+  sellerId: zod.string().uuid(),
+  buyerId: zod.string().uuid().nullish(),
+  status: zod.enum([
+    "draft",
+    "listed",
+    "pending_acceptance",
+    "hold_pending",
+    "transfer_pending",
+    "in_handoff",
+    "completed",
+    "disputed",
+    "cancelled",
+  ]),
+  transferType: zod.enum(["sale", "private_transfer", "internal_reassignment"]),
+  askingPrice: zod.number().nullish(),
+  agreedPrice: zod.number().nullish(),
+  currency: zod.string().optional(),
+  holdProvider: zod.string().nullish(),
+  holdStatus: zod.string().nullish(),
+  holdReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  metadata: zod.object({}).passthrough().nullish(),
+  listedAt: zod.date().nullish(),
+  acceptedAt: zod.date().nullish(),
+  holdFundedAt: zod.date().nullish(),
+  handoffStartedAt: zod.date().nullish(),
+  completedAt: zod.date().nullish(),
+  cancelledAt: zod.date().nullish(),
+  disputedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Public listing of transfers (not enabled)
+ */
+export const ListTransferPubliclyParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Accept an incoming transfer request
+ */
+export const AcceptTransferParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+export const acceptTransferBodyAgreedPriceMin = 0;
+
+export const AcceptTransferBody = zod.object({
+  agreedPrice: zod.number().min(acceptTransferBodyAgreedPriceMin).optional(),
+});
+
+export const AcceptTransferResponse = zod.object({
+  id: zod.string().uuid(),
+  agentId: zod.string().uuid(),
+  sellerId: zod.string().uuid(),
+  buyerId: zod.string().uuid().nullish(),
+  status: zod.enum([
+    "draft",
+    "listed",
+    "pending_acceptance",
+    "hold_pending",
+    "transfer_pending",
+    "in_handoff",
+    "completed",
+    "disputed",
+    "cancelled",
+  ]),
+  transferType: zod.enum(["sale", "private_transfer", "internal_reassignment"]),
+  askingPrice: zod.number().nullish(),
+  agreedPrice: zod.number().nullish(),
+  currency: zod.string().optional(),
+  holdProvider: zod.string().nullish(),
+  holdStatus: zod.string().nullish(),
+  holdReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  metadata: zod.object({}).passthrough().nullish(),
+  listedAt: zod.date().nullish(),
+  acceptedAt: zod.date().nullish(),
+  holdFundedAt: zod.date().nullish(),
+  handoffStartedAt: zod.date().nullish(),
+  completedAt: zod.date().nullish(),
+  cancelledAt: zod.date().nullish(),
+  disputedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Advance transfer to pending state
+ */
+export const AdvanceTransferParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+export const AdvanceTransferResponse = zod.object({
+  id: zod.string().uuid(),
+  agentId: zod.string().uuid(),
+  sellerId: zod.string().uuid(),
+  buyerId: zod.string().uuid().nullish(),
+  status: zod.enum([
+    "draft",
+    "listed",
+    "pending_acceptance",
+    "hold_pending",
+    "transfer_pending",
+    "in_handoff",
+    "completed",
+    "disputed",
+    "cancelled",
+  ]),
+  transferType: zod.enum(["sale", "private_transfer", "internal_reassignment"]),
+  askingPrice: zod.number().nullish(),
+  agreedPrice: zod.number().nullish(),
+  currency: zod.string().optional(),
+  holdProvider: zod.string().nullish(),
+  holdStatus: zod.string().nullish(),
+  holdReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  metadata: zod.object({}).passthrough().nullish(),
+  listedAt: zod.date().nullish(),
+  acceptedAt: zod.date().nullish(),
+  holdFundedAt: zod.date().nullish(),
+  handoffStartedAt: zod.date().nullish(),
+  completedAt: zod.date().nullish(),
+  cancelledAt: zod.date().nullish(),
+  disputedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Escrow fund-hold (not enabled)
+ */
+export const FundTransferHoldParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Begin the asset handoff process
+ */
+export const StartTransferHandoffParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+export const StartTransferHandoffResponse = zod.object({
+  id: zod.string().uuid(),
+  agentId: zod.string().uuid(),
+  sellerId: zod.string().uuid(),
+  buyerId: zod.string().uuid().nullish(),
+  status: zod.enum([
+    "draft",
+    "listed",
+    "pending_acceptance",
+    "hold_pending",
+    "transfer_pending",
+    "in_handoff",
+    "completed",
+    "disputed",
+    "cancelled",
+  ]),
+  transferType: zod.enum(["sale", "private_transfer", "internal_reassignment"]),
+  askingPrice: zod.number().nullish(),
+  agreedPrice: zod.number().nullish(),
+  currency: zod.string().optional(),
+  holdProvider: zod.string().nullish(),
+  holdStatus: zod.string().nullish(),
+  holdReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  metadata: zod.object({}).passthrough().nullish(),
+  listedAt: zod.date().nullish(),
+  acceptedAt: zod.date().nullish(),
+  holdFundedAt: zod.date().nullish(),
+  handoffStartedAt: zod.date().nullish(),
+  completedAt: zod.date().nullish(),
+  cancelledAt: zod.date().nullish(),
+  disputedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Complete the handoff and transfer
+ */
+export const CompleteTransferParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+export const CompleteTransferResponse = zod.object({
+  id: zod.string().uuid(),
+  agentId: zod.string().uuid(),
+  sellerId: zod.string().uuid(),
+  buyerId: zod.string().uuid().nullish(),
+  status: zod.enum([
+    "draft",
+    "listed",
+    "pending_acceptance",
+    "hold_pending",
+    "transfer_pending",
+    "in_handoff",
+    "completed",
+    "disputed",
+    "cancelled",
+  ]),
+  transferType: zod.enum(["sale", "private_transfer", "internal_reassignment"]),
+  askingPrice: zod.number().nullish(),
+  agreedPrice: zod.number().nullish(),
+  currency: zod.string().optional(),
+  holdProvider: zod.string().nullish(),
+  holdStatus: zod.string().nullish(),
+  holdReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  metadata: zod.object({}).passthrough().nullish(),
+  listedAt: zod.date().nullish(),
+  acceptedAt: zod.date().nullish(),
+  holdFundedAt: zod.date().nullish(),
+  handoffStartedAt: zod.date().nullish(),
+  completedAt: zod.date().nullish(),
+  cancelledAt: zod.date().nullish(),
+  disputedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Cancel an ongoing transfer
+ */
+export const CancelTransferParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+export const CancelTransferBody = zod.object({
+  reason: zod.string().optional(),
+});
+
+export const CancelTransferResponse = zod.object({
+  id: zod.string().uuid(),
+  agentId: zod.string().uuid(),
+  sellerId: zod.string().uuid(),
+  buyerId: zod.string().uuid().nullish(),
+  status: zod.enum([
+    "draft",
+    "listed",
+    "pending_acceptance",
+    "hold_pending",
+    "transfer_pending",
+    "in_handoff",
+    "completed",
+    "disputed",
+    "cancelled",
+  ]),
+  transferType: zod.enum(["sale", "private_transfer", "internal_reassignment"]),
+  askingPrice: zod.number().nullish(),
+  agreedPrice: zod.number().nullish(),
+  currency: zod.string().optional(),
+  holdProvider: zod.string().nullish(),
+  holdStatus: zod.string().nullish(),
+  holdReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  metadata: zod.object({}).passthrough().nullish(),
+  listedAt: zod.date().nullish(),
+  acceptedAt: zod.date().nullish(),
+  holdFundedAt: zod.date().nullish(),
+  handoffStartedAt: zod.date().nullish(),
+  completedAt: zod.date().nullish(),
+  cancelledAt: zod.date().nullish(),
+  disputedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Dispute a transfer
+ */
+export const DisputeTransferParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+export const DisputeTransferBody = zod.object({
+  reason: zod.string(),
+});
+
+export const DisputeTransferResponse = zod.object({
+  id: zod.string().uuid(),
+  agentId: zod.string().uuid(),
+  sellerId: zod.string().uuid(),
+  buyerId: zod.string().uuid().nullish(),
+  status: zod.enum([
+    "draft",
+    "listed",
+    "pending_acceptance",
+    "hold_pending",
+    "transfer_pending",
+    "in_handoff",
+    "completed",
+    "disputed",
+    "cancelled",
+  ]),
+  transferType: zod.enum(["sale", "private_transfer", "internal_reassignment"]),
+  askingPrice: zod.number().nullish(),
+  agreedPrice: zod.number().nullish(),
+  currency: zod.string().optional(),
+  holdProvider: zod.string().nullish(),
+  holdStatus: zod.string().nullish(),
+  holdReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  metadata: zod.object({}).passthrough().nullish(),
+  listedAt: zod.date().nullish(),
+  acceptedAt: zod.date().nullish(),
+  holdFundedAt: zod.date().nullish(),
+  handoffStartedAt: zod.date().nullish(),
+  completedAt: zod.date().nullish(),
+  cancelledAt: zod.date().nullish(),
+  disputedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary List history events for a transfer
+ */
+export const ListTransferEventsParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+export const ListTransferEventsResponse = zod.object({
+  events: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      transferId: zod.string().uuid(),
+      eventType: zod.string(),
+      fromStatus: zod.string().nullish(),
+      toStatus: zod.string().nullish(),
+      actorId: zod.string().uuid().nullish(),
+      actorType: zod.string().nullish(),
+      payload: zod.object({}).passthrough().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary List assets involved in the transfer
+ */
+export const ListTransferAssetsParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+});
+
+export const ListTransferAssetsResponse = zod.object({
+  assets: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      transferId: zod.string().uuid(),
+      assetName: zod.string(),
+      assetCategory: zod.enum([
+        "transferable",
+        "buyer_must_reconnect",
+        "excluded_by_default",
+      ]),
+      description: zod.string().nullish(),
+      reconnectedAt: zod.date().nullish(),
+      metadata: zod.object({}).passthrough().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Reconnect an asset to the new owner
+ */
+export const ReconnectTransferAssetParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  transferId: zod.coerce.string().uuid(),
+  assetId: zod.coerce.string().uuid(),
+});
+
+export const ReconnectTransferAssetResponse = zod.object({
+  id: zod.string().uuid(),
+  transferId: zod.string().uuid(),
+  assetName: zod.string(),
+  assetCategory: zod.enum([
+    "transferable",
+    "buyer_must_reconnect",
+    "excluded_by_default",
+  ]),
+  description: zod.string().nullish(),
+  reconnectedAt: zod.date().nullish(),
+  metadata: zod.object({}).passthrough().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Get agent registry status
+ */
+export const GetRegistryStatusParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const GetRegistryStatusResponse = zod.object({
+  registered: zod.boolean(),
+  registeredAt: zod.date().optional(),
+  lastUpdated: zod.date().optional(),
+});
+
+/**
+ * @summary Get public identity, keys, and trust signals for an agent
+ */
+export const GetPublicAgentIdentityParams = zod.object({
+  agentIdOrHandle: zod.coerce.string(),
+});
+
+export const GetPublicAgentIdentityResponse = zod.object({
+  spec_version: zod.string(),
+  agent_id: zod.string().uuid(),
+  handle: zod.string(),
+  display_name: zod.string(),
+  status: zod.string(),
+  created_at: zod.date(),
+  public_keys: zod.array(
+    zod.object({
+      kid: zod.string(),
+      algorithm: zod.string(),
+      use: zod.string().optional(),
+      status: zod.string(),
+      added_at: zod.date().optional(),
+    }),
+  ),
+  trust: zod.object({
+    score: zod.number(),
+    tier: zod.string(),
+    signals: zod.array(zod.object({}).passthrough()),
+  }),
+  trust_surfaces: zod.object({
+    historical_agent_reputation: zod.number().optional(),
+    current_operator_reputation: zod.number().optional(),
+    effective_live_trust: zod.number().optional(),
+  }),
+  transfer: zod
+    .object({
+      status: zod.string().optional(),
+      under_new_ownership: zod.boolean().optional(),
+      transferred_at: zod.date().nullish(),
+      transfer_type: zod.string().nullish(),
+    })
+    .nullish(),
+  operator_history: zod.object({
+    total_operators: zod.number().optional(),
+    current_operator_verified: zod.boolean().optional(),
+  }),
+  auth_methods: zod.array(zod.string()),
+  protocols: zod.array(zod.string()),
+  lineage: zod
+    .object({
+      parent_agent_id: zod.string().uuid().optional(),
+      depth: zod.number().optional(),
+      sponsored_by: zod.string().uuid().optional(),
+    })
+    .nullish(),
+});
+
+/**
+ * Permanently redirects (301) to GET /v1/public/agents/{agentIdOrHandle}.
+ * @summary Redirect alias for public agent identity
+ */
+export const GetPublicAgentIdentityAliasParams = zod.object({
+  agentIdOrHandle: zod.coerce.string(),
+});
+
+/**
+ * @summary Rotate an agent key
+ */
+export const ProgrammaticRotateKeyParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const programmaticRotateKeyBodyKeyTypeDefault = `ed25519`;
+
+export const ProgrammaticRotateKeyBody = zod.object({
+  oldKeyId: zod.string().uuid(),
+  newPublicKey: zod.string(),
+  keyType: zod.string().default(programmaticRotateKeyBodyKeyTypeDefault),
+});
+
+export const ProgrammaticRotateKeyResponse = zod.object({
+  revokedKeyId: zod.string().uuid(),
+  newKey: zod.object({
+    id: zod.string().uuid(),
+    kid: zod.string(),
+    keyType: zod.string(),
+    createdAt: zod.date(),
+  }),
+});
+
+/**
+ * @summary Get agent authentication metadata
+ */
+export const GetAgentAuthMetadataParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const GetAgentAuthMetadataResponse = zod.object({
+  agentId: zod.string().uuid(),
+  handle: zod.string(),
+  verificationStatus: zod.string().optional(),
+  keys: zod
+    .array(
+      zod.object({
+        kid: zod.string(),
+        keyType: zod.string(),
+        publicKey: zod.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Create an API key for an agent
+ */
+export const CreateAgentApiKeyParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const CreateAgentApiKeyBody = zod.object({
+  name: zod.string(),
+  scopes: zod.array(zod.string()).optional(),
+});
+
+/**
+ * @summary Well-known agent identity document
+ */
+export const GetWellKnownAgentQueryParams = zod.object({
+  handle: zod.coerce.string().optional(),
+});
+
+export const GetWellKnownAgentResponse = zod.object({
+  "@context": zod.string().optional(),
+  "@type": zod.string().optional(),
+  id: zod.string(),
+  handle: zod.string(),
+  protocolAddress: zod.string().optional(),
+  domain: zod.string().optional(),
+  displayName: zod.string(),
+  description: zod.string().optional(),
+  endpointUrl: zod.string().optional(),
+  capabilities: zod.array(zod.string()).optional(),
+  protocols: zod.array(zod.string()).optional(),
+  authMethods: zod.array(zod.string()).optional(),
+  trustScore: zod.number().optional(),
+  trustTier: zod.string().optional(),
+  verificationStatus: zod.string().optional(),
+  verifiedAt: zod.date().optional(),
+  ownerKey: zod
+    .object({
+      kid: zod.string().optional(),
+      algorithm: zod.string().optional(),
+      publicKey: zod.string().optional(),
+    })
+    .optional(),
+  links: zod
+    .object({
+      self: zod.string().optional(),
+      profile: zod.string().optional(),
+      resolve: zod.string().optional(),
+    })
+    .optional(),
+  metadata: zod.object({}).passthrough().optional(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+});
+
+/**
+ * @summary AgentID protocol configuration
+ */
+export const GetWellKnownConfigurationResponse = zod.object({
+  protocol: zod.string(),
+  namespace: zod.string(),
+  resolverEndpoint: zod.string(),
+  registrationEndpoint: zod.string().optional(),
+  verificationEndpoint: zod.string().optional(),
+  humanRegistrationEndpoint: zod.string().optional(),
+  credentialEndpoint: zod.string().optional(),
+  resolutionEndpoint: zod.string().optional(),
+  erc8004Endpoint: zod.string().optional(),
+  wellKnownPath: zod.string().optional(),
+  baseDomain: zod.string(),
+  documentation: zod.string().optional(),
+  sdkPackage: zod.string().optional(),
 });

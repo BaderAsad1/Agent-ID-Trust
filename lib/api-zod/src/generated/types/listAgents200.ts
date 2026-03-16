@@ -9,4 +9,10 @@ import type { Agent } from "./agent";
 
 export type ListAgents200 = {
   agents: Agent[];
+  /** Total matching agents (discovery mode only) */
+  total?: number;
+  /** Limit used (discovery mode only) */
+  limit?: number;
+  /** Offset used (discovery mode only) */
+  offset?: number;
 };

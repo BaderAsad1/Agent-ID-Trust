@@ -5,6 +5,9 @@
  * Agent ID — Identity, trust, routing, and commerce layer for AI agents
  * OpenAPI spec version: 0.1.0
  */
-import type { SuccessMessage } from "./successMessage";
 
-export type ArchiveMailMessage200 = SuccessMessage;
+export type GetRegistryStatus200 = {
+  registered: boolean;
+  registeredAt?: Date;
+  lastUpdated?: Date;
+};

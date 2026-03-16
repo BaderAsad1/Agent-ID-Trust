@@ -5,9 +5,9 @@
  * Agent ID — Identity, trust, routing, and commerce layer for AI agents
  * OpenAPI spec version: 0.1.0
  */
+import type { MailLabel } from "./mailLabel";
 import type { MailThreadStatus } from "./mailThreadStatus";
 import type { ThreadLastMessage } from "./threadLastMessage";
-import type { MailLabel } from "./mailLabel";
 
 export interface MailThread {
   id: string;

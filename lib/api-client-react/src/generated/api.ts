@@ -18,14 +18,23 @@ import type {
 
 import type {
   Agent,
+  AgentApiKeyCreated,
+  AgentAuthMetadata,
+  AgentBootstrapBundle,
   AgentDomain,
+  AgentHeartbeatBody,
+  AgentIDConfiguration,
+  AgentIDCredential,
+  AgentRuntimeConfig,
   AgentSubscription,
+  AgentTransfer,
   ApiError,
   ApiKeyCreated,
-  ArchiveMailMessage200,
+  ApproveMailMessage200,
   AuthorizePaymentBody,
   CheckHandleParams,
   ConvertMailMessageToTask201,
+  CreateAgentApiKeyBody,
   CreateAgentInput,
   CreateApiKeyInput,
   CreateCheckout200,
@@ -40,18 +49,28 @@ import type {
   CreatePaymentIntentInput,
   CreateProposalInput,
   CreateReviewInput,
+  CreateSubHandleInput,
   CreateTaskInput,
+  CredentialVerifyResult,
   DashboardStats,
+  DeleteSubHandle200,
+  ERC8004Registration,
+  ErrorResponse,
   ForbiddenResponse,
+  GetAgentPromptBlock200Two,
+  GetAgentPromptBlockParams,
   GetMailInbox200,
   GetMailMessage200,
   GetMailMessageEvents200,
   GetMailThread200,
   GetPaymentLedger200,
   GetPaymentLedgerParams,
+  GetRegistryStatus200,
   GetVerificationStatus200,
+  GetWellKnownAgentParams,
   HandleCheckResult,
   HealthStatus,
+  HeartbeatResponse,
   IngestMailMessage201,
   IngestMailMessageInput,
   InitiateVerificationBody,
@@ -59,7 +78,9 @@ import type {
   JobProposal,
   LinkIdentityInput,
   ListAgents200,
+  ListAgentsParams,
   ListApiKeys200,
+  ListFleets200,
   ListJobs200,
   ListJobsParams,
   ListListingReviews200,
@@ -79,6 +100,9 @@ import type {
   ListSubscriptions200,
   ListTasks200,
   ListTasksParams,
+  ListTransferAssets200,
+  ListTransferEvents200,
+  ListTransfers200,
   ListUserIdentities200,
   MailInboxStats,
   MailReplyInput,
@@ -94,15 +118,30 @@ import type {
   ProgrammaticRegisterResponse,
   ProgrammaticVerifyInput,
   ProgrammaticVerifyResponse,
+  PublicAgentIdentity,
   PublicAgentProfile,
   ReplyToMailThread201,
-  RouteMailMessage200,
+  ResolutionResponse,
+  ResolutionStats,
+  ReverseResolveBody,
+  ReverseResolveViaResolveBody,
+  RotateKeyInput,
+  RotateKeyResult,
   SearchMailMessages200,
   SearchMailMessagesParams,
   SendMailMessage201,
   SendMailMessageInput,
+  SpawnAgentInput,
+  SpawnAgentResult,
   SuccessMessage,
   Task,
+  TransferAcceptInput,
+  TransferAsset,
+  TransferCancelInput,
+  TransferDisputeInput,
+  TransferInput,
+  TransferReadiness,
+  TransferUpdateInput,
   UnauthorizedResponse,
   UpdateAgentInput,
   UpdateJobStatusBody,
@@ -119,6 +158,7 @@ import type {
   UserIdentity,
   VerificationChallenge,
   VerificationCompleteInput,
+  WellKnownAgentIdentity,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -839,43 +879,61 @@ export const useLinkUserIdentity = <
 };
 
 /**
- * @summary List user's agents
+ * When called with an authentication header, returns the authenticated user's agents. When called without authentication but with discovery query parameters (capability, minTrust, protocol, verifiedOnly), returns publicly discoverable agents sorted by trust score.
+
+ * @summary List user's agents or discover public agents
  */
-export const getListAgentsUrl = () => {
-  return `/api/v1/agents`;
+export const getListAgentsUrl = (params?: ListAgentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/agents?${stringifiedParams}`
+    : `/api/v1/agents`;
 };
 
 export const listAgents = async (
+  params?: ListAgentsParams,
   options?: RequestInit,
 ): Promise<ListAgents200> => {
-  return customFetch<ListAgents200>(getListAgentsUrl(), {
+  return customFetch<ListAgents200>(getListAgentsUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListAgentsQueryKey = () => {
-  return [`/api/v1/agents`] as const;
+export const getListAgentsQueryKey = (params?: ListAgentsParams) => {
+  return [`/api/v1/agents`, ...(params ? [params] : [])] as const;
 };
 
 export const getListAgentsQueryOptions = <
   TData = Awaited<ReturnType<typeof listAgents>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listAgents>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: ListAgentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAgents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListAgentsQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getListAgentsQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listAgents>>> = ({
     signal,
-  }) => listAgents({ signal, ...requestOptions });
+  }) => listAgents(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listAgents>>,
@@ -890,21 +948,24 @@ export type ListAgentsQueryResult = NonNullable<
 export type ListAgentsQueryError = ErrorType<unknown>;
 
 /**
- * @summary List user's agents
+ * @summary List user's agents or discover public agents
  */
 
 export function useListAgents<
   TData = Awaited<ReturnType<typeof listAgents>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listAgents>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListAgentsQueryOptions(options);
+>(
+  params?: ListAgentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAgents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAgentsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -1876,6 +1937,289 @@ export function useGetPublicProfile<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetPublicProfileQueryOptions(handle, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get or issue a verifiable credential for an agent
+ */
+export const getGetPublicProfileCredentialUrl = (handle: string) => {
+  return `/api/v1/p/${handle}/credential`;
+};
+
+export const getPublicProfileCredential = async (
+  handle: string,
+  options?: RequestInit,
+): Promise<AgentIDCredential> => {
+  return customFetch<AgentIDCredential>(
+    getGetPublicProfileCredentialUrl(handle),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPublicProfileCredentialQueryKey = (handle: string) => {
+  return [`/api/v1/p/${handle}/credential`] as const;
+};
+
+export const getGetPublicProfileCredentialQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicProfileCredential>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  handle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicProfileCredential>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPublicProfileCredentialQueryKey(handle);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPublicProfileCredential>>
+  > = ({ signal }) =>
+    getPublicProfileCredential(handle, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!handle,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicProfileCredential>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicProfileCredentialQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicProfileCredential>>
+>;
+export type GetPublicProfileCredentialQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get or issue a verifiable credential for an agent
+ */
+
+export function useGetPublicProfileCredential<
+  TData = Awaited<ReturnType<typeof getPublicProfileCredential>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  handle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicProfileCredential>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicProfileCredentialQueryOptions(
+    handle,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Verify a credential signature
+ */
+export const getVerifyPublicProfileCredentialUrl = (handle: string) => {
+  return `/api/v1/p/${handle}/credential/verify`;
+};
+
+export const verifyPublicProfileCredential = async (
+  handle: string,
+  options?: RequestInit,
+): Promise<CredentialVerifyResult> => {
+  return customFetch<CredentialVerifyResult>(
+    getVerifyPublicProfileCredentialUrl(handle),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getVerifyPublicProfileCredentialQueryKey = (handle: string) => {
+  return [`/api/v1/p/${handle}/credential/verify`] as const;
+};
+
+export const getVerifyPublicProfileCredentialQueryOptions = <
+  TData = Awaited<ReturnType<typeof verifyPublicProfileCredential>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  handle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof verifyPublicProfileCredential>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getVerifyPublicProfileCredentialQueryKey(handle);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof verifyPublicProfileCredential>>
+  > = ({ signal }) =>
+    verifyPublicProfileCredential(handle, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!handle,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof verifyPublicProfileCredential>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type VerifyPublicProfileCredentialQueryResult = NonNullable<
+  Awaited<ReturnType<typeof verifyPublicProfileCredential>>
+>;
+export type VerifyPublicProfileCredentialQueryError =
+  ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Verify a credential signature
+ */
+
+export function useVerifyPublicProfileCredential<
+  TData = Awaited<ReturnType<typeof verifyPublicProfileCredential>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  handle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof verifyPublicProfileCredential>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getVerifyPublicProfileCredentialQueryOptions(
+    handle,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get ERC-8004 DID Document for an agent
+ */
+export const getGetPublicProfileERC8004Url = (handle: string) => {
+  return `/api/v1/p/${handle}/erc8004`;
+};
+
+export const getPublicProfileERC8004 = async (
+  handle: string,
+  options?: RequestInit,
+): Promise<ERC8004Registration> => {
+  return customFetch<ERC8004Registration>(
+    getGetPublicProfileERC8004Url(handle),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPublicProfileERC8004QueryKey = (handle: string) => {
+  return [`/api/v1/p/${handle}/erc8004`] as const;
+};
+
+export const getGetPublicProfileERC8004QueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicProfileERC8004>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  handle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicProfileERC8004>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPublicProfileERC8004QueryKey(handle);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPublicProfileERC8004>>
+  > = ({ signal }) =>
+    getPublicProfileERC8004(handle, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!handle,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicProfileERC8004>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicProfileERC8004QueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicProfileERC8004>>
+>;
+export type GetPublicProfileERC8004QueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get ERC-8004 DID Document for an agent
+ */
+
+export function useGetPublicProfileERC8004<
+  TData = Awaited<ReturnType<typeof getPublicProfileERC8004>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  handle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicProfileERC8004>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicProfileERC8004QueryOptions(handle, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -5381,21 +5725,24 @@ export const useStripeWebhook = <
 };
 
 /**
- * @summary Coinbase webhook handler
+ * This endpoint is not currently enabled and returns 501.
+ * @summary Coinbase webhook handler (disabled)
  */
 export const getCoinbaseWebhookUrl = () => {
   return `/api/v1/webhooks/coinbase`;
 };
 
-export const coinbaseWebhook = async (options?: RequestInit): Promise<void> => {
-  return customFetch<void>(getCoinbaseWebhookUrl(), {
+export const coinbaseWebhook = async (
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(getCoinbaseWebhookUrl(), {
     ...options,
     method: "POST",
   });
 };
 
 export const getCoinbaseWebhookMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -5434,13 +5781,13 @@ export type CoinbaseWebhookMutationResult = NonNullable<
   Awaited<ReturnType<typeof coinbaseWebhook>>
 >;
 
-export type CoinbaseWebhookMutationError = ErrorType<unknown>;
+export type CoinbaseWebhookMutationError = ErrorType<void>;
 
 /**
- * @summary Coinbase webhook handler
+ * @summary Coinbase webhook handler (disabled)
  */
 export const useCoinbaseWebhook = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -5460,21 +5807,22 @@ export const useCoinbaseWebhook = <
 };
 
 /**
- * @summary Visa webhook handler
+ * This endpoint is not currently enabled and returns 501.
+ * @summary Visa webhook handler (disabled)
  */
 export const getVisaWebhookUrl = () => {
   return `/api/v1/webhooks/visa`;
 };
 
-export const visaWebhook = async (options?: RequestInit): Promise<void> => {
-  return customFetch<void>(getVisaWebhookUrl(), {
+export const visaWebhook = async (options?: RequestInit): Promise<unknown> => {
+  return customFetch<unknown>(getVisaWebhookUrl(), {
     ...options,
     method: "POST",
   });
 };
 
 export const getVisaWebhookMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -5513,13 +5861,13 @@ export type VisaWebhookMutationResult = NonNullable<
   Awaited<ReturnType<typeof visaWebhook>>
 >;
 
-export type VisaWebhookMutationError = ErrorType<unknown>;
+export type VisaWebhookMutationError = ErrorType<void>;
 
 /**
- * @summary Visa webhook handler
+ * @summary Visa webhook handler (disabled)
  */
 export const useVisaWebhook = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -6621,8 +6969,8 @@ export const archiveMailMessage = async (
   agentId: string,
   messageId: string,
   options?: RequestInit,
-): Promise<ArchiveMailMessage200> => {
-  return customFetch<ArchiveMailMessage200>(
+): Promise<SuccessMessage> => {
+  return customFetch<SuccessMessage>(
     getArchiveMailMessageUrl(agentId, messageId),
     {
       ...options,
@@ -6908,8 +7256,8 @@ export const routeMailMessage = async (
   agentId: string,
   messageId: string,
   options?: RequestInit,
-): Promise<RouteMailMessage200> => {
-  return customFetch<RouteMailMessage200>(
+): Promise<SuccessMessage> => {
+  return customFetch<SuccessMessage>(
     getRouteMailMessageUrl(agentId, messageId),
     {
       ...options,
@@ -6999,8 +7347,8 @@ export const approveMailMessage = async (
   agentId: string,
   messageId: string,
   options?: RequestInit,
-): Promise<SuccessMessage> => {
-  return customFetch<SuccessMessage>(
+): Promise<ApproveMailMessage200> => {
+  return customFetch<ApproveMailMessage200>(
     getApproveMailMessageUrl(agentId, messageId),
     {
       ...options,
@@ -8188,3 +8536,3354 @@ export const useIngestMailMessage = <
 > => {
   return useMutation(getIngestMailMessageMutationOptions(options));
 };
+
+/**
+ * @summary Resolve a handle to agent details
+ */
+export const getResolveAgentUrl = (handle: string) => {
+  return `/api/v1/resolve/${handle}`;
+};
+
+export const resolveAgent = async (
+  handle: string,
+  options?: RequestInit,
+): Promise<ResolutionResponse> => {
+  return customFetch<ResolutionResponse>(getResolveAgentUrl(handle), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getResolveAgentQueryKey = (handle: string) => {
+  return [`/api/v1/resolve/${handle}`] as const;
+};
+
+export const getResolveAgentQueryOptions = <
+  TData = Awaited<ReturnType<typeof resolveAgent>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  handle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof resolveAgent>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getResolveAgentQueryKey(handle);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof resolveAgent>>> = ({
+    signal,
+  }) => resolveAgent(handle, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!handle,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof resolveAgent>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ResolveAgentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof resolveAgent>>
+>;
+export type ResolveAgentQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Resolve a handle to agent details
+ */
+
+export function useResolveAgent<
+  TData = Awaited<ReturnType<typeof resolveAgent>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  handle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof resolveAgent>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getResolveAgentQueryOptions(handle, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get resolution statistics for a handle
+ */
+export const getGetResolutionStatsUrl = (handle: string) => {
+  return `/api/v1/resolve/${handle}/stats`;
+};
+
+export const getResolutionStats = async (
+  handle: string,
+  options?: RequestInit,
+): Promise<ResolutionStats> => {
+  return customFetch<ResolutionStats>(getGetResolutionStatsUrl(handle), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetResolutionStatsQueryKey = (handle: string) => {
+  return [`/api/v1/resolve/${handle}/stats`] as const;
+};
+
+export const getGetResolutionStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getResolutionStats>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  handle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getResolutionStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetResolutionStatsQueryKey(handle);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getResolutionStats>>
+  > = ({ signal }) => getResolutionStats(handle, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!handle,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getResolutionStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetResolutionStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getResolutionStats>>
+>;
+export type GetResolutionStatsQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get resolution statistics for a handle
+ */
+
+export function useGetResolutionStats<
+  TData = Awaited<ReturnType<typeof getResolutionStats>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  handle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getResolutionStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetResolutionStatsQueryOptions(handle, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Find a verified agent by endpoint URL
+ */
+export const getReverseResolveUrl = () => {
+  return `/api/v1/reverse`;
+};
+
+export const reverseResolve = async (
+  reverseResolveBody: ReverseResolveBody,
+  options?: RequestInit,
+): Promise<ResolutionResponse> => {
+  return customFetch<ResolutionResponse>(getReverseResolveUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reverseResolveBody),
+  });
+};
+
+export const getReverseResolveMutationOptions = <
+  TError = ErrorType<NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reverseResolve>>,
+    TError,
+    { data: BodyType<ReverseResolveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reverseResolve>>,
+  TError,
+  { data: BodyType<ReverseResolveBody> },
+  TContext
+> => {
+  const mutationKey = ["reverseResolve"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reverseResolve>>,
+    { data: BodyType<ReverseResolveBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return reverseResolve(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReverseResolveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reverseResolve>>
+>;
+export type ReverseResolveMutationBody = BodyType<ReverseResolveBody>;
+export type ReverseResolveMutationError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Find a verified agent by endpoint URL
+ */
+export const useReverseResolve = <
+  TError = ErrorType<NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reverseResolve>>,
+    TError,
+    { data: BodyType<ReverseResolveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reverseResolve>>,
+  TError,
+  { data: BodyType<ReverseResolveBody> },
+  TContext
+> => {
+  return useMutation(getReverseResolveMutationOptions(options));
+};
+
+/**
+ * Same behavior as POST /v1/reverse, available under the /v1/resolve prefix.
+ * @summary Find a verified agent by endpoint URL (alternate path)
+ */
+export const getReverseResolveViaResolveUrl = () => {
+  return `/api/v1/resolve/reverse`;
+};
+
+export const reverseResolveViaResolve = async (
+  reverseResolveViaResolveBody: ReverseResolveViaResolveBody,
+  options?: RequestInit,
+): Promise<ResolutionResponse> => {
+  return customFetch<ResolutionResponse>(getReverseResolveViaResolveUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reverseResolveViaResolveBody),
+  });
+};
+
+export const getReverseResolveViaResolveMutationOptions = <
+  TError = ErrorType<NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reverseResolveViaResolve>>,
+    TError,
+    { data: BodyType<ReverseResolveViaResolveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reverseResolveViaResolve>>,
+  TError,
+  { data: BodyType<ReverseResolveViaResolveBody> },
+  TContext
+> => {
+  const mutationKey = ["reverseResolveViaResolve"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reverseResolveViaResolve>>,
+    { data: BodyType<ReverseResolveViaResolveBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return reverseResolveViaResolve(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReverseResolveViaResolveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reverseResolveViaResolve>>
+>;
+export type ReverseResolveViaResolveMutationBody =
+  BodyType<ReverseResolveViaResolveBody>;
+export type ReverseResolveViaResolveMutationError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Find a verified agent by endpoint URL (alternate path)
+ */
+export const useReverseResolveViaResolve = <
+  TError = ErrorType<NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reverseResolveViaResolve>>,
+    TError,
+    { data: BodyType<ReverseResolveViaResolveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reverseResolveViaResolve>>,
+  TError,
+  { data: BodyType<ReverseResolveViaResolveBody> },
+  TContext
+> => {
+  return useMutation(getReverseResolveViaResolveMutationOptions(options));
+};
+
+/**
+ * @summary List fleets (root agents and their sub-handles)
+ */
+export const getListFleetsUrl = () => {
+  return `/api/v1/fleet`;
+};
+
+export const listFleets = async (
+  options?: RequestInit,
+): Promise<ListFleets200> => {
+  return customFetch<ListFleets200>(getListFleetsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListFleetsQueryKey = () => {
+  return [`/api/v1/fleet`] as const;
+};
+
+export const getListFleetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listFleets>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listFleets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListFleetsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listFleets>>> = ({
+    signal,
+  }) => listFleets({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listFleets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListFleetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listFleets>>
+>;
+export type ListFleetsQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary List fleets (root agents and their sub-handles)
+ */
+
+export function useListFleets<
+  TData = Awaited<ReturnType<typeof listFleets>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listFleets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFleetsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a sub-handle under a verified root handle
+ */
+export const getCreateSubHandleUrl = () => {
+  return `/api/v1/fleet/sub-handles`;
+};
+
+export const createSubHandle = async (
+  createSubHandleInput: CreateSubHandleInput,
+  options?: RequestInit,
+): Promise<Agent> => {
+  return customFetch<Agent>(getCreateSubHandleUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSubHandleInput),
+  });
+};
+
+export const getCreateSubHandleMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSubHandle>>,
+    TError,
+    { data: BodyType<CreateSubHandleInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSubHandle>>,
+  TError,
+  { data: BodyType<CreateSubHandleInput> },
+  TContext
+> => {
+  const mutationKey = ["createSubHandle"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSubHandle>>,
+    { data: BodyType<CreateSubHandleInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSubHandle(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSubHandleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSubHandle>>
+>;
+export type CreateSubHandleMutationBody = BodyType<CreateSubHandleInput>;
+export type CreateSubHandleMutationError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Create a sub-handle under a verified root handle
+ */
+export const useCreateSubHandle = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSubHandle>>,
+    TError,
+    { data: BodyType<CreateSubHandleInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSubHandle>>,
+  TError,
+  { data: BodyType<CreateSubHandleInput> },
+  TContext
+> => {
+  return useMutation(getCreateSubHandleMutationOptions(options));
+};
+
+/**
+ * @summary Delete a sub-handle
+ */
+export const getDeleteSubHandleUrl = (agentId: string) => {
+  return `/api/v1/fleet/sub-handles/${agentId}`;
+};
+
+export const deleteSubHandle = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<DeleteSubHandle200> => {
+  return customFetch<DeleteSubHandle200>(getDeleteSubHandleUrl(agentId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSubHandleMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSubHandle>>,
+    TError,
+    { agentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSubHandle>>,
+  TError,
+  { agentId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteSubHandle"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSubHandle>>,
+    { agentId: string }
+  > = (props) => {
+    const { agentId } = props ?? {};
+
+    return deleteSubHandle(agentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSubHandleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSubHandle>>
+>;
+
+export type DeleteSubHandleMutationError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Delete a sub-handle
+ */
+export const useDeleteSubHandle = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSubHandle>>,
+    TError,
+    { agentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSubHandle>>,
+  TError,
+  { agentId: string },
+  TContext
+> => {
+  return useMutation(getDeleteSubHandleMutationOptions(options));
+};
+
+/**
+ * @summary Get full bootstrap bundle for an agent
+ */
+export const getGetAgentBootstrapUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/bootstrap`;
+};
+
+export const getAgentBootstrap = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<AgentBootstrapBundle> => {
+  return customFetch<AgentBootstrapBundle>(getGetAgentBootstrapUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAgentBootstrapQueryKey = (agentId: string) => {
+  return [`/api/v1/agents/${agentId}/bootstrap`] as const;
+};
+
+export const getGetAgentBootstrapQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentBootstrap>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentBootstrap>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAgentBootstrapQueryKey(agentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAgentBootstrap>>
+  > = ({ signal }) => getAgentBootstrap(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentBootstrap>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentBootstrapQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentBootstrap>>
+>;
+export type GetAgentBootstrapQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get full bootstrap bundle for an agent
+ */
+
+export function useGetAgentBootstrap<
+  TData = Awaited<ReturnType<typeof getAgentBootstrap>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentBootstrap>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentBootstrapQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get current runtime configuration and status
+ */
+export const getGetAgentRuntimeUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/runtime`;
+};
+
+export const getAgentRuntime = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<AgentRuntimeConfig> => {
+  return customFetch<AgentRuntimeConfig>(getGetAgentRuntimeUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAgentRuntimeQueryKey = (agentId: string) => {
+  return [`/api/v1/agents/${agentId}/runtime`] as const;
+};
+
+export const getGetAgentRuntimeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentRuntime>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentRuntime>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAgentRuntimeQueryKey(agentId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAgentRuntime>>> = ({
+    signal,
+  }) => getAgentRuntime(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentRuntime>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentRuntimeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentRuntime>>
+>;
+export type GetAgentRuntimeQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get current runtime configuration and status
+ */
+
+export function useGetAgentRuntime<
+  TData = Awaited<ReturnType<typeof getAgentRuntime>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentRuntime>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentRuntimeQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get identity information formatted for LLM prompts
+ */
+export const getGetAgentPromptBlockUrl = (
+  agentId: string,
+  params?: GetAgentPromptBlockParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/agents/${agentId}/prompt-block?${stringifiedParams}`
+    : `/api/v1/agents/${agentId}/prompt-block`;
+};
+
+export const getAgentPromptBlock = async (
+  agentId: string,
+  params?: GetAgentPromptBlockParams,
+  options?: RequestInit,
+): Promise<string | GetAgentPromptBlock200Two> => {
+  return customFetch<string | GetAgentPromptBlock200Two>(
+    getGetAgentPromptBlockUrl(agentId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAgentPromptBlockQueryKey = (
+  agentId: string,
+  params?: GetAgentPromptBlockParams,
+) => {
+  return [
+    `/api/v1/agents/${agentId}/prompt-block`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetAgentPromptBlockQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentPromptBlock>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  params?: GetAgentPromptBlockParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentPromptBlock>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAgentPromptBlockQueryKey(agentId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAgentPromptBlock>>
+  > = ({ signal }) =>
+    getAgentPromptBlock(agentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentPromptBlock>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentPromptBlockQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentPromptBlock>>
+>;
+export type GetAgentPromptBlockQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get identity information formatted for LLM prompts
+ */
+
+export function useGetAgentPromptBlock<
+  TData = Awaited<ReturnType<typeof getAgentPromptBlock>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  params?: GetAgentPromptBlockParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentPromptBlock>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentPromptBlockQueryOptions(
+    agentId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update agent heartbeat and runtime context
+ */
+export const getAgentHeartbeatUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/heartbeat`;
+};
+
+export const agentHeartbeat = async (
+  agentId: string,
+  agentHeartbeatBody: AgentHeartbeatBody,
+  options?: RequestInit,
+): Promise<HeartbeatResponse> => {
+  return customFetch<HeartbeatResponse>(getAgentHeartbeatUrl(agentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(agentHeartbeatBody),
+  });
+};
+
+export const getAgentHeartbeatMutationOptions = <
+  TError = ErrorType<NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof agentHeartbeat>>,
+    TError,
+    { agentId: string; data: BodyType<AgentHeartbeatBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof agentHeartbeat>>,
+  TError,
+  { agentId: string; data: BodyType<AgentHeartbeatBody> },
+  TContext
+> => {
+  const mutationKey = ["agentHeartbeat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof agentHeartbeat>>,
+    { agentId: string; data: BodyType<AgentHeartbeatBody> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return agentHeartbeat(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AgentHeartbeatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof agentHeartbeat>>
+>;
+export type AgentHeartbeatMutationBody = BodyType<AgentHeartbeatBody>;
+export type AgentHeartbeatMutationError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Update agent heartbeat and runtime context
+ */
+export const useAgentHeartbeat = <
+  TError = ErrorType<NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof agentHeartbeat>>,
+    TError,
+    { agentId: string; data: BodyType<AgentHeartbeatBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof agentHeartbeat>>,
+  TError,
+  { agentId: string; data: BodyType<AgentHeartbeatBody> },
+  TContext
+> => {
+  return useMutation(getAgentHeartbeatMutationOptions(options));
+};
+
+/**
+ * @summary Spawn a child agent from a verified parent
+ */
+export const getSpawnAgentUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/spawn`;
+};
+
+export const spawnAgent = async (
+  agentId: string,
+  spawnAgentInput: SpawnAgentInput,
+  options?: RequestInit,
+): Promise<SpawnAgentResult> => {
+  return customFetch<SpawnAgentResult>(getSpawnAgentUrl(agentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(spawnAgentInput),
+  });
+};
+
+export const getSpawnAgentMutationOptions = <
+  TError = ErrorType<ForbiddenResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof spawnAgent>>,
+    TError,
+    { agentId: string; data: BodyType<SpawnAgentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof spawnAgent>>,
+  TError,
+  { agentId: string; data: BodyType<SpawnAgentInput> },
+  TContext
+> => {
+  const mutationKey = ["spawnAgent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof spawnAgent>>,
+    { agentId: string; data: BodyType<SpawnAgentInput> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return spawnAgent(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SpawnAgentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof spawnAgent>>
+>;
+export type SpawnAgentMutationBody = BodyType<SpawnAgentInput>;
+export type SpawnAgentMutationError = ErrorType<
+  ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Spawn a child agent from a verified parent
+ */
+export const useSpawnAgent = <
+  TError = ErrorType<ForbiddenResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof spawnAgent>>,
+    TError,
+    { agentId: string; data: BodyType<SpawnAgentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof spawnAgent>>,
+  TError,
+  { agentId: string; data: BodyType<SpawnAgentInput> },
+  TContext
+> => {
+  return useMutation(getSpawnAgentMutationOptions(options));
+};
+
+/**
+ * @summary Get transfer readiness report
+ */
+export const getGetTransferReadinessUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/transfers/readiness`;
+};
+
+export const getTransferReadiness = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<TransferReadiness> => {
+  return customFetch<TransferReadiness>(getGetTransferReadinessUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTransferReadinessQueryKey = (agentId: string) => {
+  return [`/api/v1/agents/${agentId}/transfers/readiness`] as const;
+};
+
+export const getGetTransferReadinessQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTransferReadiness>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTransferReadiness>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTransferReadinessQueryKey(agentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTransferReadiness>>
+  > = ({ signal }) =>
+    getTransferReadiness(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTransferReadiness>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTransferReadinessQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTransferReadiness>>
+>;
+export type GetTransferReadinessQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get transfer readiness report
+ */
+
+export function useGetTransferReadiness<
+  TData = Awaited<ReturnType<typeof getTransferReadiness>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTransferReadiness>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTransferReadinessQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Initiate a transfer request
+ */
+export const getInitiateTransferUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/transfers`;
+};
+
+export const initiateTransfer = async (
+  agentId: string,
+  transferInput: TransferInput,
+  options?: RequestInit,
+): Promise<AgentTransfer> => {
+  return customFetch<AgentTransfer>(getInitiateTransferUrl(agentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(transferInput),
+  });
+};
+
+export const getInitiateTransferMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof initiateTransfer>>,
+    TError,
+    { agentId: string; data: BodyType<TransferInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof initiateTransfer>>,
+  TError,
+  { agentId: string; data: BodyType<TransferInput> },
+  TContext
+> => {
+  const mutationKey = ["initiateTransfer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof initiateTransfer>>,
+    { agentId: string; data: BodyType<TransferInput> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return initiateTransfer(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type InitiateTransferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof initiateTransfer>>
+>;
+export type InitiateTransferMutationBody = BodyType<TransferInput>;
+export type InitiateTransferMutationError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Initiate a transfer request
+ */
+export const useInitiateTransfer = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof initiateTransfer>>,
+    TError,
+    { agentId: string; data: BodyType<TransferInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof initiateTransfer>>,
+  TError,
+  { agentId: string; data: BodyType<TransferInput> },
+  TContext
+> => {
+  return useMutation(getInitiateTransferMutationOptions(options));
+};
+
+/**
+ * @summary List transfers for an agent
+ */
+export const getListTransfersUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/transfers`;
+};
+
+export const listTransfers = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<ListTransfers200> => {
+  return customFetch<ListTransfers200>(getListTransfersUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTransfersQueryKey = (agentId: string) => {
+  return [`/api/v1/agents/${agentId}/transfers`] as const;
+};
+
+export const getListTransfersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTransfers>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTransfers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTransfersQueryKey(agentId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTransfers>>> = ({
+    signal,
+  }) => listTransfers(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTransfers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTransfersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTransfers>>
+>;
+export type ListTransfersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List transfers for an agent
+ */
+
+export function useListTransfers<
+  TData = Awaited<ReturnType<typeof listTransfers>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTransfers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTransfersQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get transfer details
+ */
+export const getGetTransferUrl = (agentId: string, transferId: string) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}`;
+};
+
+export const getTransfer = async (
+  agentId: string,
+  transferId: string,
+  options?: RequestInit,
+): Promise<AgentTransfer> => {
+  return customFetch<AgentTransfer>(getGetTransferUrl(agentId, transferId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTransferQueryKey = (agentId: string, transferId: string) => {
+  return [`/api/v1/agents/${agentId}/transfers/${transferId}`] as const;
+};
+
+export const getGetTransferQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTransfer>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  transferId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTransfer>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTransferQueryKey(agentId, transferId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTransfer>>> = ({
+    signal,
+  }) => getTransfer(agentId, transferId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(agentId && transferId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTransfer>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTransferQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTransfer>>
+>;
+export type GetTransferQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get transfer details
+ */
+
+export function useGetTransfer<
+  TData = Awaited<ReturnType<typeof getTransfer>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  transferId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTransfer>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTransferQueryOptions(agentId, transferId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update transfer details
+ */
+export const getUpdateTransferUrl = (agentId: string, transferId: string) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}`;
+};
+
+export const updateTransfer = async (
+  agentId: string,
+  transferId: string,
+  transferUpdateInput: TransferUpdateInput,
+  options?: RequestInit,
+): Promise<AgentTransfer> => {
+  return customFetch<AgentTransfer>(getUpdateTransferUrl(agentId, transferId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(transferUpdateInput),
+  });
+};
+
+export const getUpdateTransferMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTransfer>>,
+    TError,
+    {
+      agentId: string;
+      transferId: string;
+      data: BodyType<TransferUpdateInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTransfer>>,
+  TError,
+  { agentId: string; transferId: string; data: BodyType<TransferUpdateInput> },
+  TContext
+> => {
+  const mutationKey = ["updateTransfer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTransfer>>,
+    { agentId: string; transferId: string; data: BodyType<TransferUpdateInput> }
+  > = (props) => {
+    const { agentId, transferId, data } = props ?? {};
+
+    return updateTransfer(agentId, transferId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTransferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTransfer>>
+>;
+export type UpdateTransferMutationBody = BodyType<TransferUpdateInput>;
+export type UpdateTransferMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update transfer details
+ */
+export const useUpdateTransfer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTransfer>>,
+    TError,
+    {
+      agentId: string;
+      transferId: string;
+      data: BodyType<TransferUpdateInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTransfer>>,
+  TError,
+  { agentId: string; transferId: string; data: BodyType<TransferUpdateInput> },
+  TContext
+> => {
+  return useMutation(getUpdateTransferMutationOptions(options));
+};
+
+/**
+ * @summary Public listing of transfers (not enabled)
+ */
+export const getListTransferPubliclyUrl = (
+  agentId: string,
+  transferId: string,
+) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/list`;
+};
+
+export const listTransferPublicly = async (
+  agentId: string,
+  transferId: string,
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(getListTransferPubliclyUrl(agentId, transferId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getListTransferPubliclyMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof listTransferPublicly>>,
+    TError,
+    { agentId: string; transferId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof listTransferPublicly>>,
+  TError,
+  { agentId: string; transferId: string },
+  TContext
+> => {
+  const mutationKey = ["listTransferPublicly"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof listTransferPublicly>>,
+    { agentId: string; transferId: string }
+  > = (props) => {
+    const { agentId, transferId } = props ?? {};
+
+    return listTransferPublicly(agentId, transferId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ListTransferPubliclyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof listTransferPublicly>>
+>;
+
+export type ListTransferPubliclyMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Public listing of transfers (not enabled)
+ */
+export const useListTransferPublicly = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof listTransferPublicly>>,
+    TError,
+    { agentId: string; transferId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof listTransferPublicly>>,
+  TError,
+  { agentId: string; transferId: string },
+  TContext
+> => {
+  return useMutation(getListTransferPubliclyMutationOptions(options));
+};
+
+/**
+ * @summary Accept an incoming transfer request
+ */
+export const getAcceptTransferUrl = (agentId: string, transferId: string) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/accept`;
+};
+
+export const acceptTransfer = async (
+  agentId: string,
+  transferId: string,
+  transferAcceptInput: TransferAcceptInput,
+  options?: RequestInit,
+): Promise<AgentTransfer> => {
+  return customFetch<AgentTransfer>(getAcceptTransferUrl(agentId, transferId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(transferAcceptInput),
+  });
+};
+
+export const getAcceptTransferMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptTransfer>>,
+    TError,
+    {
+      agentId: string;
+      transferId: string;
+      data: BodyType<TransferAcceptInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acceptTransfer>>,
+  TError,
+  { agentId: string; transferId: string; data: BodyType<TransferAcceptInput> },
+  TContext
+> => {
+  const mutationKey = ["acceptTransfer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acceptTransfer>>,
+    { agentId: string; transferId: string; data: BodyType<TransferAcceptInput> }
+  > = (props) => {
+    const { agentId, transferId, data } = props ?? {};
+
+    return acceptTransfer(agentId, transferId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcceptTransferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptTransfer>>
+>;
+export type AcceptTransferMutationBody = BodyType<TransferAcceptInput>;
+export type AcceptTransferMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Accept an incoming transfer request
+ */
+export const useAcceptTransfer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptTransfer>>,
+    TError,
+    {
+      agentId: string;
+      transferId: string;
+      data: BodyType<TransferAcceptInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof acceptTransfer>>,
+  TError,
+  { agentId: string; transferId: string; data: BodyType<TransferAcceptInput> },
+  TContext
+> => {
+  return useMutation(getAcceptTransferMutationOptions(options));
+};
+
+/**
+ * @summary Advance transfer to pending state
+ */
+export const getAdvanceTransferUrl = (agentId: string, transferId: string) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/advance`;
+};
+
+export const advanceTransfer = async (
+  agentId: string,
+  transferId: string,
+  options?: RequestInit,
+): Promise<AgentTransfer> => {
+  return customFetch<AgentTransfer>(
+    getAdvanceTransferUrl(agentId, transferId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdvanceTransferMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof advanceTransfer>>,
+    TError,
+    { agentId: string; transferId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof advanceTransfer>>,
+  TError,
+  { agentId: string; transferId: string },
+  TContext
+> => {
+  const mutationKey = ["advanceTransfer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof advanceTransfer>>,
+    { agentId: string; transferId: string }
+  > = (props) => {
+    const { agentId, transferId } = props ?? {};
+
+    return advanceTransfer(agentId, transferId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdvanceTransferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof advanceTransfer>>
+>;
+
+export type AdvanceTransferMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Advance transfer to pending state
+ */
+export const useAdvanceTransfer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof advanceTransfer>>,
+    TError,
+    { agentId: string; transferId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof advanceTransfer>>,
+  TError,
+  { agentId: string; transferId: string },
+  TContext
+> => {
+  return useMutation(getAdvanceTransferMutationOptions(options));
+};
+
+/**
+ * @summary Escrow fund-hold (not enabled)
+ */
+export const getFundTransferHoldUrl = (agentId: string, transferId: string) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/fund-hold`;
+};
+
+export const fundTransferHold = async (
+  agentId: string,
+  transferId: string,
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(getFundTransferHoldUrl(agentId, transferId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getFundTransferHoldMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fundTransferHold>>,
+    TError,
+    { agentId: string; transferId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof fundTransferHold>>,
+  TError,
+  { agentId: string; transferId: string },
+  TContext
+> => {
+  const mutationKey = ["fundTransferHold"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof fundTransferHold>>,
+    { agentId: string; transferId: string }
+  > = (props) => {
+    const { agentId, transferId } = props ?? {};
+
+    return fundTransferHold(agentId, transferId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FundTransferHoldMutationResult = NonNullable<
+  Awaited<ReturnType<typeof fundTransferHold>>
+>;
+
+export type FundTransferHoldMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Escrow fund-hold (not enabled)
+ */
+export const useFundTransferHold = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fundTransferHold>>,
+    TError,
+    { agentId: string; transferId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof fundTransferHold>>,
+  TError,
+  { agentId: string; transferId: string },
+  TContext
+> => {
+  return useMutation(getFundTransferHoldMutationOptions(options));
+};
+
+/**
+ * @summary Begin the asset handoff process
+ */
+export const getStartTransferHandoffUrl = (
+  agentId: string,
+  transferId: string,
+) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/start-handoff`;
+};
+
+export const startTransferHandoff = async (
+  agentId: string,
+  transferId: string,
+  options?: RequestInit,
+): Promise<AgentTransfer> => {
+  return customFetch<AgentTransfer>(
+    getStartTransferHandoffUrl(agentId, transferId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getStartTransferHandoffMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startTransferHandoff>>,
+    TError,
+    { agentId: string; transferId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startTransferHandoff>>,
+  TError,
+  { agentId: string; transferId: string },
+  TContext
+> => {
+  const mutationKey = ["startTransferHandoff"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startTransferHandoff>>,
+    { agentId: string; transferId: string }
+  > = (props) => {
+    const { agentId, transferId } = props ?? {};
+
+    return startTransferHandoff(agentId, transferId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartTransferHandoffMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startTransferHandoff>>
+>;
+
+export type StartTransferHandoffMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Begin the asset handoff process
+ */
+export const useStartTransferHandoff = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startTransferHandoff>>,
+    TError,
+    { agentId: string; transferId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startTransferHandoff>>,
+  TError,
+  { agentId: string; transferId: string },
+  TContext
+> => {
+  return useMutation(getStartTransferHandoffMutationOptions(options));
+};
+
+/**
+ * @summary Complete the handoff and transfer
+ */
+export const getCompleteTransferUrl = (agentId: string, transferId: string) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/complete`;
+};
+
+export const completeTransfer = async (
+  agentId: string,
+  transferId: string,
+  options?: RequestInit,
+): Promise<AgentTransfer> => {
+  return customFetch<AgentTransfer>(
+    getCompleteTransferUrl(agentId, transferId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getCompleteTransferMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeTransfer>>,
+    TError,
+    { agentId: string; transferId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeTransfer>>,
+  TError,
+  { agentId: string; transferId: string },
+  TContext
+> => {
+  const mutationKey = ["completeTransfer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeTransfer>>,
+    { agentId: string; transferId: string }
+  > = (props) => {
+    const { agentId, transferId } = props ?? {};
+
+    return completeTransfer(agentId, transferId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteTransferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeTransfer>>
+>;
+
+export type CompleteTransferMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Complete the handoff and transfer
+ */
+export const useCompleteTransfer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeTransfer>>,
+    TError,
+    { agentId: string; transferId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeTransfer>>,
+  TError,
+  { agentId: string; transferId: string },
+  TContext
+> => {
+  return useMutation(getCompleteTransferMutationOptions(options));
+};
+
+/**
+ * @summary Cancel an ongoing transfer
+ */
+export const getCancelTransferUrl = (agentId: string, transferId: string) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/cancel`;
+};
+
+export const cancelTransfer = async (
+  agentId: string,
+  transferId: string,
+  transferCancelInput: TransferCancelInput,
+  options?: RequestInit,
+): Promise<AgentTransfer> => {
+  return customFetch<AgentTransfer>(getCancelTransferUrl(agentId, transferId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(transferCancelInput),
+  });
+};
+
+export const getCancelTransferMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelTransfer>>,
+    TError,
+    {
+      agentId: string;
+      transferId: string;
+      data: BodyType<TransferCancelInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelTransfer>>,
+  TError,
+  { agentId: string; transferId: string; data: BodyType<TransferCancelInput> },
+  TContext
+> => {
+  const mutationKey = ["cancelTransfer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelTransfer>>,
+    { agentId: string; transferId: string; data: BodyType<TransferCancelInput> }
+  > = (props) => {
+    const { agentId, transferId, data } = props ?? {};
+
+    return cancelTransfer(agentId, transferId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelTransferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelTransfer>>
+>;
+export type CancelTransferMutationBody = BodyType<TransferCancelInput>;
+export type CancelTransferMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Cancel an ongoing transfer
+ */
+export const useCancelTransfer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelTransfer>>,
+    TError,
+    {
+      agentId: string;
+      transferId: string;
+      data: BodyType<TransferCancelInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof cancelTransfer>>,
+  TError,
+  { agentId: string; transferId: string; data: BodyType<TransferCancelInput> },
+  TContext
+> => {
+  return useMutation(getCancelTransferMutationOptions(options));
+};
+
+/**
+ * @summary Dispute a transfer
+ */
+export const getDisputeTransferUrl = (agentId: string, transferId: string) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/dispute`;
+};
+
+export const disputeTransfer = async (
+  agentId: string,
+  transferId: string,
+  transferDisputeInput: TransferDisputeInput,
+  options?: RequestInit,
+): Promise<AgentTransfer> => {
+  return customFetch<AgentTransfer>(
+    getDisputeTransferUrl(agentId, transferId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(transferDisputeInput),
+    },
+  );
+};
+
+export const getDisputeTransferMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disputeTransfer>>,
+    TError,
+    {
+      agentId: string;
+      transferId: string;
+      data: BodyType<TransferDisputeInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disputeTransfer>>,
+  TError,
+  { agentId: string; transferId: string; data: BodyType<TransferDisputeInput> },
+  TContext
+> => {
+  const mutationKey = ["disputeTransfer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disputeTransfer>>,
+    {
+      agentId: string;
+      transferId: string;
+      data: BodyType<TransferDisputeInput>;
+    }
+  > = (props) => {
+    const { agentId, transferId, data } = props ?? {};
+
+    return disputeTransfer(agentId, transferId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisputeTransferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disputeTransfer>>
+>;
+export type DisputeTransferMutationBody = BodyType<TransferDisputeInput>;
+export type DisputeTransferMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Dispute a transfer
+ */
+export const useDisputeTransfer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disputeTransfer>>,
+    TError,
+    {
+      agentId: string;
+      transferId: string;
+      data: BodyType<TransferDisputeInput>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof disputeTransfer>>,
+  TError,
+  { agentId: string; transferId: string; data: BodyType<TransferDisputeInput> },
+  TContext
+> => {
+  return useMutation(getDisputeTransferMutationOptions(options));
+};
+
+/**
+ * @summary List history events for a transfer
+ */
+export const getListTransferEventsUrl = (
+  agentId: string,
+  transferId: string,
+) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/events`;
+};
+
+export const listTransferEvents = async (
+  agentId: string,
+  transferId: string,
+  options?: RequestInit,
+): Promise<ListTransferEvents200> => {
+  return customFetch<ListTransferEvents200>(
+    getListTransferEventsUrl(agentId, transferId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTransferEventsQueryKey = (
+  agentId: string,
+  transferId: string,
+) => {
+  return [`/api/v1/agents/${agentId}/transfers/${transferId}/events`] as const;
+};
+
+export const getListTransferEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTransferEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  transferId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTransferEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListTransferEventsQueryKey(agentId, transferId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTransferEvents>>
+  > = ({ signal }) =>
+    listTransferEvents(agentId, transferId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(agentId && transferId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTransferEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTransferEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTransferEvents>>
+>;
+export type ListTransferEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List history events for a transfer
+ */
+
+export function useListTransferEvents<
+  TData = Awaited<ReturnType<typeof listTransferEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  transferId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTransferEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTransferEventsQueryOptions(
+    agentId,
+    transferId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List assets involved in the transfer
+ */
+export const getListTransferAssetsUrl = (
+  agentId: string,
+  transferId: string,
+) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/assets`;
+};
+
+export const listTransferAssets = async (
+  agentId: string,
+  transferId: string,
+  options?: RequestInit,
+): Promise<ListTransferAssets200> => {
+  return customFetch<ListTransferAssets200>(
+    getListTransferAssetsUrl(agentId, transferId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTransferAssetsQueryKey = (
+  agentId: string,
+  transferId: string,
+) => {
+  return [`/api/v1/agents/${agentId}/transfers/${transferId}/assets`] as const;
+};
+
+export const getListTransferAssetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTransferAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  transferId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTransferAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListTransferAssetsQueryKey(agentId, transferId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTransferAssets>>
+  > = ({ signal }) =>
+    listTransferAssets(agentId, transferId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(agentId && transferId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTransferAssets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTransferAssetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTransferAssets>>
+>;
+export type ListTransferAssetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List assets involved in the transfer
+ */
+
+export function useListTransferAssets<
+  TData = Awaited<ReturnType<typeof listTransferAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  transferId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTransferAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTransferAssetsQueryOptions(
+    agentId,
+    transferId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Reconnect an asset to the new owner
+ */
+export const getReconnectTransferAssetUrl = (
+  agentId: string,
+  transferId: string,
+  assetId: string,
+) => {
+  return `/api/v1/agents/${agentId}/transfers/${transferId}/assets/${assetId}/reconnect`;
+};
+
+export const reconnectTransferAsset = async (
+  agentId: string,
+  transferId: string,
+  assetId: string,
+  options?: RequestInit,
+): Promise<TransferAsset> => {
+  return customFetch<TransferAsset>(
+    getReconnectTransferAssetUrl(agentId, transferId, assetId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getReconnectTransferAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reconnectTransferAsset>>,
+    TError,
+    { agentId: string; transferId: string; assetId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reconnectTransferAsset>>,
+  TError,
+  { agentId: string; transferId: string; assetId: string },
+  TContext
+> => {
+  const mutationKey = ["reconnectTransferAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reconnectTransferAsset>>,
+    { agentId: string; transferId: string; assetId: string }
+  > = (props) => {
+    const { agentId, transferId, assetId } = props ?? {};
+
+    return reconnectTransferAsset(agentId, transferId, assetId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReconnectTransferAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reconnectTransferAsset>>
+>;
+
+export type ReconnectTransferAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reconnect an asset to the new owner
+ */
+export const useReconnectTransferAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reconnectTransferAsset>>,
+    TError,
+    { agentId: string; transferId: string; assetId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reconnectTransferAsset>>,
+  TError,
+  { agentId: string; transferId: string; assetId: string },
+  TContext
+> => {
+  return useMutation(getReconnectTransferAssetMutationOptions(options));
+};
+
+/**
+ * @summary Get agent registry status
+ */
+export const getGetRegistryStatusUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/registry/status`;
+};
+
+export const getRegistryStatus = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<GetRegistryStatus200> => {
+  return customFetch<GetRegistryStatus200>(getGetRegistryStatusUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRegistryStatusQueryKey = (agentId: string) => {
+  return [`/api/v1/agents/${agentId}/registry/status`] as const;
+};
+
+export const getGetRegistryStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRegistryStatus>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRegistryStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetRegistryStatusQueryKey(agentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRegistryStatus>>
+  > = ({ signal }) => getRegistryStatus(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRegistryStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRegistryStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRegistryStatus>>
+>;
+export type GetRegistryStatusQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get agent registry status
+ */
+
+export function useGetRegistryStatus<
+  TData = Awaited<ReturnType<typeof getRegistryStatus>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRegistryStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRegistryStatusQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get public identity, keys, and trust signals for an agent
+ */
+export const getGetPublicAgentIdentityUrl = (agentIdOrHandle: string) => {
+  return `/api/v1/public/agents/${agentIdOrHandle}`;
+};
+
+export const getPublicAgentIdentity = async (
+  agentIdOrHandle: string,
+  options?: RequestInit,
+): Promise<PublicAgentIdentity> => {
+  return customFetch<PublicAgentIdentity>(
+    getGetPublicAgentIdentityUrl(agentIdOrHandle),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPublicAgentIdentityQueryKey = (agentIdOrHandle: string) => {
+  return [`/api/v1/public/agents/${agentIdOrHandle}`] as const;
+};
+
+export const getGetPublicAgentIdentityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicAgentIdentity>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentIdOrHandle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicAgentIdentity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetPublicAgentIdentityQueryKey(agentIdOrHandle);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPublicAgentIdentity>>
+  > = ({ signal }) =>
+    getPublicAgentIdentity(agentIdOrHandle, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentIdOrHandle,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicAgentIdentity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicAgentIdentityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicAgentIdentity>>
+>;
+export type GetPublicAgentIdentityQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get public identity, keys, and trust signals for an agent
+ */
+
+export function useGetPublicAgentIdentity<
+  TData = Awaited<ReturnType<typeof getPublicAgentIdentity>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentIdOrHandle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicAgentIdentity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicAgentIdentityQueryOptions(
+    agentIdOrHandle,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Permanently redirects (301) to GET /v1/public/agents/{agentIdOrHandle}.
+ * @summary Redirect alias for public agent identity
+ */
+export const getGetPublicAgentIdentityAliasUrl = (agentIdOrHandle: string) => {
+  return `/api/v1/public/agents/${agentIdOrHandle}/identity`;
+};
+
+export const getPublicAgentIdentityAlias = async (
+  agentIdOrHandle: string,
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(
+    getGetPublicAgentIdentityAliasUrl(agentIdOrHandle),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPublicAgentIdentityAliasQueryKey = (
+  agentIdOrHandle: string,
+) => {
+  return [`/api/v1/public/agents/${agentIdOrHandle}/identity`] as const;
+};
+
+export const getGetPublicAgentIdentityAliasQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicAgentIdentityAlias>>,
+  TError = ErrorType<void>,
+>(
+  agentIdOrHandle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicAgentIdentityAlias>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetPublicAgentIdentityAliasQueryKey(agentIdOrHandle);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPublicAgentIdentityAlias>>
+  > = ({ signal }) =>
+    getPublicAgentIdentityAlias(agentIdOrHandle, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentIdOrHandle,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicAgentIdentityAlias>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicAgentIdentityAliasQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicAgentIdentityAlias>>
+>;
+export type GetPublicAgentIdentityAliasQueryError = ErrorType<void>;
+
+/**
+ * @summary Redirect alias for public agent identity
+ */
+
+export function useGetPublicAgentIdentityAlias<
+  TData = Awaited<ReturnType<typeof getPublicAgentIdentityAlias>>,
+  TError = ErrorType<void>,
+>(
+  agentIdOrHandle: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicAgentIdentityAlias>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicAgentIdentityAliasQueryOptions(
+    agentIdOrHandle,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Rotate an agent key
+ */
+export const getProgrammaticRotateKeyUrl = (agentId: string) => {
+  return `/api/v1/programmatic/agents/${agentId}/rotate-key`;
+};
+
+export const programmaticRotateKey = async (
+  agentId: string,
+  rotateKeyInput: RotateKeyInput,
+  options?: RequestInit,
+): Promise<RotateKeyResult> => {
+  return customFetch<RotateKeyResult>(getProgrammaticRotateKeyUrl(agentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rotateKeyInput),
+  });
+};
+
+export const getProgrammaticRotateKeyMutationOptions = <
+  TError = ErrorType<void | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof programmaticRotateKey>>,
+    TError,
+    { agentId: string; data: BodyType<RotateKeyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof programmaticRotateKey>>,
+  TError,
+  { agentId: string; data: BodyType<RotateKeyInput> },
+  TContext
+> => {
+  const mutationKey = ["programmaticRotateKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof programmaticRotateKey>>,
+    { agentId: string; data: BodyType<RotateKeyInput> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return programmaticRotateKey(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ProgrammaticRotateKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof programmaticRotateKey>>
+>;
+export type ProgrammaticRotateKeyMutationBody = BodyType<RotateKeyInput>;
+export type ProgrammaticRotateKeyMutationError =
+  ErrorType<void | NotFoundResponse>;
+
+/**
+ * @summary Rotate an agent key
+ */
+export const useProgrammaticRotateKey = <
+  TError = ErrorType<void | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof programmaticRotateKey>>,
+    TError,
+    { agentId: string; data: BodyType<RotateKeyInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof programmaticRotateKey>>,
+  TError,
+  { agentId: string; data: BodyType<RotateKeyInput> },
+  TContext
+> => {
+  return useMutation(getProgrammaticRotateKeyMutationOptions(options));
+};
+
+/**
+ * @summary Get agent authentication metadata
+ */
+export const getGetAgentAuthMetadataUrl = (agentId: string) => {
+  return `/api/v1/programmatic/agents/${agentId}/auth-metadata`;
+};
+
+export const getAgentAuthMetadata = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<AgentAuthMetadata> => {
+  return customFetch<AgentAuthMetadata>(getGetAgentAuthMetadataUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAgentAuthMetadataQueryKey = (agentId: string) => {
+  return [`/api/v1/programmatic/agents/${agentId}/auth-metadata`] as const;
+};
+
+export const getGetAgentAuthMetadataQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentAuthMetadata>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentAuthMetadata>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAgentAuthMetadataQueryKey(agentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAgentAuthMetadata>>
+  > = ({ signal }) =>
+    getAgentAuthMetadata(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentAuthMetadata>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentAuthMetadataQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentAuthMetadata>>
+>;
+export type GetAgentAuthMetadataQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get agent authentication metadata
+ */
+
+export function useGetAgentAuthMetadata<
+  TData = Awaited<ReturnType<typeof getAgentAuthMetadata>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentAuthMetadata>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentAuthMetadataQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an API key for an agent
+ */
+export const getCreateAgentApiKeyUrl = (agentId: string) => {
+  return `/api/v1/programmatic/agents/${agentId}/api-keys`;
+};
+
+export const createAgentApiKey = async (
+  agentId: string,
+  createAgentApiKeyBody: CreateAgentApiKeyBody,
+  options?: RequestInit,
+): Promise<AgentApiKeyCreated> => {
+  return customFetch<AgentApiKeyCreated>(getCreateAgentApiKeyUrl(agentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAgentApiKeyBody),
+  });
+};
+
+export const getCreateAgentApiKeyMutationOptions = <
+  TError = ErrorType<ForbiddenResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAgentApiKey>>,
+    TError,
+    { agentId: string; data: BodyType<CreateAgentApiKeyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAgentApiKey>>,
+  TError,
+  { agentId: string; data: BodyType<CreateAgentApiKeyBody> },
+  TContext
+> => {
+  const mutationKey = ["createAgentApiKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAgentApiKey>>,
+    { agentId: string; data: BodyType<CreateAgentApiKeyBody> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return createAgentApiKey(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAgentApiKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAgentApiKey>>
+>;
+export type CreateAgentApiKeyMutationBody = BodyType<CreateAgentApiKeyBody>;
+export type CreateAgentApiKeyMutationError = ErrorType<
+  ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Create an API key for an agent
+ */
+export const useCreateAgentApiKey = <
+  TError = ErrorType<ForbiddenResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAgentApiKey>>,
+    TError,
+    { agentId: string; data: BodyType<CreateAgentApiKeyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAgentApiKey>>,
+  TError,
+  { agentId: string; data: BodyType<CreateAgentApiKeyBody> },
+  TContext
+> => {
+  return useMutation(getCreateAgentApiKeyMutationOptions(options));
+};
+
+/**
+ * @summary Well-known agent identity document
+ */
+export const getGetWellKnownAgentUrl = (params?: GetWellKnownAgentParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/.well-known/agent.json?${stringifiedParams}`
+    : `/api/.well-known/agent.json`;
+};
+
+export const getWellKnownAgent = async (
+  params?: GetWellKnownAgentParams,
+  options?: RequestInit,
+): Promise<WellKnownAgentIdentity> => {
+  return customFetch<WellKnownAgentIdentity>(getGetWellKnownAgentUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWellKnownAgentQueryKey = (
+  params?: GetWellKnownAgentParams,
+) => {
+  return [`/api/.well-known/agent.json`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetWellKnownAgentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWellKnownAgent>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  params?: GetWellKnownAgentParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWellKnownAgent>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetWellKnownAgentQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getWellKnownAgent>>
+  > = ({ signal }) => getWellKnownAgent(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWellKnownAgent>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWellKnownAgentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWellKnownAgent>>
+>;
+export type GetWellKnownAgentQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Well-known agent identity document
+ */
+
+export function useGetWellKnownAgent<
+  TData = Awaited<ReturnType<typeof getWellKnownAgent>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  params?: GetWellKnownAgentParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWellKnownAgent>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWellKnownAgentQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary AgentID protocol configuration
+ */
+export const getGetWellKnownConfigurationUrl = () => {
+  return `/api/.well-known/agentid-configuration`;
+};
+
+export const getWellKnownConfiguration = async (
+  options?: RequestInit,
+): Promise<AgentIDConfiguration> => {
+  return customFetch<AgentIDConfiguration>(getGetWellKnownConfigurationUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWellKnownConfigurationQueryKey = () => {
+  return [`/api/.well-known/agentid-configuration`] as const;
+};
+
+export const getGetWellKnownConfigurationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWellKnownConfiguration>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWellKnownConfiguration>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetWellKnownConfigurationQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getWellKnownConfiguration>>
+  > = ({ signal }) => getWellKnownConfiguration({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWellKnownConfiguration>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWellKnownConfigurationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWellKnownConfiguration>>
+>;
+export type GetWellKnownConfigurationQueryError = ErrorType<unknown>;
+
+/**
+ * @summary AgentID protocol configuration
+ */
+
+export function useGetWellKnownConfiguration<
+  TData = Awaited<ReturnType<typeof getWellKnownConfiguration>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWellKnownConfiguration>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWellKnownConfigurationQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Machine-readable platform description for LLMs
+ */
+export const getGetLlmsTxtUrl = () => {
+  return `/api/llms.txt`;
+};
+
+export const getLlmsTxt = async (options?: RequestInit): Promise<string> => {
+  return customFetch<string>(getGetLlmsTxtUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLlmsTxtQueryKey = () => {
+  return [`/api/llms.txt`] as const;
+};
+
+export const getGetLlmsTxtQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLlmsTxt>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLlmsTxt>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLlmsTxtQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getLlmsTxt>>> = ({
+    signal,
+  }) => getLlmsTxt({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLlmsTxt>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLlmsTxtQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLlmsTxt>>
+>;
+export type GetLlmsTxtQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Machine-readable platform description for LLMs
+ */
+
+export function useGetLlmsTxt<
+  TData = Awaited<ReturnType<typeof getLlmsTxt>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLlmsTxt>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLlmsTxtQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

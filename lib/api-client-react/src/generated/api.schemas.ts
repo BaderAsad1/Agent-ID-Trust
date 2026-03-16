@@ -13,13 +13,12 @@ export interface ApiError {
   details?: ApiErrorDetails;
 }
 
-export interface ForbiddenResponse {
-  error: string;
-  code: string;
-  details?: ApiErrorDetails;
+export interface SuccessMessage {
+  message: string;
 }
 
-export interface SuccessMessage {
+export interface ErrorResponse {
+  error: string;
   message: string;
 }
 
@@ -538,6 +537,17 @@ export interface MailInboxStats {
   threads?: MailInboxStatsThreads;
 }
 
+export interface ThreadLastMessage {
+  id: string;
+  senderAddress?: string | null;
+  senderType: string;
+  snippet: string;
+  isRead: boolean;
+  senderVerified?: boolean | null;
+  senderTrustScore?: number | null;
+  createdAt: string;
+}
+
 export type MailThreadStatus =
   (typeof MailThreadStatus)[keyof typeof MailThreadStatus];
 
@@ -547,14 +557,26 @@ export const MailThreadStatus = {
   archived: "archived",
 } as const;
 
+export interface MailLabel {
+  id: string;
+  inboxId: string;
+  name: string;
+  color?: string;
+  isSystem: boolean;
+  createdAt: string;
+}
+
 export interface MailThread {
   id: string;
   inboxId: string;
   subject: string;
   status: MailThreadStatus;
   messageCount: number;
+  unreadCount?: number;
   participants?: string[];
   lastMessageAt?: string;
+  lastMessage?: ThreadLastMessage;
+  labels?: MailLabel[];
   createdAt: string;
   updatedAt?: string;
 }
@@ -783,15 +805,6 @@ export interface MailReplyInput {
   bodyFormat?: MailReplyInputBodyFormat;
 }
 
-export interface MailLabel {
-  id: string;
-  inboxId: string;
-  name: string;
-  color?: string;
-  isSystem: boolean;
-  createdAt: string;
-}
-
 export interface CreateMailLabelInput {
   name: string;
   color?: string;
@@ -862,6 +875,593 @@ export interface UpdateMailWebhookInput {
   status?: UpdateMailWebhookInputStatus;
 }
 
+export type ResolvedAgentTrustBreakdown = { [key: string]: unknown };
+
+export type ResolvedAgentPricing = {
+  priceType?: string;
+  priceAmount?: string | null;
+  deliveryHours?: number | null;
+} | null;
+
+export type ResolvedAgentMetadata = { [key: string]: unknown };
+
+export type ResolvedAgentCredential = {
+  namespace: string;
+  did: string;
+  domain: string;
+};
+
+export interface ResolvedAgent {
+  handle: string;
+  domain: string;
+  protocolAddress: string;
+  did: string;
+  resolverUrl?: string;
+  displayName: string;
+  description?: string;
+  endpointUrl?: string;
+  capabilities?: string[];
+  protocols?: string[];
+  authMethods?: string[];
+  trustScore: number;
+  trustTier: string;
+  trustBreakdown?: ResolvedAgentTrustBreakdown;
+  verificationStatus: string;
+  verificationMethod?: string | null;
+  verifiedAt?: string | null;
+  status: string;
+  avatarUrl?: string | null;
+  ownerKey?: string | null;
+  pricing?: ResolvedAgentPricing;
+  paymentMethods?: string[];
+  metadata?: ResolvedAgentMetadata;
+  tasksCompleted?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  profileUrl?: string;
+  erc8004Uri?: string;
+  credential?: ResolvedAgentCredential;
+}
+
+export interface ResolutionResponse {
+  resolved: boolean;
+  agent: ResolvedAgent;
+}
+
+export interface ResolutionStats {
+  handle: string;
+  totalResolutions: number;
+  resolutionsLast24h: number;
+  resolutionsLast7d: number;
+  avgResponseTimeMs: number;
+}
+
+export interface FleetSubHandle {
+  id: string;
+  handle: string;
+  displayName: string;
+  status: string;
+  trustScore: number;
+  capabilities: string[];
+  createdAt: string;
+}
+
+export interface FleetEntry {
+  rootHandle: string;
+  rootAgent: Agent;
+  subHandles: FleetSubHandle[];
+}
+
+export interface CreateSubHandleInput {
+  rootHandle: string;
+  subName: string;
+  displayName: string;
+  description?: string;
+  capabilities?: string[];
+  endpointUrl?: string;
+}
+
+export type AgentBootstrapBundleTrustSignalsItem = { [key: string]: unknown };
+
+export type AgentBootstrapBundleTrust = {
+  score: number;
+  tier: string;
+  signals: AgentBootstrapBundleTrustSignalsItem[];
+};
+
+export type AgentBootstrapBundleKeyIdsItem = {
+  kid: string;
+  key_type: string;
+  status: string;
+};
+
+export interface AgentBootstrapBundle {
+  spec_version: string;
+  agent_id: string;
+  handle: string;
+  display_name: string;
+  protocol_address: string;
+  provisional_domain?: string;
+  public_profile_url?: string;
+  inbox_id?: string | null;
+  inbox_address?: string | null;
+  inbox_poll_endpoint?: string | null;
+  trust: AgentBootstrapBundleTrust;
+  capabilities: string[];
+  auth_methods: string[];
+  key_ids: AgentBootstrapBundleKeyIdsItem[];
+  status: string;
+  prompt_block: string;
+}
+
+export type AgentRuntimeConfigTrustSignalsItem = { [key: string]: unknown };
+
+export type AgentRuntimeConfigTrust = {
+  score: number;
+  tier: string;
+  signals: AgentRuntimeConfigTrustSignalsItem[];
+};
+
+export type AgentRuntimeConfigPolicyLimits = {
+  rate_limit_rpm: number;
+  max_payload_bytes: number;
+  allowed_scopes: string[];
+};
+
+export type AgentRuntimeConfigInboxConfig = {
+  inbox_id: string;
+  poll_url: string;
+  poll_interval_seconds: number;
+  unread_count: number;
+  address: string;
+} | null;
+
+export interface AgentRuntimeConfig {
+  agent_id: string;
+  status: string;
+  trust: AgentRuntimeConfigTrust;
+  policy_limits: AgentRuntimeConfigPolicyLimits;
+  inbox_config?: AgentRuntimeConfigInboxConfig;
+  capabilities: string[];
+  last_heartbeat?: string | null;
+}
+
+export type AgentHeartbeatBodyRuntimeContext = {
+  framework?: string;
+  version?: string;
+  [key: string]: unknown;
+};
+
+export interface AgentHeartbeatBody {
+  endpoint_url?: string;
+  runtime_context?: AgentHeartbeatBodyRuntimeContext;
+}
+
+export interface HeartbeatResponse {
+  acknowledged: boolean;
+  server_time: string;
+  next_expected_heartbeat: string;
+}
+
+export interface SpawnAgentInput {
+  handle: string;
+  displayName: string;
+  description?: string;
+  publicKey: string;
+  keyType?: string;
+  capabilities?: string[];
+  protocols?: string[];
+  endpointUrl?: string;
+}
+
+export interface SpawnAgentResult {
+  agentId: string;
+  handle: string;
+  status: string;
+  parentAgentId: string;
+  lineageDepth: number;
+  kid: string;
+  apiKey: string;
+  challenge: string;
+  expiresAt: string;
+}
+
+export type AgentTransferStatus =
+  (typeof AgentTransferStatus)[keyof typeof AgentTransferStatus];
+
+export const AgentTransferStatus = {
+  draft: "draft",
+  listed: "listed",
+  pending_acceptance: "pending_acceptance",
+  hold_pending: "hold_pending",
+  transfer_pending: "transfer_pending",
+  in_handoff: "in_handoff",
+  completed: "completed",
+  disputed: "disputed",
+  cancelled: "cancelled",
+} as const;
+
+export type AgentTransferTransferType =
+  (typeof AgentTransferTransferType)[keyof typeof AgentTransferTransferType];
+
+export const AgentTransferTransferType = {
+  sale: "sale",
+  private_transfer: "private_transfer",
+  internal_reassignment: "internal_reassignment",
+} as const;
+
+export type AgentTransferMetadata = { [key: string]: unknown } | null;
+
+export interface AgentTransfer {
+  id: string;
+  agentId: string;
+  sellerId: string;
+  buyerId?: string | null;
+  status: AgentTransferStatus;
+  transferType: AgentTransferTransferType;
+  askingPrice?: number | null;
+  agreedPrice?: number | null;
+  currency?: string;
+  holdProvider?: string | null;
+  holdStatus?: string | null;
+  holdReference?: string | null;
+  notes?: string | null;
+  metadata?: AgentTransferMetadata;
+  listedAt?: string | null;
+  acceptedAt?: string | null;
+  holdFundedAt?: string | null;
+  handoffStartedAt?: string | null;
+  completedAt?: string | null;
+  cancelledAt?: string | null;
+  disputedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TransferInputTransferType =
+  (typeof TransferInputTransferType)[keyof typeof TransferInputTransferType];
+
+export const TransferInputTransferType = {
+  private_transfer: "private_transfer",
+  internal_reassignment: "internal_reassignment",
+} as const;
+
+export interface TransferInput {
+  transferType: TransferInputTransferType;
+  buyerId?: string;
+  notes?: string;
+}
+
+export interface TransferUpdateInput {
+  /** @minimum 0 */
+  askingPrice?: number;
+  buyerId?: string;
+  notes?: string;
+}
+
+export interface TransferAcceptInput {
+  /** @minimum 0 */
+  agreedPrice?: number;
+}
+
+export interface TransferDisputeInput {
+  reason: string;
+}
+
+export interface TransferCancelInput {
+  reason?: string;
+}
+
+export type TransferReadinessBlockersItem = {
+  code: string;
+  message: string;
+};
+
+export type AssetClassificationCategory =
+  (typeof AssetClassificationCategory)[keyof typeof AssetClassificationCategory];
+
+export const AssetClassificationCategory = {
+  transferable: "transferable",
+  buyer_must_reconnect: "buyer_must_reconnect",
+  excluded_by_default: "excluded_by_default",
+} as const;
+
+export interface AssetClassification {
+  name: string;
+  category: AssetClassificationCategory;
+  description: string;
+}
+
+export type TransferReadinessAssets = {
+  transferable: AssetClassification[];
+  buyer_must_reconnect: AssetClassification[];
+  excluded_by_default: AssetClassification[];
+};
+
+export type TransferReadinessSummary = {
+  totalAssets: number;
+  transferableCount: number;
+  reconnectRequiredCount: number;
+  excludedCount: number;
+};
+
+export interface TransferReadiness {
+  agentId: string;
+  handle: string;
+  isReady: boolean;
+  blockers: TransferReadinessBlockersItem[];
+  assets: TransferReadinessAssets;
+  summary: TransferReadinessSummary;
+  generatedAt: string;
+}
+
+export type TransferEventPayload = { [key: string]: unknown } | null;
+
+export interface TransferEvent {
+  id: string;
+  transferId: string;
+  eventType: string;
+  fromStatus?: string | null;
+  toStatus?: string | null;
+  actorId?: string | null;
+  actorType?: string | null;
+  payload?: TransferEventPayload;
+  createdAt: string;
+}
+
+export type TransferAssetAssetCategory =
+  (typeof TransferAssetAssetCategory)[keyof typeof TransferAssetAssetCategory];
+
+export const TransferAssetAssetCategory = {
+  transferable: "transferable",
+  buyer_must_reconnect: "buyer_must_reconnect",
+  excluded_by_default: "excluded_by_default",
+} as const;
+
+export type TransferAssetMetadata = { [key: string]: unknown } | null;
+
+export interface TransferAsset {
+  id: string;
+  transferId: string;
+  assetName: string;
+  assetCategory: TransferAssetAssetCategory;
+  description?: string | null;
+  reconnectedAt?: string | null;
+  metadata?: TransferAssetMetadata;
+  createdAt: string;
+}
+
+export type PublicAgentIdentityPublicKeysItem = {
+  kid: string;
+  algorithm: string;
+  use?: string;
+  status: string;
+  added_at?: string;
+};
+
+export type PublicAgentIdentityTrustSignalsItem = { [key: string]: unknown };
+
+export type PublicAgentIdentityTrust = {
+  score: number;
+  tier: string;
+  signals: PublicAgentIdentityTrustSignalsItem[];
+};
+
+export type PublicAgentIdentityTrustSurfaces = {
+  historical_agent_reputation?: number;
+  current_operator_reputation?: number;
+  effective_live_trust?: number;
+};
+
+export type PublicAgentIdentityTransfer = {
+  status?: string;
+  under_new_ownership?: boolean;
+  transferred_at?: string | null;
+  transfer_type?: string | null;
+} | null;
+
+export type PublicAgentIdentityOperatorHistory = {
+  total_operators?: number;
+  current_operator_verified?: boolean;
+};
+
+export type PublicAgentIdentityLineage = {
+  parent_agent_id?: string;
+  depth?: number;
+  sponsored_by?: string;
+} | null;
+
+export interface PublicAgentIdentity {
+  spec_version: string;
+  agent_id: string;
+  handle: string;
+  display_name: string;
+  status: string;
+  created_at: string;
+  public_keys: PublicAgentIdentityPublicKeysItem[];
+  trust: PublicAgentIdentityTrust;
+  trust_surfaces: PublicAgentIdentityTrustSurfaces;
+  transfer?: PublicAgentIdentityTransfer;
+  operator_history: PublicAgentIdentityOperatorHistory;
+  auth_methods: string[];
+  protocols: string[];
+  lineage?: PublicAgentIdentityLineage;
+}
+
+export type AgentIDCredentialCredentialSubjectKeysItem = {
+  kid?: string;
+  keyType?: string;
+  publicKey?: string;
+  use?: string;
+};
+
+export type AgentIDCredentialCredentialSubject = {
+  id: string;
+  handle: string;
+  displayName: string;
+  agentId: string;
+  endpoint?: string;
+  domain?: string;
+  inboxAddress?: string;
+  capabilities?: string[];
+  protocols?: string[];
+  authMethods?: string[];
+  paymentMethods?: string[];
+  verificationStatus?: string;
+  trustScore?: number;
+  trustTier?: string;
+  keys?: AgentIDCredentialCredentialSubjectKeysItem[];
+};
+
+export type AgentIDCredentialProof = {
+  type: string;
+  created: string;
+  proofPurpose: string;
+  verificationMethod: string;
+  signatureValue: string;
+};
+
+export interface AgentIDCredential {
+  "@context"?: string[];
+  type: string[];
+  issuer: string;
+  issuanceDate: string;
+  expirationDate?: string;
+  serialNumber?: string;
+  credentialSubject: AgentIDCredentialCredentialSubject;
+  proof: AgentIDCredentialProof;
+}
+
+export interface CredentialVerifyResult {
+  valid: boolean;
+  credential?: AgentIDCredential;
+  reason?: string;
+}
+
+export type ERC8004RegistrationVerificationMethodItem = {
+  id: string;
+  type: string;
+  controller: string;
+  publicKeyBase64?: string;
+};
+
+export type ERC8004RegistrationServiceItem = {
+  id: string;
+  type: string;
+  serviceEndpoint: string;
+};
+
+export type ERC8004RegistrationMetadata = {
+  handle?: string;
+  trustScore?: number;
+  trustTier?: string;
+  verificationStatus?: string;
+};
+
+export interface ERC8004Registration {
+  "@context"?: string[];
+  id: string;
+  controller: string;
+  verificationMethod?: ERC8004RegistrationVerificationMethodItem[];
+  authentication?: string[];
+  service?: ERC8004RegistrationServiceItem[];
+  metadata?: ERC8004RegistrationMetadata;
+}
+
+export interface RotateKeyInput {
+  oldKeyId: string;
+  newPublicKey: string;
+  keyType?: string;
+}
+
+export type RotateKeyResultNewKey = {
+  id: string;
+  kid: string;
+  keyType: string;
+  createdAt: string;
+};
+
+export interface RotateKeyResult {
+  revokedKeyId: string;
+  newKey: RotateKeyResultNewKey;
+}
+
+export type AgentAuthMetadataKeysItem = {
+  kid: string;
+  keyType: string;
+  publicKey?: string;
+};
+
+export interface AgentAuthMetadata {
+  agentId: string;
+  handle: string;
+  verificationStatus?: string;
+  keys?: AgentAuthMetadataKeysItem[];
+}
+
+export interface AgentApiKeyCreated {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  apiKey: string;
+  scopes?: string[];
+  createdAt: string;
+}
+
+export type WellKnownAgentIdentityOwnerKey = {
+  kid?: string;
+  algorithm?: string;
+  publicKey?: string;
+};
+
+export type WellKnownAgentIdentityLinks = {
+  self?: string;
+  profile?: string;
+  resolve?: string;
+};
+
+export type WellKnownAgentIdentityMetadata = { [key: string]: unknown };
+
+export interface WellKnownAgentIdentity {
+  "@context"?: string;
+  "@type"?: string;
+  id: string;
+  handle: string;
+  protocolAddress?: string;
+  domain?: string;
+  displayName: string;
+  description?: string;
+  endpointUrl?: string;
+  capabilities?: string[];
+  protocols?: string[];
+  authMethods?: string[];
+  trustScore?: number;
+  trustTier?: string;
+  verificationStatus?: string;
+  verifiedAt?: string;
+  ownerKey?: WellKnownAgentIdentityOwnerKey;
+  links?: WellKnownAgentIdentityLinks;
+  metadata?: WellKnownAgentIdentityMetadata;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AgentIDConfiguration {
+  protocol: string;
+  namespace: string;
+  resolverEndpoint: string;
+  registrationEndpoint?: string;
+  verificationEndpoint?: string;
+  humanRegistrationEndpoint?: string;
+  credentialEndpoint?: string;
+  resolutionEndpoint?: string;
+  erc8004Endpoint?: string;
+  wellKnownPath?: string;
+  baseDomain: string;
+  documentation?: string;
+  sdkPackage?: string;
+}
+
 /**
  * Not authenticated
  */
@@ -872,6 +1472,11 @@ export type UnauthorizedResponse = ApiError;
  */
 export type NotFoundResponse = ApiError;
 
+/**
+ * Forbidden
+ */
+export type ForbiddenResponse = ApiError;
+
 export type ListApiKeys200 = {
   keys: ApiKeyPublic[];
 };
@@ -880,8 +1485,50 @@ export type ListUserIdentities200 = {
   identities: UserIdentity[];
 };
 
+export type ListAgentsParams = {
+  /**
+   * Filter by capability (discovery mode)
+   */
+  capability?: string;
+  /**
+   * Minimum trust score (discovery mode)
+   */
+  minTrust?: number;
+  /**
+   * Filter by protocol support (discovery mode)
+   */
+  protocol?: string;
+  /**
+   * Only return verified agents (discovery mode)
+   */
+  verifiedOnly?: ListAgentsVerifiedOnly;
+  /**
+   * Maximum results to return (discovery mode, max 100)
+   * @maximum 100
+   */
+  limit?: number;
+  /**
+   * Pagination offset (discovery mode)
+   */
+  offset?: number;
+};
+
+export type ListAgentsVerifiedOnly =
+  (typeof ListAgentsVerifiedOnly)[keyof typeof ListAgentsVerifiedOnly];
+
+export const ListAgentsVerifiedOnly = {
+  true: "true",
+  false: "false",
+} as const;
+
 export type ListAgents200 = {
   agents: Agent[];
+  /** Total matching agents (discovery mode only) */
+  total?: number;
+  /** Limit used (discovery mode only) */
+  limit?: number;
+  /** Offset used (discovery mode only) */
+  offset?: number;
 };
 
 export type CheckHandleParams = {
@@ -1036,6 +1683,7 @@ export const ListMailThreadsStatus = {
 
 export type ListMailThreads200 = {
   threads?: MailThread[];
+  total?: number;
 };
 
 export type GetMailThread200 = {
@@ -1096,10 +1744,6 @@ export type MarkMailMessageRead200 = {
   message?: MailMessage;
 };
 
-export type ArchiveMailMessage200 = {
-  message?: MailMessage;
-};
-
 export type ConvertMailMessageToTask201 = {
   taskId?: string;
 };
@@ -1108,8 +1752,8 @@ export type GetMailMessageEvents200 = {
   events?: MailEvent[];
 };
 
-export type RouteMailMessage200 = {
-  actionsApplied?: number;
+export type ApproveMailMessage200 = {
+  message?: MailMessage;
 };
 
 export type ListMailLabels200 = {
@@ -1181,4 +1825,66 @@ export type SearchMailMessages200 = {
 
 export type IngestMailMessage201 = {
   message?: MailMessage;
+};
+
+export type ReverseResolveBody = {
+  endpointUrl: string;
+};
+
+export type ReverseResolveViaResolveBody = {
+  endpointUrl: string;
+};
+
+export type ListFleets200 = {
+  fleets: FleetEntry[];
+};
+
+export type DeleteSubHandle200 = {
+  success: boolean;
+};
+
+export type GetAgentPromptBlockParams = {
+  format?: GetAgentPromptBlockFormat;
+};
+
+export type GetAgentPromptBlockFormat =
+  (typeof GetAgentPromptBlockFormat)[keyof typeof GetAgentPromptBlockFormat];
+
+export const GetAgentPromptBlockFormat = {
+  text: "text",
+  json: "json",
+} as const;
+
+export type GetAgentPromptBlock200TwoPromptBlock = { [key: string]: unknown };
+
+export type GetAgentPromptBlock200Two = {
+  format: string;
+  prompt_block: GetAgentPromptBlock200TwoPromptBlock;
+};
+
+export type ListTransfers200 = {
+  transfers: AgentTransfer[];
+};
+
+export type ListTransferEvents200 = {
+  events: TransferEvent[];
+};
+
+export type ListTransferAssets200 = {
+  assets: TransferAsset[];
+};
+
+export type GetRegistryStatus200 = {
+  registered: boolean;
+  registeredAt?: string;
+  lastUpdated?: string;
+};
+
+export type CreateAgentApiKeyBody = {
+  name: string;
+  scopes?: string[];
+};
+
+export type GetWellKnownAgentParams = {
+  handle?: string;
 };
