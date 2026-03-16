@@ -17,7 +17,7 @@ export interface PaymentProvider {
   createIntent(params: CreateIntentParams): Promise<ProviderIntentResult>;
   authorizePayment(params: AuthorizeParams): Promise<ProviderAuthResult>;
   capturePayment(intentId: string): Promise<ProviderCaptureResult>;
-  refundPayment(intentId: string): Promise<ProviderRefundResult>;
+  refundPayment(intentId: string, amountInCents?: number): Promise<ProviderRefundResult>;
 }
 
 export interface CreateIntentParams {
@@ -94,8 +94,36 @@ class StripeProvider implements PaymentProvider {
   }
 
   async authorizePayment(params: AuthorizeParams): Promise<ProviderAuthResult> {
-    const reference = `auth_${Date.now()}`;
-    return { success: true, providerReference: reference };
+    try {
+      const stripe = getStripe();
+      const intent = await db.query.paymentIntentsTable.findFirst({
+        where: eq(paymentIntentsTable.id, params.paymentIntentId),
+      });
+      if (!intent?.providerReference) {
+        return { success: false, error: "MISSING_PROVIDER_REFERENCE" };
+      }
+      const pi = await stripe.paymentIntents.retrieve(intent.providerReference);
+      switch (pi.status) {
+        case "requires_capture":
+          return { success: true, providerReference: pi.id };
+        case "requires_payment_method":
+        case "requires_confirmation":
+        case "requires_action":
+          return { success: false, error: `PAYMENT_NOT_READY:${pi.status}` };
+        case "canceled":
+          return { success: false, error: "PAYMENT_CANCELED" };
+        case "succeeded":
+          return { success: true, providerReference: pi.id };
+        default:
+          return { success: false, error: `UNEXPECTED_STATUS:${pi.status}` };
+      }
+    } catch (err) {
+      console.error("[StripeProvider] authorizePayment error:", err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "STRIPE_AUTH_ERROR",
+      };
+    }
   }
 
   async capturePayment(providerReference: string): Promise<ProviderCaptureResult> {
@@ -112,8 +140,24 @@ class StripeProvider implements PaymentProvider {
     }
   }
 
-  async refundPayment(providerReference: string): Promise<ProviderRefundResult> {
-    return { success: false, error: "REFUND_NOT_IMPLEMENTED" };
+  async refundPayment(providerReference: string, amountInCents?: number): Promise<ProviderRefundResult> {
+    try {
+      const stripe = getStripe();
+      const params: { payment_intent: string; amount?: number } = {
+        payment_intent: providerReference,
+      };
+      if (amountInCents !== undefined) {
+        params.amount = amountInCents;
+      }
+      await stripe.refunds.create(params);
+      return { success: true };
+    } catch (err) {
+      console.error("[StripeProvider] refundPayment error:", err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "STRIPE_REFUND_ERROR",
+      };
+    }
   }
 }
 
@@ -218,6 +262,16 @@ export async function captureProviderPayment(
   const provider = getProvider(providerName);
   if (!provider) return { success: false, error: "PROVIDER_NOT_FOUND" };
   return provider.capturePayment(providerReference);
+}
+
+export async function refundProviderPayment(
+  providerName: string,
+  providerReference: string,
+  amountInCents?: number,
+): Promise<ProviderRefundResult> {
+  const provider = getProvider(providerName);
+  if (!provider) return { success: false, error: "PROVIDER_NOT_FOUND" };
+  return provider.refundPayment(providerReference, amountInCents);
 }
 
 export async function authorizePaymentIntent(

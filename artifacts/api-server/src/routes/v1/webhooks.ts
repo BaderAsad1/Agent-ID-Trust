@@ -1,4 +1,7 @@
 import { Router, raw } from "express";
+import { eq } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { marketplaceOrdersTable } from "@workspace/db/schema";
 import {
   verifyStripeWebhook,
   handleCheckoutCompleted,
@@ -12,6 +15,65 @@ import { AppError } from "../../middlewares/error-handler";
 import type Stripe from "stripe";
 
 const router = Router();
+
+async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
+  const orderId = pi.metadata?.orderId;
+  if (!orderId) {
+    console.log("[webhook] payment_intent.succeeded: no orderId in metadata, skipping");
+    return;
+  }
+
+  const order = await db.query.marketplaceOrdersTable.findFirst({
+    where: eq(marketplaceOrdersTable.id, orderId),
+  });
+
+  if (!order) {
+    console.warn(`[webhook] payment_intent.succeeded: order ${orderId} not found`);
+    return;
+  }
+
+  if (order.status === "payment_pending") {
+    await db
+      .update(marketplaceOrdersTable)
+      .set({ status: "pending", updatedAt: new Date() })
+      .where(eq(marketplaceOrdersTable.id, orderId));
+    console.log(`[webhook] payment_intent.succeeded: advanced order ${orderId} from payment_pending to pending`);
+  } else {
+    console.log(`[webhook] payment_intent.succeeded: order ${orderId} already in status ${order.status}, no action`);
+  }
+}
+
+async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
+  const orderId = pi.metadata?.orderId;
+  if (!orderId) {
+    console.log("[webhook] payment_intent.payment_failed: no orderId in metadata, skipping");
+    return;
+  }
+
+  const order = await db.query.marketplaceOrdersTable.findFirst({
+    where: eq(marketplaceOrdersTable.id, orderId),
+  });
+
+  if (!order) {
+    console.warn(`[webhook] payment_intent.payment_failed: order ${orderId} not found`);
+    return;
+  }
+
+  if (order.status === "payment_pending") {
+    await db
+      .update(marketplaceOrdersTable)
+      .set({ status: "payment_failed", updatedAt: new Date() })
+      .where(eq(marketplaceOrdersTable.id, orderId));
+    console.log(`[webhook] payment_intent.payment_failed: marked order ${orderId} as payment_failed`);
+  } else {
+    console.log(`[webhook] payment_intent.payment_failed: order ${orderId} in status ${order.status}, no action`);
+  }
+}
+
+function handleChargeRefunded(charge: Stripe.Charge) {
+  const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+  console.log(`[webhook] charge.refunded: charge ${charge.id} refunded (payment_intent: ${piId ?? "N/A"}, amount_refunded: ${charge.amount_refunded})`);
+}
 
 router.post(
   "/stripe",
@@ -56,6 +118,15 @@ router.post(
             break;
           case "customer.subscription.deleted":
             await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+            break;
+          case "payment_intent.succeeded":
+            await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
+            break;
+          case "payment_intent.payment_failed":
+            await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
+            break;
+          case "charge.refunded":
+            handleChargeRefunded(event.data.object as Stripe.Charge);
             break;
           default:
             await finalizeWebhookEvent("stripe", event.id, "skipped");

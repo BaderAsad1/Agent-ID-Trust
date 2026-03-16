@@ -6,7 +6,20 @@ Items that must be resolved before the first production release.
 
 ## 1. Stripe Connect Seller Payouts
 
-Implement Stripe Connect account onboarding, automated Transfers, and payout webhooks so marketplace sellers receive real payouts instead of the current `pending_manual_payout` ledger status.
+### Current State
+Marketplace payments are captured via Stripe PaymentIntents into the platform's own Stripe account. When an order completes, a `pending_manual_payout` entry is written to the `payout_ledger` table, but no automated transfer is made to the seller. Seller payouts currently require a manual Stripe Dashboard transfer or bank wire.
+
+### Steps to Automate
+1. **Enable Stripe Connect** — Upgrade to a Stripe Connect platform account (Standard or Express accounts for sellers).
+2. **Seller Onboarding** — Build an onboarding flow using `stripe.accountLinks.create()` that redirects sellers through Stripe's hosted KYC/identity verification. Store the connected account ID on the user record.
+3. **Destination Charges or Transfers** — When capturing a marketplace payment, use either:
+   - `transfer_data.destination` on the PaymentIntent (destination charge), or
+   - `stripe.transfers.create()` after capture to move the seller's payout amount to their connected account.
+4. **Webhook Handlers** — Listen for `account.updated` (onboarding status), `transfer.created`, `transfer.failed`, and `payout.paid` / `payout.failed` events to keep the `payout_ledger` in sync.
+5. **Update Payout Ledger** — Change the `pending_manual_payout` status to `transferred` or `paid` once Stripe confirms the funds have moved.
+
+### Manual Fallback
+Until Connect is wired, use the Stripe Dashboard to manually transfer captured funds to sellers. Reference the `payout_ledger` table (`status = 'pending_manual_payout'`) for the list of outstanding seller payouts, amounts, and related order IDs.
 
 ## 2. SMTP/IMAP Inbound Mail Transport
 

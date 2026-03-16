@@ -43,6 +43,13 @@
       "when": 1773658800000,
       "tag": "0005_mail_infrastructure",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773745200000,
+      "tag": "0006_add_payment_failed_status",
+      "breakpoints": true
     }
   ]
 }

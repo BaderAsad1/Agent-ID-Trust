@@ -13,7 +13,7 @@ import { submitTask } from "./tasks";
 import { calculatePlatformFee } from "./marketplace";
 import { logActivity } from "./activity-logger";
 import { getStripe } from "./stripe-client";
-import { captureProviderPayment } from "./payment-providers";
+import { captureProviderPayment, refundProviderPayment } from "./payment-providers";
 
 export interface CreateOrderInput {
   listingId: string;
@@ -89,6 +89,23 @@ export async function createOrder(
       providerPaymentReference: stripePaymentIntentId,
     })
     .returning();
+
+  if (stripePaymentIntentId && order) {
+    try {
+      const stripe = getStripe();
+      await stripe.paymentIntents.update(stripePaymentIntentId, {
+        metadata: {
+          orderId: order.id,
+          buyerUserId: input.buyerUserId,
+          sellerUserId: listing.userId,
+          listingId: listing.id,
+          listingTitle: listing.title,
+        },
+      });
+    } catch (err) {
+      console.error("[orders] Failed to update PaymentIntent metadata with orderId:", err);
+    }
+  }
 
   return { success: true, order, clientSecret };
 }
@@ -360,12 +377,61 @@ export async function cancelOrder(
     return { success: false, error: `INVALID_STATUS:${order.status}` };
   }
 
+  const capturedStatuses = ["confirmed", "in_progress"];
+  const isCaptured = capturedStatuses.includes(order.status);
+
   if (order.providerPaymentReference) {
-    try {
-      const stripe = getStripe();
-      await stripe.paymentIntents.cancel(order.providerPaymentReference);
-    } catch (err) {
-      console.error(`[orders] Failed to cancel Stripe PaymentIntent for order ${orderId}:`, err);
+    if (isCaptured) {
+      const refundResult = await refundProviderPayment(
+        order.paymentProvider ?? "stripe",
+        order.providerPaymentReference,
+      );
+      if (!refundResult.success) {
+        console.error(`[orders] Failed to refund payment for order ${orderId}:`, refundResult.error);
+        return { success: false, error: `REFUND_FAILED:${refundResult.error}` };
+      }
+
+      const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
+      await db.insert(paymentLedgerTable).values([
+        {
+          relatedOrderId: orderId,
+          provider: order.paymentProvider ?? "stripe",
+          direction: "inbound",
+          accountType: "user",
+          accountId: order.buyerUserId,
+          amount: order.priceAmount,
+          currency: "USD",
+          entryType: "refund",
+          metadata: {
+            orderId,
+            listingId: order.listingId,
+            stripePaymentIntentId: order.providerPaymentReference,
+            reason: "order_cancelled",
+          },
+        },
+        {
+          relatedOrderId: orderId,
+          provider: order.paymentProvider ?? "stripe",
+          direction: "outbound",
+          accountType: "platform",
+          accountId: PLATFORM_ACCOUNT_ID,
+          amount: order.platformFee,
+          currency: "USD",
+          entryType: "refund",
+          metadata: {
+            orderId,
+            stripePaymentIntentId: order.providerPaymentReference,
+            reason: "order_cancelled_fee_reversal",
+          },
+        },
+      ]);
+    } else {
+      try {
+        const stripe = getStripe();
+        await stripe.paymentIntents.cancel(order.providerPaymentReference);
+      } catch (err) {
+        console.error(`[orders] Failed to cancel Stripe PaymentIntent for order ${orderId}:`, err);
+      }
     }
   }
 
