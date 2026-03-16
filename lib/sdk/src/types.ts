@@ -67,11 +67,18 @@ export interface HeartbeatIdentity {
   inbox: string | null;
 }
 
+export interface HeartbeatMailInfo {
+  unreadCount: number;
+  hasNewMessages: boolean;
+  inboxEndpoint: string;
+}
+
 export interface HeartbeatResponse {
   acknowledged: boolean;
   server_time: string;
   next_expected_heartbeat: string;
   identity?: HeartbeatIdentity;
+  mail?: HeartbeatMailInfo;
   promptBlockUrl?: string;
   updateContext?: boolean;
 }
@@ -79,6 +86,7 @@ export interface HeartbeatResponse {
 export interface HeartbeatOptions {
   endpointUrl?: string;
   runtimeContext?: { framework?: string; version?: string; [key: string]: unknown };
+  onNewMessages?: (mail: HeartbeatMailInfo) => void;
 }
 
 export interface MailMessage {

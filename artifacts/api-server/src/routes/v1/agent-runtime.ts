@@ -1,8 +1,8 @@
 import { Router, type Request } from "express";
 import { z } from "zod/v4";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, type Agent, type AgentInbox } from "@workspace/db/schema";
+import { agentsTable, agentMessagesTable, type Agent, type AgentInbox } from "@workspace/db/schema";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { computeTrustScore, type TrustSignal } from "../../services/trust-score";
@@ -321,6 +321,17 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
     const current = freshAgent || agent;
     const APP_URL = process.env.APP_URL || "https://getagent.id";
 
+    let unreadCount = 0;
+    if (inbox) {
+      const [stats] = await db
+        .select({
+          unread: sql<number>`count(*) filter (where ${agentMessagesTable.isRead} = false and ${agentMessagesTable.direction} = 'inbound')::int`,
+        })
+        .from(agentMessagesTable)
+        .where(eq(agentMessagesTable.inboxId, inbox.id));
+      unreadCount = stats.unread;
+    }
+
     res.json({
       acknowledged: true,
       server_time: now.toISOString(),
@@ -334,6 +345,11 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
         status: current.status,
         capabilities: (current.capabilities as string[]) || [],
         inbox: inbox?.address || null,
+      },
+      mail: {
+        unreadCount,
+        hasNewMessages: unreadCount > 0,
+        inboxEndpoint: `${APP_URL}/api/v1/mail/agents/${agent.id}/inbox/unread`,
       },
       promptBlockUrl: `${APP_URL}/api/v1/agents/${agent.id}/prompt-block?format=text`,
       updateContext: true,

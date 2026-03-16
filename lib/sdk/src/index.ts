@@ -18,6 +18,7 @@ export type {
   BootstrapBundle,
   HeartbeatResponse,
   HeartbeatOptions,
+  HeartbeatMailInfo,
   MailMessage,
   MailThread,
   InboxStats,

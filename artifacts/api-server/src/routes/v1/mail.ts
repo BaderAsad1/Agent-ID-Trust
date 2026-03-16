@@ -79,6 +79,37 @@ router.patch("/agents/:agentId/inbox", requireAuth, async (req, res, next) => {
   }
 });
 
+router.get("/agents/:agentId/inbox/unread", requireAgentAuth, async (req, res, next) => {
+  try {
+    const agentId = param(req.params.agentId);
+    if (!verifyInboxAccess(req, agentId)) throw new AppError(403, "FORBIDDEN", "Agent can only access its own inbox");
+
+    const inbox = await mailService.getInboxByAgent(agentId);
+    if (!inbox) throw new AppError(404, "NOT_FOUND", "Inbox not found");
+
+    const result = await mailService.listMessages({
+      agentId,
+      inboxId: inbox.id,
+      direction: "inbound",
+      isRead: false,
+      limit: 100,
+    });
+
+    const messages = result.messages.map((m) => ({
+      id: m.id,
+      subject: m.subject,
+      senderAddress: m.senderAddress,
+      body: m.body,
+      structuredPayload: m.structuredPayload,
+      receivedAt: m.createdAt,
+    }));
+
+    res.json({ unread: result.total, messages });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/agents/:agentId/inbox/stats", requireHumanOrAgentAuth, async (req, res, next) => {
   try {
     const agentId = param(req.params.agentId);

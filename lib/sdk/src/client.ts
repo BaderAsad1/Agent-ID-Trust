@@ -151,10 +151,16 @@ export class AgentID {
 
   startHeartbeat(options?: HeartbeatOptions): void {
     this.stopHeartbeat();
-    this.heartbeat(options).catch(() => {});
-    this.heartbeatTimer = setInterval(() => {
-      this.heartbeat(options).catch(() => {});
-    }, HEARTBEAT_INTERVAL_MS);
+    const doHeartbeat = async () => {
+      try {
+        const response = await this.heartbeat(options);
+        if (response.mail?.hasNewMessages && options?.onNewMessages) {
+          options.onNewMessages(response.mail);
+        }
+      } catch (_) {}
+    };
+    doHeartbeat();
+    this.heartbeatTimer = setInterval(doHeartbeat, HEARTBEAT_INTERVAL_MS);
   }
 
   stopHeartbeat(): void {

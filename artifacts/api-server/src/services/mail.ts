@@ -615,6 +615,36 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
     }
   }
 
+  if (input.direction === "outbound" && input.recipientAddress?.endsWith("@getagent.id")) {
+    try {
+      const recipientInbox = await db.query.agentInboxesTable.findFirst({
+        where: eq(agentInboxesTable.address, input.recipientAddress),
+      });
+      if (recipientInbox) {
+        await sendMessage({
+          agentId: recipientInbox.agentId,
+          direction: "inbound",
+          senderType: input.senderType,
+          senderAgentId: input.senderAgentId,
+          senderUserId: input.senderUserId,
+          senderAddress: input.senderAddress || inbox.address,
+          recipientAddress: input.recipientAddress,
+          subject: input.subject,
+          body: input.body,
+          bodyFormat: input.bodyFormat,
+          structuredPayload: input.structuredPayload,
+          priority: input.priority,
+          metadata: input.metadata,
+          inReplyToId: input.inReplyToId,
+          senderTrustScore: input.senderTrustScore,
+          senderVerified: input.senderVerified,
+        });
+      }
+    } catch (err) {
+      logger.error({ err, recipientAddress: input.recipientAddress }, "Local delivery to @getagent.id address failed");
+    }
+  }
+
   await emitWebhookEvent(inbox.id, input.direction === "inbound" ? "message.received" : "message.sent", {
     messageId: message.id,
     threadId: thread.id,
