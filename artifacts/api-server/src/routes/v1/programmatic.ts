@@ -24,6 +24,7 @@ import {
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
 import { buildBootstrapBundle } from "./agent-runtime";
+import { getOrCreateInbox } from "../../services/mail";
 import { db } from "@workspace/db";
 import { apiKeysTable, usersTable, agentsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
@@ -193,6 +194,8 @@ router.post("/agents/verify", async (req, res, next) => {
         updatedAt: new Date(),
       })
       .where(eq(agentsTable.id, agentId));
+
+    await getOrCreateInbox(agentId);
 
     const freshAgent = await getAgentById(agentId);
     const bootstrap = await buildBootstrapBundle(freshAgent!);

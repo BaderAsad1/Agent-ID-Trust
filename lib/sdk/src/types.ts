@@ -41,7 +41,9 @@ export interface BootstrapBundle {
   agent_id: string;
   handle: string;
   display_name: string;
+  did: string;
   protocol_address: string;
+  erc8004_uri: string;
   provisional_domain: string;
   public_profile_url: string;
   inbox_id: string | null;

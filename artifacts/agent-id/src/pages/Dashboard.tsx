@@ -752,14 +752,14 @@ function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; 
           setRecords(domain.dnsRecords);
         } else {
           setRecords([
-            { type: 'CNAME', name: domainName || `${handle}.agent`, value: 'edge.agentid.net', ttl: 300 },
+            { type: 'CNAME', name: domainName || `${handle}.agent`, value: 'edge.getagent.id', ttl: 300 },
             { type: 'TXT', name: '_agentid', value: `v=agentid1 id=${agentId}`, ttl: 3600 },
           ]);
         }
       })
       .catch(() => {
         setRecords([
-          { type: 'CNAME', name: domainName || `${handle}.agent`, value: 'edge.agentid.net', ttl: 300 },
+          { type: 'CNAME', name: domainName || `${handle}.agent`, value: 'edge.getagent.id', ttl: 300 },
           { type: 'TXT', name: '_agentid', value: `v=agentid1 id=${agentId}`, ttl: 3600 },
         ]);
       })

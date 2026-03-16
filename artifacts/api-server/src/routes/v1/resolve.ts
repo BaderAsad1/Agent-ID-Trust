@@ -348,21 +348,16 @@ export async function handleAgentDiscovery(req: Request, res: Response, next: Ne
     const capability = req.query.capability as string | undefined;
     const minTrust = req.query.minTrust ? parseInt(req.query.minTrust as string, 10) : undefined;
     const protocol = req.query.protocol as string | undefined;
-    const verifiedOnly = req.query.verifiedOnly === "true";
     const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 100);
     const offset = parseInt(req.query.offset as string, 10) || 0;
 
     const conditions = [
       eq(agentsTable.status, "active"),
-      eq(agentsTable.isPublic, true),
+      eq(agentsTable.verificationStatus, "verified"),
     ];
 
     if (minTrust !== undefined && !isNaN(minTrust)) {
       conditions.push(gte(agentsTable.trustScore, minTrust));
-    }
-
-    if (verifiedOnly) {
-      conditions.push(eq(agentsTable.verificationStatus, "verified"));
     }
 
     let whereClause = and(...conditions);

@@ -1,32 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://agentid.net/</loc>
+    <loc>https://getagent.id/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://agentid.net/for-agents</loc>
+    <loc>https://getagent.id/for-agents</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://agentid.net/pricing</loc>
+    <loc>https://getagent.id/pricing</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://agentid.net/protocol</loc>
+    <loc>https://getagent.id/protocol</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://agentid.net/marketplace</loc>
+    <loc>https://getagent.id/marketplace</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://agentid.net/jobs</loc>
+    <loc>https://getagent.id/jobs</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>

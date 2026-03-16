@@ -22,11 +22,25 @@ try {
   if (!specPath) throw new Error("openapi.yaml not found");
   const specContent = readFileSync(specPath, "utf8");
   const swaggerDoc = yaml.load(specContent) as Record<string, unknown>;
-  router.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDoc, { customSiteTitle: "Agent ID API Docs" }));
+
   router.get("/docs/openapi.yaml", (_req, res) => {
     res.type("text/yaml").send(specContent);
   });
+
+  router.get("/docs/openapi.json", (_req, res) => {
+    res.type("application/json").json(swaggerDoc);
+  });
+
+  router.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDoc, { customSiteTitle: "Agent ID API Docs" }));
 } catch {
+  router.get("/docs/openapi.yaml", (req, res) => {
+    const requestId = (req as unknown as { requestId?: string }).requestId || req.headers["x-request-id"] || "unknown";
+    res.status(503).json({ error: "SERVICE_UNAVAILABLE", message: "OpenAPI spec not available", requestId });
+  });
+  router.get("/docs/openapi.json", (req, res) => {
+    const requestId = (req as unknown as { requestId?: string }).requestId || req.headers["x-request-id"] || "unknown";
+    res.status(503).json({ error: "SERVICE_UNAVAILABLE", message: "OpenAPI spec not available", requestId });
+  });
   router.get("/docs", (req, res) => {
     const requestId = (req as unknown as { requestId?: string }).requestId || req.headers["x-request-id"] || "unknown";
     res.status(503).json({ error: "SERVICE_UNAVAILABLE", message: "API documentation not available", requestId });

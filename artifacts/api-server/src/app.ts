@@ -32,7 +32,26 @@ const corsOrigins: cors.CorsOptions["origin"] = (() => {
   return origins.length > 0 ? origins : true;
 })();
 
-app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(cors({
+  origin: corsOrigins,
+  credentials: false,
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Agent-Key",
+    "X-Request-ID",
+    "X-Api-Key",
+    "Accept",
+  ],
+  exposedHeaders: [
+    "X-Request-ID",
+    "X-Cache",
+    "X-RateLimit-Limit",
+    "X-RateLimit-Remaining",
+    "X-RateLimit-Reset",
+    "Retry-After",
+  ],
+}));
 app.use(cookieParser());
 
 app.use(cliDetect);
@@ -76,6 +95,46 @@ app.use(express.urlencoded({ extended: true }));
 app.use(replitAuth);
 app.use(apiKeyAuth);
 app.use("/api", apiRateLimiter);
+
+app.get("/sitemap.xml", (_req, res) => {
+  const appUrl = config.APP_URL || "https://getagent.id";
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${appUrl}/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${appUrl}/for-agents</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${appUrl}/pricing</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${appUrl}/protocol</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${appUrl}/marketplace</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>${appUrl}/jobs</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>`;
+  res.setHeader("Content-Type", "application/xml; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(sitemap);
+});
 
 app.get("/agent", (_req, res) => {
   const md = generateAgentRegistrationMarkdown();

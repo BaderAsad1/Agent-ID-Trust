@@ -1,6 +1,6 @@
 {
-  "name": "@getagentid/sdk",
-  "version": "1.0.0",
+  "name": "@agentid/sdk",
+  "version": "1.0.1",
   "description": "Official SDK for Agent ID — identity, trust, mail, tasks, and resolution for AI agents",
   "type": "module",
   "main": "./dist/index.js",

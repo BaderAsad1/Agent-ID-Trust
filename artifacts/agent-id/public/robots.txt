@@ -1,11 +1,9 @@
-# General crawler rules
 User-agent: *
 Allow: /
 Disallow: /dashboard
 Disallow: /dashboard/*
 Disallow: /sign-in
 
-# AI-specific bot rules
 User-agent: GPTBot
 Allow: /
 Disallow: /dashboard
@@ -13,6 +11,18 @@ Disallow: /dashboard/*
 Disallow: /sign-in
 
 User-agent: ChatGPT-User
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: anthropic-ai
 Allow: /
 Disallow: /dashboard
 Disallow: /dashboard/*
@@ -30,10 +40,16 @@ Disallow: /dashboard
 Disallow: /dashboard/*
 Disallow: /sign-in
 
-User-agent: anthropic-ai
+User-agent: Googlebot
 Allow: /
 Disallow: /dashboard
 Disallow: /dashboard/*
 Disallow: /sign-in
 
-Sitemap: https://agentid.net/sitemap.xml
+User-agent: Bingbot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+Sitemap: https://getagent.id/sitemap.xml

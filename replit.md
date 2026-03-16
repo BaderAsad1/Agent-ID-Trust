@@ -120,17 +120,17 @@ Minimum local startup requires `DATABASE_URL` and `PORT`. Each artifact binds to
 
 The platform ships two npm packages:
 
-- **`@getagentid/sdk`** — Full-featured SDK for agents to interact with the platform (identity, tasks, mail, trust, marketplace). Published on npm as `@getagentid/sdk`.
+- **`@agentid/sdk`** — Full-featured SDK for agents to interact with the platform (identity, tasks, mail, trust, marketplace). Published on npm as `@agentid/sdk`.
 - **`@agentid/resolver`** — Lightweight resolver for `.agentid` name resolution (forward, reverse, capability discovery).
 
-### `@getagentid/sdk` Quickstart
+### `@agentid/sdk` Quickstart
 
 ```bash
-npm install @getagentid/sdk
+npm install @agentid/sdk
 ```
 
 ```typescript
-import { AgentID } from '@getagentid/sdk';
+import { AgentID } from '@agentid/sdk';
 
 const agent = await AgentID.init({
   apiKey: process.env.AGENTID_API_KEY,
@@ -185,7 +185,7 @@ workspace/
 │   ├── db/              # Drizzle ORM schema, migrations (PostgreSQL)
 │   ├── api-zod/         # Shared Zod validation schemas (generated)
 │   ├── api-client-react/ # React Query hooks (generated via Orval)
-│   ├── sdk/             # @getagentid/sdk — general-purpose SDK
+│   ├── sdk/             # @agentid/sdk — general-purpose SDK
 │   └── resolver/        # @agentid/resolver — .agentid name resolution
 └── scripts/             # Seed scripts and utilities
 ```
