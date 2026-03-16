@@ -74,6 +74,59 @@ async function deleteExistingRecords(
   }
 }
 
+const WORKER_NAME = "getagent-subdomain-proxy";
+
+async function ensureWorkerRoute(
+  apiToken: string,
+  zoneId: string,
+  fqdn: string,
+): Promise<{ routeId?: string }> {
+  const headers = {
+    "Authorization": `Bearer ${apiToken}`,
+    "Content-Type": "application/json",
+  };
+  const routesUrl = `https://api.cloudflare.com/client/v4/zones/${zoneId}/workers/routes`;
+
+  const pattern = `${fqdn}/*`;
+
+  try {
+    const listRes = await fetch(routesUrl, { headers });
+    const listData = await listRes.json() as {
+      success: boolean;
+      result?: Array<{ id: string; pattern: string; script: string }>;
+    };
+
+    if (listData.success && listData.result) {
+      const existing = listData.result.find(
+        (r) => r.pattern === pattern && r.script === WORKER_NAME,
+      );
+      if (existing) {
+        return { routeId: existing.id };
+      }
+    }
+
+    const createRes = await fetch(routesUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ pattern, script: WORKER_NAME }),
+    });
+    const createData = await createRes.json() as { success: boolean; result?: { id: string } };
+
+    if (!createData.success) {
+      logger.warn({ pattern }, "[domain-worker] Failed to create Worker route — wildcard route may already cover this domain");
+      return {};
+    }
+
+    return { routeId: createData.result?.id };
+  } catch (err) {
+    logger.warn(
+      { fqdn, err: err instanceof Error ? err.message : String(err) },
+      "[domain-worker] Worker route registration failed (non-fatal)",
+    );
+    return {};
+  }
+}
+
 async function createAndVerifyDnsRecords(job: Job<DomainProvisioningJobData>): Promise<void> {
   const { domainRecordId, agentId, fqdn, subdomain, apiToken, zoneId, proxyIp } = job.data;
   const verificationTxt = `agentid-verify=${agentId}`;
@@ -118,7 +171,10 @@ async function createAndVerifyDnsRecords(job: Job<DomainProvisioningJobData>): P
     txt: { id: txtData.result?.id, type: "TXT", name: subdomain, content: verificationTxt },
   };
 
-  await verifyDnsRecords(apiToken, zoneId, aData.result?.id, txtData.result?.id);
+  const [, workerRoute] = await Promise.all([
+    verifyDnsRecords(apiToken, zoneId, aData.result?.id, txtData.result?.id),
+    ensureWorkerRoute(apiToken, zoneId, fqdn),
+  ]);
 
   await db
     .update(agentDomainsTable)
@@ -130,6 +186,7 @@ async function createAndVerifyDnsRecords(job: Job<DomainProvisioningJobData>): P
         zoneId,
         aRecordId: aData.result?.id,
         txtRecordId: txtData.result?.id,
+        workerRouteId: workerRoute.routeId,
       },
       provisionedAt: new Date(),
       updatedAt: new Date(),
@@ -139,7 +196,7 @@ async function createAndVerifyDnsRecords(job: Job<DomainProvisioningJobData>): P
   await logActivity({
     agentId,
     eventType: "agent.domain_provisioned",
-    payload: { domain: fqdn, dnsRecords },
+    payload: { domain: fqdn, dnsRecords, workerRouteId: workerRoute.routeId },
   });
 }
 
