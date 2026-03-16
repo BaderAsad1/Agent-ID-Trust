@@ -200,7 +200,15 @@ export async function deleteAgent(
   return !!deleted;
 }
 
-export function toPublicProfile(agent: Agent) {
+const APP_URL = process.env.APP_URL || 'https://getagent.id';
+
+export function toPublicProfile(agent: Agent, credential?: Record<string, unknown> | null) {
+  const handle = agent.handle;
+  const did = `did:agentid:${handle}`;
+  const protocolAddress = `${handle}.agentid`;
+  const erc8004Uri = `${APP_URL}/api/v1/p/${handle}/erc8004`;
+  const domainName = `${handle}.getagent.id`;
+
   return {
     agent: {
       id: agent.id,
@@ -220,9 +228,19 @@ export function toPublicProfile(agent: Agent) {
       tasksCompleted: agent.tasksCompleted,
       createdAt: agent.createdAt,
       endpointUrl: agent.endpointUrl,
+      did,
+      protocolAddress,
+      erc8004Uri,
+      domainName,
     },
-    listings: [],
+    trustBreakdown: {
+      verification: agent.trustBreakdown?.verification ?? 0,
+      longevity: agent.trustBreakdown?.longevity ?? 0,
+      activity: agent.trustBreakdown?.activity ?? 0,
+      reputation: agent.trustBreakdown?.reputation ?? 0,
+    },
     recentActivity: [],
-    trustBreakdown: (agent as unknown as Record<string, unknown>).trustBreakdown ?? {},
+    listings: [],
+    credential: credential ?? null,
   };
 }

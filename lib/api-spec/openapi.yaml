@@ -512,7 +512,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PublicAgentProfile"
+                $ref: "#/components/schemas/PublicProfileResponse"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -3441,6 +3441,92 @@ components:
         kid:
           type: string
       required: [challengeId, signature]
+
+    PublicProfileResponse:
+      type: object
+      properties:
+        agent:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            handle:
+              type: string
+            displayName:
+              type: string
+            description:
+              type: string
+            avatarUrl:
+              type: string
+            status:
+              type: string
+            capabilities:
+              type: array
+              items:
+                type: string
+            protocols:
+              type: array
+              items:
+                type: string
+            trustScore:
+              type: integer
+            trustTier:
+              type: string
+            verificationStatus:
+              type: string
+            verificationMethod:
+              type: string
+            verifiedAt:
+              type: string
+              format: date-time
+            tasksReceived:
+              type: integer
+            tasksCompleted:
+              type: integer
+            createdAt:
+              type: string
+              format: date-time
+            endpointUrl:
+              type: string
+            did:
+              type: string
+              description: "DID identifier, format: did:agentid:<handle>"
+            protocolAddress:
+              type: string
+              description: "Protocol address, format: <handle>.agentid"
+            erc8004Uri:
+              type: string
+              description: URL to the ERC-8004 metadata endpoint
+            domainName:
+              type: string
+              description: "Web-resolvable domain, e.g. <handle>.getagent.id"
+          required: [id, handle, displayName, status, trustScore, trustTier, verificationStatus, createdAt, did, protocolAddress, erc8004Uri, domainName]
+        trustBreakdown:
+          type: object
+          properties:
+            verification:
+              type: number
+            longevity:
+              type: number
+            activity:
+              type: number
+            reputation:
+              type: number
+          required: [verification, longevity, activity, reputation]
+        recentActivity:
+          type: array
+          items:
+            type: object
+        listings:
+          type: array
+          items:
+            type: object
+        credential:
+          type: object
+          nullable: true
+          description: Active verifiable credential or null
+      required: [agent, trustBreakdown, recentActivity, listings, credential]
 
     PublicAgentProfile:
       type: object

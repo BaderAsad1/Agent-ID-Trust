@@ -17,7 +17,8 @@ router.get("/:handle", async (req, res, next) => {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
 
-    res.json(toPublicProfile(agent));
+    const credential = await getActiveCredential(agent.id);
+    res.json(toPublicProfile(agent, credential as Record<string, unknown> | null));
   } catch (err) {
     next(err);
   }

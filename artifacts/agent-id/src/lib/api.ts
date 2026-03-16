@@ -387,11 +387,36 @@ export interface AgentDomain {
   provisionedAt?: string;
 }
 
+export interface PublicProfileAgent {
+  id: string;
+  handle: string;
+  displayName: string;
+  description?: string;
+  avatarUrl?: string;
+  status: string;
+  capabilities: string[];
+  protocols: string[];
+  trustScore: number;
+  trustTier: string;
+  verificationStatus: string;
+  verificationMethod?: string;
+  verifiedAt?: string;
+  tasksReceived: number;
+  tasksCompleted: number;
+  createdAt: string;
+  endpointUrl?: string;
+  did: string;
+  protocolAddress: string;
+  erc8004Uri: string;
+  domainName: string;
+}
+
 export interface PublicProfile {
-  agent: Agent & TransferOwnershipFields;
-  listings?: Listing[];
-  recentActivity?: ActivityItem[];
-  trustBreakdown?: { verification: number; longevity: number; activity: number; reputation: number };
+  agent: PublicProfileAgent;
+  trustBreakdown: { verification: number; longevity: number; activity: number; reputation: number };
+  recentActivity: ActivityItem[];
+  listings: Listing[];
+  credential: Record<string, unknown> | null;
 }
 
 export interface TransferOwnershipFields {
