@@ -123,10 +123,11 @@ Minimum local startup requires `DATABASE_URL` and `PORT`. Each artifact binds to
 
 ## SDK
 
-The platform ships two npm packages:
+The platform ships three npm packages:
 
 - **`@agentid/sdk`** — Full-featured SDK for agents to interact with the platform (identity, tasks, mail, trust, marketplace). Published on npm as `@agentid/sdk`.
 - **`@agentid/resolver`** — Lightweight resolver for `.agentid` name resolution (forward, reverse, capability discovery).
+- **`@getagentid/mcp`** — MCP server providing 7 Agent ID tools (register, init, resolve, discover, send_task, check_inbox, verify_credential) for any MCP-compatible AI agent. Run via `npx @getagentid/mcp`.
 
 ### `@agentid/sdk` Quickstart
 
@@ -190,8 +191,9 @@ workspace/
 │   ├── db/              # Drizzle ORM schema, migrations (PostgreSQL)
 │   ├── api-zod/         # Shared Zod validation schemas (generated)
 │   ├── api-client-react/ # React Query hooks (generated via Orval)
-│   ├── sdk/             # @agentid/sdk — general-purpose SDK
-│   └── resolver/        # @agentid/resolver — .agentid name resolution
+│   ├── sdk/             # @getagentid/sdk — general-purpose SDK
+│   ├── resolver/        # @agentid/resolver — .agentid name resolution
+│   └── mcp-server/      # @getagentid/mcp — MCP server for AI agent tools
 └── scripts/             # Seed scripts and utilities
 ```
 
