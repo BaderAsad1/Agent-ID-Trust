@@ -139,7 +139,7 @@ router.get("/.well-known/agentid-configuration", async (_req: Request, res: Resp
     registrationEndpoint: `${APP_URL}/api/v1/programmatic/agents/register`,
     verificationEndpoint: `${APP_URL}/api/v1/programmatic/agents/verify`,
     humanRegistrationEndpoint: `${APP_URL}/start`,
-    credentialEndpoint: `${APP_URL}/.well-known/agent.json`,
+    credentialEndpoint: `${APP_URL}/api/.well-known/agent.json`,
     resolutionEndpoint: `${APP_URL}/api/v1/resolve`,
     erc8004Endpoint: `${APP_URL}/api/v1/resolve`,
     wellKnownPath: "/.well-known/agent.json",
@@ -147,8 +147,8 @@ router.get("/.well-known/agentid-configuration", async (_req: Request, res: Resp
     documentation: "https://docs.getagent.id",
     sdkPackage: "@agentid/resolver",
     llmsTxt: `${APP_URL}/api/llms.txt`,
-    agentGuide: `${APP_URL}/agent`,
-    agentRegistration: `${APP_URL}/.well-known/agent-registration`,
+    agentGuide: `${APP_URL}/api/agent`,
+    agentRegistration: `${APP_URL}/api/.well-known/agent-registration`,
   });
 });
 

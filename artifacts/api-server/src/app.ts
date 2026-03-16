@@ -85,7 +85,16 @@ app.get("/agent", (_req, res) => {
   res.send(md);
 });
 
+app.get("/api/agent", (_req, res) => {
+  const md = generateAgentRegistrationMarkdown();
+  res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.send(md);
+});
+
 app.use(wellKnownRouter);
+app.use("/api", wellKnownRouter);
 app.use("/api", authOidcRouter);
 app.use("/api", router);
 

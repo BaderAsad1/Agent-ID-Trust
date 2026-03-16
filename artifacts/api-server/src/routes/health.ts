@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { env } from "../lib/env";
+import { isRedisConfigured, getRedisConnectionOptions } from "../lib/redis";
 
 const router: IRouter = Router();
 
@@ -15,23 +16,49 @@ async function pingDatabase(): Promise<{ status: "ok" | "error"; latencyMs: numb
   }
 }
 
+let sharedRedis: import("ioredis").default | null = null;
+let sharedRedisReady = false;
+
+async function getOrCreateRedis(): Promise<import("ioredis").default | null> {
+  if (sharedRedis && sharedRedisReady) return sharedRedis;
+
+  if (sharedRedis && !sharedRedisReady) {
+    try { sharedRedis.disconnect(); } catch {}
+    sharedRedis = null;
+  }
+
+  try {
+    const { default: Redis } = await import("ioredis");
+    const opts = getRedisConnectionOptions();
+    sharedRedis = new Redis({
+      ...opts,
+      lazyConnect: true,
+      connectTimeout: 3000,
+      retryStrategy: (times) => (times > 3 ? null : Math.min(times * 200, 2000)),
+    });
+    sharedRedis.on("ready", () => { sharedRedisReady = true; });
+    sharedRedis.on("error", () => { sharedRedisReady = false; });
+    sharedRedis.on("close", () => { sharedRedisReady = false; });
+    await sharedRedis.connect();
+    return sharedRedis;
+  } catch {
+    sharedRedis = null;
+    sharedRedisReady = false;
+    return null;
+  }
+}
+
 async function pingRedis(): Promise<{ status: "ok" | "error" | "not_configured"; latencyMs: number }> {
-  const config = env();
-  if (!config.REDIS_URL) {
+  if (!isRedisConfigured()) {
     return { status: "not_configured", latencyMs: 0 };
   }
   const start = Date.now();
-  let client: import("ioredis").default | null = null;
   try {
-    const { default: Redis } = await import("ioredis");
-    client = new Redis(config.REDIS_URL, { connectTimeout: 3000, lazyConnect: true });
-    client.on("error", () => {});
-    await client.connect();
+    const client = await getOrCreateRedis();
+    if (!client) return { status: "error", latencyMs: Date.now() - start };
     await client.ping();
-    await client.quit();
     return { status: "ok", latencyMs: Date.now() - start };
   } catch {
-    if (client) { try { client.disconnect(); } catch {} }
     return { status: "error", latencyMs: Date.now() - start };
   }
 }

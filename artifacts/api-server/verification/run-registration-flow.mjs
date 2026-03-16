@@ -153,17 +153,16 @@ async function run() {
 
   const agentAuth = apiKey ? { 'X-Agent-Key': apiKey } : {};
 
-  // ── Step 6: Bootstrap Bundle (must contain inboxUnavailable, not inbox) ──
+  // ── Step 6: Bootstrap Bundle (inbox present and active for all plans) ──
   const bR = await req('GET', `/api/v1/agents/${agentId}/bootstrap`, null, agentAuth);
   const bKeys = bR.body ? Object.keys(bR.body) : [];
-  const hasInboxUnavailable = bKeys.includes('inboxUnavailable');
-  const hasNoActiveInbox = !bR.body?.inbox || bR.body?.inbox === null;
-  const bOk = bR.status === 200 && !!bR.body?.prompt_block && hasInboxUnavailable && hasNoActiveInbox;
-  logStep('Bootstrap Bundle (inboxUnavailable, no active inbox)', bOk ? 'PASS' : 'FAIL', {
+  const hasInbox = bKeys.includes('inbox') && bR.body?.inbox !== null;
+  const bOk = bR.status === 200 && !!bR.body?.prompt_block && hasInbox;
+  logStep('Bootstrap Bundle (inbox present and active)', bOk ? 'PASS' : 'FAIL', {
     httpStatus: bR.status,
     responseBodyKeys: bKeys,
     hasPromptBlock: !!bR.body?.prompt_block,
-    hasInboxUnavailable,
+    hasInbox,
     inboxValue: bR.body?.inbox,
     promptBlockPreview: typeof bR.body?.prompt_block === 'string'
       ? bR.body.prompt_block.slice(0, 200) + '…'
@@ -171,15 +170,14 @@ async function run() {
     responseBody: bR.status !== 200 ? bR.body : '(large object, keys shown above)',
   });
 
-  // ── Step 7: Free Agent — Inbox Gated Behind Paid Plan (expect 402) ───────
+  // ── Step 7: Inbox Available for All Plans (expect 200 with inbox data) ───
   const iR = await req('GET', `/api/v1/mail/agents/${agentId}/inbox`, null, agentAuth);
-  const inboxGatedOk = iR.status === 402 && iR.body?.error === 'PLAN_REQUIRED';
-  logStep('Free Agent: Inbox Gated (expect 402 PLAN_REQUIRED)', inboxGatedOk ? 'PASS' : 'FAIL', {
+  const inboxOk = iR.status === 200 && iR.body !== null;
+  logStep('Inbox Available (expect 200 with inbox data)', inboxOk ? 'PASS' : 'FAIL', {
     httpStatus: iR.status,
-    expectedStatus: 402,
-    expectedError: 'PLAN_REQUIRED',
+    expectedStatus: 200,
     responseBody: iR.body,
-    note: 'Free plan does not include inbox. This 402 is correct behavior.',
+    note: 'canReceiveMail is true for all plans.',
   });
 
   // ── Step 8: UUID Resolution — resolvable regardless of isPublic ──────────
@@ -219,7 +217,7 @@ async function run() {
     note: 'Same as JSON resolution — free agent is not publicly listed.',
   });
 
-  // ── Step 11: Send Message — 402 because no inbox on free plan ────────────
+  // ── Step 11: Send Message — expect 201 message created ──────────────────
   const sR = await req(
     'POST',
     `/api/v1/mail/agents/${agentId}/messages`,
@@ -234,13 +232,12 @@ async function run() {
     },
     agentAuth,
   );
-  const sendGatedOk = sR.status === 402 && sR.body?.error === 'PLAN_REQUIRED';
-  logStep('Free Agent: Send Message Gated (expect 402 PLAN_REQUIRED)', sendGatedOk ? 'PASS' : 'FAIL', {
+  const sendOk = sR.status === 201;
+  logStep('Send Message (expect 201 created)', sendOk ? 'PASS' : 'FAIL', {
     httpStatus: sR.status,
-    expectedStatus: 402,
-    expectedError: 'PLAN_REQUIRED',
+    expectedStatus: 201,
     responseBody: sR.body,
-    note: 'Free plan does not include messaging.',
+    note: 'canReceiveMail is true for all plans — message should be created.',
   });
 
   // ── Step 12: Read Messages — 200 with empty list ─────────────────────────

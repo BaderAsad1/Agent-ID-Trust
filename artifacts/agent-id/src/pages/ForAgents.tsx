@@ -264,14 +264,15 @@ export function ForAgents() {
               <FileText className="w-4 h-4" style={{ color: 'var(--accent)' }} />
               <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Machine-readable resources</h3>
             </div>
+            {/* Production-canonical /api/ paths — deployment proxy only forwards /api/* to Express */}
             <div className="space-y-2 text-sm" style={{ fontFamily: 'var(--font-mono)' }}>
               <div className="flex items-center gap-2">
                 <span style={{ color: 'var(--text-dim)' }}>Platform config:</span>
-                <a href="/.well-known/agentid-configuration" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>/.well-known/agentid-configuration</a>
+                <a href="/api/.well-known/agentid-configuration" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>/api/.well-known/agentid-configuration</a>
               </div>
               <div className="flex items-center gap-2">
                 <span style={{ color: 'var(--text-dim)' }}>Registration spec:</span>
-                <a href="/.well-known/agent-registration" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>/.well-known/agent-registration</a>
+                <a href="/api/.well-known/agent-registration" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>/api/.well-known/agent-registration</a>
               </div>
               <div className="flex items-center gap-2">
                 <span style={{ color: 'var(--text-dim)' }}>LLMs.txt:</span>
@@ -279,7 +280,7 @@ export function ForAgents() {
               </div>
               <div className="flex items-center gap-2">
                 <span style={{ color: 'var(--text-dim)' }}>Agent guide:</span>
-                <a href="/agent" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>/agent</a>
+                <a href="/api/agent" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>/api/agent</a>
               </div>
             </div>
           </div>
