@@ -1,7 +1,7 @@
 import rateLimit from "express-rate-limit";
 import type { Request, Response, NextFunction } from "express";
-import { env } from "../lib/env";
 import { logger } from "./request-logger";
+import { getSharedRedis, isRedisConfigured } from "../lib/redis";
 
 const baseOptions = {
   windowMs: 60 * 1000,
@@ -22,23 +22,15 @@ async function ensureRedisStore(): Promise<void> {
   }
   redisInitPromise = (async () => {
     try {
-      const config = env();
-      const redisUrl = config.REDIS_URL;
-      if (!redisUrl) {
+      if (!isRedisConfigured()) {
         logger.warn("[rate-limit] No REDIS_URL — using in-memory rate limit store");
         return;
       }
       const { default: RedisStore } = await import("rate-limit-redis");
-      const { default: Redis } = await import("ioredis");
-      const client = new Redis(redisUrl, {
-        lazyConnect: true,
-        retryStrategy: (times) => (times > 2 ? null : Math.min(times * 500, 2000)),
-        enableOfflineQueue: false,
-      });
+      const client = getSharedRedis();
       client.on("error", (err) => {
         logger.warn({ err: err.message }, "[rate-limit] Redis error — rate limiting degraded to in-memory");
       });
-      await client.connect();
       redisStoreFactory = (prefix: string) =>
         new RedisStore({
           sendCommand: (...args: string[]) =>

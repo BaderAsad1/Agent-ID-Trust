@@ -1,35 +1,25 @@
+import { Redis } from "ioredis";
 import { env } from "./env";
 
-export interface RedisConnectionOptions {
-  host: string;
-  port: number;
-  password?: string;
-  maxRetriesPerRequest: null;
+let _redis: Redis | null = null;
+
+export function getSharedRedis(): Redis {
+  if (_redis) return _redis;
+  const url = env().REDIS_URL;
+  if (!url) throw new Error("REDIS_URL not configured");
+  _redis = new Redis(url, {
+    maxRetriesPerRequest: null,
+    enableOfflineQueue: false,
+    lazyConnect: true,
+  });
+  _redis.on("connect", () => {
+    _redis?.config("SET", "maxmemory-policy", "noeviction").catch(() => {});
+  });
+  return _redis;
 }
 
-let connectionOpts: RedisConnectionOptions | null = null;
-
-export function getRedisConnectionOptions(): RedisConnectionOptions {
-  if (connectionOpts) return connectionOpts;
-
-  const url = env().REDIS_URL;
-  if (url) {
-    const parsed = new URL(url);
-    connectionOpts = {
-      host: parsed.hostname,
-      port: Number(parsed.port) || 6379,
-      password: parsed.password || undefined,
-      maxRetriesPerRequest: null,
-    };
-  } else {
-    connectionOpts = {
-      host: "localhost",
-      port: 6379,
-      maxRetriesPerRequest: null,
-    };
-  }
-
-  return connectionOpts;
+export function getRedisConnectionOptions(): Redis {
+  return getSharedRedis();
 }
 
 export function isRedisConfigured(): boolean {
@@ -37,4 +27,8 @@ export function isRedisConfigured(): boolean {
 }
 
 export async function closeRedis(): Promise<void> {
+  if (_redis) {
+    try { await _redis.quit(); } catch {}
+    _redis = null;
+  }
 }
