@@ -105,6 +105,14 @@ export const api = {
       request<Agent>(`/agents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: string) => request(`/agents/${id}`, { method: "DELETE" }),
     domain: (id: string) => request<AgentDomain>(`/agents/${id}/domain`),
+    credential: async (id: string) => {
+      const raw = await request<RawVerifiableCredential>(`/agents/${id}/credential`);
+      return mapCredential(raw);
+    },
+    reissueCredential: async (id: string) => {
+      const raw = await request<RawVerifiableCredential>(`/agents/${id}/credential/reissue`, { method: "POST" });
+      return mapCredential(raw);
+    },
     verify: {
       initiate: (id: string, method: string) =>
         request(`/agents/${id}/verify/initiate`, {
@@ -696,4 +704,75 @@ export interface TransferEvent {
   eventType: string;
   payload: Record<string, unknown>;
   createdAt: string;
+}
+
+export interface RawVerifiableCredential {
+  "@context": string[];
+  type: string[];
+  issuer: string;
+  issuanceDate: string;
+  expirationDate: string;
+  serialNumber: string;
+  credentialSubject: {
+    id: string;
+    handle: string;
+    displayName: string;
+    agentId: string;
+    endpoint: string | null;
+    domain: string | null;
+    inboxAddress: string | null;
+    capabilities: string[];
+    protocols: string[];
+    authMethods: string[];
+    paymentMethods: string[];
+    verificationStatus: string;
+    verificationMethod: string | null;
+    verifiedAt: string | null;
+    trustScore: number;
+    trustTier: string;
+    trustBreakdown: Record<string, number>;
+    keys: Array<{ kid: string; keyType: string; publicKey: string; use: string }>;
+  };
+  proof: {
+    type: string;
+    created: string;
+    proofPurpose: string;
+    verificationMethod: string;
+    signatureValue: string;
+  };
+}
+
+export interface AgentCredential {
+  handle: string;
+  serialNumber: string;
+  trustScore: number;
+  trustTier: string;
+  verificationStatus: string;
+  issuedAt: string;
+  expiresAt: string;
+  capabilities: string[];
+  did: string;
+  resolverUrl: string;
+  profileUrl: string;
+  erc8004Url: string;
+  raw: RawVerifiableCredential;
+}
+
+function mapCredential(raw: RawVerifiableCredential): AgentCredential {
+  const subject = raw.credentialSubject;
+  return {
+    handle: subject.handle,
+    serialNumber: raw.serialNumber,
+    trustScore: subject.trustScore ?? 0,
+    trustTier: subject.trustTier ?? 'unknown',
+    verificationStatus: subject.verificationStatus ?? 'unverified',
+    issuedAt: raw.issuanceDate,
+    expiresAt: raw.expirationDate,
+    capabilities: subject.capabilities || [],
+    did: subject.id,
+    resolverUrl: `https://getagent.id/.well-known/did/${encodeURIComponent(subject.id)}`,
+    profileUrl: `https://${subject.handle}.getagent.id`,
+    erc8004Url: `https://eips.ethereum.org/EIPS/eip-8004`,
+    raw,
+  };
 }

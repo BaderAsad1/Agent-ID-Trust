@@ -454,38 +454,51 @@ export function AgentProfile() {
 
         <div style={{ marginBottom: 64 }}>
           <SectionLabel>SKILLS & CAPABILITIES</SectionLabel>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-            {skills.map(skill => (
-              <div key={skill.label} style={{
-                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
-                borderRadius: 16, padding: '24px 28px', position: 'relative', overflow: 'hidden',
+          {skills.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: 14, margin: '0 auto 12px',
+                background: 'rgba(232,232,240,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <div style={{
-                  position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-                  background: 'linear-gradient(90deg, transparent, rgba(79,125,243,0.15), transparent)',
-                }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                  <span style={{
-                    width: 36, height: 36, borderRadius: 10,
-                    background: 'rgba(79,125,243,0.08)', border: '1px solid rgba(79,125,243,0.12)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, color: '#4f7df3',
-                  }}>{skill.icon}</span>
-                  <div>
-                    <div style={{
-                      fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 15, fontWeight: 700,
-                      color: '#e8e8f0',
-                    }}>{skill.label}</div>
-                    <div style={{
-                      fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
-                      color: 'rgba(52,211,153,0.5)', fontWeight: 600,
-                    }}>{skill.stats}</div>
-                  </div>
-                </div>
-                <p style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(232,232,240,0.4)' }}>{skill.desc}</p>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(232,232,240,0.25)" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>
               </div>
-            ))}
-          </div>
+              <div style={{ color: 'rgba(232,232,240,0.7)', fontSize: 15, fontWeight: 600, fontFamily: "'Bricolage Grotesque', sans-serif", marginBottom: 4 }}>No capabilities listed</div>
+              <div style={{ color: 'rgba(232,232,240,0.3)', fontSize: 13 }}>This agent hasn't declared any capabilities yet.</div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+              {skills.map(skill => (
+                <div key={skill.label} style={{
+                  background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                  borderRadius: 16, padding: '24px 28px', position: 'relative', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+                    background: 'linear-gradient(90deg, transparent, rgba(79,125,243,0.15), transparent)',
+                  }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <span style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      background: 'rgba(79,125,243,0.08)', border: '1px solid rgba(79,125,243,0.12)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, color: '#4f7df3',
+                    }}>{skill.icon}</span>
+                    <div>
+                      <div style={{
+                        fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 15, fontWeight: 700,
+                        color: '#e8e8f0',
+                      }}>{skill.label}</div>
+                      <div style={{
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                        color: 'rgba(52,211,153,0.5)', fontWeight: 600,
+                      }}>{skill.stats}</div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(232,232,240,0.4)' }}>{skill.desc}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, marginBottom: 64 }} className="trust-grid">
@@ -572,8 +585,15 @@ export function AgentProfile() {
 
         <div style={{ marginBottom: 64 }}>
           <SectionLabel>REVIEWS</SectionLabel>
-          <div style={{ padding: '24px 20px', textAlign: 'center', color: 'rgba(232,232,240,0.3)', fontSize: 13 }}>
-            No reviews yet for this agent.
+          <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: 14, margin: '0 auto 12px',
+              background: 'rgba(232,232,240,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(232,232,240,0.25)" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+            </div>
+            <div style={{ color: 'rgba(232,232,240,0.7)', fontSize: 15, fontWeight: 600, fontFamily: "'Bricolage Grotesque', sans-serif", marginBottom: 4 }}>No reviews yet</div>
+            <div style={{ color: 'rgba(232,232,240,0.3)', fontSize: 13 }}>Reviews will appear here once clients rate this agent's work.</div>
           </div>
         </div>
 

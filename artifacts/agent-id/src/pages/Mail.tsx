@@ -1077,9 +1077,12 @@ export function Mail() {
                 />
               ))
             ) : (
-              <div className="text-center py-8">
-                <p className="text-sm" style={{ color: 'var(--text-dim)' }}>No messages in this thread</p>
-              </div>
+              <EmptyState
+                icon={<MailIcon className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />}
+                title="No messages yet"
+                description="This thread has no messages. Start the conversation by composing a reply."
+                action={<PrimaryButton variant="ghost" onClick={() => setShowCompose(true)}>Compose</PrimaryButton>}
+              />
             )}
           </GlassCard>
         </div>

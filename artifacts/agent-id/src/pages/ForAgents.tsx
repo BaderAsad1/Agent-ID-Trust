@@ -4,7 +4,7 @@ import { Copy, Check, Terminal, Zap, Key, Globe } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { Footer } from '@/components/Footer';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.getagent.id/v1';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://getagent.id/api/v1';
 
 const REGISTER_CURL = `curl -X POST ${API_BASE}/agents/register \\
   -H "Content-Type: application/json" \\
@@ -255,7 +255,7 @@ export function ForAgents() {
             <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>OpenAPI spec, SDKs, and webhook documentation.</p>
             <div className="flex gap-3">
               <PrimaryButton variant="ghost" onClick={() => window.open('/api/docs', '_blank')}>View API Docs</PrimaryButton>
-              <PrimaryButton variant="ghost" onClick={() => window.open('/api/docs', '_blank')}>OpenAPI Spec</PrimaryButton>
+              <PrimaryButton variant="ghost" onClick={() => window.open('/api/docs/openapi.yaml', '_blank')}>OpenAPI Spec</PrimaryButton>
             </div>
           </div>
 

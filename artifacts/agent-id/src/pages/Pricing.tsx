@@ -3,9 +3,11 @@ import { Check } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { Footer } from '@/components/Footer';
 import { PRICING_PLANS, HANDLE_PRICING_TIERS } from '@/lib/pricing';
+import { useAuth } from '@/lib/AuthContext';
 
 export function Pricing() {
   const navigate = useNavigate();
+  const { userId } = useAuth();
 
   return (
     <div className="pt-16" style={{ background: 'var(--bg-base)' }}>
@@ -19,7 +21,7 @@ export function Pricing() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           {PRICING_PLANS.map(plan => (
             <GlassCard
               key={plan.name}
@@ -46,7 +48,15 @@ export function Pricing() {
               <PrimaryButton
                 variant={plan.variant}
                 className="w-full"
-                onClick={() => navigate(plan.name === 'Starter' ? '/start' : '/dashboard/settings')}
+                onClick={() => {
+                  if (plan.name === 'Free') {
+                    navigate(userId ? '/dashboard' : '/start');
+                  } else if (userId) {
+                    navigate('/dashboard/settings');
+                  } else {
+                    navigate(`/start?plan=${plan.name.toLowerCase()}`);
+                  }
+                }}
               >
                 {plan.cta}
               </PrimaryButton>

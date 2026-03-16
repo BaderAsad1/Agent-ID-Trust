@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
-import { api, type Agent, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType } from '@/lib/api';
+import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType } from '@/lib/api';
 import { formatPrice } from '@/lib/pricing';
 import { Mail } from '@/pages/Mail';
 import { TransferWizardModal, TransferStatusBadge, TransferDashboardPage } from '@/pages/TransferSale';
+import { QRCodeSVG } from 'qrcode.react';
 
 async function initiateHandleCheckout(handle: string) {
   const base = window.location.origin;
@@ -992,7 +993,10 @@ function FleetManagement() {
                 </div>
               </div>
               {fleet.subHandles.length === 0 ? (
-                <p className="text-sm" style={{ color: 'var(--text-dim)' }}>No sub-handles created yet.</p>
+                <div className="text-center py-6">
+                  <Network className="w-6 h-6 mx-auto mb-2" style={{ color: 'var(--text-dim)' }} />
+                  <p className="text-sm" style={{ color: 'var(--text-dim)' }}>No sub-handles created yet.</p>
+                </div>
               ) : (
                 <div className="space-y-2">
                   {fleet.subHandles.map(sub => (
@@ -1196,7 +1200,10 @@ function SettingsPage() {
           {loading ? (
             <ListSkeleton rows={2} />
           ) : apiKeys.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--text-dim)' }}>No API keys created yet.</p>
+            <div className="text-center py-6">
+              <CreditCard className="w-6 h-6 mx-auto mb-2" style={{ color: 'var(--text-dim)' }} />
+              <p className="text-sm" style={{ color: 'var(--text-dim)' }}>No API keys created yet.</p>
+            </div>
           ) : (
             apiKeys.map(k => (
               <div key={k.id} className="flex items-center justify-between py-2">
@@ -1227,6 +1234,205 @@ function SettingsPage() {
   );
 }
 
+function CredentialDashboard() {
+  const { agents } = useAuth();
+  const [selectedAgentId, setSelectedAgentId] = useState(agents[0]?.id || '');
+  const [credential, setCredential] = useState<AgentCredential | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [reissuing, setReissuing] = useState(false);
+  const [reissueSuccess, setReissueSuccess] = useState(false);
+
+  useEffect(() => {
+    if (agents.length > 0 && !selectedAgentId) {
+      setSelectedAgentId(agents[0].id);
+    }
+  }, [agents, selectedAgentId]);
+
+  const fetchCredential = useCallback(async () => {
+    if (!selectedAgentId) { setLoading(false); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const cred = await api.agents.credential(selectedAgentId);
+      setCredential(cred);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load credential');
+      setCredential(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedAgentId]);
+
+  useEffect(() => { fetchCredential(); }, [fetchCredential]);
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      setCopied(null);
+    }
+  };
+
+  const handleReissue = async () => {
+    if (!selectedAgentId) return;
+    setReissuing(true);
+    setReissueSuccess(false);
+    try {
+      const cred = await api.agents.reissueCredential(selectedAgentId);
+      setCredential(cred);
+      setReissueSuccess(true);
+      setTimeout(() => setReissueSuccess(false), 3000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to reissue credential');
+    } finally {
+      setReissuing(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Agent Credential</h2>
+        {agents.length > 1 && (
+          <select
+            value={selectedAgentId}
+            onChange={e => setSelectedAgentId(e.target.value)}
+            className="rounded-lg px-3 py-2 text-sm border"
+            style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', borderColor: 'var(--border-color)', fontFamily: 'var(--font-body)', minHeight: 44 }}
+          >
+            {agents.map(a => <option key={a.id} value={a.id}>@{a.handle}</option>)}
+          </select>
+        )}
+      </div>
+
+      {agents.length === 0 ? (
+        <EmptyState icon={<ShieldCheck className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents yet" description="Register an agent to view its verifiable credential." />
+      ) : loading ? (
+        <CardSkeleton />
+      ) : error ? (
+        <GlassCard>
+          <div className="text-center py-8">
+            <AlertCircle className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--danger)' }} />
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>{error}</p>
+            <PrimaryButton variant="ghost" onClick={fetchCredential}><RefreshCw className="w-4 h-4 mr-2" /> Retry</PrimaryButton>
+          </div>
+        </GlassCard>
+      ) : credential ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <GlassCard>
+              <div className="flex flex-col sm:flex-row sm:items-start gap-6">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Identicon handle={credential.handle} size={40} />
+                    <div>
+                      <div className="text-lg font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>@{credential.handle}</div>
+                      <div className="text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>SN: {credential.serialNumber}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Trust Score</div>
+                      <div className="flex items-center gap-2">
+                        <TrustScoreRing score={credential.trustScore} size={28} />
+                        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{credential.trustScore}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(59,130,246,0.1)', color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>{credential.trustTier}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Verification</div>
+                      <StatusDot status={credential.verificationStatus === 'verified' ? 'verified' : 'pending'} label={credential.verificationStatus} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Issued</div>
+                      <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{new Date(credential.issuedAt).toLocaleDateString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Expires</div>
+                      <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{new Date(credential.expiresAt).toLocaleDateString()}</div>
+                    </div>
+                  </div>
+
+                  {credential.capabilities.length > 0 && (
+                    <div className="mb-4">
+                      <div className="text-xs mb-2" style={{ color: 'var(--text-dim)' }}>Capabilities</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {credential.capabilities.map(cap => <CapabilityChip key={cap} label={cap} />)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-shrink-0 flex flex-col items-center gap-3">
+                  <div className="p-3 rounded-xl" style={{ background: '#ffffff' }}>
+                    <QRCodeSVG value={`https://${credential.handle}.getagent.id`} size={120} level="M" />
+                  </div>
+                  <div className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>{credential.handle}.getagent.id</div>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard>
+              <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Decentralized Identifier</h3>
+              <div className="rounded-lg p-3 mb-3" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-color)' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <code className="text-xs break-all" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{credential.did}</code>
+                  <button
+                    onClick={() => copyToClipboard(credential.did, 'did')}
+                    className="flex-shrink-0 p-1.5 rounded-md transition-colors"
+                    style={{ background: 'transparent', border: 'none', color: copied === 'did' ? 'var(--success)' : 'var(--text-dim)', cursor: 'pointer', minWidth: 32, minHeight: 32 }}
+                    aria-label="Copy DID"
+                  >
+                    {copied === 'did' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Resolver URL</div>
+              <div className="rounded-lg p-3" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-color)' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <code className="text-xs break-all" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{credential.resolverUrl}</code>
+                  <button
+                    onClick={() => copyToClipboard(credential.resolverUrl, 'resolver')}
+                    className="flex-shrink-0 p-1.5 rounded-md transition-colors"
+                    style={{ background: 'transparent', border: 'none', color: copied === 'resolver' ? 'var(--success)' : 'var(--text-dim)', cursor: 'pointer', minWidth: 32, minHeight: 32 }}
+                    aria-label="Copy resolver URL"
+                  >
+                    {copied === 'resolver' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+
+          <div className="space-y-4">
+            <PrimaryButton className="w-full" onClick={() => copyToClipboard(JSON.stringify(credential, null, 2), 'credential')}>
+              {copied === 'credential' ? <><Check className="w-4 h-4 mr-2" /> Copied</> : <><Copy className="w-4 h-4 mr-2" /> Copy Credential</>}
+            </PrimaryButton>
+            <PrimaryButton variant="ghost" className="w-full" onClick={() => window.open(credential.erc8004Url, '_blank', 'noopener,noreferrer')}>
+              <ExternalLink className="w-4 h-4 mr-2" /> View ERC-8004
+            </PrimaryButton>
+            <PrimaryButton variant="ghost" className="w-full" onClick={handleReissue} disabled={reissuing}>
+              {reissueSuccess ? <><Check className="w-4 h-4 mr-2" /> Credential Reissued</> : <><RotateCw className={`w-4 h-4 mr-2 ${reissuing ? 'animate-spin' : ''}`} /> {reissuing ? 'Reissuing…' : 'Reissue Credential'}</>}
+            </PrimaryButton>
+            <PrimaryButton variant="ghost" className="w-full" onClick={() => window.open(credential.profileUrl, '_blank')}>
+              <ExternalLink className="w-4 h-4 mr-2" /> View Public Profile
+            </PrimaryButton>
+          </div>
+        </div>
+      ) : (
+        <EmptyState icon={<ShieldCheck className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No credential found" description="This agent doesn't have a credential yet. Complete verification to receive one." />
+      )}
+    </div>
+  );
+}
+
 export function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -1245,6 +1451,7 @@ export function Dashboard() {
   else if (path === '/dashboard/mail') content = <Mail />;
   else if (path === '/dashboard/log') content = <ActivityLogPage />;
   else if (path === '/dashboard/marketplace') content = <MarketplaceDashboard />;
+  else if (path === '/dashboard/credential') content = <CredentialDashboard />;
   else if (path === '/dashboard/domain') content = <DomainDashboard />;
   else if (path === '/dashboard/fleet') content = <FleetManagement />;
   else if (path === '/dashboard/settings') content = <SettingsPage />;
