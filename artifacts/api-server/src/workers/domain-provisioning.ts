@@ -35,6 +35,9 @@ export function getDomainQueue(): Queue<DomainProvisioningJobData> | null {
       removeOnFail: { count: 200 },
     },
   });
+  queue.on("error", (err) => {
+    logger.warn({ err: err.message }, "[domain-worker] Queue connection error");
+  });
 
   return queue;
 }
@@ -197,6 +200,9 @@ export function startDomainWorker(): Worker<DomainProvisioningJobData> | null {
     },
   );
 
+  worker.on("error", (err) => {
+    logger.warn({ err: err.message }, "[domain-worker] Worker connection error");
+  });
   worker.on("failed", async (job, err) => {
     if (!job) return;
     logger.error({ jobId: job.id, attempt: job.attemptsMade, maxAttempts: job.opts.attempts, error: err.message }, "[domain-worker] Job failed");

@@ -58,6 +58,9 @@ export function initEmailDeliveryWorker(): void {
       concurrency: 3,
     },
   );
+  emailWorker.on("error", (err) => {
+    logger.warn({ err: err.message }, "[email-worker] Worker connection error");
+  });
 }
 
 export async function closeEmailWorker(): Promise<void> {

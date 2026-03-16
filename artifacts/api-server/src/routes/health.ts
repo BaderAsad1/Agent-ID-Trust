@@ -21,14 +21,17 @@ async function pingRedis(): Promise<{ status: "ok" | "error" | "not_configured";
     return { status: "not_configured", latencyMs: 0 };
   }
   const start = Date.now();
+  let client: import("ioredis").default | null = null;
   try {
     const { default: Redis } = await import("ioredis");
-    const client = new Redis(config.REDIS_URL, { connectTimeout: 3000, lazyConnect: true });
+    client = new Redis(config.REDIS_URL, { connectTimeout: 3000, lazyConnect: true });
+    client.on("error", () => {});
     await client.connect();
     await client.ping();
     await client.quit();
     return { status: "ok", latencyMs: Date.now() - start };
   } catch {
+    if (client) { try { client.disconnect(); } catch {} }
     return { status: "error", latencyMs: Date.now() - start };
   }
 }
@@ -56,7 +59,7 @@ router.get("/healthz", async (_req, res) => {
     status = "unhealthy";
   }
 
-  const httpStatus = status === "unhealthy" ? 503 : status === "degraded" ? 503 : 200;
+  const httpStatus = status === "unhealthy" ? 503 : 200;
 
   res.status(httpStatus).json({
     status,

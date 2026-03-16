@@ -60,6 +60,9 @@ export function initOutboundMailWorker(): void {
       concurrency: 5,
     },
   );
+  outboundWorker.on("error", (err) => {
+    logger.warn({ err: err.message }, "[outbound-mail-worker] Worker connection error");
+  });
 
   outboundWorker.on("failed", async (job, err) => {
     if (!job) return;

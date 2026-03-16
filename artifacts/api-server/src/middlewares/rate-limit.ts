@@ -30,7 +30,15 @@ async function ensureRedisStore(): Promise<void> {
       }
       const { default: RedisStore } = await import("rate-limit-redis");
       const { default: Redis } = await import("ioredis");
-      const client = new Redis(redisUrl);
+      const client = new Redis(redisUrl, {
+        lazyConnect: true,
+        retryStrategy: (times) => (times > 2 ? null : Math.min(times * 500, 2000)),
+        enableOfflineQueue: false,
+      });
+      client.on("error", (err) => {
+        logger.warn({ err: err.message }, "[rate-limit] Redis error — rate limiting degraded to in-memory");
+      });
+      await client.connect();
       redisStoreFactory = (prefix: string) =>
         new RedisStore({
           sendCommand: (...args: string[]) =>
@@ -38,8 +46,8 @@ async function ensureRedisStore(): Promise<void> {
           prefix,
         });
       logger.info("[rate-limit] Redis-backed store initialized");
-    } catch {
-      logger.warn("[rate-limit] Failed to connect to Redis, using in-memory store");
+    } catch (err) {
+      logger.warn({ err: (err as Error).message }, "[rate-limit] Failed to connect to Redis, using in-memory store");
     } finally {
       redisInitDone = true;
     }

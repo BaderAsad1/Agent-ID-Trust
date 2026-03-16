@@ -77,6 +77,9 @@ export function initWebhookDeliveryWorker(): void {
   const connection = getRedisConnectionOptions();
 
   webhookQueue = new Queue<WebhookDeliveryJob>(QUEUE_NAME, { connection });
+  webhookQueue.on("error", (err) => {
+    logger.warn({ err: err.message }, "[webhook-worker] Queue connection error");
+  });
 
   webhookWorker = new Worker<WebhookDeliveryJob>(
     QUEUE_NAME,
@@ -86,6 +89,9 @@ export function initWebhookDeliveryWorker(): void {
       concurrency: 5,
     },
   );
+  webhookWorker.on("error", (err) => {
+    logger.warn({ err: err.message }, "[webhook-worker] Worker connection error");
+  });
 
   webhookWorker.on("failed", async (job, err) => {
     if (!job) return;

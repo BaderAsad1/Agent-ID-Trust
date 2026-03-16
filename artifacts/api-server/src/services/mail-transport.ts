@@ -199,6 +199,9 @@ function getOutboundQueue(): Queue | null {
   try {
     const connection = getRedisConnectionOptions();
     outboundQueue = new Queue("outbound-mail", { connection });
+    outboundQueue.on("error", (err) => {
+      logger.warn({ err: err.message }, "[mail-transport] Outbound queue connection error");
+    });
     return outboundQueue;
   } catch (err) {
     logger.warn({ error: err instanceof Error ? err.message : String(err) }, "[mail-transport] Failed to initialize outbound queue");
