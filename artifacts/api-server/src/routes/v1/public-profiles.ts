@@ -13,7 +13,7 @@ const router = Router();
 router.get("/:handle", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
-    if (!agent || !agent.isPublic || agent.status !== "active") {
+    if (!agent || agent.status !== "active") {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
 
@@ -26,7 +26,7 @@ router.get("/:handle", async (req, res, next) => {
 router.get("/:handle/credential", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
-    if (!agent || !agent.isPublic || agent.status !== "active") {
+    if (!agent || agent.status !== "active") {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
 
@@ -45,7 +45,7 @@ router.get("/:handle/credential", async (req, res, next) => {
 router.get("/:handle/credential/verify", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
-    if (!agent || !agent.isPublic || agent.status !== "active") {
+    if (!agent || agent.status !== "active") {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
 
@@ -81,7 +81,7 @@ router.get("/:handle/credential/verify", async (req, res, next) => {
 router.post("/:handle/credential/verify", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
-    if (!agent || !agent.isPublic || agent.status !== "active") {
+    if (!agent || agent.status !== "active") {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
 
