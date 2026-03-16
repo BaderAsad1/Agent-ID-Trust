@@ -138,11 +138,15 @@ router.get("/agents/:agentId/threads/:threadId", requireHumanOrAgentAuth, async 
   }
 });
 
-router.patch("/agents/:agentId/threads/:threadId", requireAuth, async (req, res, next) => {
+router.patch("/agents/:agentId/threads/:threadId", requireHumanOrAgentAuth, async (req, res, next) => {
   try {
     const agentId = param(req.params.agentId); const threadId = param(req.params.threadId);
-    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
-    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+    if (req.authenticatedAgent) {
+      if (!verifyInboxAccess(req, agentId)) throw new AppError(403, "FORBIDDEN", "Agent can only access its own threads");
+    } else {
+      const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+      if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+    }
 
     const thread = await mailService.getThread(threadId);
     if (!thread || thread.agentId !== agentId) {
@@ -258,11 +262,15 @@ router.get("/agents/:agentId/messages/:messageId", requireHumanOrAgentAuth, asyn
   }
 });
 
-router.post("/agents/:agentId/messages", requireAuth, async (req, res, next) => {
+router.post("/agents/:agentId/messages", requireHumanOrAgentAuth, async (req, res, next) => {
   try {
     const agentId = param(req.params.agentId);
-    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
-    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+    if (req.authenticatedAgent) {
+      if (!verifyInboxAccess(req, agentId)) throw new AppError(403, "FORBIDDEN", "Agent can only send from its own inbox");
+    } else {
+      const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+      if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+    }
 
     const schema = z.object({
       direction: z.enum(["inbound", "outbound"]),
@@ -282,6 +290,11 @@ router.post("/agents/:agentId/messages", requireAuth, async (req, res, next) => 
       metadata: z.record(z.string(), z.unknown()).optional(),
     });
     const body = schema.parse(req.body);
+
+    if (req.authenticatedAgent) {
+      body.senderAgentId = req.authenticatedAgent.id;
+      body.senderType = "agent";
+    }
 
     const message = await mailService.sendMessage({
       agentId,
@@ -318,11 +331,15 @@ router.post("/agents/:agentId/messages/:messageId/read", requireHumanOrAgentAuth
   }
 });
 
-router.post("/agents/:agentId/messages/:messageId/convert-task", requireAuth, async (req, res, next) => {
+router.post("/agents/:agentId/messages/:messageId/convert-task", requireHumanOrAgentAuth, async (req, res, next) => {
   try {
     const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
-    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
-    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+    if (req.authenticatedAgent) {
+      if (!verifyInboxAccess(req, agentId)) throw new AppError(403, "FORBIDDEN", "Agent can only access its own messages");
+    } else {
+      const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+      if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+    }
 
     const msg = await mailService.getMessage(messageId);
     if (!msg || msg.agentId !== agentId) {
@@ -591,11 +608,15 @@ router.post("/agents/:agentId/messages/:messageId/approve", requireAuth, async (
   }
 });
 
-router.post("/agents/:agentId/messages/:messageId/archive", requireAuth, async (req, res, next) => {
+router.post("/agents/:agentId/messages/:messageId/archive", requireHumanOrAgentAuth, async (req, res, next) => {
   try {
     const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
-    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
-    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+    if (req.authenticatedAgent) {
+      if (!verifyInboxAccess(req, agentId)) throw new AppError(403, "FORBIDDEN", "Agent can only access its own messages");
+    } else {
+      const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+      if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+    }
 
     const archived = await mailService.archiveMessage(messageId, agentId);
     if (!archived) throw new AppError(404, "NOT_FOUND", "Message not found or not owned by this agent");

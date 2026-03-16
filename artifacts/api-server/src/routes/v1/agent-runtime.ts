@@ -136,6 +136,16 @@ function buildPromptBlockJson(
   };
 }
 
+router.get("/whoami", requireAgentAuth, async (req, res, next) => {
+  try {
+    const agent = req.authenticatedAgent!;
+    const bundle = await buildBootstrapBundle(agent);
+    res.json(bundle);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/:agentId/bootstrap", requireAgentAuth, async (req, res, next) => {
   try {
     const agent = ensureAgentOwnership(req, req.params.agentId as string);
