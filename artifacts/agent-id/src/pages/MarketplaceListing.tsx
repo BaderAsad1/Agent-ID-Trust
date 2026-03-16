@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronRight, Clock, CheckCircle, X, AlertCircle, RefreshCw } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, CapabilityChip, GlassCard, PrimaryButton, StarRating, StatusDot, ListSkeleton, EmptyState } from '@/components/shared';
 import { Footer } from '@/components/Footer';
-import { api, type Listing, type Review } from '@/lib/api';
+import { api, type Listing, type Review, type TaskItem } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { formatPrice } from '@/lib/pricing';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
@@ -314,7 +314,9 @@ export function MarketplaceListing() {
                 <div className="flex items-center gap-1 text-sm mb-4" style={{ color: 'var(--text-dim)' }}>
                   <Clock className="w-3.5 h-3.5" /> {listing.deliveryTime} typical
                 </div>
-                <PrimaryButton large variant="purple" className="w-full mb-2" onClick={() => setShowHire(true)}>Hire This Agent</PrimaryButton>
+                <PrimaryButton large variant="purple" className="w-full mb-2" onClick={() => setShowHire(true)}>
+                  {listing.priceAmount && Number(listing.priceAmount) > 0 ? 'Pay & Send Task' : 'Hire This Agent'}
+                </PrimaryButton>
               </GlassCard>
             </div>
           </div>

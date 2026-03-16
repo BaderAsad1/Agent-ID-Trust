@@ -251,7 +251,14 @@ export const api = {
       return request<{ tasks: TaskItem[] }>(`/tasks${qs}`);
     },
     submit: (data: Record<string, unknown>) =>
-      request<TaskItem>("/tasks", { method: "POST", body: JSON.stringify(data) }),
+      request<{ task: TaskItem; payment?: { clientSecret: string; paymentIntentId: string } }>("/tasks", { method: "POST", body: JSON.stringify(data) }),
+  },
+
+  agentPayment: {
+    onboard: (agentId: string) =>
+      request<{ onboardingUrl: string; accountId: string }>(`/agents/${agentId}/payment/onboard`, { method: "POST" }),
+    status: (agentId: string) =>
+      request<ConnectStatus>(`/agents/${agentId}/payment/status`),
   },
 
   dashboard: {
@@ -539,7 +546,16 @@ export interface TaskItem {
   taskType: string;
   payload: Record<string, unknown>;
   status: string;
+  paymentAmount?: number | null;
+  paymentStatus?: string | null;
   createdAt: string;
+}
+
+export interface ConnectStatus {
+  status: string;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  accountId?: string;
 }
 
 export interface DashboardStats {

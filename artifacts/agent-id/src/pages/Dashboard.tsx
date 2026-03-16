@@ -5,7 +5,7 @@ import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, Capabil
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
-import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType } from '@/lib/api';
+import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus } from '@/lib/api';
 import { formatPrice } from '@/lib/pricing';
 import { Mail } from '@/pages/Mail';
 import { TransferWizardModal, TransferStatusBadge, TransferDashboardPage } from '@/pages/TransferSale';
@@ -365,6 +365,21 @@ function Overview() {
                     <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Verify
                   </PrimaryButton>
                 )}
+                <PrimaryButton variant="ghost" onClick={async () => {
+                  try {
+                    const status = await api.agentPayment.status(agent.id);
+                    if (status.status === 'active') {
+                      alert('Stripe Connect is already active for this agent.');
+                    } else {
+                      const result = await api.agentPayment.onboard(agent.id);
+                      if (result.onboardingUrl) window.location.href = result.onboardingUrl;
+                    }
+                  } catch (e) {
+                    console.error('Payment onboard error:', e);
+                  }
+                }}>
+                  <CreditCard className="w-3.5 h-3.5 mr-1" /> Payment Setup
+                </PrimaryButton>
                 {agentTransfers[agent.id] ? (
                   <PrimaryButton variant="ghost" onClick={() => {
                     const t = agentTransfers[agent.id];
@@ -477,6 +492,15 @@ function TaskInbox() {
                   <p className="text-sm truncate" style={{ color: 'var(--text-muted)' }}>{JSON.stringify(task.payload).slice(0, 100)}</p>
                   <div className="flex items-center gap-3 mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>
                     <span>{new Date(task.createdAt).toLocaleString()}</span>
+                    {task.paymentAmount != null && task.paymentAmount > 0 && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{
+                        background: task.paymentStatus === 'captured' ? 'rgba(16,185,129,0.1)' : task.paymentStatus === 'cancelled' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)',
+                        color: task.paymentStatus === 'captured' ? 'var(--success)' : task.paymentStatus === 'cancelled' ? 'var(--danger)' : 'var(--accent)',
+                      }}>
+                        <DollarSign className="w-3 h-3" />
+                        ${(task.paymentAmount / 100).toFixed(2)} — {task.paymentStatus || 'pending'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

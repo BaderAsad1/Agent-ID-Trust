@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   timestamp,
+  integer,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -38,6 +39,9 @@ export const tasksTable = pgTable(
     acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
     respondedAt: timestamp("responded_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    paymentIntentId: varchar("payment_intent_id", { length: 255 }),
+    paymentAmount: integer("payment_amount"),
+    paymentStatus: varchar("payment_status", { length: 50 }),
     relatedOrderId: uuid("related_order_id"),
     originatingMessageId: uuid("originating_message_id"),
     createdAt: timestamp("created_at", { withTimezone: true })

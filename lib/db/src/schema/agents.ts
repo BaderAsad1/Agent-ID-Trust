@@ -73,6 +73,8 @@ export const agentsTable = pgTable(
     effectiveLiveTrust: real("effective_live_trust"),
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
     runtimeContext: jsonb("runtime_context").$type<Record<string, unknown>>(),
+    stripeConnectAccountId: text("stripe_connect_account_id"),
+    stripeConnectStatus: varchar("stripe_connect_status", { length: 50 }),
     bootstrapIssuedAt: timestamp("bootstrap_issued_at", { withTimezone: true }),
     ownerUserId: uuid("owner_user_id"),
     ownerVerifiedAt: timestamp("owner_verified_at", { withTimezone: true }),
@@ -96,6 +98,7 @@ export const agentsTable = pgTable(
     index("agents_parent_agent_id_idx").on(table.parentAgentId),
     index("agents_agent_type_idx").on(table.agentType),
     index("agents_ttl_expires_at_idx").on(table.ttlExpiresAt),
+    uniqueIndex("agents_stripe_connect_account_id_idx").on(table.stripeConnectAccountId),
   ],
 );
 

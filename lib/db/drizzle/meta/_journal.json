@@ -64,6 +64,13 @@
       "when": 1773697869264,
       "tag": "0008_subagent_lineage_system",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1773831600000,
+      "tag": "0009_stripe_connect_task_escrow",
+      "breakpoints": true
     }
   ]
 }

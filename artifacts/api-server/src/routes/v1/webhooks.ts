@@ -12,6 +12,7 @@ import {
   finalizeWebhookEvent,
 } from "../../services/billing";
 import { AppError } from "../../middlewares/error-handler";
+import { handleConnectAccountUpdated } from "../../services/stripe-connect";
 import type Stripe from "stripe";
 
 const router = Router();
@@ -128,6 +129,13 @@ router.post(
           case "charge.refunded":
             handleChargeRefunded(event.data.object as Stripe.Charge);
             break;
+          case "account.updated": {
+            const acct = event.data.object as Stripe.Account;
+            if (acct.id) {
+              await handleConnectAccountUpdated(acct.id);
+            }
+            break;
+          }
           default:
             await finalizeWebhookEvent("stripe", event.id, "skipped");
             res.json({ received: true, status: "skipped" });

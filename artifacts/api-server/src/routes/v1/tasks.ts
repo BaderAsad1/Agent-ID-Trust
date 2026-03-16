@@ -17,6 +17,7 @@ import {
 } from "../../services/tasks";
 import { forwardTask, getDeliveryReceipts } from "../../services/task-forwarding";
 import { logActivity } from "../../services/activity-logger";
+import { createTaskPaymentIntent, captureTaskPayment, cancelTaskPayment } from "../../services/stripe-connect";
 
 function requireHumanOrAgentAuth(req: Request, res: Response, next: NextFunction) {
   if (req.headers["x-agent-key"]) {
@@ -37,6 +38,7 @@ const submitTaskSchema = z.object({
   payload: z.record(z.string(), z.unknown()).optional(),
   relatedOrderId: z.string().uuid().optional(),
   idempotencyKey: z.string().max(255).optional(),
+  paymentAmount: z.number().int().positive().optional(),
 });
 
 router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
@@ -73,6 +75,16 @@ router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
       if (existing) {
         res.status(200).json({ task: existing, delivery: { status: "already_exists", attemptNumber: 0 } });
         return;
+      }
+    }
+
+    if (body.paymentAmount && body.paymentAmount > 0) {
+      const recipient = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, body.recipientAgentId),
+        columns: { stripeConnectAccountId: true, stripeConnectStatus: true },
+      });
+      if (!recipient?.stripeConnectAccountId || recipient.stripeConnectStatus !== "active") {
+        throw new Error("RECIPIENT_CONNECT_REQUIRED");
       }
     }
 
@@ -131,12 +143,22 @@ router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
       });
     } catch {}
 
+    let paymentInfo: { clientSecret: string | null; paymentIntentId: string } | undefined;
+    if (body.paymentAmount && body.paymentAmount > 0) {
+      paymentInfo = await createTaskPaymentIntent(
+        body.paymentAmount,
+        body.recipientAgentId,
+        createdTask.id,
+      );
+    }
+
     res.status(201).json({
       task,
       delivery: {
         status: forwardResult.deliveryReceipt.status,
         attemptNumber: forwardResult.deliveryReceipt.attemptNumber,
       },
+      ...(paymentInfo ? { payment: { clientSecret: paymentInfo.clientSecret, paymentIntentId: paymentInfo.paymentIntentId } } : {}),
     });
   } catch (err: unknown) {
     if (err instanceof z.ZodError) {
@@ -160,6 +182,13 @@ router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
       res
         .status(400)
         .json({ code: "SELF_TASK_NOT_ALLOWED", message: "Agent cannot send a task to itself" });
+      return;
+    }
+    if (message === "RECIPIENT_CONNECT_REQUIRED") {
+      res.status(422).json({
+        code: "RECIPIENT_CONNECT_REQUIRED",
+        message: "Recipient agent must have an active Stripe Connect account to accept paid tasks",
+      });
       return;
     }
     next(err);
@@ -552,6 +581,12 @@ router.patch("/:taskId/business-status", requireHumanOrAgentAuth, async (req, re
       return;
     }
 
+    if (body.status === "completed") {
+      await captureTaskPayment(taskId);
+    } else if (body.status === "failed" || body.status === "cancelled") {
+      await cancelTaskPayment(taskId);
+    }
+
     const eventType =
       body.status === "completed"
         ? ("agent.task_completed" as const)
@@ -576,6 +611,13 @@ router.patch("/:taskId/business-status", requireHumanOrAgentAuth, async (req, re
       return;
     }
     const message = err instanceof Error ? err.message : "";
+    if (message === "RECIPIENT_CONNECT_REQUIRED") {
+      res.status(422).json({
+        code: "RECIPIENT_CONNECT_REQUIRED",
+        message: "Recipient agent must have an active Stripe Connect account to accept paid tasks",
+      });
+      return;
+    }
     if (message.startsWith("INVALID_TRANSITION")) {
       res.status(409).json({
         code: "INVALID_TRANSITION",
