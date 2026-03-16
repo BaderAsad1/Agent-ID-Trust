@@ -4,6 +4,7 @@
   "description": "Official SDK for Agent ID — identity, trust, mail, tasks, and resolution for AI agents",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -35,6 +36,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/agentid/sdk"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
