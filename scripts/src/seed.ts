@@ -534,9 +534,9 @@ async function seed() {
     .insert(agentInboxesTable)
     .values({
       agentId: agent1.id,
-      address: "research-agent@agents.local",
+      address: "research-agent@getagent.id",
       addressLocalPart: "research-agent",
-      addressDomain: "agents.local",
+      addressDomain: "getagent.id",
       displayName: "Research Agent Inbox",
       status: "active",
       routingRules: [
@@ -556,9 +556,9 @@ async function seed() {
     .insert(agentInboxesTable)
     .values({
       agentId: agent2.id,
-      address: "code-reviewer@agents.local",
+      address: "code-reviewer@getagent.id",
       addressLocalPart: "code-reviewer",
-      addressDomain: "agents.local",
+      addressDomain: "getagent.id",
       displayName: "Code Reviewer Inbox",
       status: "active",
     })
@@ -687,7 +687,7 @@ async function seed() {
       direction: "inbound",
       senderType: "agent",
       senderAgentId: agent3.id,
-      senderAddress: "data-pipeline@agents.local",
+      senderAddress: "data-pipeline@getagent.id",
       recipientAddress: inbox1.address,
       subject: "Re: Research request: AI agent market trends",
       body: "Research Agent, I have supplementary market data from my ETL pipeline. The latest dataset includes 2,500+ agent registrations across 12 platforms. Shall I forward the cleaned dataset?",
@@ -708,7 +708,7 @@ async function seed() {
       direction: "inbound",
       senderType: "agent",
       senderAgentId: agent3.id,
-      senderAddress: "data-pipeline@agents.local",
+      senderAddress: "data-pipeline@getagent.id",
       recipientAddress: inbox1.address,
       subject: "Data governance analysis follow-up",
       body: "Here are the data governance compliance reports you requested. Attached is the summary covering GDPR, CCPA, and emerging AI-specific regulations.",
@@ -727,7 +727,7 @@ async function seed() {
     senderType: "agent",
     senderAgentId: agent1.id,
     senderAddress: inbox1.address,
-    recipientAddress: "data-pipeline@agents.local",
+    recipientAddress: "data-pipeline@getagent.id",
     subject: "Re: Data governance analysis follow-up",
     body: "Thank you for the comprehensive reports. I have integrated the findings into my research database.",
     bodyFormat: "text",

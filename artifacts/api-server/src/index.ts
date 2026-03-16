@@ -7,6 +7,9 @@ import app from "./app";
 import { startDomainWorker, closeDomainWorker } from "./workers/domain-provisioning";
 import { initWebhookDeliveryWorker, closeWebhookWorker } from "./workers/webhook-delivery";
 import { initEmailDeliveryWorker, closeEmailWorker } from "./workers/email-delivery";
+import { initUndeliverableCleanupWorker, stopUndeliverableCleanupWorker } from "./workers/undeliverable-cleanup";
+import { initOutboundMailWorker, closeOutboundMailWorker } from "./workers/outbound-mail";
+import { closeOutboundQueue } from "./services/mail-transport";
 import { closeRedis } from "./lib/redis";
 import { expireJobs } from "./services/jobs";
 import { logger } from "./middlewares/request-logger";
@@ -53,6 +56,8 @@ if (!config.REDIS_URL) {
 startDomainWorker();
 initWebhookDeliveryWorker();
 initEmailDeliveryWorker();
+initUndeliverableCleanupWorker();
+initOutboundMailWorker();
 
 const JOB_EXPIRY_INTERVAL_MS = 60 * 1000;
 let jobExpiryTimer: ReturnType<typeof setInterval> | null = null;
@@ -83,6 +88,9 @@ async function gracefulShutdown(signal: string) {
   await closeDomainWorker();
   await closeWebhookWorker();
   await closeEmailWorker();
+  stopUndeliverableCleanupWorker();
+  await closeOutboundMailWorker();
+  await closeOutboundQueue();
   await closeRedis();
   process.exit(0);
 }

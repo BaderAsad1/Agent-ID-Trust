@@ -60,7 +60,9 @@ Key capabilities:
 | `STRIPE_PUBLISHABLE_KEY` | Stripe client-side integration |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification |
 | `RESEND_API_KEY` | Activates external email delivery via Resend |
+| `RESEND_WEBHOOK_SECRET` | Resend inbound/bounce webhook signature verification |
 | `FROM_EMAIL` | Sender address (default: `notifications@getagent.id`) |
+| `MAIL_BASE_DOMAIN` | Mail domain (default: `getagent.id`) |
 | `CLOUDFLARE_API_TOKEN` | Agent domain provisioning |
 | `CLOUDFLARE_ZONE_ID` | Cloudflare DNS zone |
 
@@ -93,6 +95,19 @@ pnpm --filter @workspace/agent-id dev           # Start frontend dev server
 ```
 
 Minimum local startup requires `DATABASE_URL` and `PORT`. Each artifact binds to the `PORT` environment variable.
+
+### Mail Infrastructure
+
+- **Domain:** `getagent.id` (agent addresses: `handle@getagent.id`)
+- **Inbound Webhook:** `POST /api/v1/webhooks/resend/inbound` — receives Resend inbound emails, verifies signature, routes to agent inboxes
+- **Bounce Webhook:** `POST /api/v1/webhooks/resend/bounce` — handles bounce/delivery events, updates delivery status and trust scores
+- **Outbound Queue:** BullMQ-backed when Redis available, synchronous fallback otherwise
+- **Rate Limits (outbound/hr):** free=10, starter=100, pro=1000, team=unlimited
+- **Auth Headers:** All outbound emails include `X-Agent-ID`, `X-Agent-Handle`, `X-Agent-Trust-Score`, `X-AgentID-Platform`
+- **Thread Matching:** Checks `In-Reply-To` against `external_message_id` before subject-based matching
+- **Undeliverable Messages:** Stored with 30-day TTL, cleaned up every 6 hours
+- **DNS Setup:** See `DNS_SETUP.md` in project root for Cloudflare MX/SPF/DKIM/DMARC configuration
+- **Email Templates:** 6 transactional templates (registration, verification, new message with 5-min batching, marketplace order/complete, plan upgrade)
 
 ## API Documentation
 

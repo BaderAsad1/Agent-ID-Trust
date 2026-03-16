@@ -348,6 +348,31 @@ export const outboundMessageDeliveriesTable = pgTable(
   ],
 );
 
+export const undeliverableMessagesTable = pgTable(
+  "undeliverable_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    recipientAddress: varchar("recipient_address", { length: 255 }).notNull(),
+    senderAddress: varchar("sender_address", { length: 255 }).notNull(),
+    subject: varchar("subject", { length: 500 }),
+    body: text("body").notNull(),
+    bodyFormat: varchar("body_format", { length: 20 }).default("text").notNull(),
+    externalMessageId: varchar("external_message_id", { length: 500 }),
+    reason: varchar("reason", { length: 100 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("undeliverable_messages_recipient_idx").on(table.recipientAddress),
+    index("undeliverable_messages_expires_at_idx").on(table.expiresAt),
+    index("undeliverable_messages_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export type UndeliverableMessage = typeof undeliverableMessagesTable.$inferSelect;
+
 export const insertAgentInboxSchema = createInsertSchema(agentInboxesTable).omit({
   id: true,
   createdAt: true,

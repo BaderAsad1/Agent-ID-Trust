@@ -392,7 +392,27 @@ async function findOrCreateThread(
   agentId: string,
   subject: string | null | undefined,
   inReplyToId: string | null | undefined,
+  externalInReplyTo?: string | null,
 ): Promise<AgentThread> {
+  if (externalInReplyTo) {
+    const parentByExtId = await db.query.agentMessagesTable.findFirst({
+      where: and(
+        eq(agentMessagesTable.externalMessageId, externalInReplyTo),
+        eq(agentMessagesTable.agentId, agentId),
+      ),
+      columns: { threadId: true },
+    });
+    if (parentByExtId) {
+      const thread = await db.query.agentThreadsTable.findFirst({
+        where: and(
+          eq(agentThreadsTable.id, parentByExtId.threadId),
+          eq(agentThreadsTable.agentId, agentId),
+        ),
+      });
+      if (thread) return thread;
+    }
+  }
+
   if (inReplyToId) {
     const parentMsg = await db.query.agentMessagesTable.findFirst({
       where: and(
@@ -451,6 +471,7 @@ export interface SendMessageInput {
   bodyFormat?: string;
   structuredPayload?: Record<string, unknown>;
   inReplyToId?: string;
+  externalInReplyTo?: string;
   senderTrustScore?: number;
   senderVerified?: boolean;
   priority?: string;
@@ -465,6 +486,7 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
     input.agentId,
     input.subject,
     input.inReplyToId,
+    input.externalInReplyTo,
   );
 
   const initialProvenance: ProvenanceEntry[] = [{
@@ -562,25 +584,34 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
       body: input.body,
       bodyFormat: input.bodyFormat || "text",
       metadata: input.metadata,
+      agentId: input.agentId,
     });
-    await recordOutboundDeliveryResult(message.id, transportResult);
 
-    if (transportResult.success) {
+    if (transportResult.queued) {
       await db
         .update(agentMessagesTable)
-        .set({ deliveryStatus: "delivered", updatedAt: new Date() })
+        .set({ deliveryStatus: "queued", updatedAt: new Date() })
         .where(eq(agentMessagesTable.id, message.id));
     } else {
-      await db
-        .update(agentMessagesTable)
-        .set({ deliveryStatus: "failed", updatedAt: new Date() })
-        .where(eq(agentMessagesTable.id, message.id));
+      await recordOutboundDeliveryResult(message.id, transportResult);
 
-      await db.insert(messageEventsTable).values({
-        messageId: message.id,
-        eventType: "message.delivery_failed",
-        payload: { direction: input.direction },
-      });
+      if (transportResult.success) {
+        await db
+          .update(agentMessagesTable)
+          .set({ deliveryStatus: "delivered", updatedAt: new Date() })
+          .where(eq(agentMessagesTable.id, message.id));
+      } else {
+        await db
+          .update(agentMessagesTable)
+          .set({ deliveryStatus: "failed", updatedAt: new Date() })
+          .where(eq(agentMessagesTable.id, message.id));
+
+        await db.insert(messageEventsTable).values({
+          messageId: message.id,
+          eventType: "message.delivery_failed",
+          payload: { direction: input.direction },
+        });
+      }
     }
   }
 

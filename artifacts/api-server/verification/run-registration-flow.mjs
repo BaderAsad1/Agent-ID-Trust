@@ -227,7 +227,7 @@ async function run() {
       direction: 'inbound',
       senderType: 'agent',
       senderAgentId: agentId,
-      recipientAddress: `${handle}@agents.local`,
+      recipientAddress: `${handle}@getagent.id`,
       subject: 'Verification Test',
       body: 'This is an automated verification test message.',
       bodyFormat: 'text',

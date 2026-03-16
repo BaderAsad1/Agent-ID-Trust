@@ -27,14 +27,14 @@ describe('Mail Unit Tests — Service Logic', () => {
       const subject = `thread-group-test-${Date.now()}`;
       const send1 = await req(`/mail/agents/${agentId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ subject, body: 'First message', bodyFormat: 'text', direction: 'inbound', senderType: 'agent', senderAddress: 'a@agents.local' }),
+        body: JSON.stringify({ subject, body: 'First message', bodyFormat: 'text', direction: 'inbound', senderType: 'agent', senderAddress: 'a@getagent.id' }),
       });
       expect(send1.status).toBe(201);
       const threadId1 = send1.body.message.threadId;
 
       const send2 = await req(`/mail/agents/${agentId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ subject, body: 'Second message same subject', bodyFormat: 'text', direction: 'inbound', senderType: 'agent', senderAddress: 'b@agents.local' }),
+        body: JSON.stringify({ subject, body: 'Second message same subject', bodyFormat: 'text', direction: 'inbound', senderType: 'agent', senderAddress: 'b@getagent.id' }),
       });
       expect(send2.status).toBe(201);
       expect(send2.body.message.threadId).toBe(threadId1);
@@ -88,14 +88,14 @@ describe('Mail Unit Tests — Service Logic', () => {
       const subject = `multi-msg-test-${Date.now()}`;
       const send1 = await req(`/mail/agents/${agentId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ subject, body: 'From A', bodyFormat: 'text', direction: 'inbound', senderType: 'agent', senderAddress: 'participantA@agents.local' }),
+        body: JSON.stringify({ subject, body: 'From A', bodyFormat: 'text', direction: 'inbound', senderType: 'agent', senderAddress: 'participantA@getagent.id' }),
       });
       expect(send1.status).toBe(201);
       const threadId = send1.body.message.threadId;
 
       const send2 = await req(`/mail/agents/${agentId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ subject, body: 'From B', bodyFormat: 'text', direction: 'inbound', senderType: 'agent', senderAddress: 'participantB@agents.local' }),
+        body: JSON.stringify({ subject, body: 'From B', bodyFormat: 'text', direction: 'inbound', senderType: 'agent', senderAddress: 'participantB@getagent.id' }),
       });
       expect(send2.status).toBe(201);
       expect(send2.body.message.threadId).toBe(threadId);
@@ -240,7 +240,7 @@ describe('Mail Unit Tests — Service Logic', () => {
           senderType: 'agent',
           senderTrustScore: 85,
           senderVerified: true,
-          senderAddress: 'trusted-agent@agents.local',
+          senderAddress: 'trusted-agent@getagent.id',
         }),
       });
       expect(sendRes.status).toBe(201);
@@ -696,7 +696,7 @@ describe('Mail Unit Tests — Service Logic', () => {
       const ingestRes = await req('/mail/ingest', {
         method: 'POST',
         body: JSON.stringify({
-          recipientAddress: 'nonexistent@agents.local',
+          recipientAddress: 'nonexistent@getagent.id',
           senderAddress: 'external@sender.com',
           senderType: 'external',
           body: 'Should fail',

@@ -59,7 +59,7 @@ export function getPlanLimits(plan: string) {
     maxAgents: limits.maxPublicAgents,
     maxPublicAgents: limits.maxPublicAgents,
     maxPrivateAgents: limits.maxPrivateAgents,
-    canReceiveMail: plan !== "free",
+    canReceiveMail: true,
     canBePublic: plan !== "free",
     canListOnMarketplace: plan !== "free",
     canUsePremiumRouting: plan === "pro" || plan === "team",
@@ -516,7 +516,7 @@ export async function requirePlanFeature(
   const limits = getPlanLimits(plan);
 
   const featurePlanMap: Record<string, string> = {
-    canReceiveMail: "starter",
+    canReceiveMail: "free",
     canBePublic: "starter",
     canListOnMarketplace: "starter",
     canUsePremiumRouting: "pro",

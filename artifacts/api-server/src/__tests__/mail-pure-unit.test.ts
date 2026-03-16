@@ -129,7 +129,7 @@ describe('Pure Unit Tests — Mail Utils', () => {
 
     it('should match sender_address with eq', () => {
       expect(evaluateConditionSync(msg, { field: 'sender_address', operator: 'eq', value: 'bot@agents.example.com' })).toBe(true);
-      expect(evaluateConditionSync(msg, { field: 'sender_address', operator: 'eq', value: 'other@agents.local' })).toBe(false);
+      expect(evaluateConditionSync(msg, { field: 'sender_address', operator: 'eq', value: 'other@getagent.id' })).toBe(false);
     });
 
     it('should match priority field', () => {

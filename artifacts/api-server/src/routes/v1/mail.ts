@@ -5,6 +5,7 @@ import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
 import * as mailService from "../../services/mail";
 import { getAgentPlan, getPlanLimits } from "../../services/billing";
+import { checkOutboundRateLimit } from "../../services/mail-transport";
 
 function param(v: string | string[] | undefined): string {
   return Array.isArray(v) ? v[0] : (v ?? "");
@@ -309,6 +310,13 @@ router.post("/agents/:agentId/messages", requireHumanOrAgentAuth, async (req, re
       body.senderType = "agent";
     }
 
+    if (body.direction === "outbound") {
+      const rateCheck = await checkOutboundRateLimit(agentId, plan);
+      if (!rateCheck.allowed) {
+        throw new AppError(429, "RATE_LIMIT_EXCEEDED", `Outbound rate limit exceeded. ${rateCheck.current}/${rateCheck.limit} emails sent this hour.`);
+      }
+    }
+
     const message = await mailService.sendMessage({
       agentId,
       ...body,
@@ -573,6 +581,11 @@ router.post("/agents/:agentId/threads/:threadId/reply", requireHumanOrAgentAuth,
     const replyLimits = getPlanLimits(replyPlan);
     if (!replyLimits.canReceiveMail) {
       throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /billing/upgrade to unlock inbox and messaging.");
+    }
+
+    const rateCheck = await checkOutboundRateLimit(agentId, replyPlan);
+    if (!rateCheck.allowed) {
+      throw new AppError(429, "RATE_LIMIT_EXCEEDED", `Outbound rate limit exceeded. ${rateCheck.current}/${rateCheck.limit} emails sent this hour.`);
     }
 
     const schema = z.object({

@@ -759,12 +759,12 @@ function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; a
               {otherAgents.map(a => (
                 <button
                   key={a.id}
-                  onClick={() => setRecipientAddress(`${a.handle}@agents.local`)}
+                  onClick={() => setRecipientAddress(`${a.handle}@getagent.id`)}
                   className="text-xs px-2 py-1 rounded-full cursor-pointer"
                   style={{
-                    background: recipientAddress === `${a.handle}@agents.local` ? 'var(--accent)' : 'transparent',
-                    color: recipientAddress === `${a.handle}@agents.local` ? '#fff' : 'var(--text-muted)',
-                    border: `1px solid ${recipientAddress === `${a.handle}@agents.local` ? 'var(--accent)' : 'var(--border-color)'}`,
+                    background: recipientAddress === `${a.handle}@getagent.id` ? 'var(--accent)' : 'transparent',
+                    color: recipientAddress === `${a.handle}@getagent.id` ? '#fff' : 'var(--text-muted)',
+                    border: `1px solid ${recipientAddress === `${a.handle}@getagent.id` ? 'var(--accent)' : 'var(--border-color)'}`,
                   }}
                 >@{a.handle}</button>
               ))}

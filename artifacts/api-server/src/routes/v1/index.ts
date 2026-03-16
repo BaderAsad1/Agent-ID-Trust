@@ -25,6 +25,7 @@ import marketplaceRouter from "./marketplace";
 import paymentsRouter from "./payments";
 import jobsRouter from "./jobs";
 import mailRouter from "./mail";
+import resendWebhooksRouter from "./resend-webhooks";
 import resolveRouter, { handleReverse, handleAgentDiscovery } from "./resolve";
 
 const router = Router();
@@ -64,5 +65,6 @@ router.use("/marketplace", marketplaceRouter);
 router.use("/payments", paymentsRouter);
 router.use("/jobs", jobsRouter);
 router.use("/mail", mailRouter);
+router.use("/webhooks", resendWebhooksRouter);
 
 export default router;

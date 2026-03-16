@@ -43,20 +43,31 @@ app.use((req, res, next) => {
     next();
     return;
   }
+  if (req.path.startsWith("/api/v1/webhooks/resend/")) {
+    express.json({
+      limit: "100kb",
+      verify: (incomingReq, _res, buf) => {
+        (incomingReq as Request).rawBody = buf;
+      },
+    })(req, res, next);
+    return;
+  }
   express.json({ limit: "100kb" })(req, res, next);
 });
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error & { type?: string }, _req: Request, res: Response, next: NextFunction): void => {
   if (err.type === "entity.parse.failed") {
-    return res.status(400).json({
+    res.status(400).json({
       error: "invalid_json",
       message: "Request body contains invalid JSON",
     });
+    return;
   }
   if (err.type === "entity.too.large") {
-    return res.status(413).json({
+    res.status(413).json({
       error: "payload_too_large",
       message: "Request body exceeds the 100kb limit",
     });
+    return;
   }
   next(err);
 });

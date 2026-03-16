@@ -27,7 +27,8 @@ const envSchema = z.object({
   BASE_AGENT_DOMAIN: z.string().default("getagent.id"),
   APP_URL: z.string().default("https://getagent.id"),
   AGENT_PROXY_IP: z.string().default("127.0.0.1"),
-  MAIL_BASE_DOMAIN: z.string().default("agents.local"),
+  MAIL_BASE_DOMAIN: z.string().default("getagent.id"),
+  RESEND_WEBHOOK_SECRET: z.string().optional(),
 
   REPLIT_DEV_DOMAIN: z.string().optional(),
   REPL_ID: z.string().optional(),

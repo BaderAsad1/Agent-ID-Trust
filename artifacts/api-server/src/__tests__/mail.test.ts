@@ -35,9 +35,9 @@ describe('Agent Mail Integration Tests', () => {
       const res = await req(`/mail/agents/${agentId}/inbox`);
       expect(res.status).toBe(200);
       expect(res.body.inbox).toBeDefined();
-      expect(res.body.inbox.address).toContain('@agents.local');
+      expect(res.body.inbox.address).toContain('@getagent.id');
       expect(res.body.inbox.addressLocalPart).toBe('research-agent');
-      expect(res.body.inbox.addressDomain).toBe('agents.local');
+      expect(res.body.inbox.addressDomain).toBe('getagent.id');
       expect(res.body.inbox.status).toBe('active');
       inboxId = res.body.inbox.id;
     });
@@ -137,7 +137,7 @@ describe('Agent Mail Integration Tests', () => {
       const res = await req(`/mail/agents/${agentId}/messages`, {
         method: 'POST',
         body: JSON.stringify({
-          recipientAddress: 'code-reviewer@agents.local',
+          recipientAddress: 'code-reviewer@getagent.id',
           subject: 'Test message from integration tests',
           body: 'Hello from the integration test suite.',
           bodyFormat: 'text',
@@ -341,7 +341,7 @@ describe('Agent Mail Integration Tests', () => {
           bodyFormat: 'text',
           direction: 'inbound',
           senderType: 'agent',
-          senderAddress: 'test-agent@agents.local',
+          senderAddress: 'test-agent@getagent.id',
           senderVerified: true,
           priority: 'high',
         }),
