@@ -65,8 +65,8 @@ export class HttpClient {
 
         throw new AgentIDError(
           res.status,
-          (parsed.code as string) || "API_ERROR",
-          (parsed.error as string) || (parsed.message as string) || `HTTP ${res.status}`,
+          (parsed.code as string) || (parsed.error as string) || "API_ERROR",
+          (parsed.message as string) || (parsed.error as string) || `HTTP ${res.status}`,
           parsed.details,
         );
       }
