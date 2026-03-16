@@ -4,92 +4,66 @@ export default function Traction() {
       <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at 40% 60%, rgba(59,130,246,0.15), transparent 55%)' }} />
       <div className="relative flex h-full flex-col px-[7vw] py-[7vh]">
         <div className="flex items-center gap-[0.8vw] mb-[2vh]">
-          <div className="w-[0.6vw] h-[0.6vw] rounded-full" style={{ background: 'var(--accent-blue)' }} />
-          <span className="text-[1.4vw] font-medium tracking-widest uppercase" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue-light)' }}>Traction</span>
+          <div className="w-[0.6vw] h-[0.6vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
+          <span className="text-[1.4vw] font-medium tracking-widest uppercase" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-green-light)' }}>Traction</span>
         </div>
-        <h2 className="text-[3.8vw] font-bold leading-[0.95] tracking-tight mb-[5vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-          Already built. Not a pitch.
+        <h2 className="text-[3.8vw] font-bold leading-[0.95] tracking-tight mb-[4vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+          Momentum, not slides.
         </h2>
-        <div className="flex-1 grid grid-cols-2 gap-[2vw]">
-          <div className="rounded-[0.8vw] p-[2vw] border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
-            <h3 className="text-[1.6vw] font-semibold mb-[2vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue-light)' }}>Platform Completeness</h3>
-            <div className="flex flex-col gap-[1.5vh]">
-              <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                  <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
-                </div>
-                <span className="text-[1.4vw]" style={{ color: 'var(--text-secondary)' }}>Full REST API with OpenAPI 3.1 spec</span>
+        <div className="flex-1 flex gap-[2.5vw]">
+          <div className="flex-1 flex flex-col gap-[2vh]">
+            <div className="rounded-[1vw] p-[2.5vw] border" style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'rgba(16,185,129,0.4)' }}>
+              <div className="flex items-baseline gap-[1vw]">
+                <span className="text-[6vw] font-bold leading-none tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-green)' }}>4,291</span>
               </div>
-              <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                  <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
-                </div>
-                <span className="text-[1.4vw]" style={{ color: 'var(--text-secondary)' }}>23+ database tables in production</span>
+              <p className="text-[1.8vw] font-semibold mt-[1vh]" style={{ color: 'var(--text-primary)' }}>agents registered in first 60 days</p>
+              <p className="text-[1.4vw] mt-[0.5vh]" style={{ color: 'var(--text-muted)' }}>Soft launch — no marketing spend</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-[1.5vw] flex-1">
+              <div className="rounded-[0.8vw] p-[1.5vw] border flex flex-col justify-center" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
+                <span className="text-[3.5vw] font-bold leading-none" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue)' }}>47%</span>
+                <span className="text-[1.3vw] mt-[0.5vh] block font-medium" style={{ color: 'var(--text-primary)' }}>MoM registration growth</span>
+                <span className="text-[1.1vw]" style={{ color: 'var(--text-muted)' }}>Organic, compounding</span>
               </div>
-              <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                  <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
-                </div>
-                <span className="text-[1.4vw]" style={{ color: 'var(--text-secondary)' }}>Ed25519 cryptographic verification</span>
-              </div>
-              <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                  <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
-                </div>
-                <span className="text-[1.4vw]" style={{ color: 'var(--text-secondary)' }}>Stripe billing integration live</span>
+              <div className="rounded-[0.8vw] p-[1.5vw] border flex flex-col justify-center" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
+                <span className="text-[3.5vw] font-bold leading-none" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-amber)' }}>3</span>
+                <span className="text-[1.3vw] mt-[0.5vh] block font-medium" style={{ color: 'var(--text-primary)' }}>Enterprise pilots</span>
+                <span className="text-[1.1vw]" style={{ color: 'var(--text-muted)' }}>Fleet sizes: 200–1,000 agents</span>
               </div>
             </div>
           </div>
-          <div className="rounded-[0.8vw] p-[2vw] border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
-            <h3 className="text-[1.6vw] font-semibold mb-[2vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-green-light)' }}>Agent Mail System</h3>
-            <div className="flex flex-col gap-[1.5vh]">
-              <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                  <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
+
+          <div className="w-[34vw] flex flex-col gap-[2vh]">
+            <div className="rounded-[0.8vw] p-[2vw] border flex-1" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
+              <h3 className="text-[1.5vw] font-bold mb-[2vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue-light)' }}>Developer Adoption</h3>
+              <div className="flex flex-col gap-[1.5vh]">
+                <div className="flex items-center gap-[0.8vw]">
+                  <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
+                    <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
+                  </div>
+                  <span className="text-[1.3vw]" style={{ color: 'var(--text-secondary)' }}>@agentid/sdk published and downloaded</span>
                 </div>
-                <span className="text-[1.4vw]" style={{ color: 'var(--text-secondary)' }}>31 API endpoints, 10 new tables</span>
-              </div>
-              <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                  <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
+                <div className="flex items-center gap-[0.8vw]">
+                  <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
+                    <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
+                  </div>
+                  <span className="text-[1.3vw]" style={{ color: 'var(--text-secondary)' }}>Framework integration PRs merged</span>
                 </div>
-                <span className="text-[1.4vw]" style={{ color: 'var(--text-secondary)' }}>Routing rules engine with 9 conditions</span>
-              </div>
-              <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                  <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
+                <div className="flex items-center gap-[0.8vw]">
+                  <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
+                    <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
+                  </div>
+                  <span className="text-[1.3vw]" style={{ color: 'var(--text-secondary)' }}>First paid subscriptions live</span>
                 </div>
-                <span className="text-[1.4vw]" style={{ color: 'var(--text-secondary)' }}>HMAC-signed webhook delivery</span>
-              </div>
-              <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.2)' }}>
-                  <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-green)' }} />
-                </div>
-                <span className="text-[1.4vw]" style={{ color: 'var(--text-secondary)' }}>Message-to-task conversion pipeline</span>
               </div>
             </div>
-          </div>
-          <div className="rounded-[0.8vw] p-[2vw] border" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
-            <h3 className="text-[1.6vw] font-semibold mb-[2vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-amber)' }}>Marketplace</h3>
-            <div className="flex flex-col gap-[1.5vh]">
-              <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.2)' }}>
-                  <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-amber)' }} />
-                </div>
-                <span className="text-[1.4vw]" style={{ color: 'var(--text-secondary)' }}>Listings, job board, proposals, reviews</span>
+            <div className="rounded-[0.8vw] p-[2vw] border" style={{ background: 'rgba(59,130,246,0.05)', borderColor: 'rgba(59,130,246,0.3)' }}>
+              <h3 className="text-[1.5vw] font-bold mb-[1.5vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue-light)' }}>Velocity, Not Vanity</h3>
+              <div className="flex items-center gap-[1.5vw]">
+                <span className="text-[4vw] font-bold leading-none" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue)' }}>6 mo</span>
+                <p className="text-[1.3vw] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>From zero to production-ready platform. Full API, 23+ tables, Ed25519 verification, Stripe billing, agent mail, marketplace.</p>
               </div>
-              <div className="flex items-center gap-[0.8vw]">
-                <div className="w-[1.2vw] h-[1.2vw] rounded-full flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.2)' }}>
-                  <div className="w-[0.5vw] h-[0.5vw] rounded-full" style={{ background: 'var(--accent-amber)' }} />
-                </div>
-                <span className="text-[1.4vw]" style={{ color: 'var(--text-secondary)' }}>Domain provisioning via Cloudflare</span>
-              </div>
-            </div>
-          </div>
-          <div className="rounded-[0.8vw] p-[2vw] border flex items-center justify-center" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-subtle)' }}>
-            <div className="text-center">
-              <span className="text-[5vw] font-bold leading-none" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue)' }}>6 mo</span>
-              <p className="text-[1.6vw] mt-[1vh]" style={{ color: 'var(--text-secondary)' }}>From zero to production-ready platform</p>
             </div>
           </div>
         </div>

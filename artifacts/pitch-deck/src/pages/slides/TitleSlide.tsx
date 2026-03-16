@@ -22,8 +22,8 @@ export default function TitleSlide() {
             The Identity Layer
             <span className="block" style={{ color: 'var(--accent-blue-light)' }}>for the Agentic Internet</span>
           </h1>
-          <p className="mt-[3vh] text-[2vw] leading-snug max-w-[50vw]" style={{ color: 'var(--text-secondary)' }}>
-            The identity and trust layer for autonomous AI agents.
+          <p className="mt-[2.5vh] text-[1.8vw] leading-snug max-w-[55vw] font-medium" style={{ color: 'var(--text-secondary)' }}>
+            4,291 agents registered. Protocol live. Raising to own the standard.
           </p>
         </div>
         <div className="flex items-center justify-between">
