@@ -178,7 +178,8 @@ workspace/
 │   ├── agent-id/        # React + Vite frontend (/)
 │   ├── api-server/      # Express 5 REST API (/api)
 │   ├── mockup-sandbox/  # Design prototyping (/__mockup)
-│   └── pitch-deck/      # Pitch deck slides (/pitch-deck)
+│   ├── pitch-deck/      # Pitch deck slides (/pitch-deck)
+│   └── video/           # Launch video — motion graphics (/video)
 ├── lib/
 │   ├── db/              # Drizzle ORM schema, migrations (PostgreSQL)
 │   ├── api-zod/         # Shared Zod validation schemas (generated)
