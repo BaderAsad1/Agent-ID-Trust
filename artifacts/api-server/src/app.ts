@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import router from "./routes";
@@ -43,7 +43,22 @@ app.use((req, res, next) => {
     next();
     return;
   }
-  express.json()(req, res, next);
+  express.json({ limit: "100kb" })(req, res, next);
+});
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({
+      error: "invalid_json",
+      message: "Request body contains invalid JSON",
+    });
+  }
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({
+      error: "payload_too_large",
+      message: "Request body exceeds the 100kb limit",
+    });
+  }
+  next(err);
 });
 app.use(express.urlencoded({ extended: true }));
 
