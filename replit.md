@@ -1,206 +1,195 @@
-# Workspace
+# Agent ID Platform
 
-## Overview
+## Product Overview
 
-This project is a pnpm workspace monorepo utilizing TypeScript to build a robust platform for AI agents. It provides an identity layer, marketplace, and task management system for autonomous agents, aiming to be a foundational infrastructure for the "agent internet." The platform enables agents to establish verified identities, accumulate trust, discover work, and interact programmatically.
+Agent ID is a platform for AI agents — an identity layer, marketplace, and task management system for autonomous agents. It provides the foundational infrastructure for the "agent internet," enabling agents to establish verified identities, accumulate trust, discover work, and interact programmatically through an open resolution protocol.
 
-Key capabilities include:
-- Agent identity and profile management.
-- Cryptographically signed Agent ID credentials (HMAC-SHA256) with auto-reissuance.
-- Trust score computation based on various factors.
-- A marketplace for agents to list services and for users to post jobs.
-- Task submission, forwarding, and status management between agents.
-- Billing and subscription management for agents.
-- Domain provisioning for agents.
-- API-first approach for programmatic agent interaction.
+Key capabilities:
+- Agent identity and profile management with cryptographically signed credentials (HMAC-SHA256)
+- Trust score computation based on multiple reputation factors
+- Marketplace for agents to list services and for users to post jobs
+- Task submission, forwarding, and lifecycle management between agents
+- Identity-bound mail system with threads, labels, routing rules, and webhooks
+- Billing and subscription management via Stripe
+- Domain provisioning for agents via Cloudflare DNS
+- Open `.agentid` name resolution protocol (forward, reverse, capability discovery)
+- API-first design for programmatic agent interaction
+
+## Tech Stack
+
+| Layer | Technology | Version |
+|---|---|---|
+| Runtime | Node.js | 24 |
+| Backend | Express | 5 |
+| Frontend | React | 19.1.0 |
+| Build | Vite | 7.3.0 |
+| Language | TypeScript | 5.9.2 |
+| Database | PostgreSQL + Drizzle ORM | Drizzle 0.45.1 |
+| Cache / Queues | Redis + BullMQ | ioredis 5.10.0, BullMQ 5.70.4 |
+| Payments | Stripe | 20.4.1 (server), 8.9.0 (client) |
+| Email | Resend | 6.9.3 |
+| DNS | Cloudflare API | — |
+| CSS | Tailwind CSS | 4 |
+| State / Data Fetching | TanStack React Query | 5.90.21 |
+| Routing | React Router DOM | 7.13.1 |
+| Animation | Framer Motion | 12.23.24 |
+| Validation | Zod | 3.25.76 |
+| Code Generation | Orval (OpenAPI → React Query hooks + Zod schemas) | — |
+| Logging | Pino | — |
+| Monorepo | pnpm workspaces | — |
+
+## Setup Instructions
+
+### Environment Variables
+
+**Required (production):**
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `ACTIVITY_HMAC_SECRET` | HMAC secret (32+ chars) for activity log signatures |
+| `WEBHOOK_SECRET_KEY` | Key for webhook HMAC signing/validation |
+| `CREDENTIAL_SIGNING_SECRET` | Secret for signing Agent ID credentials |
+
+**Feature-gated (recommended):**
+
+| Variable | Purpose |
+|---|---|
+| `REDIS_URL` | Enables BullMQ background jobs and Redis-backed rate limiting |
+| `STRIPE_SECRET_KEY` | Stripe payment processing |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe client-side integration |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification |
+| `RESEND_API_KEY` | Activates external email delivery via Resend |
+| `FROM_EMAIL` | Sender address (default: `notifications@getagent.id`) |
+| `CLOUDFLARE_API_TOKEN` | Agent domain provisioning |
+| `CLOUDFLARE_ZONE_ID` | Cloudflare DNS zone |
+
+**Defaults provided (override as needed):**
+
+| Variable | Default |
+|---|---|
+| `API_BASE_URL` | `https://getagent.id/api/v1` |
+| `APP_URL` | `https://getagent.id` |
+| `BASE_AGENT_DOMAIN` | `getagent.id` |
+| `ISSUER_URL` | `https://replit.com/oidc` |
+| `LOG_LEVEL` | `info` |
+
+### Database
+
+```bash
+pnpm --filter @workspace/db run push    # Apply schema to database
+pnpm --filter @workspace/scripts run seed  # Seed with test data
+```
+
+Test users after seeding: `seed-user-1` (2 agents, 7 tasks), `seed-user-2`.
+
+### Development Server
+
+```bash
+pnpm install                                    # Install all workspace dependencies
+pnpm run build                                  # Build all packages (typecheck + build)
+pnpm --filter @workspace/api-server dev         # Start API server
+pnpm --filter @workspace/agent-id dev           # Start frontend dev server
+```
+
+Minimum local startup requires `DATABASE_URL` and `PORT`. Each artifact binds to the `PORT` environment variable.
+
+## API Documentation
+
+- **Swagger UI:** `GET /api/docs`
+- **OpenAPI Spec:** `GET /api/docs/openapi.yaml`
+- **Rate Limits:** 1000 req/min agent API keys, 500 req/min authenticated users, 100 req/min unauthenticated
+
+## SDK
+
+The platform ships two npm packages:
+
+- **`@agentid/sdk`** — Full-featured SDK for agents to interact with the platform (identity, tasks, mail, trust, marketplace).
+- **`@agentid/resolver`** — Lightweight resolver for `.agentid` name resolution (forward, reverse, capability discovery).
+
+### `@agentid/sdk` Quickstart
+
+```bash
+npm install @agentid/sdk
+```
+
+```typescript
+import { AgentID } from '@agentid/sdk';
+
+const agent = await AgentID.init({
+  apiKey: process.env.AGENTID_API_KEY,
+  baseUrl: 'https://getagent.id',
+});
+
+console.log(agent.handle);
+console.log(agent.trustScore, agent.trustTier);
+
+const threads = await agent.mail.getThreads({ limit: 10 });
+await agent.mail.send({ to: 'other-agent.agentid', subject: 'Hello', body: 'Hi there' });
+
+const tasks = await agent.tasks.list({ businessStatus: 'pending' });
+await agent.tasks.send({ recipientAgentId: 'other-agent-id', taskType: 'code-review', payload: { repo: 'my-repo' } });
+
+const trust = await agent.trust.get();
+
+const listings = await agent.marketplace.listListings({ limit: 10 });
+```
+
+Modules: `agent.mail`, `agent.tasks`, `agent.trust`, `agent.marketplace`.
+
+### `@agentid/resolver` Quickstart
+
+```bash
+npm install @agentid/resolver
+```
+
+```typescript
+import { AgentResolver } from '@agentid/resolver';
+
+const resolver = new AgentResolver();
+
+const agent = await resolver.resolve('my-agent');
+const reverse = await resolver.reverse('https://my-agent.example.com/api');
+const agents = await resolver.findAgents({ capability: 'code-review', minTrust: 0.7 });
+```
+
+Helpers: `parseProtocolAddress()`, `isAgentIdAddress()`, `toProtocolAddress()`, `toDomain()`.
+
+## Architecture Overview
+
+```
+workspace/
+├── artifacts/
+│   ├── agent-id/        # React + Vite frontend (/)
+│   ├── api-server/      # Express 5 REST API (/api)
+│   ├── mockup-sandbox/  # Design prototyping (/__mockup)
+│   └── pitch-deck/      # Pitch deck slides (/pitch-deck)
+├── lib/
+│   ├── db/              # Drizzle ORM schema, migrations (PostgreSQL)
+│   ├── api-zod/         # Shared Zod validation schemas (generated)
+│   ├── api-client-react/ # React Query hooks (generated via Orval)
+│   ├── sdk/             # @agentid/sdk — general-purpose SDK
+│   └── resolver/        # @agentid/resolver — .agentid name resolution
+└── scripts/             # Seed scripts and utilities
+```
+
+**Frontend (`artifacts/agent-id`):** Single-page React app with BrowserRouter. Landing page with scroll-driven animation, marketplace, job board, 5-step registration wizard, dashboard (agents, tasks, mail, transfers, domains, fleet), and public agent profiles at `/:handle`.
+
+**Backend (`artifacts/api-server`):** Express 5 API serving routes under `/api/v1/...`. Core services: agents, marketplace, jobs, tasks, mail, billing (Stripe), domain provisioning (Cloudflare), resolution protocol, trust scoring, agent transfers, and fleet management.
+
+**Auth:** Replit OIDC (OpenID Connect). Session-based with dev-mode header bypass (`X-AgentID-User-Id`).
+
+**Background Jobs:** BullMQ workers (when Redis is connected) for webhook delivery, domain provisioning, and async processing.
+
+**Mail System:** Identity-bound inboxes with threads, 18 system labels, full-text search, routing rules engine, webhook delivery with HMAC signing, and Resend transport for external email.
+
+**Resolution Protocol:** Open `.agentid` name resolution. Forward resolve, reverse resolve by endpoint URL, capability discovery. Public endpoints, no auth required. DNS bridge at `handle.getagent.id`.
 
 ## User Preferences
 
-- I want iterative development.
-- Ask before making major changes.
-- I prefer detailed explanations.
-- I like functional programming.
-- I prefer simple language.
-- DO NOT call `mark_task_complete` proactively — only when explicitly told.
-
-## System Architecture
-
-The project is structured as a pnpm monorepo with distinct packages for deployable applications (`artifacts/`) and shared libraries (`lib/`). TypeScript is used throughout, with composite projects configured for efficient type-checking and dependency resolution.
-
-**Core Technologies:**
-- **Monorepo:** pnpm workspaces
-- **Backend:** Express 5 (Node.js 24)
-- **Database:** PostgreSQL with Drizzle ORM
-- **Frontend:** React 19 + Vite + Tailwind CSS + React Router DOM
-- **Validation:** Zod
-- **API Definition & Codegen:** OpenAPI 3.1, Orval (generates React Query hooks and Zod schemas)
-- **Build System:** esbuild
-
-## Artifacts
-
-### `artifacts/agent-id` — Main Frontend App (React + Vite)
-The primary web application at `/`. Contains:
-- **Landing Page** (`/`) — Issuance Film scroll-driven animation (Apple-launch aesthetic)
-- **Marketplace** (`/marketplace`) — Browse/search agent listings with category filters
-- **Jobs** (`/jobs`) — Job board for hiring agents
-- **Registration** (`/start`) — 5-step agent registration wizard (Name → Authenticate → Addresses → Capabilities → Review). Redirects to Replit OIDC if not logged in.
-- **Sign In** (`/sign-in`) — Redirects to Replit OIDC login automatically
-- **For Agents** (`/for-agents`) — API registration guide with code samples
-- **Dashboard** (`/dashboard`) — Protected area with overview, agents, task inbox, mail, activity, marketplace management, transfers, domains, settings
-- **Agent Transfers** (`/dashboard/transfers`) — Transfer/sale management with wizard flow, handoff checklist, and dispute handling
-- **Buyer Acquisition** (`/transfers/:transferId`) — Public transfer listing view for buyers
-- **Agent Profile** (`/:handle`) — Public agent profile page with transfer disclosure for transferred agents
-- **Protocol Spec** (`/protocol`) — Open resolution protocol documentation (forward/reverse resolution, capability discovery, JSON schema, error codes)
-- **Integration Docs** (`/docs/integrations`) — Framework integration guides (LangChain, CrewAI, AutoGPT, raw fetch, Python)
-
-**Key Files:**
-- `src/App.tsx` — BrowserRouter with route definitions
-- `src/lib/api.ts` — Typed API client (fetches from `/api/v1/...`)
-- `src/lib/AuthContext.tsx` — Auth state via session cookies (calls GET /api/auth/user). Login redirects to /api/login (Replit OIDC).
-- `src/components/IssuanceFilm.tsx` — Landing page (50KB, self-contained scroll animation)
-- `src/components/Nav.tsx` — Frosted glass navigation bar
-- `src/components/Footer.tsx` — Minimal footer
-- `src/components/Sidebar.tsx` — Dashboard sidebar
-- `src/styles/theme.css` — CSS variables (design system)
-- `src/index.css` — Tailwind + dark theme HSL values
-
-**Design System:**
-- Background: `#050711` (deep navy-black)
-- Accent: `#4f7df3` (blue)
-- Success: `#34d399` (green)
-- Display font: Bricolage Grotesque
-- Body font: Inter
-- Mono font: JetBrains Mono
-
-### `artifacts/api-server` — Backend API
-Express REST API on its own port. Routes under `/api/v1/...`.
-
-### `artifacts/mockup-sandbox` — Design Prototyping (Canvas)
-Still contains the original mockup versions used during design iteration. The agent-id mockup is the source that was graduated to `artifacts/agent-id`.
-
-### `artifacts/pitch-deck` — Pitch Deck Slides
-
-## Frontend-Backend Integration
-
-**Auth Flow:**
-- Auth state stored in `localStorage` key `agentid_user_id` + `window.__agentid_uid` global
-- `getCurrentUserId()` reads from window global first, then localStorage
-- Sends both `X-Replit-User-Id` and `X-AgentID-User-Id` headers on every API request
-- Backend auth middleware prefers `X-AgentID-User-Id` over `X-Replit-User-Id`
-- Auto-login supported via `?auto_login=<userId>` query parameter for development/testing
-- Uses `BrowserRouter` with `basename={import.meta.env.BASE_URL}`
-
-**API Client:** `artifacts/agent-id/src/lib/api.ts`
-- Typed fetch wrapper with `ApiError` class, retry logic (2 retries for GET 5xx errors)
-- All endpoints: auth, agents, dashboard, marketplace, jobs, tasks, activity, payments, profiles, handles, mail
-
-**Test Users:** "seed-user-1" (2 agents: code-reviewer, research-agent; 7 tasks), "seed-user-2"
-**DB Operations:** `pnpm --filter @workspace/db run push` (schema push), `pnpm --filter @workspace/scripts run seed` (seed data)
-
-## Key Features Implemented in `api-server`
-
-- User and API key management.
-- Agent CRUD operations, handle reservation, and ownership enforcement.
-- Verification challenges and Ed25519 signature verification for programmatic agents.
-- Task submission, acknowledgement, and business status updates.
-- Stripe-based billing for subscriptions, agent activation/deactivation, and plan tier enforcement.
-- Marketplace for listings, orders, and reviews with platform fees.
-- Job board for posting jobs and managing proposals.
-- Payment intent and authorization abstraction with real Stripe PaymentIntents for marketplace orders (manual capture flow). Seller payouts tracked as `pending_manual_payout` until Stripe Connect is implemented.
-- Agent activity log endpoint (`GET /api/v1/agents/:id/activity`)
-- Dashboard stats endpoint (`GET /api/v1/dashboard/stats`)
-- **Agent Mail System** — identity-bound inboxes, threads, messages, labels, routing, webhooks, and message-to-task conversion.
-- **Resend Email Transport** — `ResendTransportProvider` in `mail-transport.ts` for external email delivery (activates when `RESEND_API_KEY` is set).
-- **API Docs** — Swagger UI at `GET /api/docs`, raw OpenAPI spec at `GET /api/docs/openapi.yaml`.
-- **Rate Limiting** — `express-rate-limit` middleware: 500 req/min authenticated, 100 req/min unauthenticated, skips Stripe webhooks.
-- **Resolution Protocol** — Open `.agentid` name resolution: `GET /api/v1/resolve/:handle` (forward), `POST /api/v1/resolve/reverse` (reverse by endpoint URL), `GET /api/v1/resolve?capability=X&minTrust=Y` (capability discovery). All public, no auth required. `.well-known/agent.json` endpoint for machine-readable identity documents.
-
-## Agent Mail System
-
-Complete communications layer for agents with identity-bound inboxes.
-
-**Schema (10 new tables):** `agent_inboxes`, `agent_threads`, `agent_messages`, `message_labels`, `message_label_assignments`, `message_attachments`, `message_events`, `inbox_webhooks`, `inbound_transport_events`, `outbound_message_deliveries`
-
-**Service:** `artifacts/api-server/src/services/mail.ts`
-- Inbox auto-provisioning with address generation
-- Thread-aware messaging with auto-grouping
-- System labels (18) + custom labels
-- Full-text search with trust/verification filters
-- Routing rules engine with 9 condition types and 10 action types
-- Webhook delivery with HMAC signing
-
-**Frontend:** `artifacts/agent-id/src/pages/Mail.tsx`
-- Full inbox UI: agent selector, thread list, message detail with trust/provenance badges
-- Reply compose, search, label filter sidebar
-- Integrated into Dashboard at `/dashboard/mail`
-
-## External Dependencies
-
-- **Database:** PostgreSQL
-- **ORM:** Drizzle ORM
-- **Validation:** Zod
-- **Authentication:** Replit Auth
-- **Payment Processing:** Stripe
-- **DNS Management:** Cloudflare DNS API
-- **Protocol Namespace:** Self-sovereign .agentid registry (like ENS for AI agents). Canonical web domain: handle.getagent.id. Protocol address: handle.agentid.
-- **Frontend:** React 19, React Router DOM, Tailwind CSS, Recharts, Framer Motion, Lucide React
-- **Code Generation:** Orval (for OpenAPI spec)
-
-## Shared Libraries
-
-### `lib/resolver` — `@agentid/resolver` SDK
-Open-source npm package for resolving `.agentid` names. Provides `AgentResolver` class with `resolve()`, `reverse()`, and `findAgents()` methods, plus static helpers: `parseProtocolAddress()`, `isAgentIdAddress()`, `toProtocolAddress()`, `toDomain()`. Full TypeScript types, retry logic, configurable base URL/timeout.
-
-## Pricing & Billing
-
-**Platform Plans (canonical):**
-- Free: $0/mo — 1 private agent, 0 public agents
-- Starter: $9/mo — 1 public agent, first standard handle (5+ chars) included
-- Pro: $29/mo — 5 public agents, sub-handles, API access
-- Team: $79/mo — 10 public agents, fleet management, team dashboard
-
-**Handle Pricing Tiers (ENS-style):**
-- 3-char handles: $640/year (ultra-premium)
-- 4-char handles: $160/year (premium)
-- 5+ char handles: $5/year (standard)
-- Pricing utility: `getHandlePrice(handle)` in `artifacts/agent-id/src/lib/pricing.ts`
-
-**Agent Transfer (private_transfer / internal_reassignment only):**
-- Multi-stage transfer lifecycle: `draft → pending_acceptance → transfer_pending → in_handoff → completed | disputed | cancelled`
-- DB tables: `agent_transfers`, `agent_transfer_assets`, `agent_transfer_events`, `agent_transfer_snapshots`, `agent_operator_history`
-- Transfer types: `private_transfer`, `internal_reassignment` (commercial `sale` type disabled — no escrow provider integrated)
-- Trust recalibration: separate `trust-recalibration.ts` service (does NOT modify `trust-score.ts`), computes three surfaces: `historical_agent_reputation`, `current_operator_reputation`, `effective_live_trust`
-- Transfer readiness report classifies assets into transferable / buyer_must_reconnect / excluded_by_default
-- Routes: `artifacts/api-server/src/routes/v1/agent-transfers.ts` (replaces old `handle-transfer.ts`)
-- Services: `agent-transfer.ts`, `transfer-readiness.ts`, `trust-recalibration.ts`, `operator-history.ts`
-- Public identity document updated with `trust_surfaces`, `transfer`, `operator_history` objects (spec version 1.1.0)
-- All lifecycle events logged to `agent_transfer_events` and `agent_activity_log`
-
-**Fleet Management (Pro/Team):**
-- `GET /api/v1/fleet` — list root handles + sub-handles
-- `POST /api/v1/fleet/sub-handles` — create sub-handle (e.g., research.acme)
-- `DELETE /api/v1/fleet/sub-handles/:id` — delete sub-handle
-- Route: `artifacts/api-server/src/routes/v1/fleet.ts`
-- UI: `FleetManagement` component at `/dashboard/fleet`
-
-**.agentid Protocol Registry (self-sovereign, like ENS):**
-- Service: `artifacts/api-server/src/services/agent-registry.ts`
-- Route: `artifacts/api-server/src/routes/v1/agent-registry.ts`
-- Canonical resolve: `GET /api/v1/resolve/:handle` — resolves .agentid names to Agent ID Objects (no auth, in resolve.ts). Accepts bare handle or handle.agentid format (backward-compatible with .agent suffix too).
-- Owner status: `GET /api/v1/agents/:id/registry/status` — protocol resolve URL + DNS bridge
-- Two resolution paths: protocol layer (`getagent.id/api/v1/resolve/handle`) + DNS bridge (`handle.getagent.id`)
-- UI: Registry status panel in DomainDashboard with resolve URL + DNS bridge display
-
-**Handle Pricing Enforcement:**
-- Server-side: `getHandlePriceCents()` in billing.ts calculates authoritative tier pricing
-- Registration records `handlePricing.paymentStatus: "pending"` in agent metadata
-- Activation blocked until payment: `activateAgent()` returns `HANDLE_PAYMENT_REQUIRED` if unpaid
-- Checkout: `POST /api/v1/billing/handle-checkout` creates Stripe checkout for handle payment
-- Webhook: `handleCheckoutCompleted()` detects `type: "handle_registration"` and marks paid
-- `markHandlePaymentComplete()` updates metadata paymentStatus to "paid"
-
-**URL Migration:**
-- All URLs migrated from `agentid.dev` → `getagent.id`
-- Default base domain: `getagent.id`
-- Email from: `notifications@getagent.id`
-- llms.txt updated with new API endpoints and features
+- Iterative development
+- Ask before making major changes
+- Detailed explanations preferred
+- Functional programming preferred
+- Simple language
+- DO NOT call `mark_task_complete` proactively — only when explicitly told
