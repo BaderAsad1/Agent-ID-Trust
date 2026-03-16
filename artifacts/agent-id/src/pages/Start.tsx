@@ -183,6 +183,7 @@ export function Start() {
   const [selectedCaps, setSelectedCaps] = useState<string[]>([]);
   const [endpoint, setEndpoint] = useState('');
 
+  const [pendingSubmit, setPendingSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
@@ -204,7 +205,54 @@ export function Start() {
     return () => clearTimeout(t);
   }, [handle]);
 
-  const handleSubmit = async () => {
+  const STORAGE_KEY = 'agent-id-wizard-draft';
+
+  const saveFormState = () => {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      handle, agentName, description, selectedAuthMethod, selectedCaps, endpoint, step,
+      pendingAuthSubmit: true,
+    }));
+  };
+
+  const clearFormState = () => {
+    sessionStorage.removeItem(STORAGE_KEY);
+  };
+
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (draftRestored) return;
+
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) { setDraftRestored(true); return; }
+
+    try {
+      const data = JSON.parse(raw);
+      if (data.handle) setHandle(data.handle);
+      if (data.agentName) setAgentName(data.agentName);
+      if (data.description) setDescription(data.description);
+      if (data.selectedAuthMethod) setSelectedAuthMethod(data.selectedAuthMethod);
+      if (data.selectedCaps) setSelectedCaps(data.selectedCaps);
+      if (data.endpoint) setEndpoint(data.endpoint);
+      if (data.step) setStep(data.step);
+
+      if (data.pendingAuthSubmit && userId) {
+        setPendingSubmit(true);
+      }
+    } catch { /* ignore corrupt data */ }
+
+    setDraftRestored(true);
+  }, [authLoading, draftRestored, userId]);
+
+  useEffect(() => {
+    if (pendingSubmit && userId && draftRestored) {
+      setPendingSubmit(false);
+      doSubmit();
+    }
+  }, [pendingSubmit, userId, draftRestored]);
+
+  const doSubmit = async () => {
     setSubmitting(true);
     setError(null);
     try {
@@ -216,6 +264,7 @@ export function Start() {
         endpointUrl: endpoint || undefined,
       });
       setCreatedAgentId(agent.id);
+      clearFormState();
 
       if (selectedAuthMethod) {
         try {
@@ -231,6 +280,15 @@ export function Start() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to create agent');
     } finally { setSubmitting(false); }
+  };
+
+  const handleSubmit = async () => {
+    if (!userId) {
+      saveFormState();
+      login();
+      return;
+    }
+    await doSubmit();
   };
 
   const shell: React.CSSProperties = {
@@ -253,38 +311,6 @@ export function Start() {
     );
   }
 
-  if (!userId) {
-    return (
-      <div style={shell}>
-        <div style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 40 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#4f7df3', boxShadow: '0 0 12px rgba(79,125,243,0.5)' }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, letterSpacing: '0.02em' }}>Agent ID</span>
-          </div>
-
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.03em', margin: '0 0 12px' }}>Register your agent</h1>
-          <p style={{ fontSize: 15, color: 'rgba(232,232,240,0.5)', lineHeight: 1.6, margin: '0 0 36px' }}>Sign in to claim your agent identity and enter the network.</p>
-
-          <button onClick={login} style={{
-            padding: '14px 32px', borderRadius: 12,
-            background: '#4f7df3', border: 'none',
-            color: '#fff', fontSize: 15, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
-            display: 'inline-flex', alignItems: 'center', gap: 10,
-            boxShadow: '0 4px 20px rgba(79,125,243,0.3)',
-            transition: 'transform 0.15s ease',
-          }}>
-            Sign in to continue
-          </button>
-
-          <p style={{ fontSize: 12, color: 'rgba(232,232,240,0.25)', marginTop: 32 }}>
-            Already have agents?{' '}
-            <span onClick={login} style={{ color: '#4f7df3', cursor: 'pointer' }}>Sign in to your dashboard</span>
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (showSuccess) {
     const { annualPrice } = handle ? getHandlePrice(handle) : { annualPrice: 0 };

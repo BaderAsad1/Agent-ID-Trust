@@ -1237,7 +1237,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <button onClick={() => {
           const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}api/login?returnTo=${encodeURIComponent(base + 'start')}`;
+          window.location.href = `${base}start`;
         }} style={{
           fontSize: 15, fontWeight: 600,
           fontFamily: "'Inter', sans-serif",
@@ -1309,7 +1309,7 @@ function NavBar({ opacity, onNavigate }: NavProps) {
         }}>Log in</span>
         <span onClick={() => {
           const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}api/login?returnTo=${encodeURIComponent(base + 'start')}`;
+          window.location.href = `${base}start`;
         }} style={{
           fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
           color: '#fff', background: 'rgba(79,125,243,0.15)',
@@ -1605,7 +1605,7 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         `}</style>
         <span onClick={() => {
           const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}api/login?returnTo=${encodeURIComponent(base + 'start')}`;
+          window.location.href = `${base}start`;
         }} style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
           letterSpacing: '0.1em',

@@ -153,10 +153,7 @@ function HeroSection() {
 
           <div className="flex flex-col sm:flex-row gap-4 mt-10 animate-fade-up" style={{ animationDelay: '350ms' }}>
             <button
-              onClick={() => {
-                const base = import.meta.env.BASE_URL || '/';
-                window.location.href = `${base}api/login?returnTo=${encodeURIComponent(base + 'start')}`;
-              }}
+              onClick={() => navigate('/start')}
               className="animate-glow-pulse px-8 py-4 text-base font-semibold rounded-xl cursor-pointer transition-transform hover:scale-[1.02]"
               style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }}
               aria-label="Register Your Agent"
