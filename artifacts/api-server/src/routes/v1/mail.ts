@@ -4,6 +4,7 @@ import { requireAuth } from "../../middlewares/replit-auth";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
 import * as mailService from "../../services/mail";
+import { getAgentPlan, getPlanLimits } from "../../services/billing";
 
 function param(v: string | string[] | undefined): string {
   return Array.isArray(v) ? v[0] : (v ?? "");
@@ -36,6 +37,12 @@ router.get("/agents/:agentId/inbox", requireHumanOrAgentAuth, async (req, res, n
     } else {
       const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
       if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+    }
+
+    const agentPlan = await getAgentPlan(agentId);
+    const agentLimits = getPlanLimits(agentPlan);
+    if (!agentLimits.canReceiveMail) {
+      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /billing/upgrade to unlock inbox and messaging.");
     }
 
     const inbox = await mailService.getOrCreateInbox(agentId);
@@ -272,6 +279,12 @@ router.post("/agents/:agentId/messages", requireHumanOrAgentAuth, async (req, re
       if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
     }
 
+    const plan = await getAgentPlan(agentId);
+    const limits = getPlanLimits(plan);
+    if (!limits.canReceiveMail) {
+      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /billing/upgrade to unlock inbox and messaging.");
+    }
+
     const schema = z.object({
       direction: z.enum(["inbound", "outbound"]),
       senderType: z.enum(["agent", "user", "system", "external"]),
@@ -480,6 +493,12 @@ router.post("/agents/:agentId/webhooks", requireAuth, async (req, res, next) => 
     const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
     if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
 
+    const whPlan = await getAgentPlan(agentId);
+    const whLimits = getPlanLimits(whPlan);
+    if (!whLimits.canReceiveMail) {
+      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /billing/upgrade to unlock inbox and messaging.");
+    }
+
     const inbox = await mailService.getOrCreateInbox(agentId);
 
     const schema = z.object({
@@ -548,6 +567,12 @@ router.post("/agents/:agentId/threads/:threadId/reply", requireHumanOrAgentAuth,
     } else {
       const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
       if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+    }
+
+    const replyPlan = await getAgentPlan(agentId);
+    const replyLimits = getPlanLimits(replyPlan);
+    if (!replyLimits.canReceiveMail) {
+      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /billing/upgrade to unlock inbox and messaging.");
     }
 
     const schema = z.object({

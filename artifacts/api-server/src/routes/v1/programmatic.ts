@@ -9,7 +9,8 @@ import {
   validateHandle,
   isHandleAvailable,
 } from "../../services/agents";
-import { formatDomain, formatHandle } from "../../utils/handle";
+import { formatDomain, formatHandle, formatResolverUrl } from "../../utils/handle";
+import { getUserPlan, getPlanLimits } from "../../services/billing";
 import {
   initiateVerification,
   verifyChallenge,
@@ -91,6 +92,7 @@ router.post("/agents/register", async (req, res, next) => {
         description,
         capabilities,
         endpointUrl,
+        isPublic: false,
       });
     } catch (err) {
       if (err instanceof Error && err.message === "HANDLE_CONFLICT") {
@@ -188,6 +190,10 @@ router.post("/agents/verify", async (req, res, next) => {
     const freshAgent = await getAgentById(agentId);
     const bootstrap = await buildBootstrapBundle(freshAgent!);
 
+    const ownerPlan = await getUserPlan(agent.userId);
+    const limits = getPlanLimits(ownerPlan);
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
+
     res.json({
       verified: true,
       agentId,
@@ -198,6 +204,20 @@ router.post("/agents/verify", async (req, res, next) => {
       trustTier: trust.trustTier,
       apiKey: apiKey.raw,
       bootstrap,
+      planStatus: {
+        currentPlan: ownerPlan,
+        features: {
+          inbox: limits.canReceiveMail,
+          publicResolution: limits.canBePublic,
+          marketplaceListing: limits.canListOnMarketplace,
+          premiumRouting: limits.canUsePremiumRouting,
+        },
+        uuidResolutionUrl: `${APP_URL}/api/v1/resolve/id/${agentId}`,
+        upgradePath: limits.canReceiveMail ? null : `${APP_URL}/billing/upgrade`,
+        note: limits.canReceiveMail
+          ? "All features are enabled on your current plan."
+          : "Free plan includes UUID identity, Ed25519 key, signed credential, bootstrap bundle, UUID-based lookup, and heartbeat. Upgrade to unlock inbox, public resolution, and marketplace listing.",
+      },
     });
   } catch (err) {
     next(err);

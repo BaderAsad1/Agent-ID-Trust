@@ -131,8 +131,25 @@ export function resolveTransportProvider(address: string): TransportProvider {
   return providers[providers.length - 1];
 }
 
+function isExternalAddress(address: string): boolean {
+  const config = env();
+  return !address.endsWith(`@${config.MAIL_BASE_DOMAIN}`);
+}
+
 export async function deliverOutbound(envelope: TransportEnvelope): Promise<TransportResult> {
   const provider = resolveTransportProvider(envelope.to);
+
+  if (isExternalAddress(envelope.to) && provider.name === "webhook") {
+    const config = env();
+    if (!config.RESEND_API_KEY) {
+      return {
+        success: false,
+        providerName: "resend",
+        error: "External mail delivery unavailable: RESEND_API_KEY is not configured. The message was not sent.",
+      };
+    }
+  }
+
   const result = await provider.send(envelope);
   result.providerName = provider.name;
   return result;

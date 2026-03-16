@@ -9,6 +9,7 @@ import { computeTrustScore, type TrustSignal } from "../../services/trust-score"
 import { getInboxByAgent, getInboxStats } from "../../services/mail";
 import { listAgentKeys } from "../../services/agent-keys";
 import { logActivity } from "../../services/activity-logger";
+import { getUserPlan, getPlanLimits } from "../../services/billing";
 
 const SPEC_VERSION = "1.1.0";
 const HEARTBEAT_INTERVAL_SECONDS = 300;
@@ -34,11 +35,14 @@ function inboxPollEndpoint(agentId: string): string {
 }
 
 async function buildBootstrapBundle(agent: Agent) {
-  const [trust, inbox, keys] = await Promise.all([
+  const [trust, inbox, keys, plan] = await Promise.all([
     computeTrustScore(agent.id),
     getInboxByAgent(agent.id),
     listAgentKeys(agent.id),
+    getUserPlan(agent.userId),
   ]);
+
+  const limits = getPlanLimits(plan);
 
   const capabilities = (agent.capabilities as string[]) || [];
   const authMethods = [...((agent.authMethods as string[] | null) || [])];
@@ -46,9 +50,12 @@ async function buildBootstrapBundle(agent: Agent) {
     authMethods.unshift("agent-key");
   }
 
-  const promptBlock = buildPromptBlockText(agent, trust, inbox, capabilities);
+  const APP_URL = process.env.APP_URL || "https://getagent.id";
+  const effectiveInbox = limits.canReceiveMail ? inbox : null;
 
-  return {
+  const promptBlock = buildPromptBlockText(agent, trust, effectiveInbox, capabilities, limits, APP_URL);
+
+  const bundle: Record<string, unknown> = {
     spec_version: SPEC_VERSION,
     agent_id: agent.id,
     handle: agent.handle,
@@ -56,9 +63,9 @@ async function buildBootstrapBundle(agent: Agent) {
     protocol_address: `${agent.handle}.agentid`,
     provisional_domain: `${agent.handle.toLowerCase()}.getagent.id`,
     public_profile_url: `/api/v1/public/agents/${agent.handle}`,
-    inbox_id: inbox?.id || null,
-    inbox_address: inbox?.address || null,
-    inbox_poll_endpoint: inbox ? inboxPollEndpoint(agent.id) : null,
+    inbox_id: effectiveInbox?.id || null,
+    inbox_address: effectiveInbox?.address || null,
+    inbox_poll_endpoint: effectiveInbox ? inboxPollEndpoint(agent.id) : null,
     trust: {
       score: trust.trustScore,
       tier: trust.trustTier,
@@ -69,7 +76,19 @@ async function buildBootstrapBundle(agent: Agent) {
     key_ids: keys.map(k => ({ kid: k.kid, key_type: k.keyType, status: k.status })),
     status: agent.status,
     prompt_block: promptBlock,
+    uuid_resolution_url: `${APP_URL}/api/v1/resolve/id/${agent.id}`,
   };
+
+  if (!limits.canReceiveMail) {
+    bundle.inbox = null;
+    bundle.inboxUnavailable = {
+      reason: "Inbox requires a paid plan.",
+      currentPlan: plan,
+      upgradePath: `${APP_URL}/billing/upgrade`,
+    };
+  }
+
+  return bundle;
 }
 
 function buildPromptBlockText(
@@ -77,20 +96,29 @@ function buildPromptBlockText(
   trust: TrustResult,
   inbox: AgentInbox | null,
   capabilities: string[],
+  limits?: ReturnType<typeof getPlanLimits>,
+  appUrl?: string,
 ): string {
   const scopes = (agent.scopes as string[]) || [];
+  const APP_URL = appUrl || process.env.APP_URL || "https://getagent.id";
 
   const lines = [
     `=== AGENT IDENTITY ===`,
     `Name: ${agent.displayName}`,
     `Handle: @${agent.handle}`,
     `Protocol Address: ${agent.handle}.agentid`,
-    `Public Profile: /api/v1/public/agents/${agent.handle}`,
     `Agent ID: ${agent.id}`,
+    `UUID Resolution: ${APP_URL}/api/v1/resolve/id/${agent.id}`,
   ];
+
+  if (agent.isPublic) {
+    lines.push(`Public Profile: /api/v1/public/agents/${agent.handle}`);
+  }
 
   if (inbox) {
     lines.push(`Inbox Address: ${inbox.address}`);
+  } else if (limits && !limits.canReceiveMail) {
+    lines.push(`Inbox: not available (requires paid plan)`);
   }
 
   lines.push(`Trust Tier: ${trust.trustTier}`);
@@ -160,13 +188,16 @@ router.get("/:agentId/runtime", requireAgentAuth, async (req, res, next) => {
   try {
     const agent = ensureAgentOwnership(req, req.params.agentId as string);
 
-    const [trust, inbox] = await Promise.all([
+    const [trust, inbox, runtimePlan] = await Promise.all([
       computeTrustScore(agent.id),
       getInboxByAgent(agent.id),
+      getUserPlan(agent.userId),
     ]);
 
+    const runtimeLimits = getPlanLimits(runtimePlan);
+
     let inboxConfig: Record<string, unknown> | null = null;
-    if (inbox) {
+    if (inbox && runtimeLimits.canReceiveMail) {
       const stats = await getInboxStats(inbox.id);
       inboxConfig = {
         inbox_id: inbox.id,

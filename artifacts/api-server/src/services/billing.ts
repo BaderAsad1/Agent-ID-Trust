@@ -59,6 +59,8 @@ export function getPlanLimits(plan: string) {
     maxAgents: limits.maxPublicAgents,
     maxPublicAgents: limits.maxPublicAgents,
     maxPrivateAgents: limits.maxPrivateAgents,
+    canReceiveMail: plan !== "free",
+    canBePublic: plan !== "free",
     canListOnMarketplace: plan !== "free",
     canUsePremiumRouting: plan === "pro" || plan === "team",
     canUseAdvancedAuth: plan === "pro" || plan === "team",
@@ -87,6 +89,20 @@ export async function getActiveUserSubscription(userId: string): Promise<Subscri
     )
     .limit(1);
   return sub[0] ?? null;
+}
+
+export async function getUserPlan(userId: string): Promise<string> {
+  const sub = await getActiveUserSubscription(userId);
+  return sub?.plan ?? "free";
+}
+
+export async function getAgentPlan(agentId: string): Promise<string> {
+  const agent = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.id, agentId),
+    columns: { userId: true },
+  });
+  if (!agent) return "free";
+  return getUserPlan(agent.userId);
 }
 
 export async function getAgentSubscription(agentId: string): Promise<AgentSubscription | null> {
@@ -493,13 +509,15 @@ export async function finalizeWebhookEvent(
 
 export async function requirePlanFeature(
   userId: string,
-  feature: "canListOnMarketplace" | "canUsePremiumRouting" | "canUseAdvancedAuth" | "canUseTeamFeatures",
+  feature: "canReceiveMail" | "canBePublic" | "canListOnMarketplace" | "canUsePremiumRouting" | "canUseAdvancedAuth" | "canUseTeamFeatures",
 ): Promise<{ allowed: boolean; currentPlan: string; requiredPlan: string }> {
   const userSub = await getActiveUserSubscription(userId);
   const plan = userSub?.plan ?? "free";
   const limits = getPlanLimits(plan);
 
   const featurePlanMap: Record<string, string> = {
+    canReceiveMail: "starter",
+    canBePublic: "starter",
     canListOnMarketplace: "starter",
     canUsePremiumRouting: "pro",
     canUseAdvancedAuth: "pro",

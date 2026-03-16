@@ -1,7 +1,9 @@
 import { Router } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { z } from "zod/v4";
 import { logger } from "../../middlewares/request-logger";
 import { requireAuth } from "../../middlewares/replit-auth";
+import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { validateUuidParam } from "../../middlewares/validation";
 import {
@@ -261,26 +263,43 @@ router.put("/:agentId", requireAuth, validateUuidParam("agentId"), async (req, r
   }
 });
 
-router.delete("/:agentId", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
+function requireHumanOrAgentAuthForDelete(req: Request, res: Response, next: NextFunction) {
+  if (req.headers["x-agent-key"]) {
+    return requireAgentAuth(req, res, (err?: unknown) => {
+      if (err) return next(err);
+      next();
+    });
+  }
+  return requireAuth(req, res, next);
+}
+
+router.delete("/:agentId", requireHumanOrAgentAuthForDelete, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const agent = await getAgentById(agentId);
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId) {
-      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+
+    if (req.authenticatedAgent) {
+      if (req.authenticatedAgent.id !== agentId) {
+        throw new AppError(403, "FORBIDDEN", "An agent can only delete itself");
+      }
+    } else {
+      if (agent.userId !== req.userId) {
+        throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+      }
     }
 
     await logActivity({
       agentId: agent.id,
       eventType: "agent.deleted",
-      payload: { handle: agent.handle },
+      payload: { handle: agent.handle, deletedBy: req.authenticatedAgent ? "agent-key" : "user" },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });
 
-    await deleteAgent(agentId, req.userId!);
+    await deleteAgent(agentId, agent.userId);
 
     res.json({ success: true });
   } catch (err) {

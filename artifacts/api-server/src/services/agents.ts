@@ -85,8 +85,16 @@ export async function createAgent(input: CreateAgentInput): Promise<Agent> {
   const agent = result[0];
 
   try {
-    const { provisionInboxForAgent } = await import("./mail");
-    await provisionInboxForAgent(agent.id);
+    const { getUserPlan } = await import("./billing");
+    const plan = await getUserPlan(input.userId);
+    const { getPlanLimits } = await import("./billing");
+    const limits = getPlanLimits(plan);
+    if (limits.canReceiveMail) {
+      const { provisionInboxForAgent } = await import("./mail");
+      await provisionInboxForAgent(agent.id);
+    } else {
+      logger.info({ agentId: agent.id, plan }, "[agents] Skipping inbox provisioning — plan does not include mail");
+    }
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : err, agentId: agent.id }, "[agents] Failed to provision inbox for agent");
   }
@@ -163,8 +171,15 @@ export async function updateAgent(
 
   if (updates.status === "active" && existing?.status !== "active") {
     try {
-      const { provisionInboxForAgent } = await import("./mail");
-      await provisionInboxForAgent(agentId);
+      const { getUserPlan, getPlanLimits } = await import("./billing");
+      const plan = await getUserPlan(userId);
+      const limits = getPlanLimits(plan);
+      if (limits.canReceiveMail) {
+        const { provisionInboxForAgent } = await import("./mail");
+        await provisionInboxForAgent(agentId);
+      } else {
+        logger.info({ agentId, plan }, "[agents] Skipping inbox provisioning on activation — plan does not include mail");
+      }
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : err, agentId }, "[agents] Failed to provision inbox on activation");
     }

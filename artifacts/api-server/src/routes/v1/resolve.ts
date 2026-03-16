@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod/v4";
 import { AppError } from "../../middlewares/error-handler";
-import { getAgentByHandle } from "../../services/agents";
+import { getAgentByHandle, getAgentById } from "../../services/agents";
 import { detectAgent } from "../../middlewares/cli-markdown";
 import { generateAgentProfileMarkdown } from "../../services/agent-markdown";
 import { eq, and, gte, sql } from "drizzle-orm";
@@ -118,6 +118,48 @@ function logResolutionEvent(
     });
 }
 
+const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const idRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkIdRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = idRateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    idRateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= 100;
+}
+
+router.get("/id/:agentId", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const agentId = req.params.agentId as string;
+    if (!uuidRe.test(agentId)) {
+      throw new AppError(400, "INVALID_ID", "agentId must be a valid UUID");
+    }
+
+    const clientIp = req.ip || "unknown";
+    if (!checkIdRateLimit(clientIp)) {
+      res.status(429).json({ error: "Rate limit exceeded", code: "RATE_LIMIT", retryAfterSeconds: 60 });
+      return;
+    }
+
+    const agent = await getAgentById(agentId);
+    if (!agent || agent.verificationStatus !== "verified") {
+      throw new AppError(404, "AGENT_NOT_FOUND", "Agent not found");
+    }
+
+    const resolved = await enrichAndResolve(agent);
+
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.json({ resolved: true, agent: resolved });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/:handle", async (req: Request, res: Response, next: NextFunction) => {
   const startTime = Date.now();
   try {
@@ -140,7 +182,22 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
     }
 
     const agent = await getAgentByHandle(handle);
-    if (!agent || agent.status !== "active" || !agent.isPublic) {
+    if (!agent) {
+      throw new AppError(404, "AGENT_NOT_FOUND", `No agent found for handle "${handle}"`);
+    }
+
+    if (!agent.isPublic) {
+      const APP_URL = process.env.APP_URL || "https://getagent.id";
+      res.status(403).json({
+        error: "AGENT_NOT_PUBLIC",
+        message: `Agent "${handle}" exists but is not publicly listed. Use UUID-based resolution instead.`,
+        uuidResolutionUrl: `${APP_URL}/api/v1/resolve/id/${agent.id}`,
+        hint: "Public resolution requires a paid plan. The agent can still be resolved by its UUID.",
+      });
+      return;
+    }
+
+    if (agent.status !== "active") {
       throw new AppError(404, "AGENT_NOT_FOUND", `No agent found for handle "${handle}"`);
     }
 
