@@ -44,14 +44,7 @@ type SubStatus = "active" | "past_due" | "cancelled" | "paused" | "trialing";
 type BillingInterval = "monthly" | "yearly";
 
 import { env } from "../lib/env";
-
-function getStripe(): Stripe {
-  const key = env().STRIPE_SECRET_KEY;
-  if (!key) {
-    throw new Error("STRIPE_SECRET_KEY is not configured");
-  }
-  return new Stripe(key, { apiVersion: "2025-04-30.basil" as Stripe.LatestApiVersion });
-}
+import { getStripe } from "./stripe-client";
 
 export function getPlanLimits(plan: string) {
   const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;

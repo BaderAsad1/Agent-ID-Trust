@@ -41,8 +41,24 @@ export type Env = z.infer<typeof envSchema>;
 
 let _env: Env | null = null;
 
+function applyStripeAliases(): void {
+  if (!process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SK) {
+    process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SK;
+  }
+  if (!process.env.STRIPE_PUBLISHABLE_KEY && process.env.STRIPE_PK) {
+    process.env.STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PK;
+  }
+  if (!process.env.STRIPE_WEBHOOK_SECRET && process.env.STRIPE_WH_SECRET) {
+    process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WH_SECRET;
+  }
+  if (!process.env.STRIPE_WEBHOOK_SECRET && process.env.STRIPE_ENDPOINT_SECRET) {
+    process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_ENDPOINT_SECRET;
+  }
+}
+
 export function validateEnv(): Env {
   if (_env) return _env;
+  applyStripeAliases();
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
     console.error("[env] Environment validation failed:");
