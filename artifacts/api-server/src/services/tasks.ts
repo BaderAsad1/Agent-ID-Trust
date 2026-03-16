@@ -27,6 +27,7 @@ export interface SubmitTaskInput {
   taskType: string;
   payload?: Record<string, unknown>;
   relatedOrderId?: string;
+  idempotencyKey?: string;
 }
 
 export interface TaskListFilters {
@@ -70,6 +71,7 @@ export async function submitTask(input: SubmitTaskInput): Promise<Task> {
       taskType: input.taskType,
       payload: input.payload,
       relatedOrderId: input.relatedOrderId,
+      idempotencyKey: input.idempotencyKey,
       deliveryStatus: "pending",
       businessStatus: "pending",
     })
@@ -218,7 +220,8 @@ export async function acknowledgeTask(
 
 const VALID_BUSINESS_TRANSITIONS: Record<string, string[]> = {
   pending: ["accepted", "rejected"],
-  accepted: ["completed", "failed", "cancelled"],
+  accepted: ["in_progress", "completed", "failed", "cancelled"],
+  in_progress: ["completed", "failed", "cancelled"],
   rejected: [],
   completed: [],
   failed: [],

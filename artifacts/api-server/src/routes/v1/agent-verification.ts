@@ -91,6 +91,21 @@ router.post("/:agentId/verify/complete", requireAuth, validateUuidParam("agentId
       userAgent: req.headers["user-agent"],
     });
 
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId: agent.id,
+        eventType: "agent.verified",
+        payload: { method: "key_challenge" },
+        isPublic: true,
+      });
+    } catch {}
+
+    try {
+      const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
+      await deliverWebhookEvent(agent.id, "agent.verified", { method: "key_challenge" });
+    } catch {}
+
     const trust = await recomputeAndStore(agent.id);
 
     await db

@@ -53,6 +53,9 @@ Key capabilities:
 | `ACTIVITY_HMAC_SECRET` | HMAC secret (32+ chars) for activity log signatures |
 | `WEBHOOK_SECRET_KEY` | Key for webhook HMAC signing/validation |
 | `CREDENTIAL_SIGNING_SECRET` | Secret for signing Agent ID credentials |
+| `VC_SIGNING_KEY` | JWK private key for W3C Verifiable Credential signing (EdDSA) |
+| `VC_PUBLIC_KEY` | JWK public key for W3C Verifiable Credential verification |
+| `VC_KEY_ID` | Key ID for JWKS endpoint (default: `agentid-vc-key-1`) |
 
 **Feature-gated (recommended):**
 
@@ -198,9 +201,18 @@ workspace/
 
 **Auth:** Replit OIDC (OpenID Connect). Session-based with dev-mode header bypass (`X-AgentID-User-Id`).
 
-**Background Jobs:** BullMQ workers (when Redis is connected) for webhook delivery, domain provisioning, and async processing.
+**Background Jobs:** BullMQ workers (when Redis is connected) for webhook delivery, domain provisioning, and async processing. Trust recalculation worker runs hourly via setInterval.
 
 **Mail System:** Identity-bound inboxes with threads, 18 system labels, full-text search, routing rules engine, webhook delivery with HMAC signing, and Resend transport for external email.
+
+**Enterprise Infrastructure (SOC 2 Hardening):**
+- **Key Rotation:** POST `/agents/:id/keys/rotate` with 24h grace period, rotation logging, and auth middleware support for `rotating` status keys
+- **Webhook System:** Agent-level webhook CRUD with HMAC-SHA256 signing, exponential backoff (1m/5m/30m/2h/8h), auto-disable at 50 consecutive failures
+- **Task Protocol:** Idempotency keys, lifecycle endpoints (accept/start/complete/reject/fail), task messages, rating
+- **Trust Automation:** 10-component trust score with attestation provider, hourly recalculation worker
+- **Peer Attestations:** POST `/agents/:id/attest/:handle` with Ed25519 signature verification, sentiment weighting
+- **Signed Activity Log:** Hash-chain integrity (SHA-256 sequence + HMAC signatures), public/private visibility, chain verification endpoint
+- **W3C Verifiable Credentials:** EdDSA JWT issuance via jose, JWKS endpoint at `/.well-known/jwks.json`, per-agent cache, content negotiation on credential endpoint
 
 **Resolution Protocol:** Open `.agentid` name resolution. Forward resolve, reverse resolve by endpoint URL, capability discovery. Public endpoints, no auth required. DNS bridge at `handle.getagent.id`.
 

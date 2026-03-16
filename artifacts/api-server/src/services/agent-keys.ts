@@ -110,3 +110,119 @@ export async function rotateAgentKey(
 
   return { revokedKey, newKey };
 }
+
+const GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
+
+export async function initiateKeyRotation(
+  agentId: string,
+  oldKeyId: string,
+  newPublicKey: string,
+  keyType: string = "ed25519",
+  reason?: string,
+): Promise<{ oldKey: AgentKey; newKey: AgentKey; rotationLogId: string } | null> {
+  const oldKey = await db.query.agentKeysTable.findFirst({
+    where: and(
+      eq(agentKeysTable.id, oldKeyId),
+      eq(agentKeysTable.agentId, agentId),
+      eq(agentKeysTable.status, "active"),
+    ),
+  });
+
+  if (!oldKey) return null;
+
+  const newKey = await createAgentKey({
+    agentId,
+    keyType,
+    publicKey: newPublicKey,
+  });
+
+  const expiresAt = new Date(Date.now() + GRACE_PERIOD_MS);
+
+  await db
+    .update(agentKeysTable)
+    .set({
+      status: "rotating",
+      rotatedAt: new Date(),
+      rotatedByKid: newKey.kid,
+      expiresAt,
+      rotationReason: reason,
+    })
+    .where(eq(agentKeysTable.id, oldKeyId));
+
+  const { agentKeyRotationLogTable } = await import("@workspace/db/schema");
+
+  const [rotationLog] = await db
+    .insert(agentKeyRotationLogTable)
+    .values({
+      agentId,
+      oldKeyId,
+      newKeyId: newKey.id,
+      rotationReason: reason,
+      rotatedByKid: oldKey.kid,
+      status: "pending",
+    })
+    .returning();
+
+  const updatedOldKey = await db.query.agentKeysTable.findFirst({
+    where: eq(agentKeysTable.id, oldKeyId),
+  });
+
+  return { oldKey: updatedOldKey!, newKey, rotationLogId: rotationLog.id };
+}
+
+export async function verifyKeyRotation(
+  agentId: string,
+  rotationLogId: string,
+): Promise<{ success: boolean; message: string }> {
+  const { agentKeyRotationLogTable } = await import("@workspace/db/schema");
+
+  const rotationLog = await db.query.agentKeyRotationLogTable.findFirst({
+    where: and(
+      eq(agentKeyRotationLogTable.id, rotationLogId),
+      eq(agentKeyRotationLogTable.agentId, agentId),
+      eq(agentKeyRotationLogTable.status, "pending"),
+    ),
+  });
+
+  if (!rotationLog) {
+    return { success: false, message: "Rotation log not found or already verified" };
+  }
+
+  await db
+    .update(agentKeysTable)
+    .set({
+      status: "revoked",
+      revokedAt: new Date(),
+    })
+    .where(eq(agentKeysTable.id, rotationLog.oldKeyId));
+
+  await db
+    .update(agentKeyRotationLogTable)
+    .set({
+      status: "verified",
+      verifiedAt: new Date(),
+    })
+    .where(eq(agentKeyRotationLogTable.id, rotationLogId));
+
+  return { success: true, message: "Key rotation verified. Old key has been revoked." };
+}
+
+export async function getRotatingKey(
+  agentId: string,
+  hashedKey: string,
+): Promise<AgentKey | null> {
+  const keys = await db.query.agentKeysTable.findMany({
+    where: and(
+      eq(agentKeysTable.agentId, agentId),
+      eq(agentKeysTable.status, "rotating"),
+    ),
+  });
+
+  for (const key of keys) {
+    if (key.expiresAt && key.expiresAt > new Date()) {
+      return key;
+    }
+  }
+
+  return null;
+}

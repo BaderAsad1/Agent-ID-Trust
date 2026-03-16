@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { z } from "zod/v4";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable } from "@workspace/db/schema";
+import { agentsTable, tasksTable } from "@workspace/db/schema";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
@@ -36,6 +36,7 @@ const submitTaskSchema = z.object({
   taskType: z.string().min(1).max(100),
   payload: z.record(z.string(), z.unknown()).optional(),
   relatedOrderId: z.string().uuid().optional(),
+  idempotencyKey: z.string().max(255).optional(),
 });
 
 router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
@@ -55,6 +56,22 @@ router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
           code: "SENDER_NOT_OWNED",
           message: "You do not own the specified sender agent",
         });
+        return;
+      }
+    }
+
+    if (body.idempotencyKey) {
+      const { and: andOp } = await import("drizzle-orm");
+      const existing = await db.query.tasksTable.findFirst({
+        where: andOp(
+          eq(tasksTable.idempotencyKey, body.idempotencyKey),
+          senderAgentId
+            ? eq(tasksTable.senderAgentId, senderAgentId)
+            : eq(tasksTable.senderUserId, req.userId!),
+        ),
+      });
+      if (existing) {
+        res.status(200).json({ task: existing, delivery: { status: "already_exists", attemptNumber: 0 } });
         return;
       }
     }
@@ -95,6 +112,24 @@ router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
         userAgent: req.headers["user-agent"],
       });
     }
+
+    try {
+      const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
+      await deliverWebhookEvent(createdTask.recipientAgentId, "task.received", {
+        taskId: createdTask.id,
+        taskType: createdTask.taskType,
+        senderAgentId: createdTask.senderAgentId,
+      });
+    } catch {}
+
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId: createdTask.recipientAgentId,
+        eventType: "agent.task_received",
+        payload: { taskId: createdTask.id, taskType: createdTask.taskType },
+      });
+    } catch {}
 
     res.status(201).json({
       task,
@@ -262,6 +297,221 @@ router.post("/:taskId/acknowledge", requireHumanOrAgentAuth, async (req, res, ne
         code: "INVALID_DELIVERY_STATE",
         message: "Task cannot be acknowledged in its current delivery state",
       });
+      return;
+    }
+    next(err);
+  }
+});
+
+router.post("/:taskId/accept", requireHumanOrAgentAuth, async (req, res, next) => {
+  try {
+    const taskId = req.params.taskId as string;
+    let userId: string;
+    if (req.authenticatedAgent) {
+      const existingTask = await getTaskById(taskId);
+      if (!existingTask || existingTask.recipientAgentId !== req.authenticatedAgent.id) {
+        res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
+        return;
+      }
+      userId = req.authenticatedAgent.userId;
+    } else {
+      userId = req.userId!;
+    }
+    const task = await updateBusinessStatus(taskId, userId, "accepted");
+    if (!task) {
+      res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
+      return;
+    }
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({ agentId: task.recipientAgentId, eventType: "agent.task_accepted", payload: { taskId: task.id } });
+    } catch {}
+    try {
+      const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
+      await deliverWebhookEvent(task.recipientAgentId, "task.accepted", { taskId: task.id });
+    } catch {}
+    res.json(task);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.startsWith("INVALID_TRANSITION")) {
+      res.status(409).json({ code: "INVALID_TRANSITION", message: `Invalid status transition: ${message.split(":")[1]}` });
+      return;
+    }
+    next(err);
+  }
+});
+
+router.post("/:taskId/start", requireHumanOrAgentAuth, async (req, res, next) => {
+  try {
+    const taskId = req.params.taskId as string;
+    let userId: string;
+    if (req.authenticatedAgent) {
+      const existingTask = await getTaskById(taskId);
+      if (!existingTask || existingTask.recipientAgentId !== req.authenticatedAgent.id) {
+        res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
+        return;
+      }
+      userId = req.authenticatedAgent.userId;
+    } else {
+      userId = req.userId!;
+    }
+    const task = await updateBusinessStatus(taskId, userId, "in_progress");
+    if (!task) {
+      res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
+      return;
+    }
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({ agentId: task.recipientAgentId, eventType: "agent.task_started", payload: { taskId: task.id } });
+    } catch {}
+    try {
+      const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
+      await deliverWebhookEvent(task.recipientAgentId, "task.started", { taskId: task.id });
+    } catch {}
+    res.json(task);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.startsWith("INVALID_TRANSITION")) {
+      res.status(409).json({ code: "INVALID_TRANSITION", message: `Invalid status transition: ${message.split(":")[1]}` });
+      return;
+    }
+    next(err);
+  }
+});
+
+const completeTaskSchema = z.object({
+  result: z.record(z.string(), z.unknown()).optional(),
+  rating: z.number().int().min(1).max(5).optional(),
+});
+
+router.post("/:taskId/complete", requireHumanOrAgentAuth, async (req, res, next) => {
+  try {
+    const taskId = req.params.taskId as string;
+    const body = completeTaskSchema.parse(req.body || {});
+    let userId: string;
+    if (req.authenticatedAgent) {
+      const existingTask = await getTaskById(taskId);
+      if (!existingTask || existingTask.recipientAgentId !== req.authenticatedAgent.id) {
+        res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
+        return;
+      }
+      userId = req.authenticatedAgent.userId;
+    } else {
+      userId = req.userId!;
+    }
+    const task = await updateBusinessStatus(taskId, userId, "completed", body.result);
+    if (!task) {
+      res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
+      return;
+    }
+    if (body.rating) {
+      await db.update(tasksTable).set({ rating: body.rating }).where(eq(tasksTable.id, taskId));
+    }
+    await logActivity({
+      agentId: task.recipientAgentId,
+      eventType: "agent.task_completed",
+      payload: { taskId: task.id, rating: body.rating },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({ agentId: task.recipientAgentId, eventType: "agent.task_completed", payload: { taskId: task.id }, isPublic: true });
+    } catch {}
+    try {
+      const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
+      await deliverWebhookEvent(task.recipientAgentId, "task.completed", { taskId: task.id, rating: body.rating });
+    } catch {}
+    try {
+      const { recomputeAndStore } = await import("../../services/trust-score");
+      await recomputeAndStore(task.recipientAgentId);
+    } catch {}
+    const updated = await getTaskById(taskId);
+    res.json(updated);
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ code: "VALIDATION_ERROR", errors: err.issues });
+      return;
+    }
+    const message = err instanceof Error ? err.message : "";
+    if (message.startsWith("INVALID_TRANSITION")) {
+      res.status(409).json({ code: "INVALID_TRANSITION", message: `Invalid status transition: ${message.split(":")[1]}` });
+      return;
+    }
+    next(err);
+  }
+});
+
+router.post("/:taskId/reject", requireHumanOrAgentAuth, async (req, res, next) => {
+  try {
+    const taskId = req.params.taskId as string;
+    let userId: string;
+    if (req.authenticatedAgent) {
+      const existingTask = await getTaskById(taskId);
+      if (!existingTask || existingTask.recipientAgentId !== req.authenticatedAgent.id) {
+        res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
+        return;
+      }
+      userId = req.authenticatedAgent.userId;
+    } else {
+      userId = req.userId!;
+    }
+    const task = await updateBusinessStatus(taskId, userId, "rejected", req.body?.result);
+    if (!task) {
+      res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
+      return;
+    }
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({ agentId: task.recipientAgentId, eventType: "agent.task_rejected", payload: { taskId: task.id } });
+    } catch {}
+    try {
+      const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
+      await deliverWebhookEvent(task.recipientAgentId, "task.rejected", { taskId: task.id });
+    } catch {}
+    res.json(task);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.startsWith("INVALID_TRANSITION")) {
+      res.status(409).json({ code: "INVALID_TRANSITION", message: `Invalid status transition: ${message.split(":")[1]}` });
+      return;
+    }
+    next(err);
+  }
+});
+
+router.post("/:taskId/fail", requireHumanOrAgentAuth, async (req, res, next) => {
+  try {
+    const taskId = req.params.taskId as string;
+    let userId: string;
+    if (req.authenticatedAgent) {
+      const existingTask = await getTaskById(taskId);
+      if (!existingTask || existingTask.recipientAgentId !== req.authenticatedAgent.id) {
+        res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
+        return;
+      }
+      userId = req.authenticatedAgent.userId;
+    } else {
+      userId = req.userId!;
+    }
+    const task = await updateBusinessStatus(taskId, userId, "failed", req.body?.result);
+    if (!task) {
+      res.status(404).json({ code: "NOT_FOUND", message: "Task not found or not owned" });
+      return;
+    }
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({ agentId: task.recipientAgentId, eventType: "agent.task_failed", payload: { taskId: task.id } });
+    } catch {}
+    try {
+      const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
+      await deliverWebhookEvent(task.recipientAgentId, "task.failed", { taskId: task.id });
+    } catch {}
+    res.json(task);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.startsWith("INVALID_TRANSITION")) {
+      res.status(409).json({ code: "INVALID_TRANSITION", message: `Invalid status transition: ${message.split(":")[1]}` });
       return;
     }
     next(err);

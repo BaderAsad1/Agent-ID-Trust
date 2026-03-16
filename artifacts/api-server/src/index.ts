@@ -54,12 +54,17 @@ if (!config.REDIS_URL) {
   logger.warn("[startup] Redis is not configured — BullMQ webhook delivery queue and domain provisioning worker are disabled.");
 }
 
+import { startTrustWorker, stopTrustWorker } from "./workers/trust-recalculation";
+import { startWebhookRetryWorker, stopWebhookRetryWorker } from "./workers/webhook-retry";
+
 startDomainWorker();
 initWebhookDeliveryWorker();
 initEmailDeliveryWorker();
 initUndeliverableCleanupWorker();
 initOutboundMailWorker();
 startAgentExpiryWorker();
+startTrustWorker();
+startWebhookRetryWorker();
 
 const JOB_EXPIRY_INTERVAL_MS = 60 * 1000;
 let jobExpiryTimer: ReturnType<typeof setInterval> | null = null;
@@ -86,6 +91,8 @@ const server = app.listen(port, () => {
 async function gracefulShutdown(signal: string) {
   logger.info({ signal }, "Shutting down gracefully");
   if (jobExpiryTimer) clearInterval(jobExpiryTimer);
+  stopTrustWorker();
+  stopWebhookRetryWorker();
   await stopAgentExpiryWorker();
   server.close();
   await closeDomainWorker();

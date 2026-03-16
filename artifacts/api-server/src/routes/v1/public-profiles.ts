@@ -128,13 +128,57 @@ router.get("/:handle/credential", async (req, res, next) => {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
 
-    let credential = await getActiveCredential(agent.id);
-    if (!credential) {
-      credential = await issueCredential(agent.id);
+    const accept = req.headers.accept || "";
+    if (accept.includes("application/json") && !accept.includes("application/jwt")) {
+      let credential = await getActiveCredential(agent.id);
+      if (!credential) {
+        credential = await issueCredential(agent.id);
+      }
+      res.set("Cache-Control", "public, max-age=60");
+      res.json(credential);
+      return;
     }
 
+    const { issueVerifiableCredential } = await import("../../services/verifiable-credential");
+    const jwt = await issueVerifiableCredential(agent.id);
+    res.set("Content-Type", "application/jwt");
     res.set("Cache-Control", "public, max-age=60");
-    res.json(credential);
+    res.send(jwt);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/:handle/credential/jwt", async (req, res, next) => {
+  try {
+    const agent = await getAgentByHandle(req.params.handle as string);
+    if (!agent || agent.status !== "active") {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+
+    const { issueVerifiableCredential } = await import("../../services/verifiable-credential");
+    const jwt = await issueVerifiableCredential(agent.id);
+    res.set("Content-Type", "application/jwt");
+    res.set("Cache-Control", "public, max-age=60");
+    res.send(jwt);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/:handle/activity", async (req, res, next) => {
+  try {
+    const agent = await getAgentByHandle(req.params.handle as string);
+    if (!agent || agent.status !== "active") {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+
+    const { getPublicSignedActivityLog } = await import("../../services/activity-log");
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const offset = Number(req.query.offset) || 0;
+    const activities = await getPublicSignedActivityLog(agent.id, limit, offset);
+
+    res.json({ activities });
   } catch (err) {
     next(err);
   }

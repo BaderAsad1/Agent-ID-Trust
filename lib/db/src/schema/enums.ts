@@ -41,6 +41,7 @@ export const domainStatusEnum = pgEnum("domain_status", [
 
 export const keyStatusEnum = pgEnum("key_status", [
   "active",
+  "rotating",
   "revoked",
   "rotated",
 ]);
@@ -56,6 +57,7 @@ export const deliveryStatusEnum = pgEnum("delivery_status", [
 export const businessStatusEnum = pgEnum("business_status", [
   "pending",
   "accepted",
+  "in_progress",
   "rejected",
   "completed",
   "failed",

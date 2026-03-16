@@ -313,6 +313,15 @@ export async function routeInboundEmail(parsed: ParsedInboundEmail): Promise<{
       results.delivered++;
 
       try {
+        const { deliverWebhookEvent } = await import("./webhook-delivery");
+        await deliverWebhookEvent(targetInbox.agentId, "mail.received", {
+          messageId: message.id,
+          from: enriched.from,
+          subject: enriched.subject,
+        });
+      } catch {}
+
+      try {
         const agent = await db.query.agentsTable.findFirst({
           where: eq(agentsTable.id, targetInbox.agentId),
           columns: { handle: true, userId: true, trustScore: true },

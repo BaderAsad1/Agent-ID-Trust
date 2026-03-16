@@ -30,6 +30,10 @@ const envSchema = z.object({
   MAIL_BASE_DOMAIN: z.string().default("getagent.id"),
   RESEND_WEBHOOK_SECRET: z.string().optional(),
 
+  VC_SIGNING_KEY: z.string().optional(),
+  VC_PUBLIC_KEY: z.string().optional(),
+  VC_KEY_ID: z.string().default("agentid-vc-key-1"),
+
   REPLIT_DEV_DOMAIN: z.string().optional(),
   REPL_ID: z.string().optional(),
   ISSUER_URL: z.string().default("https://replit.com/oidc"),

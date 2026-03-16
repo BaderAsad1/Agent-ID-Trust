@@ -129,6 +129,16 @@ router.post("/", requireAuth, async (req, res, next) => {
       userAgent: req.headers["user-agent"],
     });
 
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId: agent.id,
+        eventType: "agent.created",
+        payload: { handle: agent.handle },
+        isPublic: true,
+      });
+    } catch {}
+
     await recomputeAndStore(agent.id);
 
     res.status(201).json({
@@ -329,7 +339,17 @@ router.get("/:agentId/activity", requireAuth, validateUuidParam("agentId"), asyn
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
 
+    const source = req.query.source as string | undefined;
     const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const offset = Number(req.query.offset) || 0;
+
+    if (source === "signed") {
+      const { getSignedActivityLog } = await import("../../services/activity-log");
+      const activities = await getSignedActivityLog(agentId, limit, offset);
+      res.json({ activities, source: "signed" });
+      return;
+    }
+
     const activities = await db.query.agentActivityLogTable.findMany({
       where: eq(agentActivityLogTable.agentId, agentId),
       orderBy: [desc(agentActivityLogTable.createdAt)],
@@ -337,6 +357,113 @@ router.get("/:agentId/activity", requireAuth, validateUuidParam("agentId"), asyn
     });
 
     res.json({ activities });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/:agentId/keys/rotate", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    if (req.authenticatedAgent!.id !== agentId) {
+      throw new AppError(403, "FORBIDDEN", "Agent can only rotate its own keys");
+    }
+
+    const { oldKeyId, newPublicKey, keyType, reason } = req.body;
+    if (!oldKeyId || !newPublicKey) {
+      throw new AppError(400, "VALIDATION_ERROR", "oldKeyId and newPublicKey are required");
+    }
+
+    const { initiateKeyRotation } = await import("../../services/agent-keys");
+
+    const result = await initiateKeyRotation(agentId, oldKeyId, newPublicKey, keyType || "ed25519", reason);
+    if (!result) {
+      throw new AppError(404, "NOT_FOUND", "Active key not found");
+    }
+
+    await logActivity({
+      agentId,
+      eventType: "agent.key_rotated",
+      payload: {
+        oldKeyId,
+        newKeyId: result.newKey.id,
+        rotationLogId: result.rotationLogId,
+        reason,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId,
+        eventType: "agent.key_rotated",
+        payload: {
+          oldKeyId,
+          newKeyId: result.newKey.id,
+          rotationLogId: result.rotationLogId,
+        },
+        isPublic: true,
+      });
+    } catch {}
+
+    try {
+      const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
+      await deliverWebhookEvent(agentId, "key.rotated", {
+        oldKeyId,
+        newKeyId: result.newKey.id,
+        rotationLogId: result.rotationLogId,
+      });
+    } catch {}
+
+    res.status(201).json({
+      oldKey: result.oldKey,
+      newKey: result.newKey,
+      rotationLogId: result.rotationLogId,
+      gracePeriodEnds: result.oldKey.expiresAt,
+      message: "Key rotation initiated. Old key has a 24h grace period. Call /keys/verify-rotation to complete.",
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/:agentId/keys/verify-rotation", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    if (req.authenticatedAgent!.id !== agentId) {
+      throw new AppError(403, "FORBIDDEN", "Agent can only verify its own key rotations");
+    }
+
+    const { rotationLogId } = req.body;
+    if (!rotationLogId) {
+      throw new AppError(400, "VALIDATION_ERROR", "rotationLogId is required");
+    }
+
+    const { verifyKeyRotation } = await import("../../services/agent-keys");
+    const result = await verifyKeyRotation(agentId, rotationLogId);
+
+    if (!result.success) {
+      throw new AppError(404, "NOT_FOUND", result.message);
+    }
+
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId,
+        eventType: "agent.key_rotation_verified",
+        payload: { rotationLogId },
+        isPublic: true,
+      });
+    } catch {}
+
+    try {
+      const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
+      await deliverWebhookEvent(agentId, "key.rotation_verified", { rotationLogId });
+    } catch {}
+
+    res.json(result);
   } catch (err) {
     next(err);
   }

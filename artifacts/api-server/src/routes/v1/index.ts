@@ -30,6 +30,8 @@ import resolveRouter, { handleReverse, handleAgentDiscovery } from "./resolve";
 import integrationsRouter from "./integrations";
 import organizationsRouter from "./organizations";
 import humansRouter from "./humans";
+import agentWebhooksRouter from "./agent-webhooks";
+import agentAttestationsRouter from "./agent-attestations";
 
 const router = Router();
 
@@ -73,5 +75,7 @@ router.use("/integrations", integrationsRouter);
 router.use("/orgs", organizationsRouter);
 router.use("/org", organizationsRouter);
 router.use("/humans", humansRouter);
+router.use("/agents", agentWebhooksRouter);
+router.use("/agents", agentAttestationsRouter);
 
 export default router;

@@ -25,6 +25,10 @@ export const agentKeysTable = pgTable(
     jwk: jsonb("jwk"),
     use: varchar("use", { length: 50 }).default("sig").notNull(),
     status: keyStatusEnum("status").default("active").notNull(),
+    rotatedAt: timestamp("rotated_at", { withTimezone: true }),
+    rotatedByKid: varchar("rotated_by_kid", { length: 255 }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    rotationReason: varchar("rotation_reason", { length: 255 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

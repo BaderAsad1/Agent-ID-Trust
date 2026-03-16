@@ -152,6 +152,19 @@ router.get("/.well-known/agentid-configuration", async (_req: Request, res: Resp
   });
 });
 
+router.get("/.well-known/jwks.json", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { getJwks } = await import("../services/verifiable-credential");
+    const jwks = await getJwks();
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.json(jwks);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/.well-known/agent-registration", async (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=3600");

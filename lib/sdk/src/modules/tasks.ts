@@ -43,10 +43,21 @@ export class TaskModule {
   }
 
   async fail(taskId: string, result?: Record<string, unknown>): Promise<Task> {
-    return this.http.patch(`/api/v1/tasks/${taskId}/business-status`, {
-      status: "failed",
+    return this.http.post(`/api/v1/tasks/${taskId}/fail`, {
       result,
     });
+  }
+
+  async accept(taskId: string): Promise<Task> {
+    return this.http.post(`/api/v1/tasks/${taskId}/accept`);
+  }
+
+  async start(taskId: string): Promise<Task> {
+    return this.http.post(`/api/v1/tasks/${taskId}/start`);
+  }
+
+  async reject(taskId: string, result?: Record<string, unknown>): Promise<Task> {
+    return this.http.post(`/api/v1/tasks/${taskId}/reject`, { result });
   }
 
   async send(options: SendTaskOptions): Promise<{ task: Task }> {

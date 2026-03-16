@@ -248,6 +248,43 @@ const lineageSponsorshipProvider: TrustProvider = {
   },
 };
 
+const attestationProvider: TrustProvider = {
+  id: "attestations",
+  label: "Peer Attestations",
+  maxScore: 10,
+  async compute(_agent, context) {
+    try {
+      const { agentAttestationsTable } = await import("@workspace/db/schema");
+      const attestations = await db
+        .select({
+          sentiment: agentAttestationsTable.sentiment,
+          weight: agentAttestationsTable.weight,
+          attesterTrustScore: agentAttestationsTable.attesterTrustScore,
+        })
+        .from(agentAttestationsTable)
+        .where(
+          and(
+            eq(agentAttestationsTable.subjectId, context.agentId),
+            isNull(agentAttestationsTable.revokedAt),
+          ),
+        );
+
+      if (attestations.length === 0) return { score: 0, metadata: { count: 0 } };
+
+      let weightedSum = 0;
+      for (const att of attestations) {
+        const multiplier = att.sentiment === "positive" ? 1 : att.sentiment === "negative" ? -1 : 0;
+        weightedSum += multiplier * (att.weight || 1) * ((att.attesterTrustScore || 0) / 100);
+      }
+
+      const score = Math.max(0, Math.min(10, Math.round(5 + weightedSum)));
+      return { score, metadata: { count: attestations.length, weightedSum } };
+    } catch {
+      return { score: 0 };
+    }
+  },
+};
+
 registerTrustProvider(verificationProvider);
 registerTrustProvider(longevityProvider);
 registerTrustProvider(activityProvider);
@@ -257,6 +294,7 @@ registerTrustProvider(endpointHealthProvider);
 registerTrustProvider(profileCompletenessProvider);
 registerTrustProvider(externalSignalProvider);
 registerTrustProvider(lineageSponsorshipProvider);
+registerTrustProvider(attestationProvider);
 
 function determineTier(score: number, verified: boolean): TrustTier {
   if (score >= 90 && verified) return "elite";
@@ -343,6 +381,25 @@ export async function recomputeAndStore(agentId: string) {
     } catch (err) {
       logger.error({ err }, "[trust-score] Failed to reissue credential after score change");
     }
+
+    try {
+      const { logSignedActivity } = await import("./activity-log");
+      await logSignedActivity({
+        agentId,
+        eventType: "agent.trust_updated",
+        payload: { previousScore, newScore: trustScore, trustTier },
+        isPublic: true,
+      });
+    } catch {}
+
+    try {
+      const { deliverWebhookEvent } = await import("./webhook-delivery");
+      await deliverWebhookEvent(agentId, "trust.updated", {
+        previousScore,
+        newScore: trustScore,
+        trustTier,
+      });
+    } catch {}
   }
 
   try {

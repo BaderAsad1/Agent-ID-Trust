@@ -225,4 +225,97 @@ export class AgentID {
       `/api/v1/agents/${this._agentId}/subagents/${subagentId}`,
     );
   }
+
+  async rotateKey(options: {
+    oldKeyId: string;
+    newPublicKey: string;
+    keyType?: string;
+    reason?: string;
+  }): Promise<{
+    oldKey: Record<string, unknown>;
+    newKey: Record<string, unknown>;
+    rotationLogId: string;
+    gracePeriodEnds: string;
+    message: string;
+  }> {
+    return this.http.post(
+      `/api/v1/agents/${this._agentId}/keys/rotate`,
+      options,
+    );
+  }
+
+  async verifyKeyRotation(rotationLogId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.http.post(
+      `/api/v1/agents/${this._agentId}/keys/verify-rotation`,
+      { rotationLogId },
+    );
+  }
+
+  async registerWebhook(options: {
+    url: string;
+    events?: string[];
+  }): Promise<{
+    id: string;
+    url: string;
+    events: string[];
+    active: boolean;
+    secret: string;
+    createdAt: string;
+  }> {
+    return this.http.post(
+      `/api/v1/agents/${this._agentId}/webhooks`,
+      options,
+    );
+  }
+
+  async listWebhooks(): Promise<{
+    webhooks: Array<{
+      id: string;
+      url: string;
+      events: string[];
+      active: boolean;
+      consecutiveFailures: number;
+      lastDeliveryAt: string | null;
+      createdAt: string;
+    }>;
+  }> {
+    return this.http.get(`/api/v1/agents/${this._agentId}/webhooks`);
+  }
+
+  async deleteWebhook(webhookId: string): Promise<{ success: boolean }> {
+    return this.http.delete(
+      `/api/v1/agents/${this._agentId}/webhooks/${webhookId}`,
+    );
+  }
+
+  async attestAgent(
+    subjectHandle: string,
+    options: {
+      sentiment: "positive" | "negative" | "neutral";
+      category?: string;
+      content?: string;
+      signature: string;
+    },
+  ): Promise<Record<string, unknown>> {
+    return this.http.post(
+      `/api/v1/agents/${this._agentId}/attest/${encodeURIComponent(subjectHandle)}`,
+      options,
+    );
+  }
+
+  async getSignedActivity(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ activities: Array<Record<string, unknown>> }> {
+    const params = new URLSearchParams();
+    params.set("source", "signed");
+    if (options?.limit) params.set("limit", String(options.limit));
+    if (options?.offset) params.set("offset", String(options.offset));
+    return this.http.get(
+      `/api/v1/agents/${this._agentId}/activity?${params.toString()}`,
+    );
+  }
 }
