@@ -1,106 +1,127 @@
 import { motion } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
-import gsap from 'gsap';
+import { useState, useEffect, useRef } from 'react';
+import { useSceneTimer } from '@/lib/video/hooks';
+import { LiquidGlassPanel } from '../LiquidGlassPanel';
 
-const WORDS = ["DENIED", "REJECTED", "UNKNOWN", "UNTRUSTED", "INVALID", "ERROR", "BLOCKED", "FAILED"];
-
-const WORD_CONFIGS = Array.from({ length: 40 }).map((_, i) => ({
-  word: WORDS[i % WORDS.length],
-  size: 4 + (i % 8),
-  left: (i * 17) % 80,
-  top: (i * 23) % 80,
-  rotate: ((i % 5) - 2) * 15,
-  opacity: 0.3 + ((i % 5) * 0.12),
-}));
+const SERVICE_CARDS = [
+  {
+    title: 'Marketplace',
+    icon: '◆',
+    data: '3 job offers',
+    color: 'var(--color-accent)',
+  },
+  {
+    title: 'Wallet',
+    icon: '◈',
+    data: '$240.00 balance',
+    color: 'var(--color-emerald)',
+  },
+  {
+    title: 'Agent Mail',
+    icon: '◇',
+    data: '1 new task',
+    color: 'var(--color-violet)',
+  },
+];
 
 export function Scene4() {
-  const [count, setCount] = useState(1);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const counterRef = useRef<HTMLDivElement>(null);
+  const [visibleCards, setVisibleCards] = useState(0);
+  const [orbitAngle, setOrbitAngle] = useState(0);
+  const orbitRef = useRef<number>(0);
+
+  useSceneTimer([
+    { time: 2000, callback: () => setVisibleCards(1) },
+    { time: 3200, callback: () => setVisibleCards(2) },
+    { time: 4400, callback: () => setVisibleCards(3) },
+  ]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const words = containerRef.current.querySelectorAll('.chaos-word');
-    const tl = gsap.timeline();
-
-    tl.set(words, { opacity: 0, scale: 3, rotation: -20 });
-
-    words.forEach((word, i) => {
-      tl.to(word, {
-        opacity: WORD_CONFIGS[i]?.opacity ?? 0.4,
-        scale: 1,
-        rotation: WORD_CONFIGS[i]?.rotate ?? 0,
-        duration: 0.12,
-        ease: 'back.out(2)',
-      }, i * 0.08);
-    });
-
-    if (counterRef.current) {
-      tl.fromTo(counterRef.current,
-        { x: 50, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.4, ease: 'power2.out' },
-        0.5
-      );
-    }
-
-    return () => { tl.kill(); };
+    const startTime = performance.now();
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      setOrbitAngle((elapsed * 0.008) % 360);
+      orbitRef.current = requestAnimationFrame(animate);
+    };
+    orbitRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(orbitRef.current);
   }, []);
 
-  useEffect(() => {
-    let current = 1;
-    const targets = [47, 2847, 9999, 1000000];
-    let targetIdx = 0;
-
-    const timer = setInterval(() => {
-      if (targetIdx < targets.length) {
-        current += Math.ceil((targets[targetIdx] - current) * 0.3);
-        if (current >= targets[targetIdx]) {
-          current = targets[targetIdx];
-          targetIdx++;
-        }
-        setCount(current);
-      }
-    }, 50);
-    return () => clearInterval(timer);
-  }, []);
+  const orbitRadius = 180;
 
   return (
-    <motion.div
-      className="absolute inset-0 overflow-hidden bg-black z-10"
-      initial={{ scale: 0.3, opacity: 0, borderRadius: '50%' }}
-      animate={{ scale: 1, opacity: 1, borderRadius: '0%' }}
-      exit={{ scale: 2.5, opacity: 0, filter: 'blur(30px)' }}
-      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-    >
-      <div className="absolute inset-0 noise-bg mix-blend-screen opacity-30" />
+    <div className="absolute inset-0 z-10 flex items-center justify-center">
+      <div className="relative flex items-center justify-center" style={{ width: '800px', height: '500px' }}>
+        {SERVICE_CARDS.map((card, i) => {
+          if (i >= visibleCards) return null;
+          const baseAngle = (i * 120) + orbitAngle;
+          const rad = (baseAngle * Math.PI) / 180;
+          const cardX = Math.cos(rad) * orbitRadius;
+          const cardY = Math.sin(rad) * orbitRadius * 0.4;
 
-      <div ref={containerRef} className="absolute inset-0">
-        {WORD_CONFIGS.map((config, i) => (
-          <div
-            key={i}
-            className="chaos-word absolute font-black uppercase whitespace-nowrap text-error"
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: `${config.size}vw`,
-              left: `${config.left}%`,
-              top: `${config.top}%`,
-              opacity: 0,
-              textShadow: '2px 2px 0 rgba(255,0,0,0.5)',
-            }}
-          >
-            {config.word}
-          </div>
-        ))}
-      </div>
+          return (
+            <motion.div
+              key={card.title}
+              className="absolute z-10"
+              initial={{ opacity: 0, scale: 0.8, filter: 'blur(12px)' }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+                filter: 'blur(0px)',
+                x: cardX,
+                y: cardY,
+              }}
+              transition={{
+                opacity: { duration: 0.6 },
+                scale: { duration: 0.6 },
+                filter: { duration: 0.6 },
+                x: { duration: 0.05, ease: 'linear' },
+                y: { duration: 0.05, ease: 'linear' },
+              }}
+            >
+              <LiquidGlassPanel
+                intensity={0.9}
+                tint="rgba(10,12,22,0.45)"
+                style={{ width: '180px' }}
+              >
+                <div style={{ padding: '20px' }}>
+                  <div className="flex items-center gap-2" style={{ marginBottom: '12px' }}>
+                    <span style={{ color: card.color, fontSize: '16px' }}>{card.icon}</span>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-display)',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: 'var(--color-text-primary)',
+                      }}
+                    >
+                      {card.title}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '12px',
+                      color: card.color,
+                    }}
+                  >
+                    {card.data}
+                  </div>
+                </div>
+              </LiquidGlassPanel>
+            </motion.div>
+          );
+        })}
 
-      <div
-        ref={counterRef}
-        className="absolute bottom-[5vw] right-[5vw] font-mono text-error z-50 text-[3vw] bg-black/80 p-4 border border-error/30 backdrop-blur"
-        style={{ opacity: 0 }}
-      >
-        REJECTIONS: {count >= 1000000 ? '1,000,000+' : count.toLocaleString()}
+        <motion.div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at center, rgba(79,125,243,0.06) 0%, transparent 60%)',
+            filter: 'blur(40px)',
+          }}
+          animate={{ opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+        />
       </div>
-    </motion.div>
+    </div>
   );
 }

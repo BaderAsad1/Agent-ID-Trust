@@ -1,83 +1,110 @@
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useSceneTimer } from '@/lib/video/hooks';
 
-const base = import.meta.env.BASE_URL;
+const LINES = [
+  'Identity: confirmed',
+  'Signatures: valid',
+  'Trust: 94/100',
+];
 
 export function Scene3() {
-  const text = "WHO ARE YOU?";
-  const [showAnswer, setShowAnswer] = useState(false);
+  const [showCheck, setShowCheck] = useState(false);
+  const [showVerified, setShowVerified] = useState(false);
+  const [visibleLines, setVisibleLines] = useState(0);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setShowAnswer(true), 2500);
-    return () => clearTimeout(timer);
-  }, []);
+  useSceneTimer([
+    { time: 400, callback: () => setShowCheck(true) },
+    { time: 1200, callback: () => setShowVerified(true) },
+    { time: 2500, callback: () => setVisibleLines(1) },
+    { time: 3200, callback: () => setVisibleLines(2) },
+    { time: 3900, callback: () => setVisibleLines(3) },
+  ]);
 
   return (
-    <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center bg-black z-10"
-      initial={{ clipPath: 'inset(50% 0 50% 0)' }}
-      animate={{ clipPath: 'inset(0% 0 0% 0)' }}
-      exit={{ clipPath: 'inset(0 50% 0 50%)' }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-    >
-      <motion.div
-        className="absolute inset-0 z-0"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.2 }}
-        transition={{ duration: 2 }}
-      >
-        <img
-          src={`${base}images/apartment_denial.png`}
-          alt=""
-          className="w-full h-full object-cover mix-blend-luminosity"
-        />
-      </motion.div>
-
-      <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/80 z-[1]" />
-
-      <div className="flex text-[8vw] font-display font-bold text-white tracking-tighter z-[2]">
-        {text.split('').map((char, index) => (
-          <motion.span
-            key={index}
-            initial={{ opacity: 0, rotateX: -90, y: 50 }}
-            animate={{ opacity: 1, rotateX: 0, y: 0 }}
-            transition={{
-              type: 'spring',
-              stiffness: 400,
-              damping: 20,
-              delay: index * 0.1
-            }}
-            style={{ display: 'inline-block', transformOrigin: 'bottom' }}
-          >
-            {char === ' ' ? '\u00A0' : char}
-          </motion.span>
-        ))}
-      </div>
-
-      <div className="mt-[4vw] h-[6vw] flex items-center justify-center font-mono text-[4vw] z-[2]">
-        {!showAnswer ? (
-          <motion.span
-            className="w-[3vw] h-[5vw] bg-white inline-block"
-            animate={{ opacity: [1, 0, 1] }}
-            transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-          />
-        ) : (
+    <div className="absolute inset-0 z-10 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-8">
+        {showCheck && (
           <motion.div
-            initial={{ opacity: 0, scale: 2 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.1 }}
-            className="text-error font-bold tracking-widest flex items-center gap-4"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className="relative"
           >
+            <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+              <motion.circle
+                cx="40"
+                cy="40"
+                r="36"
+                stroke="var(--color-emerald)"
+                strokeWidth="2.5"
+                fill="rgba(52,211,153,0.08)"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
+              />
+              <motion.path
+                d="M24 40 L35 52 L56 28"
+                stroke="var(--color-emerald)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.5, delay: 0.5, ease: 'easeOut' }}
+              />
+            </svg>
             <motion.div
-              className="absolute inset-0 bg-error/20 z-0"
-              initial={{ opacity: 1 }}
-              animate={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
+              className="absolute -inset-8 pointer-events-none"
+              style={{
+                background: 'radial-gradient(circle, rgba(52,211,153,0.15) 0%, transparent 60%)',
+                filter: 'blur(30px)',
+              }}
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity }}
             />
-            [ NO ANSWER ]
           </motion.div>
         )}
+
+        {showVerified && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, filter: 'blur(8px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '42px',
+              fontWeight: 700,
+              color: 'var(--color-emerald)',
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase' as const,
+            }}
+          >
+            VERIFIED
+          </motion.div>
+        )}
+
+        <div className="flex flex-col gap-2 items-center">
+          {LINES.map((line, i) => (
+            i < visibleLines && (
+              <motion.div
+                key={line}
+                initial={{ opacity: 0, x: -15 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '14px',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                {line}
+              </motion.div>
+            )
+          ))}
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
