@@ -55,15 +55,29 @@ export interface BootstrapBundle {
   prompt_block: string;
 }
 
+export interface HeartbeatIdentity {
+  handle: string;
+  did: string;
+  trustScore: number;
+  trustTier: TrustTier;
+  verificationStatus: string;
+  status: string;
+  capabilities: string[];
+  inbox: string | null;
+}
+
 export interface HeartbeatResponse {
   acknowledged: boolean;
   server_time: string;
   next_expected_heartbeat: string;
+  identity?: HeartbeatIdentity;
+  promptBlockUrl?: string;
+  updateContext?: boolean;
 }
 
 export interface HeartbeatOptions {
   endpointUrl?: string;
-  runtimeContext?: { framework?: string; version?: string };
+  runtimeContext?: { framework?: string; version?: string; [key: string]: unknown };
 }
 
 export interface MailMessage {

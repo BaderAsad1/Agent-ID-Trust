@@ -311,21 +311,39 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
       .set(updates)
       .where(eq(agentsTable.id, agent.id));
 
-    await logActivity({
-      agentId: agent.id,
-      eventType: "agent.heartbeat",
-      payload: {
-        endpoint_url: parsed.data.endpoint_url,
-        runtime_context: parsed.data.runtime_context,
-      },
-      ipAddress: req.ip,
-      userAgent: req.headers["user-agent"],
-    });
+    const [, trust, inbox] = await Promise.all([
+      logActivity({
+        agentId: agent.id,
+        eventType: "agent.heartbeat",
+        payload: {
+          endpoint_url: parsed.data.endpoint_url,
+          runtime_context: parsed.data.runtime_context,
+        },
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      }),
+      computeTrustScore(agent.id),
+      getInboxByAgent(agent.id),
+    ]);
+
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
 
     res.json({
       acknowledged: true,
       server_time: now.toISOString(),
       next_expected_heartbeat: new Date(now.getTime() + HEARTBEAT_INTERVAL_SECONDS * 1000).toISOString(),
+      identity: {
+        handle: `${agent.handle}.agentID`,
+        did: `did:agentid:${agent.handle}`,
+        trustScore: trust.trustScore,
+        trustTier: trust.trustTier,
+        verificationStatus: agent.verificationStatus,
+        status: agent.status,
+        capabilities: (agent.capabilities as string[]) || [],
+        inbox: inbox?.address || null,
+      },
+      promptBlockUrl: `${APP_URL}/api/v1/agents/${agent.id}/prompt-block?format=text`,
+      updateContext: true,
     });
   } catch (err) {
     next(err);

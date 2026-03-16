@@ -125,13 +125,27 @@ export class AgentID {
   }
 
   async heartbeat(options?: HeartbeatOptions): Promise<HeartbeatResponse> {
-    return this.http.post<HeartbeatResponse>(
+    const response = await this.http.post<HeartbeatResponse>(
       `/api/v1/agents/${this._agentId}/heartbeat`,
       {
         endpoint_url: options?.endpointUrl,
         runtime_context: options?.runtimeContext,
       },
     );
+
+    if (response.updateContext && response.identity && this.bootstrap) {
+      this.bootstrap.trust = {
+        ...this.bootstrap.trust,
+        score: response.identity.trustScore,
+        tier: response.identity.trustTier,
+      };
+      this.bootstrap.capabilities = response.identity.capabilities;
+      if (response.identity.inbox) {
+        this.bootstrap.inbox_address = response.identity.inbox;
+      }
+    }
+
+    return response;
   }
 
   startHeartbeat(options?: HeartbeatOptions): void {
