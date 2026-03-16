@@ -53,7 +53,7 @@ async function buildBootstrapBundle(agent: Agent) {
   const APP_URL = process.env.APP_URL || "https://getagent.id";
   const effectiveInbox = limits.canReceiveMail ? inbox : null;
 
-  const promptBlock = buildPromptBlockText(agent, trust, effectiveInbox, capabilities, limits, APP_URL);
+  const promptBlock = buildPromptBlockText(agent, trust, effectiveInbox, capabilities, limits, APP_URL, plan);
 
   const bundle: Record<string, unknown> = {
     spec_version: SPEC_VERSION,
@@ -98,6 +98,7 @@ function buildPromptBlockText(
   capabilities: string[],
   limits?: ReturnType<typeof getPlanLimits>,
   appUrl?: string,
+  planName?: string,
 ): string {
   const APP_URL = appUrl || process.env.APP_URL || "https://getagent.id";
 
@@ -118,7 +119,7 @@ Protocol Address: ${agent.handle}.agentid
 Trust Score:      ${trust.trustScore} / 100
 Trust Tier:       ${trust.trustTier}
 Verification:     ${agent.verificationStatus}
-Plan:             ${(limits as any)?.plan || 'free'}
+Plan:             ${planName || 'free'}
 
 === RESOLUTION ===
 Resolve by UUID:   GET ${APP_URL}/api/v1/resolve/id/${agent.id}

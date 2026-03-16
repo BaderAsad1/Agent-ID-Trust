@@ -53,30 +53,6 @@ if (!config.REDIS_URL) {
   logger.warn("[startup] Redis is not configured — BullMQ webhook delivery queue and domain provisioning worker are disabled.");
 }
 
-import { db } from "@workspace/db";
-import { agentsTable } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
-
-(async () => {
-  try {
-    const result = await db
-      .update(agentsTable)
-      .set({ status: "active", updatedAt: new Date() })
-      .where(
-        and(
-          eq(agentsTable.verificationStatus, "verified"),
-          eq(agentsTable.status, "draft"),
-        ),
-      )
-      .returning({ id: agentsTable.id });
-    if (result.length > 0) {
-      logger.info({ count: result.length, ids: result.map((r) => r.id) }, "[startup] Fixed verified agents stuck in draft status");
-    }
-  } catch (err) {
-    logger.warn({ err }, "[startup] Could not run draft→active fix");
-  }
-})();
-
 startDomainWorker();
 initWebhookDeliveryWorker();
 initEmailDeliveryWorker();
