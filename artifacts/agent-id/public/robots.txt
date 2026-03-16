@@ -1,0 +1,39 @@
+# General crawler rules
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+# AI-specific bot rules
+User-agent: GPTBot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: CCBot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+Sitemap: https://agentid.net/sitemap.xml
