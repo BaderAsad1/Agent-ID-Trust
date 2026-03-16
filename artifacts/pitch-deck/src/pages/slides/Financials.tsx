@@ -34,13 +34,13 @@ export default function Financials() {
                 <span className="text-[1.2vw] font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue-light)' }}>Year 1</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--text-primary)' }}>100K</span>
+                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--text-primary)' }}>200K</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-green)' }}>$2.4M</span>
+                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-green)' }}>$4M</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-amber)' }}>35% MoM</span>
+                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-amber)' }}>300% YoY</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
                 <span className="text-[1.2vw]" style={{ color: 'var(--text-secondary)' }}>72%</span>
@@ -53,38 +53,38 @@ export default function Financials() {
                 <span className="text-[1.2vw] font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-green-light)' }}>Year 2</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--text-primary)' }}>500K</span>
+                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--text-primary)' }}>1.5M</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-green)' }}>$18M</span>
+                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-green)' }}>$50M</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-amber)' }}>7.5x YoY</span>
+                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-amber)' }}>12x YoY</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
                 <span className="text-[1.2vw]" style={{ color: 'var(--text-secondary)' }}>84%</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-surface)' }}>
-                <span className="text-[1vw]" style={{ color: 'var(--text-secondary)' }}>$60M GMV, +$1.7M fees</span>
+                <span className="text-[1vw]" style={{ color: 'var(--text-secondary)' }}>$150M GMV, +$4.4M fees</span>
               </div>
 
               <div className="p-[1vw]" style={{ background: 'var(--bg-card)' }}>
                 <span className="text-[1.2vw] font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-amber)' }}>Year 3</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--text-primary)' }}>2M</span>
+                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--text-primary)' }}>5M</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-green)' }}>$72M</span>
+                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-green)' }}>$240M</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-amber)' }}>4x YoY</span>
+                <span className="text-[1.2vw] font-semibold" style={{ color: 'var(--accent-amber)' }}>5x YoY</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
                 <span className="text-[1.2vw]" style={{ color: 'var(--accent-green)' }}>88%</span>
               </div>
               <div className="p-[1vw] text-center" style={{ background: 'var(--bg-card)' }}>
-                <span className="text-[1vw]" style={{ color: 'var(--text-secondary)' }}>Path to $150M+ ARR</span>
+                <span className="text-[1vw]" style={{ color: 'var(--text-secondary)' }}>Path to $500M ARR</span>
               </div>
             </div>
           </div>
@@ -111,8 +111,8 @@ export default function Financials() {
               <h3 className="text-[1.4vw] font-bold mb-[1.5vh]" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Compounding Value</h3>
               <p className="text-[1.15vw] leading-relaxed mb-[1vh]" style={{ color: 'var(--text-secondary)' }}>Each new agent increases network value for all existing agents. Trust scores and transaction rails become more valuable at scale.</p>
               <div className="flex items-baseline gap-[0.5vw]">
-                <span className="text-[2.2vw] font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue-light)' }}>$150M+</span>
-                <span className="text-[1.1vw]" style={{ color: 'var(--text-muted)' }}>ARR at 2M paid agents</span>
+                <span className="text-[2.2vw] font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue-light)' }}>$240M</span>
+                <span className="text-[1.1vw]" style={{ color: 'var(--text-muted)' }}>ARR at 5M agents in Year 3</span>
               </div>
             </div>
           </div>

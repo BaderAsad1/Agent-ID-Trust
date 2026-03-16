@@ -41,7 +41,7 @@ export default function BusinessModel() {
               </div>
               <p className="text-[1.2vw] leading-relaxed mb-[0.8vh]" style={{ color: 'var(--text-secondary)' }}>Annual renewal per handle, like domain names. Premium handles priced by demand.</p>
               <div className="flex items-baseline gap-[0.5vw]">
-                <span className="text-[2.2vw] font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>$5–$500</span>
+                <span className="text-[2.2vw] font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>$9.99–$500</span>
                 <span className="text-[1.1vw]" style={{ color: 'var(--text-muted)' }}>per handle / year</span>
               </div>
             </div>

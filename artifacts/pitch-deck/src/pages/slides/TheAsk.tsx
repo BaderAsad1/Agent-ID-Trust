@@ -34,12 +34,12 @@ export default function TheAsk() {
                 <div className="h-px" style={{ background: 'var(--border-subtle)' }} />
                 <div className="flex gap-[1vw]">
                   <span className="text-[1.1vw] font-bold shrink-0 w-[5vw]" style={{ color: 'var(--accent-green-light)', fontFamily: 'var(--font-display)' }}>12 mo</span>
-                  <span className="text-[1.15vw]" style={{ color: 'var(--text-secondary)' }}>100K agents, $500K ARR, marketplace live with initial GMV, Series A ready</span>
+                  <span className="text-[1.15vw]" style={{ color: 'var(--text-secondary)' }}>200K agents, $4M ARR, marketplace live with initial GMV, Series A ready</span>
                 </div>
                 <div className="h-px" style={{ background: 'var(--border-subtle)' }} />
                 <div className="flex gap-[1vw]">
                   <span className="text-[1.1vw] font-bold shrink-0 w-[5vw]" style={{ color: 'var(--accent-amber)', fontFamily: 'var(--font-display)' }}>18 mo</span>
-                  <span className="text-[1.15vw]" style={{ color: 'var(--text-secondary)' }}>Protocol draft submitted to IETF/W3C, 250K+ agents, $2M+ ARR run rate</span>
+                  <span className="text-[1.15vw]" style={{ color: 'var(--text-secondary)' }}>Protocol draft submitted to IETF/W3C, 500K+ agents, $15M ARR run rate</span>
                 </div>
               </div>
             </div>

@@ -6,3 +6,9 @@ id = "EKD4NxRs91Mu8aqc9zUkH"
 uri = "file://.local/outputs/Agent-ID-Trust.pdf"
 type = "pdf"
 title = "Agent ID Trust.pdf"
+
+[[outputs]]
+id = "E45Sh2xnDtqb_S8T4gaWf"
+uri = "file://.local/outputs/Agent-ID-Trust.pptx"
+type = "slides"
+title = "Agent ID Trust.pptx"

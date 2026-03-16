@@ -28,7 +28,7 @@ export default function TitleSlide() {
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-[2vw]">
-            <span className="text-[1.4vw]" style={{ color: 'var(--text-muted)' }}>Series A</span>
+            <span className="text-[1.4vw]" style={{ color: 'var(--text-muted)' }}>Seed</span>
             <span className="w-[0.3vw] h-[0.3vw] rounded-full" style={{ background: 'var(--text-muted)' }} />
             <span className="text-[1.4vw]" style={{ color: 'var(--text-muted)' }}>Confidential</span>
             <span className="w-[0.3vw] h-[0.3vw] rounded-full" style={{ background: 'var(--text-muted)' }} />
