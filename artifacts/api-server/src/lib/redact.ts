@@ -4,12 +4,13 @@ export function redactApiKey(value: string): string {
   return value.replace(AGK_PATTERN, (match) => `${match.slice(0, 8)}...[REDACTED]`);
 }
 
-export function redactSecrets(obj: unknown): unknown {
+export function redactSecrets(obj: unknown, depth = 0): unknown {
+  if (depth > 10) return "[DEPTH_LIMIT]";
   if (typeof obj === "string") {
     return redactApiKey(obj);
   }
   if (Array.isArray(obj)) {
-    return obj.map(redactSecrets);
+    return obj.map((item) => redactSecrets(item, depth + 1));
   }
   if (obj !== null && typeof obj === "object") {
     const result: Record<string, unknown> = {};
@@ -22,7 +23,7 @@ export function redactSecrets(obj: unknown): unknown {
           result[key] = "[REDACTED]";
         }
       } else {
-        result[key] = redactSecrets(value);
+        result[key] = redactSecrets(value, depth + 1);
       }
     }
     return result;
