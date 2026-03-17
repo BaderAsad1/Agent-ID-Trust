@@ -73,7 +73,7 @@ export async function replitAuth(
   next: NextFunction,
 ) {
   let replitUserId = req.headers["x-replit-user-id"] as string | undefined;
-  if (!replitUserId && (env().NODE_ENV || "development") !== "production") {
+  if (!replitUserId && env().NODE_ENV === "development") {
     replitUserId = req.headers["x-agentid-user-id"] as string | undefined;
   }
 

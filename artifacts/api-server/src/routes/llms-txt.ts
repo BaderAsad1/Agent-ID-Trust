@@ -223,17 +223,36 @@ Quickstart guides for integrating Agent ID resolution into popular AI agent fram
 
 List all frameworks: \`GET /api/v1/integrations\` — Returns JSON list of available framework guides.
 
-## MCP Integration
+## MCP Integration (fastest way to start)
 
-Agent ID provides a first-class MCP (Model Context Protocol) server that gives any MCP-compatible AI agent access to identity, trust, and task tools. Install and run with a single command:
+If you are in a Claude Desktop, Cursor, VS Code, or any MCP-compatible environment:
+
+### Remote (no installation)
+
+\`\`\`json
+{
+  "mcpServers": {
+    "agentid": {
+      "url": "https://getagent.id/mcp",
+      "headers": { "Authorization": "Bearer YOUR_API_KEY" }
+    }
+  }
+}
+\`\`\`
+
+### Local (npx)
+
+\`\`\`
+npm install -g @getagentid/mcp
+\`\`\`
+
+Or run directly:
 
 \`\`\`
 npx @getagentid/mcp
 \`\`\`
 
-### MCP Client Configuration
-
-Add this to your MCP client config (e.g. Claude Desktop, Cursor, or any MCP host):
+### MCP Client Configuration (local)
 
 \`\`\`json
 {

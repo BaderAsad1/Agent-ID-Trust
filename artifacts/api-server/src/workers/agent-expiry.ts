@@ -1,16 +1,54 @@
 import { Queue, Worker, type Job } from "bullmq";
 import { and, eq, lte, sql, inArray, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, apiKeysTable } from "@workspace/db/schema";
+import { agentsTable, apiKeysTable, agentKeysTable, agentVerificationChallengesTable, agentClaimTokensTable } from "@workspace/db/schema";
 import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
 import { logger } from "../middlewares/request-logger";
 
 const QUEUE_NAME = "agent-expiry";
 const EXPIRY_INTERVAL_MS = 5 * 60 * 1000;
+const STALE_UNVERIFIED_AGE_MS = 24 * 60 * 60 * 1000;
 
 let queue: Queue | null = null;
 let worker: Worker | null = null;
 let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+
+async function cleanupStaleUnverifiedAgents(): Promise<number> {
+  const cutoff = new Date(Date.now() - STALE_UNVERIFIED_AGE_MS);
+
+  const staleAgents = await db
+    .select({ id: agentsTable.id })
+    .from(agentsTable)
+    .where(
+      and(
+        eq(agentsTable.verificationStatus, "pending"),
+        eq(agentsTable.status, "draft"),
+        lte(agentsTable.createdAt, cutoff),
+      ),
+    );
+
+  if (staleAgents.length === 0) return 0;
+
+  const staleIds = staleAgents.map((a) => a.id);
+
+  await db.transaction(async (tx) => {
+    await tx.delete(agentKeysTable).where(inArray(agentKeysTable.agentId, staleIds));
+    await tx.delete(agentVerificationChallengesTable).where(inArray(agentVerificationChallengesTable.agentId, staleIds));
+    await tx.delete(agentClaimTokensTable).where(inArray(agentClaimTokensTable.agentId, staleIds));
+    await tx
+      .delete(apiKeysTable)
+      .where(
+        and(
+          inArray(apiKeysTable.ownerId, staleIds),
+          eq(apiKeysTable.ownerType, "agent"),
+        ),
+      );
+    await tx.delete(agentsTable).where(inArray(agentsTable.id, staleIds));
+  });
+
+  logger.info({ cleanedCount: staleIds.length, agentIds: staleIds }, "[agent-expiry] Cleaned up stale unverified agents");
+  return staleIds.length;
+}
 
 async function expireEphemeralAgents(): Promise<number> {
   const now = new Date();
@@ -71,15 +109,21 @@ async function expireEphemeralAgents(): Promise<number> {
   return expired.length;
 }
 
+async function runExpiryTasks(): Promise<{ expiredCount: number; cleanedCount: number }> {
+  const expiredCount = await expireEphemeralAgents();
+  const cleanedCount = await cleanupStaleUnverifiedAgents();
+  return { expiredCount, cleanedCount };
+}
+
 export function startAgentExpiryWorker(): void {
   if (!isRedisConfigured()) {
     logger.info("[agent-expiry] Redis not configured — using in-process fallback timer");
     if (!fallbackTimer) {
       fallbackTimer = setInterval(async () => {
         try {
-          await expireEphemeralAgents();
+          await runExpiryTasks();
         } catch (err) {
-          logger.error({ err }, "[agent-expiry] Error expiring ephemeral agents");
+          logger.error({ err }, "[agent-expiry] Error in expiry tasks");
         }
       }, EXPIRY_INTERVAL_MS);
     }
@@ -111,8 +155,7 @@ export function startAgentExpiryWorker(): void {
   worker = new Worker(
     QUEUE_NAME,
     async (_job: Job) => {
-      const count = await expireEphemeralAgents();
-      return { expiredCount: count };
+      return await runExpiryTasks();
     },
     {
       ...getBullMQConnection(),
@@ -129,9 +172,9 @@ export function startAgentExpiryWorker(): void {
   });
 
   worker.on("completed", (job) => {
-    const result = job?.returnvalue as { expiredCount?: number } | undefined;
-    if (result && result.expiredCount && result.expiredCount > 0) {
-      logger.info({ jobId: job?.id, expiredCount: result.expiredCount }, "[agent-expiry] Job completed");
+    const result = job?.returnvalue as { expiredCount?: number; cleanedCount?: number } | undefined;
+    if (result && ((result.expiredCount && result.expiredCount > 0) || (result.cleanedCount && result.cleanedCount > 0))) {
+      logger.info({ jobId: job?.id, expiredCount: result.expiredCount, cleanedCount: result.cleanedCount }, "[agent-expiry] Job completed");
     }
   });
 
@@ -153,4 +196,4 @@ export async function stopAgentExpiryWorker(): Promise<void> {
   }
 }
 
-export { expireEphemeralAgents };
+export { expireEphemeralAgents, cleanupStaleUnverifiedAgents };
