@@ -220,9 +220,6 @@ router.post("/:agentId/wallet/provision", requireAgentAuth, async (req, res, nex
       result = (await provisionAgentWallet(agentId, authedAgent.handle))!;
     } catch (cdpErr) {
       const msg = cdpErr instanceof Error ? cdpErr.message : String(cdpErr);
-      if (msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("forbidden")) {
-        throw new AppError(503, "CDP_AUTH_FAILED", "Wallet provisioning unavailable — CDP credentials are invalid");
-      }
       const isDev = process.env.NODE_ENV !== "production";
       res.status(500).json({
         error: "WALLET_PROVISION_FAILED",
@@ -422,9 +419,6 @@ router.post("/user/:agentId/wallet/provision", requireAuth, async (req, res, nex
       result = (await provisionAgentWallet(agentId, agent?.handle))!;
     } catch (cdpErr) {
       const msg = cdpErr instanceof Error ? cdpErr.message : String(cdpErr);
-      if (msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("forbidden")) {
-        throw new AppError(503, "CDP_AUTH_FAILED", "Wallet provisioning unavailable — CDP credentials are invalid");
-      }
       const isDev = process.env.NODE_ENV !== "production";
       res.status(500).json({
         error: "WALLET_PROVISION_FAILED",
