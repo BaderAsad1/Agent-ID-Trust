@@ -5,6 +5,7 @@ import router from "./routes";
 import wellKnownRouter from "./routes/well-known";
 import authOidcRouter from "./routes/auth-oidc";
 import { securityHeaders } from "./middlewares/security-headers";
+import { sandboxMiddleware } from "./middlewares/sandbox";
 import { requestIdMiddleware } from "./middlewares/request-id";
 import { requestLogger } from "./middlewares/request-logger";
 import { replitAuth } from "./middlewares/replit-auth";
@@ -22,6 +23,7 @@ const app: Express = express();
 
 app.use(requestIdMiddleware);
 app.use(securityHeaders);
+app.use(sandboxMiddleware);
 app.use(requestLogger);
 
 const corsOrigins: cors.CorsOptions["origin"] = (() => {

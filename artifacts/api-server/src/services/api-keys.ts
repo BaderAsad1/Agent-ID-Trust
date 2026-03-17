@@ -19,6 +19,7 @@ export interface CreateApiKeyInput {
   ownerId: string;
   name: string;
   scopes?: string[];
+  sandbox?: boolean;
 }
 
 export interface CreateApiKeyResult {
@@ -30,7 +31,8 @@ export async function createApiKey(
   input: CreateApiKeyInput,
 ): Promise<CreateApiKeyResult> {
   const rawKey = generateRawKey();
-  const prefix = `aid_${rawKey.slice(0, KEY_PREFIX_LENGTH)}`;
+  const keyNamespace = input.sandbox ? "agk_sandbox_" : "aid_";
+  const prefix = `${keyNamespace}${rawKey.slice(0, KEY_PREFIX_LENGTH)}`;
   const fullKey = `${prefix}${rawKey.slice(KEY_PREFIX_LENGTH)}`;
   const hashedKey = hashKey(fullKey);
 
@@ -82,10 +84,20 @@ export async function revokeApiKey(
   return updated || null;
 }
 
+function extractKeyPrefix(rawKey: string): string {
+  const namespaces = ["agk_sandbox_", "agk_", "aid_"];
+  for (const ns of namespaces) {
+    if (rawKey.startsWith(ns)) {
+      return rawKey.slice(0, ns.length + KEY_PREFIX_LENGTH);
+    }
+  }
+  return rawKey.slice(0, 4 + KEY_PREFIX_LENGTH);
+}
+
 export async function verifyApiKey(
   rawKey: string,
 ): Promise<ApiKey | null> {
-  const prefix = rawKey.slice(0, 4 + KEY_PREFIX_LENGTH);
+  const prefix = extractKeyPrefix(rawKey);
   const hashedKey = hashKey(rawKey);
 
   const key = await db.query.apiKeysTable.findFirst({

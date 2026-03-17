@@ -21,7 +21,8 @@ export async function apiKeyAuth(
   }
 
   const token = authHeader.slice(7);
-  if (!token.startsWith("aid_")) {
+  const isUserKey = token.startsWith("aid_") || token.startsWith("agk_sandbox_");
+  if (!isUserKey) {
     next();
     return;
   }

@@ -22,6 +22,9 @@ import { OrgProfile } from '@/pages/OrgProfile';
 import { HumanProfile } from '@/pages/HumanProfile';
 import { Terms } from '@/pages/Terms';
 import { Privacy } from '@/pages/Privacy';
+import { Changelog } from '@/pages/Changelog';
+import { Security } from '@/pages/Security';
+import { BugBounty } from '@/pages/BugBounty';
 import { ClaudeDesktopIntegration } from '@/pages/integrations/ClaudeDesktop';
 import { CursorIntegration } from '@/pages/integrations/Cursor';
 import { VSCodeIntegration } from '@/pages/integrations/VSCode';
@@ -79,6 +82,9 @@ function AppContent() {
         <Route path="/protocol" element={<Protocol />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/changelog" element={<Changelog />} />
+        <Route path="/security" element={<Security />} />
+        <Route path="/bug-bounty" element={<BugBounty />} />
         <Route path="/integrations" element={<DocsIntegrations />} />
         <Route path="/integrations/claude-desktop" element={<ClaudeDesktopIntegration />} />
         <Route path="/integrations/cursor" element={<CursorIntegration />} />

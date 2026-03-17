@@ -107,15 +107,19 @@ router.post("/", requireAuth, async (req, res, next) => {
     const handleLen = normalizedHandle.replace(/[^a-z0-9]/g, "").length;
     const pricingTier = handleLen <= 3 ? "ultra_premium" : handleLen === 4 ? "premium" : "standard";
 
+    const isSandbox = req.isSandbox === true;
+    const sandboxHandle = isSandbox ? `sandbox-${normalizedHandle}` : normalizedHandle;
+
     let agent;
     try {
       agent = await createAgent({
         userId: req.userId!,
         ...parsed.data,
-        handle: normalizedHandle,
+        handle: sandboxHandle,
         metadata: {
           ...(parsed.data.metadata || {}),
-          handlePricing: {
+          ...(isSandbox ? { isSandbox: true, sandboxCreatedAt: new Date().toISOString() } : {}),
+          handlePricing: isSandbox ? undefined : {
             annualPriceCents: handlePriceCents,
             tier: pricingTier,
             characterLength: handleLen,
@@ -157,12 +161,15 @@ router.post("/", requireAuth, async (req, res, next) => {
 
     res.status(201).json({
       ...agent,
-      handlePricing: {
-        annualPriceCents: handlePriceCents,
-        annualPriceDollars: handlePriceCents / 100,
-        tier: pricingTier,
-        characterLength: handleLen,
-      },
+      isSandbox,
+      ...(isSandbox ? { sandboxRef: `sandbox_${agent.id}` } : {
+        handlePricing: {
+          annualPriceCents: handlePriceCents,
+          annualPriceDollars: handlePriceCents / 100,
+          tier: pricingTier,
+          characterLength: handleLen,
+        },
+      }),
     });
   } catch (err) {
     next(err);

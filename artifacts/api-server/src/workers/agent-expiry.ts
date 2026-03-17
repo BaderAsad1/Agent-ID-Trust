@@ -8,6 +8,7 @@ import { logger } from "../middlewares/request-logger";
 const QUEUE_NAME = "agent-expiry";
 const EXPIRY_INTERVAL_MS = 5 * 60 * 1000;
 const STALE_UNVERIFIED_AGE_MS = 24 * 60 * 60 * 1000;
+const SANDBOX_AGENT_TTL_MS = 24 * 60 * 60 * 1000;
 
 let queue: Queue | null = null;
 let worker: Worker | null = null;
@@ -109,10 +110,47 @@ async function expireEphemeralAgents(): Promise<number> {
   return expired.length;
 }
 
-async function runExpiryTasks(): Promise<{ expiredCount: number; cleanedCount: number }> {
+async function cleanupSandboxAgents(): Promise<number> {
+  const cutoff = new Date(Date.now() - SANDBOX_AGENT_TTL_MS);
+
+  const sandboxAgents = await db
+    .select({ id: agentsTable.id })
+    .from(agentsTable)
+    .where(
+      and(
+        lte(agentsTable.createdAt, cutoff),
+        sql`(${agentsTable.metadata}->>'isSandbox')::boolean = true`,
+      ),
+    );
+
+  if (sandboxAgents.length === 0) return 0;
+
+  const sandboxIds = sandboxAgents.map((a) => a.id);
+
+  await db.transaction(async (tx) => {
+    await tx.delete(agentKeysTable).where(inArray(agentKeysTable.agentId, sandboxIds));
+    await tx.delete(agentVerificationChallengesTable).where(inArray(agentVerificationChallengesTable.agentId, sandboxIds));
+    await tx.delete(agentClaimTokensTable).where(inArray(agentClaimTokensTable.agentId, sandboxIds));
+    await tx
+      .delete(apiKeysTable)
+      .where(
+        and(
+          inArray(apiKeysTable.ownerId, sandboxIds),
+          eq(apiKeysTable.ownerType, "agent"),
+        ),
+      );
+    await tx.delete(agentsTable).where(inArray(agentsTable.id, sandboxIds));
+  });
+
+  logger.info({ cleanedCount: sandboxIds.length }, "[agent-expiry] Cleaned up expired sandbox agents");
+  return sandboxIds.length;
+}
+
+async function runExpiryTasks(): Promise<{ expiredCount: number; cleanedCount: number; sandboxCleanedCount: number }> {
   const expiredCount = await expireEphemeralAgents();
   const cleanedCount = await cleanupStaleUnverifiedAgents();
-  return { expiredCount, cleanedCount };
+  const sandboxCleanedCount = await cleanupSandboxAgents();
+  return { expiredCount, cleanedCount, sandboxCleanedCount };
 }
 
 export function startAgentExpiryWorker(): void {

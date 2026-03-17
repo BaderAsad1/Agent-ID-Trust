@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod/v4";
 import { AppError } from "../../middlewares/error-handler";
+import { assertSandboxIsolation } from "../../middlewares/sandbox";
 import { getAgentByHandle, getAgentById } from "../../services/agents";
 import { detectAgent } from "../../middlewares/cli-markdown";
 import { generateAgentProfileMarkdown } from "../../services/agent-markdown";
@@ -134,8 +135,11 @@ async function enrichAndResolve(agent: typeof agentsTable.$inferSelect) {
     getLineageBlock(agent),
     getActiveKeys(agent.id),
   ]);
+  const meta = (agent.metadata as Record<string, unknown> | null) ?? {};
+  const agentIsSandbox = agent.handle?.startsWith("sandbox-") || meta.isSandbox === true;
   return {
     ...toResolvedAgent(agent, ownerKey, pricing),
+    ...(agentIsSandbox ? { sandboxRef: `sandbox_${agent.id}`, isSandbox: true } : {}),
     lineage,
     publicKeys: keys.map(k => ({
       id: k.id,
@@ -211,6 +215,8 @@ router.get("/id/:agentId", async (req: Request, res: Response, next: NextFunctio
       throw new AppError(404, "AGENT_NOT_FOUND", "Agent not found");
     }
 
+    assertSandboxIsolation(req, agent);
+
     const resolved = await enrichAndResolve(agent);
 
     res.setHeader("Cache-Control", "public, max-age=60");
@@ -245,6 +251,8 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
     if (!agent) {
       throw new AppError(404, "AGENT_NOT_FOUND", `No agent found for handle "${handle}"`);
     }
+
+    assertSandboxIsolation(req, agent);
 
     if (agent.status === "revoked") {
       const APP_URL = process.env.APP_URL || "https://getagent.id";
@@ -378,6 +386,8 @@ export async function handleReverse(req: Request, res: Response, next: NextFunct
       throw new AppError(404, "AGENT_NOT_FOUND", "No verified agent found for this endpoint URL");
     }
 
+    assertSandboxIsolation(req, agent);
+
     const resolved = await enrichAndResolve(agent);
 
     res.json({
@@ -402,9 +412,14 @@ export async function handleAgentDiscovery(req: Request, res: Response, next: Ne
     const limit = Math.min(parseInt(req.query.limit as string, 10) || 50, 100);
     const offset = parseInt(req.query.offset as string, 10) || 0;
 
+    const requestIsSandbox = req.isSandbox === true;
+
     const conditions = [
       eq(agentsTable.status, "active"),
       eq(agentsTable.verificationStatus, "verified"),
+      requestIsSandbox
+        ? sql`(${agentsTable.metadata}->>'isSandbox')::boolean = true`
+        : sql`((${agentsTable.metadata}->>'isSandbox') IS NULL OR (${agentsTable.metadata}->>'isSandbox')::boolean = false)`,
     ];
 
     if (minTrust !== undefined && !isNaN(minTrust)) {
@@ -486,6 +501,8 @@ router.get("/:orgSlug/:handle", async (req: Request, res: Response, next: NextFu
     if (!agent) {
       throw new AppError(404, "AGENT_NOT_FOUND", `No agent found for "${orgSlug}/${handle}"`);
     }
+
+    assertSandboxIsolation(req, agent);
 
     const resolved = await enrichAndResolve(agent);
     res.json({ resolved: true, agent: resolved, orgNamespace: orgSlug });

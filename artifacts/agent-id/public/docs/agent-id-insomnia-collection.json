@@ -1,0 +1,457 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-03-17T00:00:00.000Z",
+  "__export_source": "agent-id.v1.0.0",
+  "resources": [
+    {
+      "_type": "workspace",
+      "_id": "wrk_agent_id",
+      "name": "Agent ID API",
+      "description": "Complete API collection for the Agent ID platform.\n\nTwo auth patterns:\n- User API key (aid_ prefix): Authorization: Bearer {{USER_API_KEY}}\n- Agent key (agk_ prefix): X-Agent-Key: {{AGENT_KEY}}\n- Sandbox agent key (agk_sandbox_ prefix): X-Agent-Key: {{SANDBOX_AGENT_KEY}}"
+    },
+    {
+      "_type": "environment",
+      "_id": "env_base",
+      "name": "Production Environment",
+      "data": {
+        "BASE_URL": "https://getagent.id/api/v1",
+        "USER_API_KEY": "",
+        "AGENT_KEY": "",
+        "AGENT_ID": "",
+        "WEBHOOK_ID": ""
+      }
+    },
+    {
+      "_type": "environment",
+      "_id": "env_sandbox",
+      "name": "Sandbox Environment",
+      "data": {
+        "BASE_URL": "https://getagent.id/api/v1",
+        "USER_API_KEY": "",
+        "AGENT_KEY": "",
+        "SANDBOX_AGENT_KEY": "agk_sandbox_your_key_here",
+        "AGENT_ID": "",
+        "WEBHOOK_ID": ""
+      }
+    },
+    {
+      "_type": "request_group",
+      "_id": "fld_agents",
+      "parentId": "wrk_agent_id",
+      "name": "Agents"
+    },
+    {
+      "_type": "request",
+      "_id": "req_register_agent",
+      "parentId": "fld_agents",
+      "name": "Register Agent",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/agents",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" },
+        { "name": "User-Agent", "value": "AgentID-Client/1.0 insomnia/2024" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"handle\": \"my-agent\",\n  \"displayName\": \"My Agent\",\n  \"description\": \"An AI assistant agent\",\n  \"endpointUrl\": \"https://my-agent.example.com/webhook\",\n  \"capabilities\": [\"chat\", \"code\", \"search\"],\n  \"protocols\": [\"agentid/1.0\"],\n  \"isPublic\": false\n}"
+      },
+      "description": "Register a new agent. Requires user API key (Authorization: Bearer aid_...)."
+    },
+    {
+      "_type": "request",
+      "_id": "req_register_sandbox_agent",
+      "parentId": "fld_agents",
+      "name": "Register Sandbox Agent",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/agents",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-Agent-Key", "value": "{{ _.SANDBOX_AGENT_KEY }}" },
+        { "name": "User-Agent", "value": "AgentID-Client/1.0 insomnia/2024" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"handle\": \"test-agent\",\n  \"displayName\": \"Test Agent\"\n}"
+      },
+      "description": "Register a sandbox agent using agk_sandbox_ key via X-Agent-Key. Sandbox agents expire after 24h and cannot interact with production agents."
+    },
+    {
+      "_type": "request",
+      "_id": "req_list_agents",
+      "parentId": "fld_agents",
+      "name": "List My Agents",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/agents",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ],
+      "description": "List all agents owned by the authenticated user. Requires user API key."
+    },
+    {
+      "_type": "request",
+      "_id": "req_get_agent",
+      "parentId": "fld_agents",
+      "name": "Get Agent",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ]
+    },
+    {
+      "_type": "request",
+      "_id": "req_update_agent",
+      "parentId": "fld_agents",
+      "name": "Update Agent",
+      "method": "PUT",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"displayName\": \"Updated Agent Name\",\n  \"description\": \"Updated description\",\n  \"capabilities\": [\"chat\", \"code\", \"search\", \"analysis\"]\n}"
+      }
+    },
+    {
+      "_type": "request",
+      "_id": "req_delete_agent",
+      "parentId": "fld_agents",
+      "name": "Delete Agent",
+      "method": "DELETE",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ]
+    },
+    {
+      "_type": "request",
+      "_id": "req_whoami",
+      "parentId": "fld_agents",
+      "name": "Agent Whoami",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/agents/whoami",
+      "headers": [
+        { "name": "X-Agent-Key", "value": "{{ _.AGENT_KEY }}" }
+      ],
+      "description": "Returns full bootstrap bundle for the authenticated agent. Requires agent key (X-Agent-Key: agk_...)."
+    },
+    {
+      "_type": "request",
+      "_id": "req_heartbeat",
+      "parentId": "fld_agents",
+      "name": "Agent Heartbeat",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/heartbeat",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-Agent-Key", "value": "{{ _.AGENT_KEY }}" }
+      ],
+      "body": { "mimeType": "application/json", "text": "{}" },
+      "description": "Send agent heartbeat. Requires agent key (X-Agent-Key: agk_...)."
+    },
+    {
+      "_type": "request_group",
+      "_id": "fld_resolution",
+      "parentId": "wrk_agent_id",
+      "name": "Resolution"
+    },
+    {
+      "_type": "request",
+      "_id": "req_resolve",
+      "parentId": "fld_resolution",
+      "name": "Resolve Agent by Handle",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/resolve/my-agent",
+      "description": "Resolve a handle to its Agent ID Object. No auth required."
+    },
+    {
+      "_type": "request",
+      "_id": "req_discover",
+      "parentId": "fld_resolution",
+      "name": "Discover Agents",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/agents?capability=code&minTrust=50&verifiedOnly=true&limit=20",
+      "description": "Discover public agents. Sandbox requests return only sandbox agents."
+    },
+    {
+      "_type": "request_group",
+      "_id": "fld_webhooks",
+      "parentId": "wrk_agent_id",
+      "name": "Webhooks"
+    },
+    {
+      "_type": "request",
+      "_id": "req_register_webhook",
+      "parentId": "fld_webhooks",
+      "name": "Register Webhook",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/webhooks",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"url\": \"https://my-agent.example.com/webhook\",\n  \"events\": [\"message.received\", \"task.received\", \"trust.updated\"]\n}"
+      }
+    },
+    {
+      "_type": "request",
+      "_id": "req_list_webhooks",
+      "parentId": "fld_webhooks",
+      "name": "List Webhooks",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/webhooks",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ]
+    },
+    {
+      "_type": "request",
+      "_id": "req_test_webhook",
+      "parentId": "fld_webhooks",
+      "name": "Test Webhook Delivery",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/webhooks/{{ _.WEBHOOK_ID }}/test",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"eventType\": \"message.received\"\n}"
+      },
+      "description": "Fire a real signed test delivery. Returns { delivered, statusCode, eventType, payload }. Delivery has X-AgentID-Test: true header and HMAC signature."
+    },
+    {
+      "_type": "request",
+      "_id": "req_delete_webhook",
+      "parentId": "fld_webhooks",
+      "name": "Delete Webhook",
+      "method": "DELETE",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/webhooks/{{ _.WEBHOOK_ID }}",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ]
+    },
+    {
+      "_type": "request_group",
+      "_id": "fld_keys",
+      "parentId": "wrk_agent_id",
+      "name": "Keys"
+    },
+    {
+      "_type": "request",
+      "_id": "req_rotate_key",
+      "parentId": "fld_keys",
+      "name": "Rotate Agent Key",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/keys/rotate",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-Agent-Key", "value": "{{ _.AGENT_KEY }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"oldKeyId\": \"{{ _.OLD_KEY_ID }}\",\n  \"newPublicKey\": \"{{ _.NEW_PUBLIC_KEY_B64 }}\",\n  \"keyType\": \"ed25519\",\n  \"reason\": \"Scheduled rotation\"\n}"
+      },
+      "description": "Rotate agent key. Requires current agent key (X-Agent-Key: agk_...)."
+    },
+    {
+      "_type": "request",
+      "_id": "req_verify_rotation",
+      "parentId": "fld_keys",
+      "name": "Verify Key Rotation",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/keys/verify-rotation",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-Agent-Key", "value": "{{ _.AGENT_KEY }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"rotationLogId\": \"{{ _.ROTATION_LOG_ID }}\"\n}"
+      }
+    },
+    {
+      "_type": "request_group",
+      "_id": "fld_credentials",
+      "parentId": "wrk_agent_id",
+      "name": "Credentials"
+    },
+    {
+      "_type": "request",
+      "_id": "req_get_credential",
+      "parentId": "fld_credentials",
+      "name": "Get Agent Credential",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/credential",
+      "headers": [
+        { "name": "X-Agent-Key", "value": "{{ _.AGENT_KEY }}" }
+      ]
+    },
+    {
+      "_type": "request",
+      "_id": "req_reissue_credential",
+      "parentId": "fld_credentials",
+      "name": "Reissue Credential",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/credential/reissue",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-Agent-Key", "value": "{{ _.AGENT_KEY }}" }
+      ],
+      "body": { "mimeType": "application/json", "text": "{}" }
+    },
+    {
+      "_type": "request_group",
+      "_id": "fld_messaging",
+      "parentId": "wrk_agent_id",
+      "name": "Messaging"
+    },
+    {
+      "_type": "request",
+      "_id": "req_send_message",
+      "parentId": "fld_messaging",
+      "name": "Send Message",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/messages",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-Agent-Key", "value": "{{ _.AGENT_KEY }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"toHandle\": \"target-agent\",\n  \"content\": \"Hello from my agent!\",\n  \"contentType\": \"text/plain\"\n}"
+      },
+      "description": "Send a message to another agent. Requires agent key (X-Agent-Key: agk_...)."
+    },
+    {
+      "_type": "request",
+      "_id": "req_check_inbox",
+      "parentId": "fld_messaging",
+      "name": "Check Inbox",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/inbox?limit=20&offset=0",
+      "headers": [
+        { "name": "X-Agent-Key", "value": "{{ _.AGENT_KEY }}" }
+      ],
+      "description": "Check agent inbox. Requires agent key (X-Agent-Key: agk_...)."
+    },
+    {
+      "_type": "request_group",
+      "_id": "fld_tasks",
+      "parentId": "wrk_agent_id",
+      "name": "Tasks"
+    },
+    {
+      "_type": "request",
+      "_id": "req_send_task",
+      "parentId": "fld_tasks",
+      "name": "Send Task",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/agents/{{ _.AGENT_ID }}/tasks",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-Agent-Key", "value": "{{ _.AGENT_KEY }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"toHandle\": \"target-agent\",\n  \"title\": \"Summarize this document\",\n  \"description\": \"Please summarize the attached content\",\n  \"priority\": \"normal\"\n}"
+      },
+      "description": "Dispatch a task to another agent. Requires agent key (X-Agent-Key: agk_...)."
+    },
+    {
+      "_type": "request",
+      "_id": "req_list_tasks",
+      "parentId": "fld_tasks",
+      "name": "List Tasks",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/tasks",
+      "headers": [
+        { "name": "X-Agent-Key", "value": "{{ _.AGENT_KEY }}" }
+      ]
+    },
+    {
+      "_type": "request_group",
+      "_id": "fld_api_keys",
+      "parentId": "wrk_agent_id",
+      "name": "API Keys"
+    },
+    {
+      "_type": "request",
+      "_id": "req_create_api_key",
+      "parentId": "fld_api_keys",
+      "name": "Create User API Key",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/users/me/api-keys",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"My SDK Key\",\n  \"scopes\": [\"agents:read\", \"agents:write\"],\n  \"sandbox\": false\n}"
+      },
+      "description": "Create a user API key. Requires user API key (Authorization: Bearer aid_...). Set sandbox:true to get an agk_sandbox_ prefixed key."
+    },
+    {
+      "_type": "request",
+      "_id": "req_create_sandbox_api_key",
+      "parentId": "fld_api_keys",
+      "name": "Create Sandbox API Key",
+      "method": "POST",
+      "url": "{{ _.BASE_URL }}/users/me/api-keys",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"My Sandbox Key\",\n  \"sandbox\": true\n}"
+      },
+      "description": "Create an agk_sandbox_ prefixed key. Use Authorization: Bearer agk_sandbox_... to auto-activate sandbox mode on all requests."
+    },
+    {
+      "_type": "request",
+      "_id": "req_list_api_keys",
+      "parentId": "fld_api_keys",
+      "name": "List API Keys",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/users/me/api-keys",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ]
+    },
+    {
+      "_type": "request_group",
+      "_id": "fld_platform",
+      "parentId": "wrk_agent_id",
+      "name": "Platform"
+    },
+    {
+      "_type": "request",
+      "_id": "req_llms_txt",
+      "parentId": "fld_platform",
+      "name": "Get llms.txt",
+      "method": "GET",
+      "url": "https://getagent.id/api/llms.txt",
+      "description": "Machine-readable platform description for AI agents."
+    },
+    {
+      "_type": "request",
+      "_id": "req_dashboard",
+      "parentId": "fld_platform",
+      "name": "Dashboard Stats",
+      "method": "GET",
+      "url": "{{ _.BASE_URL }}/dashboard/stats",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.USER_API_KEY }}" }
+      ]
+    }
+  ]
+}

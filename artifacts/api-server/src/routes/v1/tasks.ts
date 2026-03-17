@@ -6,6 +6,7 @@ import { agentsTable, tasksTable } from "@workspace/db/schema";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { assertSandboxIsolation, isAgentSandbox } from "../../middlewares/sandbox";
 import { logger } from "../../middlewares/request-logger";
 import {
   submitTask,
@@ -81,12 +82,27 @@ router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
       }
     }
 
-    if (body.paymentAmount && body.paymentAmount > 0) {
-      const recipient = await db.query.agentsTable.findFirst({
-        where: eq(agentsTable.id, body.recipientAgentId),
-        columns: { stripeConnectAccountId: true, stripeConnectStatus: true },
+    const recipientAgent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, body.recipientAgentId),
+      columns: { id: true, handle: true, metadata: true, stripeConnectAccountId: true, stripeConnectStatus: true },
+    });
+
+    assertSandboxIsolation(req, recipientAgent, "task recipient");
+
+    if (senderAgentId) {
+      const senderAgent2 = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, senderAgentId),
+        columns: { handle: true, metadata: true },
       });
-      if (!recipient?.stripeConnectAccountId || recipient.stripeConnectStatus !== "active") {
+      const senderSandbox = isAgentSandbox(senderAgent2);
+      const recipientSandbox = isAgentSandbox(recipientAgent);
+      if (senderSandbox !== recipientSandbox) {
+        throw new AppError(403, "SANDBOX_ISOLATION", "Cannot create tasks between sandbox and production agents");
+      }
+    }
+
+    if (body.paymentAmount && body.paymentAmount > 0) {
+      if (!recipientAgent?.stripeConnectAccountId || recipientAgent.stripeConnectStatus !== "active") {
         throw new Error("RECIPIENT_CONNECT_REQUIRED");
       }
     }

@@ -24,6 +24,7 @@ const envSchema = z.object({
   STRIPE_PRICE_HANDLE_ELITE: z.string().optional(),
 
   LAUNCH_MODE: z.string().optional(),
+  SANDBOX_MODE: z.enum(["enabled", "disabled"]).optional(),
 
   RESEND_API_KEY: z.string().optional(),
   FROM_EMAIL: z.string().default("notifications@getagent.id"),

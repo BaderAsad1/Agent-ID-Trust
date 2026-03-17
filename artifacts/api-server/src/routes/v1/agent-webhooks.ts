@@ -10,6 +10,7 @@ import { AppError } from "../../middlewares/error-handler";
 import { validateUuidParam } from "../../middlewares/validation";
 import { getAgentById } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
+import { buildSignatureHeader } from "../../services/webhook-delivery";
 import type { Request, Response, NextFunction } from "express";
 
 function requireHumanOrAgentAuth(req: Request, res: Response, next: NextFunction) {
@@ -160,6 +161,135 @@ router.delete("/:agentId/webhooks/:webhookId", requireHumanOrAgentAuth, validate
     });
 
     res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const testWebhookSchema = z.object({
+  eventType: z.enum(["message.received", "task.received", "trust.updated", "generic"]).default("generic"),
+});
+
+router.post("/:agentId/webhooks/:webhookId/test", requireHumanOrAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const webhookId = req.params.webhookId as string;
+
+    if (req.authenticatedAgent) {
+      if (req.authenticatedAgent.id !== agentId) {
+        throw new AppError(403, "FORBIDDEN", "Agent can only test its own webhooks");
+      }
+    } else {
+      const agent = await getAgentById(agentId);
+      if (!agent || agent.userId !== req.userId) {
+        throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+      }
+    }
+
+    const parsed = testWebhookSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+
+    const webhook = await db.query.agentWebhooksTable.findFirst({
+      where: and(
+        eq(agentWebhooksTable.id, webhookId),
+        eq(agentWebhooksTable.agentId, agentId),
+      ),
+    });
+
+    if (!webhook) {
+      throw new AppError(404, "NOT_FOUND", "Webhook not found");
+    }
+
+    const eventType = parsed.data.eventType;
+    const timestamp = new Date().toISOString();
+
+    let testPayload: Record<string, unknown>;
+    switch (eventType) {
+      case "message.received":
+        testPayload = {
+          messageId: `test_${randomBytes(8).toString("hex")}`,
+          fromAgentId: "test-sender-agent",
+          fromHandle: "test-sender",
+          content: "This is a test message from the Agent ID webhook test tool.",
+          contentType: "text/plain",
+          threadId: null,
+          receivedAt: timestamp,
+        };
+        break;
+      case "task.received":
+        testPayload = {
+          taskId: `test_${randomBytes(8).toString("hex")}`,
+          fromAgentId: "test-delegator-agent",
+          fromHandle: "test-delegator",
+          title: "Test task delegation",
+          description: "This is a test task created by the Agent ID webhook test tool.",
+          priority: "normal",
+          status: "pending",
+          createdAt: timestamp,
+        };
+        break;
+      case "trust.updated":
+        testPayload = {
+          previousScore: 42,
+          newScore: 65,
+          previousTier: "low",
+          newTier: "medium",
+          changedFactors: ["endpoint_verified", "activity_score"],
+          updatedAt: timestamp,
+        };
+        break;
+      default:
+        testPayload = {
+          message: "This is a test delivery from the Agent ID webhook test tool.",
+          timestamp,
+        };
+    }
+
+    const body = JSON.stringify({
+      event: eventType,
+      agentId,
+      data: testPayload,
+      timestamp,
+    });
+
+    const signature = buildSignatureHeader(body, webhook.secret);
+
+    let delivered = false;
+    let statusCode = 0;
+    let error: string | undefined;
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(webhook.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-AgentID-Signature": signature,
+          "X-AgentID-Event": eventType,
+          "X-AgentID-Test": "true",
+        },
+        body,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+      statusCode = response.status;
+      delivered = response.ok;
+    } catch (err) {
+      error = err instanceof Error ? err.message : "Unknown error";
+    }
+
+    res.json({
+      delivered,
+      statusCode,
+      eventType,
+      payload: testPayload,
+      ...(error ? { error } : {}),
+    });
   } catch (err) {
     next(err);
   }

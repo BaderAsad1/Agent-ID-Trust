@@ -14,6 +14,7 @@ const router = Router();
 const createApiKeySchema = z.object({
   name: z.string().min(1).max(255),
   scopes: z.array(z.string()).optional(),
+  sandbox: z.boolean().optional(),
 });
 
 router.post("/", requireAuth, async (req, res, next) => {
@@ -28,6 +29,7 @@ router.post("/", requireAuth, async (req, res, next) => {
       ownerId: req.user!.id,
       name: parsed.data.name,
       scopes: parsed.data.scopes,
+      sandbox: parsed.data.sandbox,
     });
 
     res.status(201).json({

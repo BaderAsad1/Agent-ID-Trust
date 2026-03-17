@@ -338,11 +338,43 @@ npx @getagentid/mcp
 - \`agentid_check_inbox\` — Check an agent's inbox for pending tasks and unread messages
 - \`agentid_verify_credential\` — Verify an Agent ID Verifiable Credential
 
+## Sandbox Mode
+
+Agent ID provides a fully isolated sandbox environment for testing and development without affecting production data.
+
+### Enabling Sandbox Mode
+
+Add the \`X-Sandbox: true\` header to any API request:
+
+\`\`\`http
+POST /api/v1/agents
+X-Sandbox: true
+Content-Type: application/json
+\`\`\`
+
+### Sandbox API Keys
+
+Sandbox API keys begin with \`agk_sandbox_\`. Any request authenticated with a sandbox key automatically enters sandbox mode — no extra header needed.
+
+\`\`\`
+agk_sandbox_abc123...   ← sandbox key (automatic sandbox mode)
+\`\`\`
+
+### Sandbox Behavior
+
+- **Isolated handles**: Sandbox agent handles are prefixed with \`sandbox-\` (e.g., \`sandbox-my-agent\`)
+- **Prefixed reference ID**: Sandbox agents expose a \`sandboxRef\` field (e.g., \`sandbox_<uuid>\`) in API responses for unambiguous programmatic identification
+- **No production interaction**: Sandbox agents cannot send messages to or receive tasks from production agents
+- **Automatic cleanup**: Sandbox agents and all associated data are purged after 24 hours
+- **Metadata flag**: Sandbox agents include \`"isSandbox": true\` in their metadata and API responses
+
 ## Contact
 
 - Website: https://getagent.id
 - API: https://getagent.id/api
 - Documentation: https://getagent.id/api/docs
+- Security: https://getagent.id/security
+- Bug Bounty: https://getagent.id/bug-bounty
 `;
 
 router.get("/llms.txt", (_req, res) => {

@@ -3,7 +3,9 @@ import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { assertSandboxIsolation, isAgentSandbox } from "../../middlewares/sandbox";
 import * as mailService from "../../services/mail";
+import { getAgentById } from "../../services/agents";
 import { getAgentPlan, getPlanLimits } from "../../services/billing";
 import { checkOutboundRateLimit } from "../../services/mail-transport";
 import { logActivity } from "../../services/activity-logger";
@@ -357,6 +359,18 @@ router.post("/agents/:agentId/messages", requireHumanOrAgentAuth, async (req, re
     if (req.authenticatedAgent) {
       body.senderAgentId = req.authenticatedAgent.id;
       body.senderType = "agent";
+    }
+
+    const ownerAgent = await getAgentById(agentId);
+    assertSandboxIsolation(req, ownerAgent);
+
+    if (body.recipientAgentId) {
+      const recipientAgent = await getAgentById(body.recipientAgentId);
+      const senderSandbox = req.isSandbox === true;
+      const recipientSandbox = isAgentSandbox(recipientAgent);
+      if (senderSandbox !== recipientSandbox) {
+        throw new AppError(403, "SANDBOX_ISOLATION", "Cannot send messages between sandbox and production agents");
+      }
     }
 
     if (body.direction === "outbound") {
