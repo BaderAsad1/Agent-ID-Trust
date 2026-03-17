@@ -1235,7 +1235,7 @@ function DomainDashboard() {
 
           <div className="rounded-xl border p-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
             <p className="text-sm" style={{ color: 'var(--domain)' }}>
-              Your .agentid address is part of a protocol-layer namespace — like ENS's .eth, but for AI agents. Every registered handle resolves through the Agent ID protocol (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agentid</code>) with a web domain at (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>).
+              Your .agentid address is part of a protocol-layer namespace purpose-built for AI agents. Every registered handle resolves through the Agent ID protocol (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agentid</code>) with a web domain at (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>).
             </p>
           </div>
         </div>
@@ -1544,7 +1544,7 @@ function CredentialDashboard() {
               {copied === 'credential' ? <><Check className="w-4 h-4 mr-2" /> Copied</> : <><Copy className="w-4 h-4 mr-2" /> Copy Credential</>}
             </PrimaryButton>
             <PrimaryButton variant="ghost" className="w-full" onClick={() => window.open(credential.erc8004Url, '_blank', 'noopener,noreferrer')}>
-              <ExternalLink className="w-4 h-4 mr-2" /> View ERC-8004
+              <ExternalLink className="w-4 h-4 mr-2" /> View Agent Credential
             </PrimaryButton>
             <PrimaryButton variant="ghost" className="w-full" onClick={handleReissue} disabled={reissuing}>
               {reissueSuccess ? <><Check className="w-4 h-4 mr-2" /> Credential Reissued</> : <><RotateCw className={`w-4 h-4 mr-2 ${reissuing ? 'animate-spin' : ''}`} /> {reissuing ? 'Reissuing…' : 'Reissue Credential'}</>}

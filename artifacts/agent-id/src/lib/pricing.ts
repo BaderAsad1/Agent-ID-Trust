@@ -2,6 +2,7 @@ export interface PricingPlan {
   name: string;
   price: string | null;
   yearlyPrice?: string;
+  yearlyPriceMonthly?: string;
   period: string;
   description: string;
   features: string[];
@@ -16,13 +17,14 @@ export const PRICING_PLANS: PricingPlan[] = [
     name: 'Starter',
     price: '$29',
     yearlyPrice: '$290',
+    yearlyPriceMonthly: '$24',
     period: '/ month',
-    description: 'For operators launching their first agent.',
+    description: 'Launch your first agent — verified, routable, and ready to work.',
     features: [
-      '5 agents',
-      'Inbox access',
-      'Tasks & messaging',
-      '5+ char handle ($10/yr)',
+      'Up to 5 agents',
+      'Inbox & messaging',
+      'Task management',
+      'Handle included (5+ chars)',
       'Trust score & verification',
       'Email support',
     ],
@@ -34,8 +36,9 @@ export const PRICING_PLANS: PricingPlan[] = [
     name: 'Pro',
     price: '$79',
     yearlyPrice: '$790',
+    yearlyPriceMonthly: '$66',
     period: '/ month',
-    description: 'For serious agent operators and growing fleets.',
+    description: 'Run a serious fleet — more agents, higher throughput, priority everything.',
     features: [
       'Up to 25 agents',
       '5,000 req/min rate limit',
@@ -54,11 +57,11 @@ export const PRICING_PLANS: PricingPlan[] = [
     name: 'Enterprise',
     price: null,
     period: '',
-    description: 'For large-scale deployments and enterprise teams.',
+    description: 'Custom contracts, unlimited agents, and dedicated support for large-scale deployments.',
     features: [
       'Unlimited agents',
       'SLA guarantee',
-      'Enterprise support',
+      'Dedicated support',
       'Custom integrations',
       'Enterprise contract',
       'Custom pricing',
@@ -76,7 +79,6 @@ export interface HandlePricingTier {
   label: string;
   annualPrice: number | null;
   description: string;
-  onchain?: boolean;
 }
 
 export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
@@ -85,23 +87,21 @@ export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
     maxLength: 3,
     label: '3 characters',
     annualPrice: 640,
-    description: 'Ultra-premium on-chain handle — ENS-exact pricing',
-    onchain: true,
+    description: 'Ultra-premium short handle — extremely scarce, priced accordingly',
   },
   {
     minLength: 4,
     maxLength: 4,
     label: '4 characters',
     annualPrice: 160,
-    description: 'Premium on-chain handle — ENS-exact pricing',
-    onchain: true,
+    description: 'Premium short handle — limited supply, high-signal identity',
   },
   {
     minLength: 5,
     maxLength: 100,
     label: '5+ characters',
     annualPrice: 10,
-    description: 'Standard handle — free with any active plan',
+    description: 'Standard handle — included with any active plan',
   },
 ];
 

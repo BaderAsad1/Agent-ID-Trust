@@ -184,7 +184,7 @@ export function AgentUUIDProfile() {
             </div>
 
             <div className="mt-4 p-3 rounded-lg text-xs" style={{ background: 'rgba(245,158,11,0.06)', color: 'var(--text-dim)', border: '1px solid rgba(245,158,11,0.12)' }}>
-              This handle is a paid alias — like a domain name or ENS. It expires annually and must be renewed to stay active.
+              This handle is a paid alias — like a domain name. It expires annually and must be renewed to stay active.
             </div>
           </GlassCard>
         )}

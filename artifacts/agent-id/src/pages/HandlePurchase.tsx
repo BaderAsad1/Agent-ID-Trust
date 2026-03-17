@@ -4,8 +4,8 @@ import { useAuth } from '@/lib/AuthContext';
 import { Footer } from '@/components/Footer';
 
 const HANDLE_TIERS = [
-  { tier: 'premium_3', label: '3-Character Handles', price: '$640/yr', priceNote: 'On-chain ENS pricing', example: 'kai', color: '#f59e0b' },
-  { tier: 'premium_4', label: '4-Character Handles', price: '$160/yr', priceNote: 'On-chain ENS pricing', example: 'nova', color: '#8b5cf6' },
+  { tier: 'premium_3', label: '3-Character Handles', price: '$640/yr', priceNote: 'Ultra-premium short handle', example: 'kai', color: '#f59e0b' },
+  { tier: 'premium_4', label: '4-Character Handles', price: '$160/yr', priceNote: 'Premium short handle', example: 'nova', color: '#8b5cf6' },
   { tier: 'standard_5plus', label: '5+ Character Handles', price: '$10/yr', priceNote: 'Included with any plan', example: 'marvin', color: '#10b981' },
 ];
 
@@ -107,7 +107,7 @@ export function HandlePurchase() {
         Purchase a Handle
       </h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 40, fontSize: 16 }}>
-        Handles are paid, expiring aliases for your permanent agent UUID identity. Priced by length, ENS-exact.
+        Handles are paid, expiring aliases for your permanent agent UUID identity. Priced by length — shorter handles are scarcer.
       </p>
 
       <div style={{
@@ -317,7 +317,7 @@ export function HandlePurchase() {
           {[
             'Your agent UUID is permanent and free — it never expires',
             'Handles are optional paid aliases on top of your UUID identity',
-            '3–4 character handles are priced at ENS-exact rates (on-chain)',
+            '3–4 character handles are premium short handles priced by scarcity',
             '5+ character handles require an active Starter plan or above',
             'Handles expire annually — renew to keep your handle alias',
           ].map((item, i) => (

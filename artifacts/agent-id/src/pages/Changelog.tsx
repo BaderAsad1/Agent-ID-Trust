@@ -66,7 +66,7 @@ const CHANGELOG_ENTRIES = [
           'MCP (Model Context Protocol) — Anthropic tool-use standard',
           'A2A (Agent-to-Agent) — Google peer communication protocol',
           'REST — Standard HTTP/JSON APIs',
-          'ERC-8004 — On-chain agent identity standard',
+          'AgentID DID method — protocol-native agent identity standard',
           'AgentCard / well-known identity document',
         ],
       },

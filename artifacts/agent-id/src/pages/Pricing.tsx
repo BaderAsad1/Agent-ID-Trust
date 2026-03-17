@@ -13,13 +13,15 @@ export function Pricing() {
 
   const getDisplayPrice = (plan: typeof PRICING_PLANS[number]) => {
     if (plan.price === null) return null;
-    if (billing === 'yearly' && plan.yearlyPrice) return plan.yearlyPrice;
+    if (billing === 'yearly' && plan.yearlyPriceMonthly) return plan.yearlyPriceMonthly;
     return plan.price;
   };
 
-  const getPeriod = (plan: typeof PRICING_PLANS[number]) => {
-    if (plan.contactOnly) return '';
-    return billing === 'yearly' ? '/ year' : '/ month';
+  const getYearlySavings = (plan: typeof PRICING_PLANS[number]): number | null => {
+    if (!plan.price || !plan.yearlyPrice) return null;
+    const monthly = parseInt(plan.price.replace('$', ''), 10);
+    const yearly = parseInt(plan.yearlyPrice.replace('$', ''), 10);
+    return monthly * 12 - yearly;
   };
 
   return (
@@ -27,10 +29,10 @@ export function Pricing() {
       <div className="max-w-[1100px] mx-auto px-6 py-20">
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-black mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-            Identity infrastructure for AI agents
+            Simple pricing. Serious infrastructure.
           </h1>
           <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--text-muted)' }}>
-            Three clean tiers. No free tier. Every plan includes machine identity (UUID-based) at registration.
+            Three tiers — no free plan. Every agent gets a permanent UUID identity at registration, regardless of plan.
           </p>
         </div>
 
@@ -54,14 +56,14 @@ export function Pricing() {
             }}
           >
             Yearly
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Save ~17%</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Save up to 17%</span>
           </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
           {PRICING_PLANS.map(plan => {
             const displayPrice = getDisplayPrice(plan);
-            const period = getPeriod(plan);
+            const savings = getYearlySavings(plan);
             return (
               <GlassCard
                 key={plan.name}
@@ -73,16 +75,29 @@ export function Pricing() {
                   </div>
                 )}
                 <h3 className="text-xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{plan.name}</h3>
-                <div className="flex items-baseline gap-1 mb-2">
+                <div className="flex items-baseline gap-1 mb-1">
                   {displayPrice ? (
                     <>
                       <span className="text-3xl font-black" style={{ color: 'var(--text-primary)' }}>{displayPrice}</span>
-                      {period && <span className="text-sm" style={{ color: 'var(--text-dim)' }}>{period}</span>}
+                      {!plan.contactOnly && <span className="text-sm" style={{ color: 'var(--text-dim)' }}>/ mo</span>}
                     </>
                   ) : (
                     <span className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>Contact us</span>
                   )}
                 </div>
+                {billing === 'yearly' && plan.yearlyPrice && !plan.contactOnly && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs" style={{ color: 'var(--text-dim)' }}>billed {plan.yearlyPrice}/yr</span>
+                    {savings !== null && savings > 0 && (
+                      <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>
+                        Save ${savings}/yr
+                      </span>
+                    )}
+                  </div>
+                )}
+                {billing === 'monthly' && !plan.contactOnly && plan.price && (
+                  <div className="mb-2 h-5" />
+                )}
                 <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>{plan.description}</p>
                 <ul className="space-y-3 mb-8 flex-1">
                   {plan.features.map(f => (
@@ -115,10 +130,10 @@ export function Pricing() {
         <div className="mb-16">
           <div className="text-center mb-10">
             <h2 className="text-2xl md:text-3xl font-bold mb-3" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-              Handle name pricing
+              Handle pricing
             </h2>
             <p className="text-base max-w-lg mx-auto" style={{ color: 'var(--text-muted)' }}>
-              Handles follow ENS-exact pricing. Shorter handles are scarcer — 3 and 4-char handles are on-chain assets. 5+ char handles are included with any active plan.
+              Shorter handles are scarcer and priced accordingly. 5+ character handles are included with any active plan. 3 and 4-character handles are premium, with pricing that reflects their scarcity.
             </p>
           </div>
 
@@ -128,11 +143,6 @@ export function Pricing() {
                 <div className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
                   {tier.label}
                 </div>
-                {tier.onchain && (
-                  <div className="text-xs mb-2 px-2 py-1 rounded-full inline-block" style={{ background: 'rgba(139,92,246,0.1)', color: 'rgba(139,92,246,0.9)' }}>
-                    On-chain NFT
-                  </div>
-                )}
                 {tier.annualPrice !== null ? (
                   <>
                     <div className="text-3xl font-black mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
@@ -156,10 +166,10 @@ export function Pricing() {
         <div className="mb-16 max-w-[700px] mx-auto">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-              Identity Model
+              How identity works
             </h2>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Machine identity vs. handle identity — never conflated.
+              Two distinct identity layers — never conflated.
             </p>
           </div>
 
@@ -176,7 +186,7 @@ export function Pricing() {
               <div className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>Handle Identity</div>
               <div className="text-base font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Handle (expiring alias)</div>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                A handle is a paid, annual alias — like a domain name or ENS. Renew it or lose it. 5+ chars free with plan; 3-4 chars require on-chain payment.
+                A handle is a paid, annual alias — like a domain name. Renew it or lose it. 5+ character handles are included with any active plan; 3–4 character handles are premium short handles priced by scarcity.
               </p>
               <div className="mt-3 text-xs font-mono" style={{ color: 'var(--accent)' }}>did:agentid:&lt;handle&gt;</div>
             </GlassCard>
@@ -194,7 +204,7 @@ export function Pricing() {
                   .agentid Protocol Namespace
                 </h3>
                 <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> is a protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents. Resolves through the Agent ID protocol; no ICANN TLD required. Web domain: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>name.getagent.id</span> via standard DNS.
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> is a protocol-layer namespace purpose-built for AI agents. Handles resolve through the Agent ID protocol — no ICANN TLD required. Web access available at <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>name.getagent.id</span> via standard DNS.
                 </p>
                 <a
                   href="mailto:enterprise@getagent.id"
