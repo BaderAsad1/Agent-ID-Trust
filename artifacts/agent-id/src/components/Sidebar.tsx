@@ -88,7 +88,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
               <span className="flex-1 text-left">{item.label}</span>
-              {'count' in item && item.count > 0 && (
+              {'count' in item && (item.count ?? 0) > 0 && (
                 <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--accent)', color: '#fff', fontSize: '10px' }}>{item.count}</span>
               )}
               {item.dot === 'purple' && <span className="w-2 h-2 rounded-full" style={{ background: 'var(--marketplace)' }} />}
