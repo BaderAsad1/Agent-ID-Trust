@@ -11,6 +11,19 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_MODE: z.string().optional(),
+
+  STRIPE_PRICE_BUILDER_MONTHLY: z.string().optional(),
+  STRIPE_PRICE_BUILDER_YEARLY: z.string().optional(),
+  STRIPE_PRICE_PRO_MONTHLY: z.string().optional(),
+  STRIPE_PRICE_PRO_YEARLY: z.string().optional(),
+  STRIPE_PRICE_TEAM_MONTHLY: z.string().optional(),
+  STRIPE_PRICE_TEAM_YEARLY: z.string().optional(),
+  STRIPE_PRICE_HANDLE_STANDARD: z.string().optional(),
+  STRIPE_PRICE_HANDLE_PREMIUM: z.string().optional(),
+  STRIPE_PRICE_HANDLE_ELITE: z.string().optional(),
+
+  LAUNCH_MODE: z.string().optional(),
 
   RESEND_API_KEY: z.string().optional(),
   FROM_EMAIL: z.string().default("notifications@getagent.id"),

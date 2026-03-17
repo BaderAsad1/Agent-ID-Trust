@@ -8,6 +8,7 @@ import {
   handleInvoicePaid,
   handleInvoicePaymentFailed,
   handleSubscriptionDeleted,
+  handleSubscriptionCreatedOrUpdated,
   claimWebhookEvent,
   finalizeWebhookEvent,
 } from "../../services/billing";
@@ -116,6 +117,10 @@ router.post(
             break;
           case "invoice.payment_failed":
             await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+            break;
+          case "customer.subscription.created":
+          case "customer.subscription.updated":
+            await handleSubscriptionCreatedOrUpdated(event.data.object as Stripe.Subscription);
             break;
           case "customer.subscription.deleted":
             await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);

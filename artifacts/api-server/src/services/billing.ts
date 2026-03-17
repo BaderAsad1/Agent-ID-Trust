@@ -13,17 +13,21 @@ import {
   type AgentSubscription,
 } from "@workspace/db/schema";
 
-const PLAN_LIMITS: Record<string, { maxPublicAgents: number; maxPrivateAgents: number }> = {
-  free: { maxPublicAgents: 0, maxPrivateAgents: 1 },
-  starter: { maxPublicAgents: 1, maxPrivateAgents: 1 },
-  pro: { maxPublicAgents: 5, maxPrivateAgents: 5 },
-  team: { maxPublicAgents: 10, maxPrivateAgents: 10 },
+const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
+
+const PLAN_LIMITS: Record<string, { maxPublicAgents: number; maxPrivateAgents: number; agentLimit: number; maxSubagents: number }> = {
+  free: { maxPublicAgents: 0, maxPrivateAgents: 1, agentLimit: 1, maxSubagents: 5 },
+  starter: { maxPublicAgents: 1, maxPrivateAgents: 1, agentLimit: 1, maxSubagents: 5 },
+  builder: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
+  pro: { maxPublicAgents: 25, maxPrivateAgents: 25, agentLimit: 25, maxSubagents: 100 },
+  team: { maxPublicAgents: 100, maxPrivateAgents: 100, agentLimit: 100, maxSubagents: 500 },
 };
 
 const PLAN_PRICES: Record<string, Record<string, number>> = {
-  starter: { monthly: 900, yearly: 9000 },
-  pro: { monthly: 2900, yearly: 29000 },
-  team: { monthly: 7900, yearly: 79000 },
+  starter: { monthly: 900, yearly: 8600 },
+  builder: { monthly: 900, yearly: 8600 },
+  pro: { monthly: 2900, yearly: 27900 },
+  team: { monthly: 9900, yearly: 95000 },
 };
 
 import { getHandlePricing as _getHandlePricingService } from "./handle-pricing";
@@ -39,7 +43,7 @@ export function getHandlePriceCents(handle: string): number {
   return _getHandlePricingService(handle).annualPriceCents;
 }
 
-type PlanType = "free" | "starter" | "pro" | "team";
+type PlanType = "free" | "starter" | "builder" | "pro" | "team";
 type SubStatus = "active" | "past_due" | "cancelled" | "paused" | "trialing";
 type BillingInterval = "monthly" | "yearly";
 
@@ -48,18 +52,129 @@ import { getStripe } from "./stripe-client";
 
 export function getPlanLimits(plan: string) {
   const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
+  const effectivePlan = LAUNCH_MODE ? "free" : plan;
   return {
-    maxAgents: limits.maxPublicAgents,
-    maxPublicAgents: limits.maxPublicAgents,
-    maxPrivateAgents: limits.maxPrivateAgents,
+    plan: effectivePlan,
+    agentLimit: LAUNCH_MODE ? 999 : limits.agentLimit,
+    maxAgents: LAUNCH_MODE ? 999 : limits.maxPublicAgents,
+    maxPublicAgents: LAUNCH_MODE ? 999 : limits.maxPublicAgents,
+    maxPrivateAgents: LAUNCH_MODE ? 999 : limits.maxPrivateAgents,
+    maxSubagents: LAUNCH_MODE ? 999 : limits.maxSubagents,
+    publicResolution: LAUNCH_MODE || plan !== "free",
     canReceiveMail: true,
-    canBePublic: plan !== "free",
-    canListOnMarketplace: plan !== "free",
-    canUsePremiumRouting: plan === "pro" || plan === "team",
-    canUseAdvancedAuth: plan === "pro" || plan === "team",
+    canBePublic: LAUNCH_MODE || plan !== "free",
+    canListOnMarketplace: LAUNCH_MODE || plan !== "free",
+    marketplaceListing: LAUNCH_MODE || plan !== "free",
+    canUsePremiumRouting: LAUNCH_MODE || plan === "builder" || plan === "pro" || plan === "team",
+    premiumRouting: LAUNCH_MODE || plan === "builder" || plan === "pro" || plan === "team",
+    canUseAdvancedAuth: LAUNCH_MODE || plan === "pro" || plan === "team",
+    analyticsAccess: LAUNCH_MODE || plan === "pro" || plan === "team",
+    customDomain: plan === "pro" || plan === "team",
     canUseTeamFeatures: plan === "team",
-    includesStandardHandle: plan !== "free",
+    fleetManagement: plan === "team",
+    includesStandardHandle: LAUNCH_MODE || plan !== "free",
+    supportLevel: plan === "team" ? "sla" : plan === "pro" ? "priority" : plan === "builder" || plan === "starter" ? "email" : "community",
+    launchMode: LAUNCH_MODE,
   };
+}
+
+export async function getUserPlanLimits(userId: string) {
+  const sub = await getActiveUserSubscription(userId);
+  const plan = sub?.plan ?? "free";
+  return getPlanLimits(plan);
+}
+
+export function getPlanFromPriceId(priceId: string): string {
+  const e = process.env;
+  const priceMap: Record<string, string> = {};
+  if (e.STRIPE_PRICE_BUILDER_MONTHLY) priceMap[e.STRIPE_PRICE_BUILDER_MONTHLY] = "builder";
+  if (e.STRIPE_PRICE_BUILDER_YEARLY) priceMap[e.STRIPE_PRICE_BUILDER_YEARLY] = "builder";
+  if (e.STRIPE_PRICE_PRO_MONTHLY) priceMap[e.STRIPE_PRICE_PRO_MONTHLY] = "pro";
+  if (e.STRIPE_PRICE_PRO_YEARLY) priceMap[e.STRIPE_PRICE_PRO_YEARLY] = "pro";
+  if (e.STRIPE_PRICE_TEAM_MONTHLY) priceMap[e.STRIPE_PRICE_TEAM_MONTHLY] = "team";
+  if (e.STRIPE_PRICE_TEAM_YEARLY) priceMap[e.STRIPE_PRICE_TEAM_YEARLY] = "team";
+  return priceMap[priceId] ?? "free";
+}
+
+export function getPriceIdFromPlan(plan: string, interval: "monthly" | "yearly"): string | undefined {
+  const e = process.env;
+  const key = `STRIPE_PRICE_${plan.toUpperCase()}_${interval.toUpperCase()}` as keyof typeof e;
+  return e[key] as string | undefined;
+}
+
+export async function cancelSubscription(userId: string): Promise<void> {
+  const sub = await getActiveUserSubscription(userId);
+  if (!sub?.providerSubscriptionId) return;
+  const stripe = getStripe();
+  await stripe.subscriptions.update(sub.providerSubscriptionId, { cancel_at_period_end: true });
+  await db.update(subscriptionsTable)
+    .set({ updatedAt: new Date() })
+    .where(eq(subscriptionsTable.id, sub.id));
+}
+
+export async function getCustomerPortalUrl(userId: string): Promise<string> {
+  const user = await db.query.usersTable.findFirst({
+    where: eq(usersTable.id, userId),
+    columns: { id: true, stripeCustomerId: true },
+  });
+  if (!user?.stripeCustomerId) throw new Error("No Stripe customer found for user");
+  const stripe = getStripe();
+  const session = await stripe.billingPortal.sessions.create({
+    customer: user.stripeCustomerId,
+    return_url: `${process.env.APP_URL || "https://getagent.id"}/dashboard`,
+  });
+  return session.url;
+}
+
+export async function handleSubscriptionCreatedOrUpdated(subscription: Stripe.Subscription) {
+  const userId = subscription.metadata?.userId;
+  if (!userId) return;
+
+  const priceId = subscription.items.data[0]?.price.id;
+  const plan = getPlanFromPriceId(priceId ?? "") as PlanType;
+  const resolvedPlan = plan === "free" ? "builder" : plan;
+  const billingInterval: BillingInterval = subscription.items.data[0]?.price.recurring?.interval === "year" ? "yearly" : "monthly";
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id ?? null;
+
+  await db.update(usersTable)
+    .set({ plan: resolvedPlan, stripeCustomerId: customerId, updatedAt: new Date() })
+    .where(eq(usersTable.id, userId));
+
+  const existingSub = await db.select().from(subscriptionsTable)
+    .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+    .limit(1);
+
+  const periodStart = new Date(subscription.current_period_start * 1000);
+  const periodEnd = new Date(subscription.current_period_end * 1000);
+
+  if (existingSub.length > 0) {
+    await db.update(subscriptionsTable)
+      .set({
+        plan: resolvedPlan,
+        provider: "stripe",
+        providerCustomerId: customerId,
+        providerSubscriptionId: subscription.id,
+        billingInterval,
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptionsTable.id, existingSub[0].id));
+  } else {
+    await db.insert(subscriptionsTable).values({
+      userId,
+      plan: resolvedPlan,
+      status: "active",
+      provider: "stripe",
+      providerCustomerId: customerId,
+      providerSubscriptionId: subscription.id,
+      billingInterval,
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+    });
+  }
+
+  logger.info({ userId, plan: resolvedPlan, status: subscription.status }, "[billing] Subscription upserted from webhook");
 }
 
 export async function getUserSubscriptions(userId: string): Promise<Subscription[]> {
