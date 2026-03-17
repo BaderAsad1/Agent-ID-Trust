@@ -152,6 +152,8 @@ export function requireAgentAuth(
       error: "Agent authentication required",
       code: "AGENT_UNAUTHORIZED",
       supportedStrategies: strategyRegistry.map(s => s.name),
+      hint: "Include a valid X-Agent-Key header and set User-Agent to 'AgentID-Client/1.0 <your-platform>/<version>' to avoid Cloudflare edge blocks.",
+      docsUrl: "https://getagent.id/api/llms.txt",
     });
   })().catch(next);
 }

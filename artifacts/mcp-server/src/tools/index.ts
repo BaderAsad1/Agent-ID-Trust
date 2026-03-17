@@ -29,6 +29,7 @@ async function agentidFetch(opts: FetchOptions): Promise<unknown> {
   const headers: Record<string, string> = {
     "X-Agent-Key": opts.apiKey,
     "Accept": "application/json",
+    "User-Agent": "AgentID-Client/1.0 AgentID-MCP/1.0",
   };
   if (opts.sessionId) {
     headers["X-MCP-Session"] = opts.sessionId;

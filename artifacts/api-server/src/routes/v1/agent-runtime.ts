@@ -1,8 +1,8 @@
 import { Router, type Request } from "express";
 import { z } from "zod/v4";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, agentMessagesTable, agentClaimTokensTable, type Agent, type AgentInbox } from "@workspace/db/schema";
+import { agentsTable, agentMessagesTable, agentClaimTokensTable, apiKeysTable, type Agent, type AgentInbox } from "@workspace/db/schema";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { computeTrustScore, type TrustSignal } from "../../services/trust-score";
@@ -54,7 +54,15 @@ async function buildBootstrapBundle(agent: Agent) {
   const APP_URL = process.env.APP_URL || "https://getagent.id";
   const effectiveInbox = limits.canReceiveMail ? inbox : null;
 
-  const promptBlock = buildPromptBlockText(agent, trust, effectiveInbox, capabilities, limits, APP_URL, plan);
+  const apiKeyRecord = await db.query.apiKeysTable.findFirst({
+    where: and(
+      eq(apiKeysTable.ownerId, agent.id),
+      eq(apiKeysTable.ownerType, "agent"),
+      isNull(apiKeysTable.revokedAt),
+    ),
+    columns: { keyPrefix: true },
+  });
+  const promptBlock = buildPromptBlockText(agent, trust, effectiveInbox, capabilities, limits, APP_URL, plan, apiKeyRecord?.keyPrefix);
 
   let claimUrl: string | null = null;
   if (!agent.isClaimed) {
@@ -120,6 +128,7 @@ function buildPromptBlockText(
   limits?: ReturnType<typeof getPlanLimits>,
   appUrl?: string,
   planName?: string,
+  apiKeyPrefix?: string,
 ): string {
   const APP_URL = appUrl || process.env.APP_URL || "https://getagent.id";
 
@@ -157,6 +166,31 @@ Auth header: X-Agent-Key: <your-api-key>
 Heartbeat:   POST ${APP_URL}/api/v1/agents/${agent.id}/heartbeat
 Bootstrap:   GET  ${APP_URL}/api/v1/agents/${agent.id}/bootstrap
 Prompt:      GET  ${APP_URL}/api/v1/agents/${agent.id}/prompt-block
+
+=== HTTP CLIENT REQUIREMENTS ===
+All API requests MUST include a descriptive User-Agent header.
+Requests with default/empty User-Agent strings (Python-urllib/3.x, node-fetch/1.0, etc.) are blocked at the Cloudflare edge.
+
+Required headers for every request:
+  User-Agent:   AgentID-Client/1.0 <your-platform>/<version>
+  X-Agent-Key:  ${apiKeyPrefix ? apiKeyPrefix + '...' : '<your-api-key>'}
+
+User-Agent examples by platform:
+  Python requests:   AgentID-Client/1.0 python-requests/2.31
+  Node.js fetch:     AgentID-Client/1.0 node-fetch/3.3
+  LangChain:         AgentID-Client/1.0 langchain/0.1
+  CrewAI:            AgentID-Client/1.0 crewai/0.40
+  Custom agent:      AgentID-Client/1.0 my-agent/1.0
+
+Blocked defaults (will be rejected at edge):
+  Python-urllib/3.x, node-fetch/1.0, axios/1.x, Go-http-client/1.1, undici
+
+curl example:
+  curl -H "X-Agent-Key: ${apiKeyPrefix ? apiKeyPrefix + '...' : '<your-api-key>'}" \\
+       -H "User-Agent: AgentID-Client/1.0 curl/8.0" \\
+       ${APP_URL}/api/v1/agents/${agent.id}/prompt-block
+
+If you use the @agentid/sdk or the MCP server, User-Agent is set automatically.
 
 === CAPABILITIES ===
 ${capabilities.length ? capabilities.join(', ') : 'None declared — update via PATCH /api/v1/agents/' + agent.id}
@@ -266,18 +300,27 @@ router.get("/:agentId/prompt-block", requireAgentAuth, async (req, res, next) =>
     const agent = ensureAgentOwnership(req, req.params.agentId as string);
     const format = (req.query.format as string) || "text";
 
-    const [trust, inbox] = await Promise.all([
+    const [trust, inbox, keyRecord] = await Promise.all([
       computeTrustScore(agent.id),
       getInboxByAgent(agent.id),
+      db.query.apiKeysTable.findFirst({
+        where: and(
+          eq(apiKeysTable.ownerId, agent.id),
+          eq(apiKeysTable.ownerType, "agent"),
+          isNull(apiKeysTable.revokedAt),
+        ),
+        columns: { keyPrefix: true },
+      }),
     ]);
 
     const capabilities = (agent.capabilities as string[]) || [];
+    const apiKeyPrefix = keyRecord?.keyPrefix;
 
     if (format === "json") {
       const block = buildPromptBlockJson(agent, trust, inbox, capabilities);
       res.json({ format: "json", prompt_block: block });
     } else {
-      const block = buildPromptBlockText(agent, trust, inbox, capabilities);
+      const block = buildPromptBlockText(agent, trust, inbox, capabilities, undefined, undefined, undefined, apiKeyPrefix);
       res.setHeader("Content-Type", "text/plain");
       res.send(block);
     }

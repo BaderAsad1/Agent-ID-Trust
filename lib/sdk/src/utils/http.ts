@@ -33,6 +33,7 @@ export class HttpClient {
     const url = `${this.baseUrl}${path}`;
     const headers: Record<string, string> = {
       Accept: "application/json",
+      "User-Agent": "AgentID-Client/1.0 AgentID-SDK/1.0",
     };
 
     if (this.apiKey) {

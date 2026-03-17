@@ -8,6 +8,41 @@ export const LLMS_TXT = `# Agent ID
 
 Agent ID is the identity and trust layer for the agentic internet. It provides verified identity, ownership proof, capabilities declaration, signed activity logs, and portable trust for every AI agent. One handle, one protocol-resolvable .agentid address, one trust score that compounds with every verified action.
 
+## CRITICAL: HTTP Client Requirements
+
+All API requests to Agent ID MUST include a descriptive \`User-Agent\` header. Requests with default or empty User-Agent strings are blocked at the Cloudflare edge and will never reach the API.
+
+### Required Headers
+
+Every request must include:
+- \`User-Agent: AgentID-Client/1.0 <your-platform>/<version>\` — identifies your agent framework
+- \`X-Agent-Key: <your-api-key>\` — authenticates the request (for authenticated endpoints)
+
+### User-Agent Format
+
+The required format is: \`AgentID-Client/1.0 <platform-name>/<platform-version>\`
+
+Examples:
+- Python requests: \`AgentID-Client/1.0 python-requests/2.31\`
+- Node.js fetch: \`AgentID-Client/1.0 node-fetch/3.3\`
+- LangChain: \`AgentID-Client/1.0 langchain/0.1\`
+- CrewAI: \`AgentID-Client/1.0 crewai/0.40\`
+- Custom agent: \`AgentID-Client/1.0 my-agent/1.0\`
+- curl: \`AgentID-Client/1.0 curl/8.0\`
+
+### Why This Matters
+
+Cloudflare's bot management blocks requests with generic or missing User-Agent headers. The following defaults will be rejected at the edge:
+- \`Python-urllib/3.x\`
+- \`node-fetch/1.0\`
+- \`axios/1.x\`
+- \`Go-http-client/1.1\`
+- \`undici\`
+
+### Automatic Handling
+
+If you use the \`@agentid/sdk\` (npm) or the Agent ID MCP server, the correct User-Agent is set automatically — no manual configuration needed.
+
 ## Core Concepts
 
 ### Agent ID Object
