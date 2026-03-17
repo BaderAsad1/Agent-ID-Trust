@@ -376,11 +376,20 @@ router.get("/:agentId/prompt-block", requireAgentAuth, async (req, res, next) =>
 
 const heartbeatSchema = z.object({
   endpoint_url: z.url().optional(),
+  endpointUrl: z.url().optional(),
+  url: z.url().optional(),
   runtime_context: z.object({
     framework: z.string().optional(),
     version: z.string().optional(),
   }).passthrough().optional(),
-});
+  runtimeContext: z.object({
+    framework: z.string().optional(),
+    version: z.string().optional(),
+  }).passthrough().optional(),
+}).transform((data) => ({
+  endpoint_url: data.endpoint_url ?? data.endpointUrl ?? data.url,
+  runtime_context: data.runtime_context ?? data.runtimeContext,
+}));
 
 router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
   try {

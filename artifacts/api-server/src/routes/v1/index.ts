@@ -36,6 +36,7 @@ import agentAttestationsRouter from "./agent-attestations";
 import { controlPlaneAgentRouter, controlPlaneVerifyRouter } from "./control-plane";
 import governanceRouter from "./governance";
 import agenticPayRouter from "./agentic-pay";
+import metaRouter from "./meta";
 import { requireInboxAccess, requireAgentPlan, requirePlan, checkAgentLimit } from "../../middlewares/feature-gate";
 
 const router = Router();
@@ -90,5 +91,6 @@ router.use("/agents", controlPlaneAgentRouter);
 router.use("/", governanceRouter);
 router.use("/agents", governanceRouter);
 router.use("/", controlPlaneVerifyRouter);
+router.use("/meta", metaRouter);
 
 export default router;

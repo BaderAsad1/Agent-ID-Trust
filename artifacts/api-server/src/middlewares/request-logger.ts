@@ -2,9 +2,28 @@ import { createHash } from "crypto";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import { env } from "../lib/env";
+import { redactSecrets } from "../lib/redact";
+
+const REDACT_PATHS = [
+  "req.headers.authorization",
+  'req.headers["x-agent-key"]',
+  "*.apiKey",
+  "*.api_key",
+  "*.hashedKey",
+  "*.rawKey",
+];
 
 export const logger = pino({
   level: env().LOG_LEVEL || "info",
+  redact: {
+    paths: REDACT_PATHS,
+    censor: "[REDACTED]",
+  },
+  formatters: {
+    log(object) {
+      return redactSecrets(object) as Record<string, unknown>;
+    },
+  },
   transport:
     env().NODE_ENV !== "production"
       ? { target: "pino/file", options: { destination: 1 } }

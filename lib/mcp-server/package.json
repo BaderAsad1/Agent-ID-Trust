@@ -44,8 +44,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
-    "zod": "catalog:"
+    "@modelcontextprotocol/sdk": "1.10.2",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

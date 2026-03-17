@@ -20,7 +20,7 @@ import {
 } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
-import { requirePlanFeature, getHandlePriceCents } from "../../services/billing";
+import { requirePlanFeature, getHandlePriceCents, getUserPlan, getPlanLimits } from "../../services/billing";
 import {
   getActiveCredential,
   issueCredential,
@@ -37,8 +37,23 @@ const router = Router();
 router.get("/whoami", requireAgentAuth, async (req, res, next) => {
   try {
     const agent = req.authenticatedAgent!;
-    const bundle = await buildBootstrapBundle(agent);
-    res.json(bundle);
+    const [bundle, plan] = await Promise.all([
+      buildBootstrapBundle(agent),
+      getUserPlan(agent.userId),
+    ]);
+    const limits = getPlanLimits(plan);
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
+    const entitlements = {
+      inbox: limits.canReceiveMail,
+      tasks: limits.tasksAccess,
+      fleet: limits.fleetManagement,
+      analytics: limits.analyticsAccess,
+      marketplace: limits.canListOnMarketplace,
+      trustScore: true,
+      currentPlan: plan,
+      upgradeUrl: `${APP_URL}/billing/upgrade`,
+    };
+    res.json({ ...bundle, entitlements });
   } catch (err) {
     next(err);
   }

@@ -58,7 +58,10 @@ async function apiRequest(
   body?: unknown,
 ): Promise<unknown> {
   const url = `${baseUrl.replace(/\/$/, "")}${path}`;
-  const headers: Record<string, string> = { Accept: "application/json" };
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "User-Agent": "AgentID-Client/1.0 AgentID-MCP/1.0",
+  };
   if (apiKey) headers["X-Agent-Key"] = apiKey;
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
