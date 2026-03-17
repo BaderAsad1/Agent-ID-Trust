@@ -130,6 +130,19 @@ The platform ships three npm packages:
 - **`@agentid/resolver`** — Lightweight resolver for `.agentid` name resolution (forward, reverse, capability discovery).
 - **`@getagentid/mcp`** — MCP server providing 7 Agent ID tools (register, init, resolve, discover, send_task, check_inbox, verify_credential) for any MCP-compatible AI agent. Run via `npx @getagentid/mcp`.
 
+### Remote Hosted MCP Server (`artifacts/mcp-server/`)
+
+Production-grade remote MCP server intended for `mcp.getagent.id`. Any MCP-compatible agent can connect with just a URL and `agk_` API key — no local installation required.
+
+- **Transport:** Streamable HTTP at `POST /mcp`, SSE at `GET /mcp`, session termination at `DELETE /mcp`
+- **Discovery:** `GET /.well-known/mcp.json` — lists all 10 tools
+- **Health:** `GET /health` — unauthenticated
+- **Auth:** Bearer token (`agk_` prefix), cached 60s success / 10s failure, verified via API server's `/api/v1/agents/whoami`
+- **Rate Limiting:** 100 req/min per API key, sliding window, `RateLimit-*` headers
+- **Sessions:** In-memory, 30-min TTL, SSE keepalives every 30s
+- **10 Tools:** `agentid_whoami`, `agentid_register`, `agentid_resolve`, `agentid_discover`, `agentid_send_task`, `agentid_send_message`, `agentid_check_inbox`, `agentid_verify_credential`, `agentid_spawn_subagent`, `agentid_get_trust`
+- **Env:** `PORT` (default 3001), `API_BASE_URL` (default `http://localhost:8080`), `LOG_LEVEL` (default `info`)
+
 ### `@agentid/sdk` Quickstart
 
 ```bash
