@@ -61,6 +61,7 @@ export type ActivityEventType =
   | "agent.spawned"
   | "agent.spawned_child"
   | "agent.terminated"
+  | "agent.shutdown"
   | "agent.handle_transferred"
   | "agent.sub_handle_created"
   | "agent.sub_handle_deleted"
