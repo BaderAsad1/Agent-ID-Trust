@@ -75,11 +75,11 @@ async function request<T>(
 
 export const api = {
   auth: {
-    me: () => request<{ id: string; replitUserId?: string; email?: string }>("/auth/me"),
+    me: () => request<{ id: string; email?: string; provider?: string }>("/auth/me"),
   },
 
   users: {
-    me: () => request<{ id: string; replitUserId?: string; email?: string; displayName?: string }>("/users/me"),
+    me: () => request<{ id: string; email?: string; displayName?: string; provider?: string; githubUsername?: string }>("/users/me"),
     update: (data: Record<string, unknown>) =>
       request("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
     deleteAccount: () =>

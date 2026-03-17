@@ -3,11 +3,12 @@ import { api, type Agent } from './api';
 
 interface AuthUser {
   id: string;
-  replitUserId?: string;
   username: string | null;
   displayName: string | null;
   email: string | null;
   avatarUrl: string | null;
+  provider?: string;
+  githubUsername?: string | null;
 }
 
 interface AuthState {
