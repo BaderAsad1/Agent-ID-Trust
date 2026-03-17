@@ -1,6 +1,6 @@
-import { eq, or, and, lt, isNull } from "drizzle-orm";
+import { eq, or, and, lt, isNull, isNotNull } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable } from "@workspace/db/schema";
+import { agentsTable, agentKeysTable } from "@workspace/db/schema";
 import { recomputeAndStore, determineTier } from "../services/trust-score";
 import { logger } from "../middlewares/request-logger";
 
@@ -11,6 +11,49 @@ const INACTIVITY_DECAY_MAX = 10;
 const INACTIVITY_TRUST_FLOOR = 20;
 
 let timer: ReturnType<typeof setInterval> | null = null;
+
+async function expireOverdueKeys() {
+  try {
+    const now = new Date();
+
+    const overdueKeys = await db.query.agentKeysTable.findMany({
+      where: and(
+        eq(agentKeysTable.status, "active"),
+        isNotNull(agentKeysTable.expiresAt),
+        lt(agentKeysTable.expiresAt, now),
+      ),
+      columns: { id: true, agentId: true, kid: true, expiresAt: true },
+    });
+
+    if (overdueKeys.length === 0) return;
+
+    logger.info(`[trust-worker] Expiring ${overdueKeys.length} overdue keys`);
+
+    for (const key of overdueKeys) {
+      try {
+        await db
+          .update(agentKeysTable)
+          .set({ status: "expired", updatedAt: now })
+          .where(eq(agentKeysTable.id, key.id));
+
+        try {
+          const { deliverWebhookEvent } = await import("../services/webhook-delivery");
+          await deliverWebhookEvent(key.agentId, "key.expired", {
+            keyId: key.id,
+            kid: key.kid,
+            expiredAt: key.expiresAt,
+          });
+        } catch {}
+      } catch (err) {
+        logger.error({ err, keyId: key.id, agentId: key.agentId }, "[trust-worker] Failed to expire key");
+      }
+    }
+
+    logger.info(`[trust-worker] Key expiry pass complete: ${overdueKeys.length} keys expired`);
+  } catch (err) {
+    logger.error({ err }, "[trust-worker] Failed to run key expiry pass");
+  }
+}
 
 async function applyInactivityDecay() {
   try {
@@ -76,6 +119,8 @@ async function applyInactivityDecay() {
 }
 
 async function recalculateAllTrust() {
+  await expireOverdueKeys();
+
   try {
     const agents = await db.query.agentsTable.findMany({
       where: or(

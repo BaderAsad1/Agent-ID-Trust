@@ -10,6 +10,9 @@ export interface CreateAgentKeyInput {
   publicKey?: string;
   jwk?: unknown;
   use?: string;
+  purpose?: "signing" | "encryption" | "recovery" | "delegation";
+  expiresAt?: Date;
+  autoRotateDays?: number;
 }
 
 function generateKid(): string {
@@ -21,6 +24,19 @@ export async function createAgentKey(
 ): Promise<AgentKey> {
   const kid = generateKid();
 
+  if (input.purpose) {
+    await db
+      .update(agentKeysTable)
+      .set({ status: "revoked", revokedAt: new Date() })
+      .where(
+        and(
+          eq(agentKeysTable.agentId, input.agentId),
+          eq(agentKeysTable.purpose, input.purpose),
+          eq(agentKeysTable.status, "active"),
+        ),
+      );
+  }
+
   const [key] = await db
     .insert(agentKeysTable)
     .values({
@@ -30,6 +46,9 @@ export async function createAgentKey(
       publicKey: input.publicKey,
       jwk: input.jwk,
       use: input.use || "sig",
+      purpose: input.purpose,
+      expiresAt: input.expiresAt,
+      autoRotateDays: input.autoRotateDays,
     })
     .returning();
 

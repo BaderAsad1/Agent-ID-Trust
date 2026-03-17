@@ -89,6 +89,9 @@ export const agentsTable = pgTable(
     reservedReason: varchar("reserved_reason", { length: 50 }),
     isClaimed: boolean("is_claimed").default(false).notNull(),
     claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revocationReason: varchar("revocation_reason", { length: 100 }),
+    revocationStatement: text("revocation_statement"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

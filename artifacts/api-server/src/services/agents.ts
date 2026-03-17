@@ -300,16 +300,44 @@ export async function updateAgent(
   return updated;
 }
 
+export interface RevokeAgentInput {
+  reason?: string;
+  statement?: string;
+}
+
 export async function deleteAgent(
   agentId: string,
   userId: string,
+  revocation?: RevokeAgentInput,
 ): Promise<boolean> {
-  const [deleted] = await db
-    .delete(agentsTable)
+  const now = new Date();
+  const [updated] = await db
+    .update(agentsTable)
+    .set({
+      status: "revoked",
+      revokedAt: now,
+      revocationReason: revocation?.reason || "user_deleted",
+      revocationStatement: revocation?.statement || null,
+      updatedAt: now,
+    })
     .where(and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)))
     .returning({ id: agentsTable.id });
 
-  return !!deleted;
+  if (updated) {
+    try {
+      const { deleteResolutionCache } = await import("../routes/v1/resolve");
+      const { normalizeHandle } = await import("../utils/handle");
+      const agent = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, agentId),
+        columns: { handle: true },
+      });
+      if (agent) {
+        await deleteResolutionCache(normalizeHandle(agent.handle));
+      }
+    } catch {}
+  }
+
+  return !!updated;
 }
 
 const APP_URL = process.env.APP_URL || 'https://getagent.id';

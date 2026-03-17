@@ -3,6 +3,7 @@ import {
   uuid,
   varchar,
   text,
+  integer,
   jsonb,
   timestamp,
   index,
@@ -10,7 +11,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { agentsTable } from "./agents";
-import { keyStatusEnum } from "./enums";
+import { keyStatusEnum, keyPurposeEnum } from "./enums";
 
 export const agentKeysTable = pgTable(
   "agent_keys",
@@ -29,6 +30,8 @@ export const agentKeysTable = pgTable(
     rotatedByKid: varchar("rotated_by_kid", { length: 255 }),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     rotationReason: varchar("rotation_reason", { length: 255 }),
+    purpose: keyPurposeEnum("purpose"),
+    autoRotateDays: integer("auto_rotate_days"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

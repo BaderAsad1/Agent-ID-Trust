@@ -6,6 +6,7 @@ export const agentStatusEnum = pgEnum("agent_status", [
   "inactive",
   "suspended",
   "pending_verification",
+  "revoked",
 ]);
 
 export const verificationStatusEnum = pgEnum("verification_status", [
@@ -44,6 +45,14 @@ export const keyStatusEnum = pgEnum("key_status", [
   "rotating",
   "revoked",
   "rotated",
+  "expired",
+]);
+
+export const keyPurposeEnum = pgEnum("key_purpose", [
+  "signing",
+  "encryption",
+  "recovery",
+  "delegation",
 ]);
 
 export const deliveryStatusEnum = pgEnum("delivery_status", [

@@ -16,6 +16,7 @@ import {
   isHandleAvailable,
   getHandleReservation,
   isHandleReserved,
+  type RevokeAgentInput,
 } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
@@ -494,6 +495,241 @@ router.post("/:agentId/keys/verify-rotation", requireAgentAuth, validateUuidPara
     } catch {}
 
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const addKeySchema = z.object({
+  publicKey: z.string().min(1),
+  keyType: z.string().default("ed25519"),
+  purpose: z.enum(["signing", "encryption", "recovery", "delegation"]).optional(),
+  expiresAt: z.string().datetime().optional(),
+  autoRotateDays: z.number().int().positive().max(3650).optional(),
+});
+
+router.post("/:agentId/keys", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    if (req.authenticatedAgent!.id !== agentId) {
+      throw new AppError(403, "FORBIDDEN", "Agent can only add keys to itself");
+    }
+
+    const parsed = addKeySchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+
+    const { createAgentKey } = await import("../../services/agent-keys");
+
+    const newKey = await createAgentKey({
+      agentId,
+      keyType: parsed.data.keyType,
+      publicKey: parsed.data.publicKey,
+      purpose: parsed.data.purpose,
+      expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : undefined,
+      autoRotateDays: parsed.data.autoRotateDays,
+    });
+
+    await logActivity({
+      agentId,
+      eventType: "agent.key_created",
+      payload: {
+        keyId: newKey.id,
+        kid: newKey.kid,
+        purpose: parsed.data.purpose,
+        expiresAt: parsed.data.expiresAt,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId,
+        eventType: "agent.key_created",
+        payload: { keyId: newKey.id, kid: newKey.kid, purpose: parsed.data.purpose },
+        isPublic: true,
+      });
+    } catch {}
+
+    res.status(201).json({
+      id: newKey.id,
+      kid: newKey.kid,
+      keyType: newKey.keyType,
+      use: newKey.use,
+      status: newKey.status,
+      purpose: newKey.purpose,
+      expiresAt: newKey.expiresAt,
+      autoRotateDays: newKey.autoRotateDays,
+      createdAt: newKey.createdAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const shutdownSchema = z.object({
+  reason: z.string().max(255).optional(),
+  statement: z.string().max(2000).optional(),
+  transferTo: z.string().optional(),
+});
+
+router.post("/:agentId/shutdown", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    if (req.authenticatedAgent!.id !== agentId) {
+      throw new AppError(403, "FORBIDDEN", "Agent can only shut down itself");
+    }
+
+    const parsed = shutdownSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+
+    const agent = await getAgentById(agentId);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+
+    if (agent.status === "revoked") {
+      throw new AppError(409, "ALREADY_REVOKED", "Agent is already revoked");
+    }
+
+    const now = new Date();
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const { tasksTable, marketplaceListingsTable } = await import("@workspace/db/schema");
+
+    const pendingTasks = await db.query.tasksTable.findMany({
+      where: and(
+        eq(tasksTable.recipientAgentId, agentId),
+        eq(tasksTable.businessStatus, "pending"),
+      ),
+      columns: { id: true, senderAgentId: true, senderUserId: true },
+    });
+
+    if (pendingTasks.length > 0) {
+      await db
+        .update(tasksTable)
+        .set({ businessStatus: "cancelled", updatedAt: now })
+        .where(
+          and(
+            eq(tasksTable.recipientAgentId, agentId),
+            eq(tasksTable.businessStatus, "pending"),
+          ),
+        );
+
+      for (const task of pendingTasks) {
+        if (task.senderAgentId) {
+          try {
+            const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
+            await deliverWebhookEvent(task.senderAgentId, "task.cancelled", {
+              taskId: task.id,
+              recipientAgentId: agentId,
+              reason: "agent_shutdown",
+              message: `Agent ${agent.handle} has shut down and cancelled all pending tasks.`,
+            });
+          } catch {}
+        }
+      }
+    }
+
+    const recentTasks = await db.query.tasksTable.findMany({
+      where: and(
+        eq(tasksTable.recipientAgentId, agentId),
+        gte(tasksTable.createdAt, thirtyDaysAgo),
+      ),
+      columns: { senderAgentId: true },
+    });
+
+    const partnerAgentIds = [...new Set(
+      recentTasks
+        .map(t => t.senderAgentId)
+        .filter((id): id is string => !!id && id !== agentId),
+    )];
+
+    if (partnerAgentIds.length > 0) {
+      const { sendMessage } = await import("../../services/mail");
+      for (const partnerId of partnerAgentIds) {
+        try {
+          await sendMessage({
+            agentId: partnerId,
+            direction: "inbound",
+            senderType: "agent",
+            senderAgentId: agentId,
+            subject: `Agent ${agent.handle} has shut down`,
+            body: `The agent @${agent.handle} (${agent.displayName}) has initiated a formal shutdown and revoked its identity.${parsed.data.statement ? `\n\nStatement: ${parsed.data.statement}` : ""}\n\nNo further tasks can be sent to this agent.`,
+          });
+        } catch {}
+      }
+    }
+
+    if (parsed.data.transferTo) {
+      try {
+        const transferHandle = parsed.data.transferTo.toLowerCase();
+        const targetAgent = await import("../../services/agents").then(m => m.getAgentByHandle(transferHandle));
+        if (targetAgent) {
+          await db
+            .update(marketplaceListingsTable)
+            .set({ agentId: targetAgent.id, userId: targetAgent.userId, updatedAt: now })
+            .where(
+              and(
+                eq(marketplaceListingsTable.agentId, agentId),
+                eq(marketplaceListingsTable.status, "active"),
+              ),
+            );
+        }
+      } catch {}
+    }
+
+    await deleteAgent(agentId, agent.userId, {
+      reason: parsed.data.reason || "agent_shutdown",
+      statement: parsed.data.statement,
+    });
+
+    try {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId,
+        eventType: "agent.shutdown",
+        payload: {
+          reason: parsed.data.reason,
+          statement: parsed.data.statement,
+          transferTo: parsed.data.transferTo,
+          pendingTasksCancelled: pendingTasks.length,
+          partnersNotified: partnerAgentIds.length,
+        },
+        isPublic: true,
+      });
+    } catch {}
+
+    await logActivity({
+      agentId,
+      eventType: "agent.shutdown",
+      payload: {
+        reason: parsed.data.reason,
+        statement: parsed.data.statement,
+        pendingTasksCancelled: pendingTasks.length,
+        partnersNotified: partnerAgentIds.length,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    const revocationRecordUrl = `${APP_URL}/api/v1/resolve/${agent.handle}`;
+
+    res.json({
+      success: true,
+      status: "revoked",
+      revokedAt: now.toISOString(),
+      reason: parsed.data.reason || "agent_shutdown",
+      revocationRecordUrl,
+      pendingTasksCancelled: pendingTasks.length,
+      partnersNotified: partnerAgentIds.length,
+    });
   } catch (err) {
     next(err);
   }

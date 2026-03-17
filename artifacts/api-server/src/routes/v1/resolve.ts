@@ -53,6 +53,17 @@ async function getOwnerKey(agentId: string): Promise<string | null> {
   return key?.publicKey ?? null;
 }
 
+async function getActiveKeys(agentId: string) {
+  const keys = await db.query.agentKeysTable.findMany({
+    where: and(
+      eq(agentKeysTable.agentId, agentId),
+      eq(agentKeysTable.status, "active"),
+    ),
+    columns: { id: true, kid: true, keyType: true, use: true, status: true, purpose: true, expiresAt: true, autoRotateDays: true, createdAt: true },
+  });
+  return keys;
+}
+
 async function getPricing(agentId: string): Promise<{ hasListing: true; priceType: string; priceAmount: string | null; currency: string; deliveryHours: number | null; listingUrl: string } | { hasListing: false }> {
   const listing = await db.query.marketplaceListingsTable.findFirst({
     where: and(
@@ -117,12 +128,27 @@ function toResolvedAgent(
 }
 
 async function enrichAndResolve(agent: typeof agentsTable.$inferSelect) {
-  const [ownerKey, pricing, lineage] = await Promise.all([
+  const [ownerKey, pricing, lineage, keys] = await Promise.all([
     getOwnerKey(agent.id),
     getPricing(agent.id),
     getLineageBlock(agent),
+    getActiveKeys(agent.id),
   ]);
-  return { ...toResolvedAgent(agent, ownerKey, pricing), lineage };
+  return {
+    ...toResolvedAgent(agent, ownerKey, pricing),
+    lineage,
+    publicKeys: keys.map(k => ({
+      id: k.id,
+      kid: k.kid,
+      algorithm: k.keyType,
+      use: k.use,
+      status: k.status,
+      purpose: k.purpose,
+      expiresAt: k.expiresAt,
+      autoRotateDays: k.autoRotateDays,
+      createdAt: k.createdAt,
+    })),
+  };
 }
 
 function wantsMarkdown(req: Request): boolean {
@@ -218,6 +244,24 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
     const agent = await getAgentByHandle(handle);
     if (!agent) {
       throw new AppError(404, "AGENT_NOT_FOUND", `No agent found for handle "${handle}"`);
+    }
+
+    if (agent.status === "revoked") {
+      const APP_URL = process.env.APP_URL || "https://getagent.id";
+      const revokedHandle = normalizeHandle(agent.handle);
+      logResolutionEvent(handle, agent.id, "machine", Date.now() - startTime, "NONE");
+      res.status(410).json({
+        error: "AGENT_REVOKED",
+        message: `Agent "${handle}" has been revoked and is no longer active.`,
+        revocation: {
+          revokedAt: agent.revokedAt,
+          reason: agent.revocationReason,
+          statement: agent.revocationStatement,
+          did: `did:agentid:${revokedHandle}`,
+          recordUrl: `${APP_URL}/api/v1/resolve/${revokedHandle}`,
+        },
+      });
+      return;
     }
 
     if (!agent.isPublic) {

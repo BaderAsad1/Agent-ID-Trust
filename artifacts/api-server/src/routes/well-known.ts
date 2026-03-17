@@ -31,7 +31,6 @@ async function getAgentByHandle(handle: string) {
   return db.query.agentsTable.findFirst({
     where: and(
       eq(agentsTable.handle, handle),
-      eq(agentsTable.status, "active"),
       eq(agentsTable.isPublic, true),
     ),
   });
@@ -80,6 +79,11 @@ function buildAgentIdentityDocument(
       profile: formatProfileUrl(handle),
       resolve: formatResolverUrl(handle),
     },
+    revocation: agent.status === "revoked" ? {
+      revokedAt: agent.revokedAt,
+      reason: agent.revocationReason,
+      statement: agent.revocationStatement,
+    } : null,
     metadata: agent.metadata,
     createdAt: agent.createdAt,
     updatedAt: agent.updatedAt,
@@ -112,6 +116,21 @@ router.get("/.well-known/agent.json", async (req: Request, res: Response, next: 
         error: "AGENT_NOT_FOUND",
         message: "No agent identity found for this domain. Resolve agents via GET /api/v1/resolve/:handle",
         requestId,
+      });
+      return;
+    }
+
+    if (agent.status === "revoked") {
+      const revokedHandle = normalizeHandle(agent.handle);
+      res.status(410).json({
+        error: "AGENT_REVOKED",
+        message: "This agent identity has been revoked.",
+        revocation: {
+          revokedAt: agent.revokedAt,
+          reason: agent.revocationReason,
+          statement: agent.revocationStatement,
+          did: `did:agentid:${revokedHandle}`,
+        },
       });
       return;
     }
