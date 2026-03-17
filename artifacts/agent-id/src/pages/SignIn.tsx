@@ -118,10 +118,10 @@ export function SignIn() {
             </span>
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 600, color: '#f0f0f5', marginBottom: 8 }}>
-            Sign in
+            Get started
           </h1>
           <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', margin: 0 }}>
-            Identity, trust, and routing for AI agents
+            Sign in or create your Agent ID account
           </p>
         </div>
 

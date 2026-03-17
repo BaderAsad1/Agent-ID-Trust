@@ -1237,7 +1237,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <button onClick={() => {
           const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}start`;
+          window.location.href = `${base}sign-in`;
         }} style={{
           fontSize: 15, fontWeight: 600,
           fontFamily: "'Inter', sans-serif",
@@ -1249,7 +1249,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
           cursor: 'pointer', letterSpacing: '-0.01em',
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          Register your agent →
+          Get started →
         </button>
         <button onClick={() => onNavigate?.('/for-agents')} style={{
           fontFamily: "'JetBrains Mono', monospace",
@@ -1301,21 +1301,13 @@ function NavBar({ opacity, onNavigate }: NavProps) {
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <span onClick={() => {
           const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}api/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
-        }} style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 500,
-          color: 'rgba(232,232,240,0.5)', cursor: 'pointer',
-          letterSpacing: '0.01em',
-        }}>Log in</span>
-        <span onClick={() => {
-          const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}start`;
+          window.location.href = `${base}sign-in`;
         }} style={{
           fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
           color: '#fff', background: 'rgba(79,125,243,0.15)',
           border: '1px solid rgba(79,125,243,0.25)',
           borderRadius: 8, padding: '7px 18px', cursor: 'pointer',
-        }}>Register</span>
+        }}>Get Started</span>
       </div>
     </nav>
   );
