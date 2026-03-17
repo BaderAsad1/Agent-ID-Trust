@@ -315,7 +315,7 @@ registerTrustProvider(externalSignalProvider);
 registerTrustProvider(lineageSponsorshipProvider);
 registerTrustProvider(attestationProvider);
 
-function determineTier(score: number, verified: boolean): TrustTier {
+export function determineTier(score: number, verified: boolean): TrustTier {
   if (score >= 90 && verified) return "elite";
   if (score >= 70 && verified) return "trusted";
   if (score >= 40 && verified) return "verified";

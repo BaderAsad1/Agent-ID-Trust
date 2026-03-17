@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { eq, and } from "drizzle-orm";
 import { AppError } from "../../middlewares/error-handler";
-import { validateHandle, isHandleAvailable, getHandleReservation } from "../../services/agents";
+import { validateHandle, isHandleAvailable, getHandleReservation, isHandleReserved } from "../../services/agents";
 import { getHandlePricing, HANDLE_PRICING_TIERS } from "../../services/handle-pricing";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { db } from "@workspace/db";
@@ -28,6 +28,18 @@ router.get("/check", async (req, res, next) => {
     const validationError = validateHandle(normalized);
     if (validationError) {
       res.json({ available: false, handle: normalized, reason: validationError });
+      return;
+    }
+
+    if (isHandleReserved(normalized)) {
+      res.json({
+        available: false,
+        handle: normalized,
+        status: "reserved",
+        reserved: true,
+        reservedReason: "brand_protection",
+        message: "This handle is reserved for brand protection. If you are the legitimate brand owner, please contact support@getagent.id to claim it.",
+      });
       return;
     }
 

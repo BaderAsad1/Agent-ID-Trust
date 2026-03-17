@@ -15,6 +15,7 @@ import {
   validateHandle,
   isHandleAvailable,
   getHandleReservation,
+  isHandleReserved,
 } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
@@ -26,9 +27,9 @@ import {
 } from "../../services/credentials";
 import { buildBootstrapBundle } from "./agent-runtime";
 import { verifyClaimToken, generateClaimToken } from "../../utils/claim-token";
-import { desc, eq, and } from "drizzle-orm";
+import { desc, eq, and, gte, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentActivityLogTable, agentsTable, agentClaimTokensTable } from "@workspace/db/schema";
+import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -86,6 +87,10 @@ router.post("/", requireAuth, async (req, res, next) => {
     }
 
     const normalizedHandle = handle.toLowerCase();
+
+    if (isHandleReserved(normalizedHandle)) {
+      throw new AppError(409, "HANDLE_RESERVED", "This handle is reserved for brand protection. If you are the legitimate brand owner, please contact support@getagent.id to claim it.");
+    }
 
     const reservation = await getHandleReservation(normalizedHandle);
     if (reservation.isReserved) {
@@ -651,6 +656,94 @@ router.post("/:agentId/credential/reissue", requireAuth, async (req, res, next) 
 
     const credential = await reissueCredential(agentId);
     res.json(credential);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const VALID_REPORT_REASONS = ["spam", "impersonation", "malicious", "scam", "terms_violation", "fake_identity", "other"] as const;
+type ReportReason = typeof VALID_REPORT_REASONS[number];
+
+const reportAgentSchema = z.object({
+  reason: z.enum(VALID_REPORT_REASONS),
+  description: z.string().max(5000).optional(),
+  evidence: z.string().max(10000).optional(),
+});
+
+const REPORT_SUSPEND_THRESHOLD = 5;
+const REPORT_SUSPEND_WINDOW_DAYS = 7;
+
+function requireHumanOrAgentAuthForReport(req: Request, res: Response, next: NextFunction) {
+  if (req.headers["x-agent-key"]) {
+    return requireAgentAuth(req, res, (err?: unknown) => {
+      if (err) return next(err);
+      next();
+    });
+  }
+  return requireAuth(req, res, next);
+}
+
+router.post("/:agentId/report", requireHumanOrAgentAuthForReport, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+
+    const parsed = reportAgentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+
+    const subject = await getAgentById(agentId);
+    if (!subject) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+
+    const reporterUserId = req.userId ?? null;
+    const reporterAgentId = req.authenticatedAgent?.id ?? null;
+
+    const [report] = await db
+      .insert(agentReportsTable)
+      .values({
+        subjectAgentId: agentId,
+        reporterAgentId,
+        reporterUserId,
+        reason: parsed.data.reason as ReportReason,
+        description: parsed.data.description,
+        evidence: parsed.data.evidence,
+      })
+      .returning();
+
+    const windowStart = new Date(Date.now() - REPORT_SUSPEND_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    const pendingReports = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(agentReportsTable)
+      .where(
+        and(
+          eq(agentReportsTable.subjectAgentId, agentId),
+          eq(agentReportsTable.status, "pending"),
+          gte(agentReportsTable.createdAt, windowStart),
+        ),
+      );
+
+    const pendingCount = Number(pendingReports[0]?.count ?? 0);
+    let autoSuspended = false;
+
+    if (pendingCount >= REPORT_SUSPEND_THRESHOLD && subject.status !== "suspended") {
+      await db
+        .update(agentsTable)
+        .set({ status: "suspended", updatedAt: new Date() })
+        .where(eq(agentsTable.id, agentId));
+      autoSuspended = true;
+      logger.warn({ agentId, pendingCount }, "[agents] Agent auto-suspended due to report threshold");
+    }
+
+    res.status(200).json({
+      id: report.id,
+      subjectAgentId: agentId,
+      reason: report.reason,
+      status: report.status,
+      createdAt: report.createdAt,
+      autoSuspended,
+    });
   } catch (err) {
     next(err);
   }
