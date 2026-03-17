@@ -60,7 +60,7 @@ export function ClaimPage() {
     justifyContent: 'center',
     fontFamily: 'var(--font-body)',
     color: '#e8e8f0',
-    padding: '32px 20px',
+    padding: '32px 16px',
   };
 
   if (state === 'loading' || (authLoading && state !== 'error')) {

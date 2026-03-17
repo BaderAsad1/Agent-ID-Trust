@@ -60,8 +60,7 @@ export function Nav() {
             }}>Agent ID</span>
           </button>
 
-          {userId && (
-            <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-8">
               {navLinks.map(l => (
                 <button
                   key={l.label}
@@ -82,7 +81,6 @@ export function Nav() {
                 </button>
               ))}
             </div>
-          )}
 
           <div className="hidden md:flex items-center gap-3">
             {userId ? (
@@ -154,7 +152,7 @@ export function Nav() {
       {mobileOpen && (
         <div className="fixed inset-0 z-40 pt-16 md:hidden" style={{ background: 'var(--bg-base)' }}>
           <div className="flex flex-col gap-4 p-6">
-            {userId && navLinks.map(l => (
+            {navLinks.map(l => (
               <button
                 key={l.label}
                 onClick={() => { l.onClick?.(); setMobileOpen(false); }}

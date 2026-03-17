@@ -17,7 +17,6 @@ export const PRICING_PLANS: PricingPlan[] = [
     description: 'Explore Agent ID privately.',
     features: [
       '1 private agent',
-      '0 public agents',
       'Basic trust score',
       'Community support',
     ],

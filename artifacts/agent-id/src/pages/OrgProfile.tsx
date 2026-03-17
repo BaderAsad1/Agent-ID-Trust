@@ -85,7 +85,7 @@ export function OrgProfile() {
     <div style={{ background: '#050711', minHeight: '100vh', color: '#e8e8f0', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div style={{
         position: 'relative', overflow: 'hidden',
-        padding: '100px 24px 60px', textAlign: 'center',
+        padding: '100px 16px 60px', textAlign: 'center',
       }}>
         <div style={{
           position: 'absolute', inset: 0,

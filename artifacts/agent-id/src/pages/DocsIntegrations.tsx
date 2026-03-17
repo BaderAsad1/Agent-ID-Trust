@@ -476,6 +476,26 @@ export function DocsIntegrations() {
           </div>
         </div>
 
+        <div className="mb-12">
+          <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>IDE Integrations</h2>
+          <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Connect Agent ID to your development environment via MCP.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { name: 'Claude Desktop', href: '/integrations/claude-desktop', emoji: '🖥️', color: '#4F7DF3' },
+              { name: 'Cursor', href: '/integrations/cursor', emoji: '⚡', color: '#8B5CF6' },
+              { name: 'VS Code', href: '/integrations/vscode', emoji: '💎', color: '#3B82F6' },
+            ].map(ide => (
+              <a key={ide.name} href={ide.href} className="block rounded-xl p-4 transition-colors hover:opacity-90" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', textDecoration: 'none' }}>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-xl">{ide.emoji}</span>
+                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{ide.name}</span>
+                </div>
+                <span className="text-xs flex items-center gap-1" style={{ color: ide.color }}>Setup guide <ArrowRight className="w-3 h-3" /></span>
+              </a>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
           <GlassCard className="!p-5">
             <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Using the SDK (recommended)</h3>

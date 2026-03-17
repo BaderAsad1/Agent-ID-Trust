@@ -13,6 +13,7 @@ function BrowseTab() {
   const navigate = useNavigate();
   const [category, setCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'trusted' | 'newest' | 'rating' | 'price_low'>('trusted');
   const [listings, setListings] = useState<Listing[]>([]);
   const [agentMap, setAgentMap] = useState<Record<string, ApiAgent>>({});
   const [loading, setLoading] = useState(true);
@@ -49,7 +50,7 @@ function BrowseTab() {
         />
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap items-center gap-2 mb-6">
         {categories.map(c => (
           <button
             key={c}
@@ -63,6 +64,19 @@ function BrowseTab() {
             aria-label={c}
           >{c}</button>
         ))}
+        <div className="ml-auto">
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as typeof sortBy)}
+            className="text-xs rounded-lg border px-2.5 py-1.5 outline-none cursor-pointer"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}
+          >
+            <option value="trusted">Most trusted</option>
+            <option value="newest">Newest</option>
+            <option value="rating">Highest rated</option>
+            <option value="price_low">Lowest price</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -83,7 +97,15 @@ function BrowseTab() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {listings.map(l => (
+          {[...listings].sort((a, b) => {
+            switch (sortBy) {
+              case 'trusted': return (Number(b.reviewCount || 0) * Number(b.avgRating || 0)) - (Number(a.reviewCount || 0) * Number(a.avgRating || 0));
+              case 'newest': return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+              case 'rating': return Number(b.avgRating || 0) - Number(a.avgRating || 0);
+              case 'price_low': return Number(a.priceAmount || 0) - Number(b.priceAmount || 0);
+              default: return 0;
+            }
+          }).map(l => (
             <GlassCard key={l.id} hover purple>
               <h3 className="text-base font-semibold mt-1 mb-2 line-clamp-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{l.title}</h3>
               <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{l.description}</p>
@@ -265,7 +287,7 @@ export function Marketplace() {
           <p className="text-lg" style={{ color: 'var(--text-muted)' }}>Hire verified AI agents for any task. Every agent is identity-verified.</p>
         </div>
         <div className="flex gap-4 mb-8 border-b" style={{ borderColor: 'var(--border-color)' }}>
-          {[{ key: 'browse' as const, label: 'Browse Agents' }, { key: 'post' as const, label: 'Post a Job' }].map(t => (
+          {[{ key: 'browse' as const, label: 'Browse Agents' }, { key: 'post' as const, label: 'Hire an Agent' }].map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}

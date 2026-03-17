@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -160,6 +160,69 @@ console.log(sig.toString("base64"));`}</pre>
   );
 }
 
+const MCP_CONFIG = `{
+  "mcpServers": {
+    "agentid": {
+      "command": "npx",
+      "args": ["-y", "@agentid/mcp-server"],
+      "env": {
+        "AGENTID_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}`;
+
+function McpQuickstartCard() {
+  const navigate = useNavigate();
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem('agentid_mcp_dismissed') === '1'; } catch { return false; }
+  });
+  const [expanded, setExpanded] = useState(false);
+
+  if (dismissed) return null;
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    try { localStorage.setItem('agentid_mcp_dismissed', '1'); } catch {}
+  };
+
+  return (
+    <GlassCard className="!p-5 mb-8">
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(79,125,243,0.1)' }}>
+          <Zap className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between">
+            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Connect via MCP</h3>
+            <button onClick={handleDismiss} className="cursor-pointer flex-shrink-0 ml-2" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }} aria-label="Dismiss">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+            Use Agent ID with Claude Desktop, Cursor, or VS Code to resolve identities and route tasks from your IDE.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <button onClick={() => navigate('/integrations/claude-desktop')} className="text-xs px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: 'rgba(79,125,243,0.08)', color: 'var(--accent)', border: '1px solid rgba(79,125,243,0.2)' }}>Claude Desktop</button>
+            <button onClick={() => navigate('/integrations/cursor')} className="text-xs px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: 'rgba(139,92,246,0.08)', color: 'var(--marketplace)', border: '1px solid rgba(139,92,246,0.2)' }}>Cursor</button>
+            <button onClick={() => navigate('/integrations/vscode')} className="text-xs px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: 'rgba(59,130,246,0.08)', color: '#3B82F6', border: '1px solid rgba(59,130,246,0.2)' }}>VS Code</button>
+          </div>
+          <button onClick={() => setExpanded(!expanded)} className="text-xs font-medium cursor-pointer flex items-center gap-1" style={{ color: 'var(--text-dim)', background: 'none', border: 'none' }}>
+            {expanded ? '▾ Hide config' : '▸ Show config snippet'}
+          </button>
+          {expanded && (
+            <div className="mt-2 rounded-lg overflow-hidden" style={{ background: '#0A0F14', border: '1px solid var(--border-color)' }}>
+              <pre className="p-3 overflow-x-auto text-xs" style={{ fontFamily: 'var(--font-mono)', color: '#94A3B8', margin: 0 }}>
+                <code>{MCP_CONFIG}</code>
+              </pre>
+            </div>
+          )}
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
 function Overview() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -280,25 +343,28 @@ function Overview() {
         )}
       </div>
       {agents.length === 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-          <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/start')}>
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(79,125,243,0.1)' }}>
-                <Plus className="w-6 h-6" style={{ color: 'var(--accent)' }} />
+        <div className="mb-8">
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Register your first agent to get started with Agent ID.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/start')}>
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(79,125,243,0.1)' }}>
+                  <Plus className="w-6 h-6" style={{ color: 'var(--accent)' }} />
+                </div>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Register your first agent</h3>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Create a new agent identity from scratch with the setup wizard.</p>
               </div>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Register an agent</h3>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Create a new agent identity from scratch with the setup wizard.</p>
-            </div>
-          </GlassCard>
-          <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/claim')}>
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.1)' }}>
-                <Link className="w-6 h-6" style={{ color: 'var(--success)' }} />
+            </GlassCard>
+            <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/claim')}>
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.1)' }}>
+                  <Link className="w-6 h-6" style={{ color: 'var(--success)' }} />
+                </div>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Claim an existing agent</h3>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Link a programmatically registered agent to your account using a claim URL.</p>
               </div>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Claim an existing agent</h3>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Link a programmatically registered agent to your account using a claim URL.</p>
-            </div>
-          </GlassCard>
+            </GlassCard>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
@@ -406,6 +472,7 @@ function Overview() {
           ))}
         </div>
       )}
+      {agents.length > 0 && <McpQuickstartCard />}
       <h2 className="text-lg font-semibold mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Recent Activity</h2>
       {recentActivity.length === 0 ? (
         <EmptyState icon={<Activity className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No activity yet" description="Activity will appear here as your agents work." />
@@ -741,7 +808,7 @@ function MarketplaceDashboard() {
                         <td className="py-3 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: l.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: l.status === 'active' ? 'var(--success)' : 'var(--warning)' }}>{l.status}</span></td>
                         <td className="py-3 px-3"><StarRating rating={Number(l.avgRating || 0)} /></td>
                         <td className="py-3 px-3">
-                          <button className="text-xs cursor-pointer" style={{ color: 'var(--accent)', background: 'none', border: 'none' }}>Edit</button>
+                          <button onClick={() => navigate(`/marketplace/${l.id}`)} className="text-xs cursor-pointer" style={{ color: 'var(--accent)', background: 'none', border: 'none' }}>View</button>
                         </td>
                       </tr>
                     ))}
@@ -934,7 +1001,7 @@ function FleetManagement() {
       setFleets(result.fleets || []);
     } catch (e: unknown) {
       if (e instanceof Error && e.message.includes('403')) {
-        setError('Fleet management requires a Pro or Team plan.');
+        setError('upgrade_required');
       } else {
         setError(e instanceof Error ? e.message : 'Failed to load fleets');
       }
@@ -1027,6 +1094,13 @@ function FleetManagement() {
 
       {loading ? (
         <ListSkeleton rows={4} />
+      ) : error === 'upgrade_required' ? (
+        <GlassCard className="!p-8 text-center">
+          <Network className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--accent)' }} />
+          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Fleet Management requires Pro or Team</h3>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Upgrade your plan to create and manage sub-handles under your root handles.</p>
+          <PrimaryButton onClick={() => window.location.href = '/pricing'}>View Plans</PrimaryButton>
+        </GlassCard>
       ) : error ? (
         <ErrorState message={error} onRetry={fetchFleets} />
       ) : fleets.length === 0 ? (

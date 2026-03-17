@@ -16,13 +16,13 @@ export function Footer() {
           <div className="flex flex-col gap-2">
             <button onClick={() => navigate('/marketplace')} className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', background: 'none', border: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Marketplace</button>
             <button onClick={() => navigate('/jobs')} className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', background: 'none', border: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Jobs</button>
-            <span className="text-sm cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', fontSize: 12 }}>Documentation</span>
-            <span className="text-sm cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', fontSize: 12 }}>Status</span>
+            <button onClick={() => navigate('/integrations')} className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', background: 'none', border: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Documentation</button>
+            <a href="https://status.getagent.id" target="_blank" rel="noopener noreferrer" className="text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', textDecoration: 'none', fontSize: 12 }}>Status</a>
           </div>
           <div className="flex flex-col gap-2">
-            <span className="text-sm cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', fontSize: 12 }}>Privacy</span>
-            <span className="text-sm cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', fontSize: 12 }}>Terms</span>
-            <span className="text-sm cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', fontSize: 12 }}>GitHub</span>
+            <button onClick={() => navigate('/privacy')} className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', background: 'none', border: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Privacy</button>
+            <button onClick={() => navigate('/terms')} className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', background: 'none', border: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Terms</button>
+            <a href="https://github.com/getagentid" target="_blank" rel="noopener noreferrer" className="text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', textDecoration: 'none', fontSize: 12 }}>GitHub</a>
           </div>
         </div>
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 20 }}>

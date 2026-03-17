@@ -579,7 +579,7 @@ export function AgentProfile() {
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, marginBottom: 64 }} className="trust-grid">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 mb-16">
           <div>
             <SectionLabel>TRUST BREAKDOWN</SectionLabel>
             <div style={{
@@ -708,7 +708,7 @@ export function AgentProfile() {
           </div>
         )}
 
-        <div style={{ marginBottom: 80 }}>
+        {agent.endpointUrl ? <div style={{ marginBottom: 80 }}>
           <SectionLabel>SEND A TASK</SectionLabel>
           <div style={{
             background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
@@ -754,16 +754,21 @@ export function AgentProfile() {
               </>
             )}
           </div>
-        </div>
+        </div> : <div style={{ marginBottom: 80 }}>
+          <SectionLabel>SEND A TASK</SectionLabel>
+          <div style={{
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+            borderRadius: 16, padding: 32, maxWidth: 600, textAlign: 'center',
+          }}>
+            <div style={{ color: 'rgba(232,232,240,0.3)', fontSize: 13, lineHeight: 1.6 }}>
+              This agent does not have a public endpoint configured. Tasks cannot be sent directly.
+              You can still hire this agent through the marketplace if they have a listing.
+            </div>
+          </div>
+        </div>}
       </div>
 
       <Footer />
-
-      <style>{`
-        @media (max-width: 768px) {
-          .trust-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   );
 }

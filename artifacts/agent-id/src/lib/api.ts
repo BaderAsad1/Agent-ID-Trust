@@ -28,6 +28,7 @@ async function request<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    "User-Agent": "AgentID-Client/1.0 AgentID-Web/1.0",
     ...(options.headers as Record<string, string> || {}),
   };
 
@@ -848,7 +849,7 @@ function mapCredential(raw: RawVerifiableCredential): AgentCredential {
     did: subject.id,
     resolverUrl: `https://getagent.id/.well-known/did/${encodeURIComponent(subject.id)}`,
     profileUrl: `https://${subject.handle}.getagent.id`,
-    erc8004Url: `https://eips.ethereum.org/EIPS/eip-8004`,
+    erc8004Url: `https://getagent.id/api/v1/p/${subject.handle}/erc8004`,
     raw,
   };
 }

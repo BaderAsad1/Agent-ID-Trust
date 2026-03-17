@@ -20,8 +20,12 @@ import { ClaimPage } from '@/pages/Claim';
 import { Mail } from '@/pages/Mail';
 import { OrgProfile } from '@/pages/OrgProfile';
 import { HumanProfile } from '@/pages/HumanProfile';
+import { Terms } from '@/pages/Terms';
+import { Privacy } from '@/pages/Privacy';
+import { ClaudeDesktopIntegration } from '@/pages/integrations/ClaudeDesktop';
+import { CursorIntegration } from '@/pages/integrations/Cursor';
+import { VSCodeIntegration } from '@/pages/integrations/VSCode';
 import IssuanceFilm from '@/components/IssuanceFilm';
-import LandingV2 from '@/pages/LandingV2';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -50,10 +54,8 @@ function LandingPage() {
 function AppContent() {
   const location = useLocation();
   const isLanding = location.pathname === '/' || location.pathname === '';
-  const isV2 = location.pathname === '/v2';
 
   if (isLanding) return <LandingPage />;
-  if (isV2) return <LandingV2 />;
 
   return (
     <div
@@ -75,7 +77,12 @@ function AppContent() {
         <Route path="/for-agents" element={<ForAgents />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/protocol" element={<Protocol />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="/integrations" element={<DocsIntegrations />} />
+        <Route path="/integrations/claude-desktop" element={<ClaudeDesktopIntegration />} />
+        <Route path="/integrations/cursor" element={<CursorIntegration />} />
+        <Route path="/integrations/vscode" element={<VSCodeIntegration />} />
         <Route path="/docs/integrations" element={<DocsIntegrations />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -85,6 +92,7 @@ function AppContent() {
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/org/:slug" element={<OrgProfile />} />
         <Route path="/u/:handle" element={<HumanProfile />} />
+        <Route path="/v2" element={<Navigate to="/" replace />} />
         <Route path="/:handle" element={<AgentProfile />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

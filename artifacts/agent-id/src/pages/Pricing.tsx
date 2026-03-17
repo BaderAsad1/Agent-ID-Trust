@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check } from 'lucide-react';
+import { Check, Info } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { Footer } from '@/components/Footer';
 import { PRICING_PLANS, HANDLE_PRICING_TIERS } from '@/lib/pricing';
@@ -8,17 +9,56 @@ import { useAuth } from '@/lib/AuthContext';
 export function Pricing() {
   const navigate = useNavigate();
   const { userId } = useAuth();
+  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
+
+  const getDisplayPrice = (plan: typeof PRICING_PLANS[number]) => {
+    if (plan.price === '$0') return '$0';
+    const monthly = parseInt(plan.price.replace('$', ''));
+    if (billing === 'yearly') {
+      return `$${monthly * 10}`;
+    }
+    return plan.price;
+  };
+
+  const getPeriod = (plan: typeof PRICING_PLANS[number]) => {
+    if (plan.price === '$0') return plan.period;
+    return billing === 'yearly' ? '/ year' : '/ month';
+  };
 
   return (
     <div className="pt-16" style={{ background: 'var(--bg-base)' }}>
       <div className="max-w-[1100px] mx-auto px-6 py-20">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-black mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
             Simple, transparent pricing
           </h1>
           <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--text-muted)' }}>
             Start free. Scale when you're ready.
           </p>
+        </div>
+
+        <div className="flex items-center justify-center gap-3 mb-12">
+          <button
+            onClick={() => setBilling('monthly')}
+            className="text-sm font-medium px-4 py-2 rounded-lg cursor-pointer transition-colors"
+            style={{
+              background: billing === 'monthly' ? 'rgba(79,125,243,0.15)' : 'transparent',
+              color: billing === 'monthly' ? 'var(--accent)' : 'var(--text-muted)',
+              border: `1px solid ${billing === 'monthly' ? 'rgba(79,125,243,0.3)' : 'var(--border-color)'}`,
+            }}
+          >Monthly</button>
+          <button
+            onClick={() => setBilling('yearly')}
+            className="text-sm font-medium px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2"
+            style={{
+              background: billing === 'yearly' ? 'rgba(79,125,243,0.15)' : 'transparent',
+              color: billing === 'yearly' ? 'var(--accent)' : 'var(--text-muted)',
+              border: `1px solid ${billing === 'yearly' ? 'rgba(79,125,243,0.3)' : 'var(--border-color)'}`,
+            }}
+          >
+            Yearly
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Save 17%</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
@@ -34,14 +74,25 @@ export function Pricing() {
               )}
               <h3 className="text-xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{plan.name}</h3>
               <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-3xl font-black" style={{ color: 'var(--text-primary)' }}>{plan.price}</span>
-                {plan.period && <span className="text-sm" style={{ color: 'var(--text-dim)' }}>{plan.period}</span>}
+                <span className="text-3xl font-black" style={{ color: 'var(--text-primary)' }}>{getDisplayPrice(plan)}</span>
+                {plan.period && <span className="text-sm" style={{ color: 'var(--text-dim)' }}>{getPeriod(plan)}</span>}
               </div>
               <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>{plan.description}</p>
               <ul className="space-y-3 mb-8 flex-1">
                 {plan.features.map(f => (
                   <li key={f} className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-                    <Check className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--success)' }} /> {f}
+                    <Check className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--success)' }} />
+                    {f === '1 private agent' && plan.name === 'Free' ? (
+                      <span className="flex items-center gap-1">
+                        1 private agent
+                        <span className="relative group">
+                          <Info className="w-3.5 h-3.5 cursor-help" style={{ color: 'var(--text-dim)' }} />
+                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                            Private agents are not listed publicly
+                          </span>
+                        </span>
+                      </span>
+                    ) : f}
                   </li>
                 ))}
               </ul>
