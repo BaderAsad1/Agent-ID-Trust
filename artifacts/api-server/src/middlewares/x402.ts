@@ -90,9 +90,9 @@ export function x402PaymentRequired(
 
       res.setHeader("X-Payment-Requirements", JSON.stringify(requirement));
       res.status(402).json({
+        x402Version: 1,
         error: "PAYMENT_REQUIRED",
-        code: "X402_PAYMENT_REQUIRED",
-        message: description,
+        accepts: requirement.accepts,
         paymentRequirements: requirement,
       });
       return;

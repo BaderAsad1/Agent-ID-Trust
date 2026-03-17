@@ -48,14 +48,19 @@ export async function provisionAgentWallet(
       updatedAt: new Date(),
     }).where(eq(agentsTable.id, agentId));
 
-    await db.insert(agentSpendingRulesTable).values({
-      agentId,
-      maxPerTransactionCents: 1000,
-      dailyCapCents: 5000,
-      monthlyCapCents: 50000,
-      allowedAddresses: [],
-      isActive: true,
-    });
+    try {
+      await db.insert(agentSpendingRulesTable).values({
+        agentId,
+        maxPerTransactionCents: 1000,
+        dailyCapCents: 5000,
+        monthlyCapCents: 50000,
+        allowedAddresses: [],
+        isActive: true,
+      });
+    } catch (rulesErr) {
+      const rulesMsg = rulesErr instanceof Error ? rulesErr.message : String(rulesErr);
+      console.warn(`[wallet] agentId=${agentId} spending rules insert skipped (likely already exists): ${rulesMsg}`);
+    }
 
     await db.insert(agentWalletTransactionsTable).values({
       agentId,

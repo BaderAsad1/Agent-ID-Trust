@@ -21,21 +21,10 @@ export const BASE_EXPLORER_URL = IS_TESTNET
 export function getCdpClient(): CdpClient {
   if (_client) return _client;
 
-  const apiKeyId = process.env.CDP_API_KEY_ID;
-  const apiKeySecret = process.env.CDP_API_KEY_SECRET;
-  const walletSecret = process.env.CDP_WALLET_SECRET;
-
-  if (!apiKeyId || !apiKeySecret) {
-    throw new Error(
-      "CDP credentials missing: CDP_API_KEY_ID and CDP_API_KEY_SECRET are required. " +
-      "Set these environment variables to enable wallet functionality."
-    );
-  }
-
   _client = new CdpClient({
-    apiKeyId,
-    apiKeySecret,
-    walletSecret: walletSecret || undefined,
+    apiKeyId: process.env.CDP_API_KEY_ID,
+    apiKeySecret: process.env.CDP_API_KEY_SECRET,
+    walletSecret: process.env.CDP_WALLET_SECRET || undefined,
   });
 
   return _client;
@@ -46,7 +35,7 @@ export function isCdpConfigured(): boolean {
 }
 
 export function getPlatformTreasuryAddress(): string | null {
-  const addr = process.env.PLATFORM_TREASURY_ADDRESS;
+  const addr = process.env.PLATFORM_TREASURY_ADDRESS || process.env.AGENTID_USDC_ADDRESS;
   if (addr && /^0x[a-fA-F0-9]{40}$/.test(addr)) return addr;
   return null;
 }
