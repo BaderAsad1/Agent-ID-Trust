@@ -56,6 +56,7 @@ if (!config.REDIS_URL) {
 
 import { startTrustWorker, stopTrustWorker } from "./workers/trust-recalculation";
 import { startWebhookRetryWorker, stopWebhookRetryWorker } from "./workers/webhook-retry";
+import { startHandleLifecycleWorker, stopHandleLifecycleWorker } from "./workers/handle-lifecycle";
 
 startDomainWorker();
 initWebhookDeliveryWorker();
@@ -65,6 +66,7 @@ initOutboundMailWorker();
 startAgentExpiryWorker();
 startTrustWorker();
 startWebhookRetryWorker();
+startHandleLifecycleWorker();
 
 const JOB_EXPIRY_INTERVAL_MS = 60 * 1000;
 let jobExpiryTimer: ReturnType<typeof setInterval> | null = null;
@@ -94,6 +96,7 @@ async function gracefulShutdown(signal: string) {
   stopTrustWorker();
   stopWebhookRetryWorker();
   await stopAgentExpiryWorker();
+  await stopHandleLifecycleWorker();
   server.close();
   await closeDomainWorker();
   await closeWebhookWorker();

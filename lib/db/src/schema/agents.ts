@@ -75,6 +75,12 @@ export const agentsTable = pgTable(
     runtimeContext: jsonb("runtime_context").$type<Record<string, unknown>>(),
     stripeConnectAccountId: text("stripe_connect_account_id"),
     stripeConnectStatus: varchar("stripe_connect_status", { length: 50 }),
+    handleExpiresAt: timestamp("handle_expires_at", { withTimezone: true }),
+    handleRegisteredAt: timestamp("handle_registered_at", { withTimezone: true }),
+    handleTier: varchar("handle_tier", { length: 50 }),
+    annualPriceUsd: integer("annual_price_usd"),
+    autoRenew: boolean("auto_renew").default(false).notNull(),
+    renewalNotifiedAt: timestamp("renewal_notified_at", { withTimezone: true }),
     bootstrapIssuedAt: timestamp("bootstrap_issued_at", { withTimezone: true }),
     ownerUserId: uuid("owner_user_id"),
     ownerVerifiedAt: timestamp("owner_verified_at", { withTimezone: true }),
@@ -104,6 +110,7 @@ export const agentsTable = pgTable(
     index("agents_is_reserved_idx")
       .on(table.isReserved)
       .where(sql`is_reserved = true`),
+    index("agents_handle_expires_at_idx").on(table.handleExpiresAt),
   ],
 );
 

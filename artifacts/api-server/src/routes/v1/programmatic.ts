@@ -27,6 +27,8 @@ import {
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
 import { buildBootstrapBundle } from "./agent-runtime";
+import { getHandlePricing } from "../../services/handle-pricing";
+import { getStripe } from "../../services/stripe-client";
 import { getOrCreateInbox } from "../../services/mail";
 import { generateClaimToken } from "../../utils/claim-token";
 import { db } from "@workspace/db";
@@ -422,6 +424,99 @@ router.post("/agents/:agentId/api-keys", requireAuth, async (req, res, next) => 
       apiKey: apiKey.raw,
       scopes: record.scopes,
       createdAt: record.createdAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const renewSchema = z.object({
+  successUrl: z.string().url(),
+  cancelUrl: z.string().url(),
+});
+
+router.post("/agents/:agentId/handle/renew", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+
+    const agent = await getAgentById(agentId);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (agent.userId !== req.userId) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+    if (!agent.handle || !agent.handleExpiresAt) {
+      throw new AppError(400, "NO_HANDLE", "This agent does not have an active handle registration");
+    }
+
+    const parsed = renewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+
+    const pricing = getHandlePricing(agent.handle);
+    const stripe = getStripe();
+
+    const user = await db
+      .select({ id: usersTable.id, stripeCustomerId: usersTable.stripeCustomerId, email: usersTable.email, displayName: usersTable.displayName })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.userId!))
+      .limit(1);
+
+    if (!user[0]) {
+      throw new AppError(404, "NOT_FOUND", "User not found");
+    }
+
+    let customerId = user[0].stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user[0].email ?? undefined,
+        name: user[0].displayName ?? undefined,
+        metadata: { userId: user[0].id },
+      });
+      customerId = customer.id;
+      await db
+        .update(usersTable)
+        .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+        .where(eq(usersTable.id, req.userId!));
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `Handle Renewal: @${agent.handle}`,
+              description: `One-year renewal for @${agent.handle} on Agent ID (${pricing.tier})`,
+            },
+            unit_amount: pricing.annualPriceCents,
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: parsed.data.successUrl,
+      cancel_url: parsed.data.cancelUrl,
+      metadata: {
+        type: "handle_renewal",
+        agentId: agent.id,
+        handle: agent.handle,
+        userId: req.userId!,
+        tier: pricing.tier,
+        priceCents: String(pricing.annualPriceCents),
+      },
+    });
+
+    res.json({
+      url: session.url,
+      handle: agent.handle,
+      tier: pricing.tier,
+      annualPriceUsd: pricing.annualPriceUsd,
+      annualPriceCents: pricing.annualPriceCents,
+      currentExpiry: agent.handleExpiresAt,
     });
   } catch (err) {
     next(err);

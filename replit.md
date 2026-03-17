@@ -230,6 +230,8 @@ workspace/
 - **Signed Activity Log:** Hash-chain integrity (SHA-256 sequence + HMAC signatures), public/private visibility, chain verification endpoint
 - **W3C Verifiable Credentials:** EdDSA JWT issuance via jose, JWKS endpoint at `/.well-known/jwks.json`, per-agent cache, content negotiation on credential endpoint
 
+**Handle Lifecycle (ENS-Inspired):** Length-based pricing (3-char=$999/yr, 4-char=$199/yr, 5-char=$49/yr, 6+=$9/yr), annual expiry with 30-day grace period, renewal via Stripe checkout (`POST /agents/:agentId/handle/renew`), Dutch auction for expired handles (`POST /handles/auctions/:handle/bid`), trademark claim intake (`POST /handles/:handle/trademark-claim`), rich availability check (`GET /handles/check`). Daily BullMQ worker sends renewal reminders, expires handles past grace period, starts Dutch auctions, and updates auction prices linearly.
+
 **Resolution Protocol:** Open `.agentid` name resolution. Forward resolve, reverse resolve by endpoint URL, capability discovery. Public endpoints, no auth required. DNS bridge at `handle.getagent.id`.
 
 ## User Preferences

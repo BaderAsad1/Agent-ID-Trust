@@ -198,3 +198,32 @@ export async function sendOrderCompletedEmail(
     userEmail,
   );
 }
+
+export async function sendRenewalReminderEmail(
+  userEmail: string,
+  handle: string,
+  expiresAt: string,
+): Promise<void> {
+  try {
+    const subject = `Handle renewal reminder: @${handle}`;
+    const html = `<p>Your handle <strong>@${handle}</strong> expires on ${new Date(expiresAt).toLocaleDateString()}. Please renew it to keep your handle.</p>`;
+    await deliverEmail(userEmail, subject, html);
+  } catch (err) {
+    logger.error({ err, handle, userEmail }, "[email] Failed to send renewal reminder");
+  }
+}
+
+export async function sendTrademarkClaimEmail(
+  teamEmail: string,
+  handle: string,
+  claimantName: string,
+  claimantEmail: string,
+): Promise<void> {
+  try {
+    const subject = `Trademark claim filed: @${handle}`;
+    const html = `<p>A trademark claim has been filed for handle <strong>@${handle}</strong> by <strong>${claimantName}</strong> (${claimantEmail}). Please review in the admin panel.</p>`;
+    await deliverEmail(teamEmail, subject, html);
+  } catch (err) {
+    logger.error({ err, handle, teamEmail }, "[email] Failed to send trademark claim notification");
+  }
+}

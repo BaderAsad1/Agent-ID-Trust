@@ -41,3 +41,5 @@ export * from "./agent-attestations";
 export * from "./agent-signed-activity";
 export * from "./agent-claim-tokens";
 export { agentLineageTable, type AgentLineage } from "./agents";
+export * from "./handle-auctions";
+export * from "./handle-trademark-claims";

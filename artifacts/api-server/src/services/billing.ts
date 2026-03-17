@@ -26,17 +26,17 @@ const PLAN_PRICES: Record<string, Record<string, number>> = {
   team: { monthly: 7900, yearly: 79000 },
 };
 
+import { getHandlePricing as _getHandlePricingService } from "./handle-pricing";
+
 const HANDLE_PRICING_TIERS = [
-  { minLength: 3, maxLength: 3, annualPriceCents: 64000 },
-  { minLength: 4, maxLength: 4, annualPriceCents: 16000 },
-  { minLength: 5, maxLength: 100, annualPriceCents: 500 },
+  { minLength: 3, maxLength: 3, annualPriceCents: 99900 },
+  { minLength: 4, maxLength: 4, annualPriceCents: 19900 },
+  { minLength: 5, maxLength: 5, annualPriceCents: 4900 },
+  { minLength: 6, maxLength: 100, annualPriceCents: 900 },
 ];
 
 export function getHandlePriceCents(handle: string): number {
-  const len = handle.replace(/[^a-z0-9]/g, "").length;
-  const tier = HANDLE_PRICING_TIERS.find(t => len >= t.minLength && len <= t.maxLength)
-    || HANDLE_PRICING_TIERS[HANDLE_PRICING_TIERS.length - 1];
-  return tier.annualPriceCents;
+  return _getHandlePricingService(handle).annualPriceCents;
 }
 
 type PlanType = "free" | "starter" | "pro" | "team";
