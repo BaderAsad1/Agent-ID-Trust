@@ -1848,6 +1848,8 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           {['Protocol', 'Registry', 'Documentation', 'GitHub'].map(link => (
             <span key={link} style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)', cursor: 'pointer' }}>{link}</span>
           ))}
+          <span onClick={() => onNavigate?.('/privacy')} style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)', cursor: 'pointer' }}>Privacy</span>
+          <span onClick={() => onNavigate?.('/terms')} style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)', cursor: 'pointer' }}>Terms</span>
         </div>
       </footer>
     </div>
