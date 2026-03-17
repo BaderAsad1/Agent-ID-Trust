@@ -31,6 +31,13 @@ async function ensureRedisStore(): Promise<void> {
       client.on("error", (err) => {
         logger.warn({ err: err.message }, "[rate-limit] Redis error — rate limiting degraded to in-memory");
       });
+
+      const pingResult = await client.ping().catch(() => null);
+      if (pingResult !== "PONG") {
+        logger.warn("[rate-limit] Redis ping failed, using in-memory rate limit store");
+        return;
+      }
+
       redisStoreFactory = (prefix: string) =>
         new RedisStore({
           sendCommand: (...args: string[]) =>

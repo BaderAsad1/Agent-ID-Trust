@@ -5,13 +5,14 @@ import {
   text,
   boolean,
   integer,
+  real,
   timestamp,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { agentsTable } from "./agents";
-import { subscriptionPlanEnum } from "./enums";
+import { subscriptionPlanEnum, trustTierEnum, verificationMethodEnum } from "./enums";
 
 export const agentOrganizationsTable = pgTable(
   "agent_organizations",
@@ -24,6 +25,10 @@ export const agentOrganizationsTable = pgTable(
     websiteUrl: text("website_url"),
     plan: subscriptionPlanEnum("plan").default("free").notNull(),
     isVerified: boolean("is_verified").default(false).notNull(),
+    trustScore: real("trust_score"),
+    trustTier: trustTierEnum("trust_tier"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verificationMethod: verificationMethodEnum("verification_method"),
     ownerUserId: uuid("owner_user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),

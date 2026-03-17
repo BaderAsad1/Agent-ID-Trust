@@ -564,6 +564,13 @@ router.post("/:taskId/fail", requireHumanOrAgentAuth, async (req, res, next) => 
       const { deliverWebhookEvent } = await import("../../services/webhook-delivery");
       await deliverWebhookEvent(task.recipientAgentId, "task.failed", { taskId: task.id });
     } catch {}
+    try {
+      const { addNegativeTrustEvent } = await import("../../services/trust-score");
+      await addNegativeTrustEvent(task.recipientAgentId, "task_failed", {
+        weight: 3,
+        metadata: { taskId: task.id },
+      });
+    } catch {}
     res.json(task);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "";
@@ -613,6 +620,23 @@ router.patch("/:taskId/business-status", requireHumanOrAgentAuth, async (req, re
       await captureTaskPayment(taskId);
     } else if (body.status === "failed" || body.status === "cancelled") {
       await cancelTaskPayment(taskId);
+      if (body.status === "failed") {
+        try {
+          const { addNegativeTrustEvent } = await import("../../services/trust-score");
+          await addNegativeTrustEvent(task.recipientAgentId, "task_failed", {
+            weight: 3,
+            metadata: { taskId: task.id },
+          });
+        } catch {}
+      } else if (body.status === "cancelled") {
+        try {
+          const { addNegativeTrustEvent } = await import("../../services/trust-score");
+          await addNegativeTrustEvent(task.recipientAgentId, "task_abandoned", {
+            weight: 2,
+            metadata: { taskId: task.id },
+          });
+        } catch {}
+      }
     }
 
     const eventType =

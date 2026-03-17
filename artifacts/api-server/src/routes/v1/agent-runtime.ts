@@ -5,7 +5,7 @@ import { db } from "@workspace/db";
 import { agentsTable, agentMessagesTable, agentClaimTokensTable, apiKeysTable, type Agent, type AgentInbox } from "@workspace/db/schema";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
-import { computeTrustScore, type TrustSignal } from "../../services/trust-score";
+import { computeTrustScore, getTrustImprovementTips, type TrustSignal } from "../../services/trust-score";
 import { getInboxByAgent, getInboxStats } from "../../services/mail";
 import { listAgentKeys } from "../../services/agent-keys";
 import { logActivity } from "../../services/activity-logger";
@@ -20,6 +20,7 @@ const router = Router();
 interface TrustResult {
   trustScore: number;
   trustTier: string;
+  trustBreakdown?: Record<string, number>;
   signals: TrustSignal[];
 }
 
@@ -78,6 +79,8 @@ async function buildBootstrapBundle(agent: Agent) {
     }
   }
 
+  const trustImprovementTips = getTrustImprovementTips(trust.trustBreakdown ?? {}, agent);
+
   const bundle: Record<string, unknown> = {
     spec_version: SPEC_VERSION,
     agent_id: agent.id,
@@ -98,6 +101,7 @@ async function buildBootstrapBundle(agent: Agent) {
       tier: trust.trustTier,
       signals: trust.signals,
     },
+    trustImprovementTips,
     capabilities,
     auth_methods: authMethods,
     key_ids: keys.map(k => ({

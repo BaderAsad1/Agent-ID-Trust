@@ -34,6 +34,7 @@ import humansRouter from "./humans";
 import agentWebhooksRouter from "./agent-webhooks";
 import agentAttestationsRouter from "./agent-attestations";
 import { controlPlaneAgentRouter, controlPlaneVerifyRouter } from "./control-plane";
+import governanceRouter from "./governance";
 
 const router = Router();
 
@@ -81,6 +82,8 @@ router.use("/humans", humansRouter);
 router.use("/agents", agentWebhooksRouter);
 router.use("/agents", agentAttestationsRouter);
 router.use("/agents", controlPlaneAgentRouter);
+router.use("/", governanceRouter);
+router.use("/agents", governanceRouter);
 router.use("/", controlPlaneVerifyRouter);
 
 export default router;

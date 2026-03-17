@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   agentOrganizationsTable,
@@ -10,6 +10,35 @@ import {
   orgAgentsTable,
   agentsTable,
 } from "@workspace/db/schema";
+
+async function calculateOrgTrustScore(orgId: string): Promise<{ trustScore: number | null; trustTier: string | null }> {
+  const result = await db
+    .select({
+      avgScore: sql<number>`AVG(${agentsTable.trustScore})`,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(orgAgentsTable)
+    .innerJoin(agentsTable, eq(orgAgentsTable.agentId, agentsTable.id))
+    .where(eq(orgAgentsTable.orgId, orgId));
+
+  const avgScore = result[0]?.count > 0 ? Number(result[0]?.avgScore ?? 0) : null;
+  if (avgScore === null) return { trustScore: null, trustTier: null };
+
+  const rounded = Math.round(avgScore);
+  let trustTier: string;
+  if (rounded >= 90) trustTier = "elite";
+  else if (rounded >= 70) trustTier = "trusted";
+  else if (rounded >= 40) trustTier = "verified";
+  else if (rounded >= 20) trustTier = "basic";
+  else trustTier = "unverified";
+
+  await db
+    .update(agentOrganizationsTable)
+    .set({ trustScore: rounded, trustTier: trustTier as "unverified" | "basic" | "verified" | "trusted" | "elite", updatedAt: new Date() })
+    .where(eq(agentOrganizationsTable.id, orgId));
+
+  return { trustScore: rounded, trustTier };
+}
 
 const router = Router();
 
@@ -92,12 +121,16 @@ router.get("/:slug", async (req, res, next) => {
       where: eq(orgMembersTable.orgId, org.id),
     });
 
+    const orgTrust = await calculateOrgTrustScore(org.id);
+
     res.json({
       ...org,
       namespace: `${org.slug}.agentid`,
       agentCount: orgAgentRows.length,
       agents: orgAgentRows,
       memberCount: members.length,
+      trustScore: orgTrust.trustScore,
+      trustTier: orgTrust.trustTier,
     });
   } catch (err) {
     next(err);

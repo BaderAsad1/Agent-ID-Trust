@@ -80,6 +80,13 @@
       "breakpoints": true
     },
     {
+      "idx": 11,
+      "version": "7",
+      "when": 1774003200000,
+      "tag": "0011_handle_lifecycle",
+      "breakpoints": true
+    },
+    {
       "idx": 12,
       "version": "7",
       "when": 1774003200000,
@@ -91,6 +98,13 @@
       "version": "7",
       "when": 1742169600000,
       "tag": "0013_comm_economic_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1773752386608,
+      "tag": "0014_trust_governance_hardening",
       "breakpoints": true
     }
   ]

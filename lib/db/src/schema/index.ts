@@ -45,3 +45,6 @@ export * from "./handle-auctions";
 export * from "./handle-trademark-claims";
 export * from "./magic-links";
 export * from "./agent-reports";
+export * from "./trust-events";
+export * from "./human-audit-log";
+export * from "./agent-appeals";

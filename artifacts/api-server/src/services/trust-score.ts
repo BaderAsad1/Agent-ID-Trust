@@ -6,6 +6,7 @@ import {
   agentReputationEventsTable,
   marketplaceReviewsTable,
   tasksTable,
+  trustEventsTable,
   type Agent,
 } from "@workspace/db/schema";
 
@@ -323,6 +324,112 @@ export function determineTier(score: number, verified: boolean): TrustTier {
   return "unverified";
 }
 
+async function computeNegativePenalty(agentId: string): Promise<number> {
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const result = await db
+    .select({ totalWeight: sql<number>`COALESCE(SUM(${trustEventsTable.weight}), 0)` })
+    .from(trustEventsTable)
+    .where(
+      and(
+        eq(trustEventsTable.agentId, agentId),
+        eq(trustEventsTable.direction, "negative"),
+        gte(trustEventsTable.createdAt, ninetyDaysAgo),
+      ),
+    );
+  const totalWeight = Number(result[0]?.totalWeight ?? 0);
+  return Math.min(totalWeight, 20);
+}
+
+export async function addNegativeTrustEvent(
+  agentId: string,
+  eventType: "task_failed" | "task_abandoned",
+  options?: { weight?: number; sourceAgentId?: string; reason?: string; metadata?: Record<string, unknown> },
+): Promise<void> {
+  await db.insert(trustEventsTable).values({
+    agentId,
+    direction: "negative",
+    eventType,
+    weight: options?.weight ?? 3,
+    sourceAgentId: options?.sourceAgentId ?? null,
+    reason: options?.reason ?? null,
+    metadata: options?.metadata ?? null,
+  });
+}
+
+export async function addPositiveTrustEvent(
+  agentId: string,
+  eventType: string,
+  options?: { weight?: number; sourceAgentId?: string; reason?: string; metadata?: Record<string, unknown> },
+): Promise<void> {
+  await db.insert(trustEventsTable).values({
+    agentId,
+    direction: "positive",
+    eventType,
+    weight: options?.weight ?? 1,
+    sourceAgentId: options?.sourceAgentId ?? null,
+    reason: options?.reason ?? null,
+    metadata: options?.metadata ?? null,
+  });
+}
+
+export function getTrustImprovementTips(
+  breakdown: Record<string, number>,
+  agent: Agent,
+): string[] {
+  const tips: Array<{ priority: number; tip: string }> = [];
+
+  const verification = breakdown["verification"] ?? 0;
+  if (verification < 20) {
+    tips.push({ priority: 10, tip: "Complete agent verification to unlock higher trust tiers and up to 20 additional trust points." });
+  }
+
+  const profile = breakdown["profileCompleteness"] ?? 0;
+  if (profile < 15) {
+    const missing: string[] = [];
+    if (!agent.displayName) missing.push("display name");
+    if (!agent.description) missing.push("description");
+    if (!agent.endpointUrl) missing.push("endpoint URL");
+    if (!agent.avatarUrl) missing.push("avatar");
+    const caps = agent.capabilities as string[] | null;
+    if (!caps || caps.length === 0) missing.push("capabilities");
+    const protos = agent.protocols as string[] | null;
+    if (!protos || protos.length === 0) missing.push("supported protocols");
+    if (missing.length > 0) {
+      tips.push({ priority: 8, tip: `Complete your agent profile: add ${missing.slice(0, 3).join(", ")} to earn up to 15 profile completeness points.` });
+    }
+  }
+
+  const reviews = breakdown["reviews"] ?? 0;
+  if (reviews < 10) {
+    tips.push({ priority: 6, tip: "List your agent on the marketplace and collect reviews to earn up to 15 trust points from ratings." });
+  }
+
+  const endpoint = breakdown["endpointHealth"] ?? 0;
+  if (endpoint < 10) {
+    if (!agent.endpointUrl) {
+      tips.push({ priority: 7, tip: "Register a live HTTPS endpoint URL to demonstrate your agent is reachable and earn up to 10 endpoint health points." });
+    } else {
+      const url = (() => { try { return new URL(agent.endpointUrl); } catch { return null; } })();
+      if (url && url.protocol !== "https:") {
+        tips.push({ priority: 7, tip: "Upgrade your endpoint to HTTPS to earn the full endpoint health score." });
+      }
+    }
+  }
+
+  const activity = breakdown["activity"] ?? 0;
+  if (activity < 9) {
+    tips.push({ priority: 5, tip: "Complete more tasks to build your activity score — agents with 20+ completed tasks earn up to 9 activity points." });
+  }
+
+  const reputation = breakdown["reputation"] ?? 0;
+  if (reputation < 5) {
+    tips.push({ priority: 4, tip: "Maintain a good track record and avoid task failures to protect your reputation score." });
+  }
+
+  tips.sort((a, b) => b.priority - a.priority);
+  return tips.slice(0, 3).map(t => t.tip);
+}
+
 export async function computeTrustScore(agentId: string): Promise<{
   trustScore: number;
   trustBreakdown: Record<string, number>;
@@ -366,6 +473,9 @@ export async function computeTrustScore(agentId: string): Promise<{
   }
 
   totalScore = Math.min(totalScore, 100);
+
+  const negativePenalty = await computeNegativePenalty(agentId);
+  totalScore = Math.max(0, totalScore - negativePenalty);
 
   const isVerified = agent.verificationStatus === "verified";
   const trustTier = determineTier(totalScore, isVerified);

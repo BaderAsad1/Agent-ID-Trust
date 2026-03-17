@@ -162,4 +162,62 @@ router.post("/:agentId/attest/:subjectHandle", requireAgentAuth, validateUuidPar
   }
 });
 
+router.post("/:agentId/trust-attestation", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+
+    if (req.authenticatedAgent!.id !== agentId) {
+      throw new AppError(403, "FORBIDDEN", "Agent can only request attestations for itself");
+    }
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+    });
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+
+    const { computeTrustScore } = await import("../../services/trust-score");
+    const { getSigningKeyPair } = await import("../../services/verifiable-credential");
+    const jose = await import("jose");
+
+    const trust = await computeTrustScore(agentId);
+    const { privateKey, kid } = await getSigningKeyPair();
+
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
+    const now = Math.floor(Date.now() / 1000);
+    const expiresAt = now + 24 * 60 * 60;
+
+    const attestationPayload = {
+      sub: `did:agentid:${agent.handle}`,
+      agentId: agent.id,
+      handle: agent.handle,
+      trustScore: trust.trustScore,
+      trustTier: trust.trustTier,
+      verificationStatus: agent.verificationStatus,
+      iss: APP_URL,
+      aud: "trust-attestation",
+    };
+
+    const jwt = await new jose.SignJWT(attestationPayload)
+      .setProtectedHeader({ alg: "EdDSA", kid, typ: "JWT" })
+      .setIssuer(APP_URL)
+      .setSubject(`did:agentid:${agent.handle}`)
+      .setIssuedAt(now)
+      .setExpirationTime(expiresAt)
+      .sign(privateKey);
+
+    res.json({
+      attestation: jwt,
+      expiresAt: new Date(expiresAt * 1000).toISOString(),
+      trustScore: trust.trustScore,
+      trustTier: trust.trustTier,
+      verificationStatus: agent.verificationStatus,
+      jwksUrl: `${APP_URL}/api/.well-known/jwks.json`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
