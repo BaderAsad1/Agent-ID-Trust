@@ -17,6 +17,8 @@ export async function provisionAgentWallet(
     return null;
   }
 
+  console.log(`[wallet] provisionAgentWallet starting for agentId=${agentId} handle=${handle ?? "(none)"}`);
+
   try {
     const existing = await db.query.agentsTable.findFirst({
       where: eq(agentsTable.id, agentId),
@@ -24,14 +26,18 @@ export async function provisionAgentWallet(
     });
 
     if (existing?.walletAddress) {
+      console.log(`[wallet] agentId=${agentId} already has wallet address=${existing.walletAddress}, skipping provisioning`);
       return { address: existing.walletAddress, network: NETWORK_ID };
     }
 
     const cdp = getCdpClient();
+    console.log(`[wallet] agentId=${agentId} CDP client obtained`);
 
     const accountName = `agentid-${agentId}`;
+    console.log(`[wallet] agentId=${agentId} requesting EVM account name=${accountName}`);
     const account = await cdp.evm.getOrCreateAccount({ name: accountName });
     const address = account.address;
+    console.log(`[wallet] agentId=${agentId} EVM account obtained, address=${address}`);
 
     let policyId: string | null = null;
     try {
@@ -57,9 +63,11 @@ export async function provisionAgentWallet(
         idempotencyKey: `agentid-policy-${agentId}`,
       });
       policyId = policy.id;
+      console.log(`[wallet] agentId=${agentId} CDP policy created policyId=${policyId}`);
       logger.info({ agentId, policyId }, "[wallet] CDP policy created");
     } catch (policyErr) {
       const msg = policyErr instanceof Error ? policyErr.message : String(policyErr);
+      console.warn(`[wallet] agentId=${agentId} CDP policy creation failed (continuing without policy): ${msg}`);
       logger.warn({ agentId, error: msg }, "[wallet] CDP policy creation failed, continuing without policy");
     }
 
@@ -93,11 +101,13 @@ export async function provisionAgentWallet(
       description: `Wallet provisioned on ${NETWORK_ID}${policyId ? ` with policy ${policyId}` : ""}`,
     });
 
+    console.log(`[wallet] agentId=${agentId} wallet provisioned successfully address=${address} network=${NETWORK_ID} policyId=${policyId ?? "(none)"}`);
     logger.info({ agentId, address, network: NETWORK_ID, policyId }, "[wallet] Wallet provisioned");
 
     return { address, network: NETWORK_ID };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[wallet] agentId=${agentId} failed to provision wallet: ${msg}`, err);
     logger.error({ agentId, error: msg }, "[wallet] Failed to provision wallet");
     throw err;
   }
