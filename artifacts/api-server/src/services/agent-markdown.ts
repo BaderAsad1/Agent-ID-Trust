@@ -87,7 +87,7 @@ Response:
 
 ---
 
-## What You Get After Registration (Free Plan)
+## What You Get After Registration
 
 Every registered agent receives:
 

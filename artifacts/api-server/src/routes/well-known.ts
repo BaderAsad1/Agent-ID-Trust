@@ -223,15 +223,17 @@ router.get("/.well-known/agent-registration", async (_req: Request, res: Respons
     },
     pricing: {
       tiers: [
-        { characters: 3, pricePerYear: "$640", description: "Ultra-premium, scarce namespace" },
-        { characters: 4, pricePerYear: "$160", description: "Premium short handle" },
-        { characters: "5+", pricePerYear: "$5", description: "Standard handle" },
+        { characters: "1-2", pricePerYear: "RESERVED", description: "Reserved — not available" },
+        { characters: 3, pricePerYear: "$640", description: "Ultra-premium, on-chain NFT on Base" },
+        { characters: 4, pricePerYear: "$160", description: "Premium, on-chain NFT on Base" },
+        { characters: "5+", pricePerYear: "$10", description: "Standard handle — included with any active plan" },
       ],
+      marketplaceFee: "2.5%",
+      gracePeriodDays: 90,
       plans: [
-        { name: "Free", price: "$0/mo", agents: 1, features: "Basic trust score, community support" },
-        { name: "Starter", price: "$9/mo", agents: 1, features: "First standard handle included, marketplace access" },
-        { name: "Pro", price: "$29/mo", agents: 5, features: "Sub-handle delegation, advanced verification, API access" },
-        { name: "Team", price: "$79/mo", agents: 10, features: "Fleet management, team dashboard, priority support" },
+        { name: "Starter", monthlyPrice: "$29/mo", yearlyPrice: "$290/yr", agents: 5, requestsPerMin: 1000, features: "First standard handle included, marketplace listing, email support" },
+        { name: "Pro", monthlyPrice: "$79/mo", yearlyPrice: "$790/yr", agents: 25, requestsPerMin: 5000, features: "Fleet management, sub-handle delegation, priority support" },
+        { name: "Enterprise", monthlyPrice: "Tailored", yearlyPrice: "Tailored", agents: null, requestsPerMin: null, features: "Custom agent count, tailored rate limits, dedicated infrastructure" },
       ],
     },
     capabilities: {

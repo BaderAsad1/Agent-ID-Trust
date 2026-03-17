@@ -57,11 +57,13 @@ Every registered agent receives an Agent ID Object — a structured, machine-rea
 - **Protocols**: Interoperability declarations — MCP, A2A, REST. Not locked to any framework.
 
 ### Handle Name Pricing
-Handles are scarce, owned assets with ENS-style pricing:
-- 3-character handles: $640/year (ultra-premium, scarce namespace)
-- 4-character handles: $160/year (premium short handle)
-- 1–2 character handles: Reserved — not available
-- 5+ character handles: $10/year — included free with active plan
+Handles are scarce, owned assets with ENS-style pricing. No free plan exists — all handles require an active paid plan.
+- 1-2 character handles: RESERVED — not available
+- 3-character handles: $640/year (ultra-premium, on-chain NFT on Base)
+- 4-character handles: $160/year (premium, on-chain NFT on Base)
+- 5+ character handles: $10/year (standard — included free with any active Starter, Pro, or Enterprise plan)
+Grace period: 90 days after handle expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.
+Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
 Handles can be transferred to another account from the dashboard.
 
 ### .agentid Protocol Namespace
@@ -235,7 +237,7 @@ The .agentid namespace is a protocol-layer naming system — like ENS's .eth for
 - **Well-known**: \`https://handle.getagent.id/.well-known/agent.json\` — standard machine-readable identity document.
 The open-source \`@agentid/resolver\` SDK allows orchestration frameworks (LangChain, CrewAI, AutoGPT) to resolve .agentid names natively — the same way wallets integrated ENS.
 
-Handle registration requires payment matching the tier price, except for paid subscribers (Starter/Pro/Team) who receive their first standard handle (5+ characters) at no additional cost during their first year. Agents with unpaid handles cannot be activated or listed publicly until payment completes via Stripe checkout (\`POST /api/v1/billing/handle-checkout\`).
+Handle registration requires payment matching the tier price, except for paid subscribers (Starter, Pro, or Enterprise) who receive their first standard handle (5+ characters) at no additional cost during their first year. Agents with unpaid handles cannot be activated or listed publicly until payment completes via Stripe checkout (\`POST /api/v1/billing/handle-checkout\`).
 
 ## Supported Protocols
 - **MCP** (Model Context Protocol) — Anthropic's protocol for tool use and context sharing
@@ -245,20 +247,28 @@ Handle registration requires payment matching the tier price, except for paid su
 
 ## Pricing
 
+No free plan. All subscriptions require payment.
+
 ### Handle Pricing (annual, per handle)
-| Length | Price/year | Description |
-|--------|-----------|-------------|
-| 3 characters | $640 | Ultra-premium, scarce namespace |
-| 4 characters | $160 | Premium short handle |
-| 1–2 characters | Reserved | Not available |
-| 5+ characters | $10 | Standard handle — included free with active plan |
+| Length | Price/year | Notes |
+|--------|-----------|-------|
+| 1-2 characters | RESERVED | Not available |
+| 3 characters | $640 | Ultra-premium, on-chain NFT on Base |
+| 4 characters | $160 | Premium, on-chain NFT on Base |
+| 5+ characters | $10 | Standard — included free with any active plan |
+
+Grace period: 90 days after expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.
+
+Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
 
 ### Platform Plans
-| Plan | Price | Agents | Rate Limit | Features |
-|------|-------|--------|------------|----------|
-| Starter | $29/mo ($290/yr) | 5 | 1,000 req/min | .agentid address, 5+ char handle included, marketplace, trust score, email support |
-| Pro | $79/mo ($790/yr) | 25 | 5,000 req/min | Fleet management, advanced verification, custom domains, analytics, priority support |
-| Enterprise | Tailored | Custom | Custom | Organization namespaces, SLA guarantee, dedicated support, custom integrations |
+| Plan | Monthly | Annual | Agents | Rate Limit |
+|------|---------|--------|--------|-----------|
+| Starter | $29/mo | $290/yr | 5 | 1,000 req/min |
+| Pro | $79/mo | $790/yr | 25 | 5,000 req/min |
+| Enterprise | Tailored | Tailored | Custom | Tailored |
+
+Enterprise is not unlimited — it is tailored per sales conversation (custom agent count, rate limits, features, and pricing). Contact sales@getagent.id.
 
 ## Developer Resources
 

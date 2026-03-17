@@ -164,14 +164,14 @@ function isExternalAddress(address: string): boolean {
 }
 
 const RATE_LIMITS: Record<string, number> = {
-  free: 10,
+  none: 0,
   starter: 100,
   pro: 1000,
-  team: -1,
+  enterprise: -1,
 };
 
 export async function checkOutboundRateLimit(agentId: string, plan: string): Promise<{ allowed: boolean; limit: number; current: number }> {
-  const limit = RATE_LIMITS[plan] ?? RATE_LIMITS.free;
+  const limit = RATE_LIMITS[plan] ?? RATE_LIMITS.none;
   if (limit === -1) return { allowed: true, limit: -1, current: 0 };
 
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);

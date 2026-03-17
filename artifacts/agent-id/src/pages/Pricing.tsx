@@ -12,15 +12,13 @@ export function Pricing() {
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
 
   const getDisplayPrice = (plan: typeof PRICING_PLANS[number]) => {
-    if (plan.price === 'Tailored') return 'Tailored';
-    const monthly = parseInt(plan.price.replace('$', ''));
-    if (isNaN(monthly)) return plan.price;
-    if (billing === 'yearly') return `$${monthly * 10}`;
+    if (plan.enterprise) return 'Tailored';
+    if (billing === 'yearly' && plan.yearlyPrice) return plan.yearlyPrice;
     return plan.price;
   };
 
   const getPeriod = (plan: typeof PRICING_PLANS[number]) => {
-    if (plan.price === 'Tailored' || plan.period === '') return '';
+    if (plan.enterprise) return '';
     return billing === 'yearly' ? '/ year' : '/ month';
   };
 
@@ -29,10 +27,10 @@ export function Pricing() {
       <div className="max-w-[1100px] mx-auto px-6 py-20">
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-black mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-            Simple, transparent pricing
+            Identity infrastructure for AI agents
           </h1>
           <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--text-muted)' }}>
-            Identity infrastructure for AI agents. No surprises.
+            Starter, Pro, and Enterprise — no free plan.
           </p>
         </div>
 
@@ -56,11 +54,11 @@ export function Pricing() {
             }}
           >
             Yearly
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Save 17%</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Save ~17%</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
           {PRICING_PLANS.map(plan => (
             <GlassCard
               key={plan.name}
@@ -89,8 +87,8 @@ export function Pricing() {
                 variant={plan.variant}
                 className="w-full"
                 onClick={() => {
-                  if (plan.name === 'Enterprise') {
-                    window.location.href = 'mailto:team@getagent.id?subject=Enterprise%20inquiry';
+                  if (plan.enterprise) {
+                    window.location.href = `mailto:${plan.contactEmail}`;
                   } else if (userId) {
                     navigate('/dashboard/settings');
                   } else {
@@ -114,48 +112,24 @@ export function Pricing() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5 max-w-[960px] mx-auto">
-            {HANDLE_PRICING_TIERS.map(tier => {
-              const isReserved = tier.annualPrice === 0;
-              return (
-                <GlassCard key={tier.label} className="!p-6 text-center" style={isReserved ? { opacity: 0.5 } : {}}>
-                  <div className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                    {tier.label}
-                  </div>
-                  <div className="text-3xl font-black mb-1" style={{ color: isReserved ? 'var(--text-dim)' : 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                    {isReserved ? '—' : `$${tier.annualPrice}`}
-                  </div>
-                  <div className="text-xs mb-3" style={{ color: 'var(--text-dim)' }}>{isReserved ? 'not available' : 'per year'}</div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{tier.description}</p>
-                </GlassCard>
-              );
-            })}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 max-w-[900px] mx-auto">
+            {HANDLE_PRICING_TIERS.map(tier => (
+              <GlassCard key={tier.label} className="!p-6 text-center">
+                <div className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                  {tier.label}
+                </div>
+                <div className="text-3xl font-black mb-1" style={{ color: tier.reserved ? 'var(--text-dim)' : 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+                  {tier.reserved ? 'Reserved' : `$${tier.annualPrice}`}
+                </div>
+                {!tier.reserved && <div className="text-xs mb-3" style={{ color: 'var(--text-dim)' }}>per year</div>}
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{tier.description}</p>
+              </GlassCard>
+            ))}
           </div>
 
           <p className="text-center text-xs mt-6" style={{ color: 'var(--text-dim)' }}>
-            Handles are owned assets. Once registered, you own your handle and can transfer it to another account.
+            Grace period: 90 days after expiry · Post-grace: 21-day decreasing premium auction · Handle loss never affects UUID machine identity
           </p>
-        </div>
-
-        <div className="max-w-[700px] mx-auto">
-          <GlassCard className="!p-6">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(139,92,246,0.1)' }}>
-                <span className="text-lg">🔗</span>
-              </div>
-              <div>
-                <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                  .agentid Protocol Namespace
-                </h3>
-                <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> is a protocol-layer namespace — like ENS's <span style={{ fontFamily: 'var(--font-mono)' }}>.eth</span>, but for AI agents. Resolves through the Agent ID protocol; no ICANN TLD required. Web domain: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>name.getagent.id</span> via standard DNS.
-                </p>
-                <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-                  Available during or after registration from your dashboard.
-                </p>
-              </div>
-            </div>
-          </GlassCard>
         </div>
       </div>
       <Footer />

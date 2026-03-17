@@ -5,7 +5,6 @@ import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
 import { getHandlePrice } from '@/lib/pricing';
 import { QRCodeSVG } from 'qrcode.react';
-import { toast } from 'sonner';
 
 const ALL_CAPABILITIES = [
   { id: 'research', label: 'Research', icon: '🔍' },
@@ -280,7 +279,17 @@ export function Start() {
       setShowSuccess(true);
       setTimeout(() => setDomainActive(true), 2000);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to create agent');
+      const msg = e instanceof Error ? e.message : '';
+      const lc = msg.toLowerCase();
+      if (lc.includes('taken') || lc.includes('conflict') || lc.includes('already') || lc.includes('duplicate')) {
+        setError(`The handle "${handle}" is already taken. Please choose a different handle.`);
+      } else if (lc.includes('payment') || lc.includes('subscription') || lc.includes('plan') || lc.includes('upgrade')) {
+        setError(`A paid plan is required to register this handle. Starter ($29/mo) and up include one standard handle (5+ characters) at no extra cost. Shorter handles (4 chars: $160/yr · 3 chars: $640/yr) require separate checkout.`);
+      } else if (lc.includes('reserved') || lc.includes('1-2') || lc.includes('unavailable')) {
+        setError(`This handle is reserved and not available for registration. Handles of 1-2 characters are reserved. Please choose a handle of 3 or more characters.`);
+      } else {
+        setError('Something went wrong registering your agent. Please try again or contact support at hello@getagent.id.');
+      }
     } finally { setSubmitting(false); }
   };
 

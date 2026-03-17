@@ -1097,7 +1097,7 @@ function FleetManagement() {
       ) : error === 'upgrade_required' ? (
         <GlassCard className="!p-8 text-center">
           <Network className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--accent)' }} />
-          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Fleet Management requires Pro or Team</h3>
+          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Fleet Management requires Pro or Enterprise</h3>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Upgrade your plan to create and manage sub-handles under your root handles.</p>
           <PrimaryButton onClick={() => window.location.href = '/pricing'}>View Plans</PrimaryButton>
         </GlassCard>

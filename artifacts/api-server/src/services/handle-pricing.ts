@@ -8,10 +8,10 @@ export interface HandlePricingResult {
 }
 
 const TIERS = [
-  { minLength: 1, maxLength: 2, tier: "reserved", annualPriceUsd: 0, annualPriceCents: 0, description: "1–2 character handles are reserved", isReserved: true, isFreeWithPlan: false },
-  { minLength: 3, maxLength: 3, tier: "ultra-premium", annualPriceUsd: 640, annualPriceCents: 64000, description: "3-character handle — on-chain NFT on Base", isReserved: false, isFreeWithPlan: false },
-  { minLength: 4, maxLength: 4, tier: "premium", annualPriceUsd: 160, annualPriceCents: 16000, description: "4-character handle — on-chain NFT on Base", isReserved: false, isFreeWithPlan: false },
-  { minLength: 5, maxLength: Infinity, tier: "standard", annualPriceUsd: 10, annualPriceCents: 1000, description: "5+ character handle — included free with active plan", isReserved: false, isFreeWithPlan: true },
+  { minLength: 1, maxLength: 2, tier: "reserved", annualPriceUsd: 0, annualPriceCents: 0, description: "1–2 character handles are reserved — not available", isReserved: true, isFreeWithPlan: false },
+  { minLength: 3, maxLength: 3, tier: "ultra-premium", annualPriceUsd: 640, annualPriceCents: 64000, description: "Ultra-premium 3-character handle — on-chain NFT on Base", isReserved: false, isFreeWithPlan: false },
+  { minLength: 4, maxLength: 4, tier: "premium", annualPriceUsd: 160, annualPriceCents: 16000, description: "Premium 4-character handle — on-chain NFT on Base", isReserved: false, isFreeWithPlan: false },
+  { minLength: 5, maxLength: Infinity, tier: "standard", annualPriceUsd: 10, annualPriceCents: 1000, description: "Standard handle (5+ characters) — included free with any active plan", isReserved: false, isFreeWithPlan: true },
 ];
 
 export function getHandlePricing(handle: string): HandlePricingResult {

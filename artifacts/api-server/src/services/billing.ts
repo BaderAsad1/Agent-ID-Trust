@@ -21,7 +21,7 @@ const PLAN_LIMITS: Record<string, { maxPublicAgents: number; maxPrivateAgents: n
   none: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
   starter: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
   pro: { maxPublicAgents: 25, maxPrivateAgents: 25, agentLimit: 25, maxSubagents: 100 },
-  enterprise: { maxPublicAgents: 9999, maxPrivateAgents: 9999, agentLimit: 9999, maxSubagents: 9999 },
+  enterprise: { maxPublicAgents: 999, maxPrivateAgents: 999, agentLimit: 999, maxSubagents: 9999 },
 };
 
 const PLAN_PRICES: Record<string, Record<string, number>> = {
@@ -46,7 +46,6 @@ import { getStripe } from "./stripe-client";
 
 export function getPlanLimits(plan: string) {
   const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.none;
-  const hasPlan = plan === "starter" || plan === "pro" || plan === "enterprise";
   return {
     plan,
     agentLimit: LAUNCH_MODE ? 999 : limits.agentLimit,
@@ -54,11 +53,11 @@ export function getPlanLimits(plan: string) {
     maxPublicAgents: LAUNCH_MODE ? 999 : limits.maxPublicAgents,
     maxPrivateAgents: LAUNCH_MODE ? 999 : limits.maxPrivateAgents,
     maxSubagents: LAUNCH_MODE ? 999 : limits.maxSubagents,
-    publicResolution: LAUNCH_MODE || hasPlan,
+    publicResolution: LAUNCH_MODE || plan !== "none",
     canReceiveMail: true,
-    canBePublic: LAUNCH_MODE || hasPlan,
-    canListOnMarketplace: LAUNCH_MODE || hasPlan,
-    marketplaceListing: LAUNCH_MODE || hasPlan,
+    canBePublic: LAUNCH_MODE || plan !== "none",
+    canListOnMarketplace: LAUNCH_MODE || plan === "starter" || plan === "pro" || plan === "enterprise",
+    marketplaceListing: LAUNCH_MODE || plan === "starter" || plan === "pro" || plan === "enterprise",
     canUsePremiumRouting: LAUNCH_MODE || plan === "pro" || plan === "enterprise",
     premiumRouting: LAUNCH_MODE || plan === "pro" || plan === "enterprise",
     canUseAdvancedAuth: LAUNCH_MODE || plan === "pro" || plan === "enterprise",
@@ -66,7 +65,7 @@ export function getPlanLimits(plan: string) {
     customDomain: plan === "pro" || plan === "enterprise",
     canUseTeamFeatures: plan === "enterprise",
     fleetManagement: plan === "pro" || plan === "enterprise",
-    includesStandardHandle: LAUNCH_MODE || hasPlan,
+    includesStandardHandle: LAUNCH_MODE || plan === "starter" || plan === "pro" || plan === "enterprise",
     supportLevel: plan === "enterprise" ? "sla" : plan === "pro" ? "priority" : plan === "starter" ? "email" : "community",
     launchMode: LAUNCH_MODE,
   };
@@ -410,7 +409,7 @@ export async function createCheckoutSession(
           currency: "usd",
           product_data: {
             name: `Agent ID ${plan.charAt(0).toUpperCase() + plan.slice(1)} Plan`,
-            description: `Up to ${(PLAN_LIMITS[plan] ?? PLAN_LIMITS.free).maxPublicAgents} public agent${(PLAN_LIMITS[plan] ?? PLAN_LIMITS.free).maxPublicAgents > 1 ? "s" : ""}`,
+            description: `Up to ${(PLAN_LIMITS[plan] ?? PLAN_LIMITS.none).maxPublicAgents} public agent${(PLAN_LIMITS[plan] ?? PLAN_LIMITS.none).maxPublicAgents > 1 ? "s" : ""}`,
           },
           unit_amount: priceAmount,
           recurring: {
@@ -617,7 +616,7 @@ export async function requirePlanFeature(
   const limits = getPlanLimits(plan);
 
   const featurePlanMap: Record<string, string> = {
-    canReceiveMail: "none",
+    canReceiveMail: "starter",
     canBePublic: "starter",
     canListOnMarketplace: "starter",
     canUsePremiumRouting: "pro",

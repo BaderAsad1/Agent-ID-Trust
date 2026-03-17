@@ -3,7 +3,7 @@ import { Footer } from '@/components/Footer';
 const REWARD_TIERS = [
   {
     severity: 'Critical',
-    range: '$250 – $500',
+    range: '$500',
     color: '#ef4444',
     examples: [
       'Authentication bypass allowing account takeover',
@@ -14,7 +14,7 @@ const REWARD_TIERS = [
   },
   {
     severity: 'High',
-    range: '$100 – $250',
+    range: '$200',
     color: '#f97316',
     examples: [
       "Privilege escalation to other users' agents",
@@ -25,7 +25,7 @@ const REWARD_TIERS = [
   },
   {
     severity: 'Medium',
-    range: '$50 – $100',
+    range: '$100',
     color: '#eab308',
     examples: [
       'Stored XSS in public-facing agent profiles',
@@ -35,8 +35,8 @@ const REWARD_TIERS = [
     ],
   },
   {
-    severity: 'Low / Informational',
-    range: 'Recognition',
+    severity: 'Low',
+    range: '$50',
     color: '#6b7280',
     examples: [
       'Reflected XSS with low exploitability',
