@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { randomBytes, createHash } from "crypto";
+import { randomBytes, createHash, verify as cryptoVerify, createPublicKey } from "crypto";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { logger } from "../../middlewares/request-logger";
 import {
   createAgent,
   getAgentById,
+  getAgentByHandle,
   validateHandle,
   isHandleAvailable,
   invalidateHandleCache,
@@ -32,8 +33,16 @@ import { getStripe } from "../../services/stripe-client";
 import { getOrCreateInbox } from "../../services/mail";
 import { generateClaimToken } from "../../utils/claim-token";
 import { db } from "@workspace/db";
-import { apiKeysTable, usersTable, agentsTable, agentClaimTokensTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { apiKeysTable, usersTable, agentsTable, agentClaimTokensTable, agentKeysTable } from "@workspace/db/schema";
+import { eq, and, or } from "drizzle-orm";
+import { getRedis, isRedisConfigured } from "../../lib/redis";
+import { recoveryRateLimit } from "../../middlewares/rate-limit";
+
+function hashIp(ip: string | string[] | undefined): string | undefined {
+  const raw = Array.isArray(ip) ? ip[0] : ip;
+  if (!raw) return undefined;
+  return createHash("sha256").update(raw).digest("hex").slice(0, 16);
+}
 
 const router = Router();
 
@@ -517,6 +526,291 @@ router.post("/agents/:agentId/handle/renew", requireAuth, async (req, res, next)
       annualPriceUsd: pricing.annualPriceUsd,
       annualPriceCents: pricing.annualPriceCents,
       currentExpiry: agent.handleExpiresAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const recoverChallengeSchema = z.object({
+  agentId: z.string().uuid().optional(),
+  handle: z.string().min(1).optional(),
+}).refine((data) => data.agentId || data.handle, {
+  message: "At least one of agentId or handle is required",
+});
+
+const recoverSchema = z.object({
+  agentId: z.string().uuid().optional(),
+  handle: z.string().min(1).optional(),
+  signature: z.string().min(1),
+  kid: z.string().min(1).optional(),
+}).refine((data) => data.agentId || data.handle, {
+  message: "At least one of agentId or handle is required",
+});
+
+const RECOVERY_CHALLENGE_TTL = 600;
+
+router.post("/recover/challenge", recoveryRateLimit, async (req, res, next) => {
+  try {
+    if (!isRedisConfigured()) {
+      throw new AppError(503, "SERVICE_UNAVAILABLE", "Recovery service requires Redis, which is not configured");
+    }
+
+    const parsed = recoverChallengeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+
+    const { agentId: inputAgentId, handle } = parsed.data;
+
+    let agent;
+    if (inputAgentId) {
+      agent = await getAgentById(inputAgentId);
+    } else if (handle) {
+      agent = await getAgentByHandle(handle);
+    }
+
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+
+    const challenge = randomBytes(32).toString("hex");
+    const redisKey = `recovery:challenge:${agent.id}`;
+    const redis = getRedis();
+    await redis.set(redisKey, challenge, "EX", RECOVERY_CHALLENGE_TTL);
+
+    const expiresAt = new Date(Date.now() + RECOVERY_CHALLENGE_TTL * 1000).toISOString();
+
+    res.json({
+      agentId: agent.id,
+      handle: agent.handle,
+      challenge,
+      expiresAt,
+      signingInstructions: "Sign the challenge string with your Ed25519 private key (the one corresponding to the public key registered for this agent). Submit the base64-encoded signature to POST /api/v1/programmatic/recover.",
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/recover", recoveryRateLimit, async (req, res, next) => {
+  try {
+    if (!isRedisConfigured()) {
+      throw new AppError(503, "SERVICE_UNAVAILABLE", "Recovery service requires Redis, which is not configured");
+    }
+
+    const parsed = recoverSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+    }
+
+    const { agentId: inputAgentId, handle, signature, kid } = parsed.data;
+
+    let agent;
+    if (inputAgentId) {
+      agent = await getAgentById(inputAgentId);
+    } else if (handle) {
+      agent = await getAgentByHandle(handle);
+    }
+
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+
+    if (agent.isClaimed && agent.userId) {
+      if (!req.userId || req.userId !== agent.userId) {
+        throw new AppError(403, "OWNER_AUTH_REQUIRED", "This agent has a verified owner. Sign into your Agent ID account first, then retry recovery.", {
+          hint: "Visit https://getagent.id/dashboard to sign in",
+          agentHandle: agent.handle,
+          isClaimed: true,
+        });
+      }
+    }
+
+    const redis = getRedis();
+
+    const attemptsKey = `recovery:attempts:${agent.id}`;
+    const recoveryAttempts = await redis.incr(attemptsKey);
+    if (recoveryAttempts === 1) {
+      await redis.expire(attemptsKey, 3600);
+    }
+
+    if (recoveryAttempts > 3) {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId: agent.id,
+        eventType: "agent.api_key.recovery_attempted",
+        payload: {
+          success: false,
+          attemptNumber: recoveryAttempts,
+          ipHash: hashIp(req.ip),
+          isClaimed: !!agent.isClaimed,
+          reason: "rate_limited",
+        },
+      });
+      throw new AppError(429, "TOO_MANY_RECOVERY_ATTEMPTS", "Maximum 3 recovery attempts per hour. Try again later or contact support.", {
+        retryAfter: 3600,
+      });
+    }
+
+    const redisKey = `recovery:challenge:${agent.id}`;
+    const challenge = await redis.get(redisKey);
+
+    if (!challenge) {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId: agent.id,
+        eventType: "agent.api_key.recovery_attempted",
+        payload: {
+          success: false,
+          attemptNumber: recoveryAttempts,
+          ipHash: hashIp(req.ip),
+          isClaimed: !!agent.isClaimed,
+          reason: "challenge_expired",
+        },
+      });
+      throw new AppError(410, "CHALLENGE_EXPIRED", "Recovery challenge has expired or does not exist. Please request a new challenge.");
+    }
+
+    let candidateKeys;
+    if (kid) {
+      const keyByKid = await db.query.agentKeysTable.findFirst({
+        where: and(
+          eq(agentKeysTable.agentId, agent.id),
+          eq(agentKeysTable.kid, kid),
+          or(
+            eq(agentKeysTable.status, "active"),
+            eq(agentKeysTable.status, "rotating"),
+          ),
+        ),
+      });
+      candidateKeys = keyByKid ? [keyByKid] : [];
+    } else {
+      candidateKeys = await db.query.agentKeysTable.findMany({
+        where: and(
+          eq(agentKeysTable.agentId, agent.id),
+          or(
+            eq(agentKeysTable.status, "active"),
+            eq(agentKeysTable.status, "rotating"),
+          ),
+        ),
+        orderBy: (keys, { desc }) => [desc(keys.createdAt)],
+      });
+    }
+
+    if (candidateKeys.length === 0) {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId: agent.id,
+        eventType: "agent.api_key.recovery_attempted",
+        payload: {
+          success: false,
+          attemptNumber: recoveryAttempts,
+          ipHash: hashIp(req.ip),
+          isClaimed: !!agent.isClaimed,
+          reason: "no_keys",
+        },
+      });
+      throw new AppError(400, "NO_KEYS", "No active or rotating keys found for this agent");
+    }
+
+    let matchedKey = null;
+    for (const key of candidateKeys) {
+      if (!key.publicKey) continue;
+      try {
+        const pubKey = createPublicKey({
+          key: Buffer.from(key.publicKey, "base64"),
+          format: "der",
+          type: "spki",
+        });
+        const isValid = cryptoVerify(
+          null,
+          Buffer.from(challenge),
+          pubKey,
+          Buffer.from(signature, "base64"),
+        );
+        if (isValid) {
+          matchedKey = key;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (!matchedKey) {
+      const { logSignedActivity } = await import("../../services/activity-log");
+      await logSignedActivity({
+        agentId: agent.id,
+        eventType: "agent.api_key.recovery_attempted",
+        payload: {
+          success: false,
+          attemptNumber: recoveryAttempts,
+          ipHash: hashIp(req.ip),
+          isClaimed: !!agent.isClaimed,
+          reason: "signature_invalid",
+        },
+      });
+      throw new AppError(403, "SIGNATURE_INVALID", "Signature verification failed against all candidate keys");
+    }
+
+    const deleted = await redis.eval(
+      "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
+      1,
+      redisKey,
+      challenge,
+    ) as number;
+
+    if (!deleted) {
+      throw new AppError(410, "CHALLENGE_EXPIRED", "Recovery challenge was already consumed by a concurrent request. Please request a new challenge.");
+    }
+
+    const apiKey = generateAgentApiKey();
+    await db.transaction(async (tx) => {
+      await tx.delete(apiKeysTable).where(
+        and(
+          eq(apiKeysTable.ownerType, "agent"),
+          eq(apiKeysTable.ownerId, agent!.id),
+        ),
+      );
+      await tx.insert(apiKeysTable).values({
+        ownerType: "agent",
+        ownerId: agent!.id,
+        name: `${agent!.handle}-recovered`,
+        keyPrefix: apiKey.prefix,
+        hashedKey: apiKey.hashed,
+        scopes: [],
+      });
+    });
+
+    await logActivity({
+      agentId: agent.id,
+      eventType: "agent.api_key.recovered",
+      payload: { matchedKid: matchedKey.kid },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    const { logSignedActivity } = await import("../../services/activity-log");
+    await logSignedActivity({
+      agentId: agent.id,
+      eventType: "agent.api_key.recovery_attempted",
+      payload: {
+        success: true,
+        attemptNumber: recoveryAttempts,
+        ipHash: hashIp(req.ip),
+        isClaimed: !!agent.isClaimed,
+        matchedKid: matchedKey.kid,
+      },
+    });
+
+    res.json({
+      recovered: true,
+      apiKey: apiKey.raw,
+      agentId: agent.id,
+      handle: agent.handle,
+      matchedKid: matchedKey.kid,
+      message: "API key recovered successfully. All previous API keys have been revoked.",
     });
   } catch (err) {
     next(err);

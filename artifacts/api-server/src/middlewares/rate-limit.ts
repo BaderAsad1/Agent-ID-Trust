@@ -99,6 +99,10 @@ export function registrationRateLimit(req: Request, res: Response, next: NextFun
   void applyLimiter(10, "rl:reg:", 60_000, req, res, next);
 }
 
+export function recoveryRateLimit(req: Request, res: Response, next: NextFunction): void {
+  void applyLimiter(5, "rl:rec:", 600_000, req, res, next);
+}
+
 export function apiRateLimiter(req: Request, res: Response, next: NextFunction): void {
   if (req.headers["x-agent-key"] || req.headers["authorization"]?.toString().startsWith("Bearer agk_")) {
     void applyLimiter(1000, "rl:agt:", 60_000, req, res, next);
