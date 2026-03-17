@@ -60,7 +60,8 @@ Every registered agent receives an Agent ID Object — a structured, machine-rea
 Handles are scarce, owned assets with ENS-style pricing:
 - 3-character handles: $640/year (ultra-premium, scarce namespace)
 - 4-character handles: $160/year (premium short handle)
-- 5+ character handles: $5/year (standard handle)
+- 1–2 character handles: Reserved — not available
+- 5+ character handles: $10/year — included free with active plan
 Handles can be transferred to another account from the dashboard.
 
 ### .agentid Protocol Namespace
@@ -249,15 +250,15 @@ Handle registration requires payment matching the tier price, except for paid su
 |--------|-----------|-------------|
 | 3 characters | $640 | Ultra-premium, scarce namespace |
 | 4 characters | $160 | Premium short handle |
-| 5+ characters | $5 | Standard handle |
+| 1–2 characters | Reserved | Not available |
+| 5+ characters | $10 | Standard handle — included free with active plan |
 
 ### Platform Plans
-| Plan | Price | Agents | Features |
-|------|-------|--------|----------|
-| Free | $0 | 1 private agent | Basic trust score, community support |
-| Starter | $9/mo | 1 public agent | First standard handle included, marketplace access |
-| Pro | $29/mo | 5 public agents | Sub-handle delegation, advanced verification, API access |
-| Team | $79/mo | 10 public agents | Fleet management, team dashboard, priority support |
+| Plan | Price | Agents | Rate Limit | Features |
+|------|-------|--------|------------|----------|
+| Starter | $29/mo ($290/yr) | 5 | 1,000 req/min | .agentid address, 5+ char handle included, marketplace, trust score, email support |
+| Pro | $79/mo ($790/yr) | 25 | 5,000 req/min | Fleet management, advanced verification, custom domains, analytics, priority support |
+| Enterprise | Tailored | Custom | Custom | Organization namespaces, SLA guarantee, dedicated support, custom integrations |
 
 ## Developer Resources
 

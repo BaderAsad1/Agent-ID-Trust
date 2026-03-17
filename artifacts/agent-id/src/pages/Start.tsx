@@ -447,25 +447,6 @@ export function Start() {
             </div>
           )}
 
-          <button
-            onClick={() => toast('Apple Wallet integration coming soon — your credential is saved in your dashboard')}
-            style={{
-            width: '100%', padding: '13px 20px', borderRadius: 12,
-            background: 'linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            marginBottom: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.4)', fontFamily: 'inherit',
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
-              <rect x="2" y="4" width="20" height="5" rx="3" fill="currentColor" opacity="0.3" />
-              <rect x="5" y="12" width="6" height="1.5" rx="0.75" fill="currentColor" opacity="0.5" />
-              <rect x="5" y="15" width="4" height="1.5" rx="0.75" fill="currentColor" opacity="0.3" />
-            </svg>
-            Add to Apple Wallet
-          </button>
-
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
             <button onClick={() => navigate(`/${handle}`)} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,232,240,0.6)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>View Profile</button>
             <button onClick={() => navigate('/dashboard')} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, background: '#4f7df3', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Go to Dashboard →</button>

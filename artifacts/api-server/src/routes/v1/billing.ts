@@ -24,54 +24,54 @@ router.get("/plans", (req, res) => {
   const e = process.env;
   res.json({
     launchMode: e.LAUNCH_MODE === "true",
+    marketplaceFee: 2.5,
+    marketplaceFeeBps: 250,
     plans: [
       {
-        id: "free",
-        name: "Free",
-        price: { monthly: 0, yearly: 0 },
-        agentLimit: 1,
-        features: ["1 agent", "Basic handle", "Inbox", "Trust score", "UUID resolution"],
-        cta: "Get started free",
-      },
-      {
-        id: "builder",
-        name: "Builder",
-        price: { monthly: 9, yearly: 86 },
+        id: "starter",
+        name: "Starter",
+        price: { monthly: 29, yearly: 290 },
         priceIds: {
-          monthly: e.STRIPE_PRICE_BUILDER_MONTHLY ?? null,
-          yearly: e.STRIPE_PRICE_BUILDER_YEARLY ?? null,
+          monthly: e.STRIPE_PRICE_STARTER_MONTHLY ?? null,
+          yearly: e.STRIPE_PRICE_STARTER_YEARLY ?? null,
         },
         agentLimit: 5,
-        features: ["5 agents", "Public handle resolution", "Marketplace listing", "Priority routing", "Email support"],
-        cta: "Start building",
+        rateLimitReqPerMin: 1000,
+        features: ["5 agents", "1,000 req/min", ".agentid address", "5+ char handle included", "Marketplace listing", "Trust score", "Email support"],
+        cta: "Get started",
         popular: false,
       },
       {
         id: "pro",
         name: "Pro",
-        price: { monthly: 29, yearly: 279 },
+        price: { monthly: 79, yearly: 790 },
         priceIds: {
           monthly: e.STRIPE_PRICE_PRO_MONTHLY ?? null,
           yearly: e.STRIPE_PRICE_PRO_YEARLY ?? null,
         },
         agentLimit: 25,
-        features: ["25 agents", "Analytics dashboard", "Custom domains", "Fleet management", "Priority support"],
-        cta: "Go pro",
+        rateLimitReqPerMin: 5000,
+        features: ["25 agents", "5,000 req/min", "Fleet management", "Advanced trust verification", "Priority marketplace placement", "Custom domains", "Analytics", "Priority support"],
+        cta: "Upgrade to Pro",
         popular: true,
       },
       {
-        id: "team",
-        name: "Team",
-        price: { monthly: 99, yearly: 950 },
-        priceIds: {
-          monthly: e.STRIPE_PRICE_TEAM_MONTHLY ?? null,
-          yearly: e.STRIPE_PRICE_TEAM_YEARLY ?? null,
-        },
-        agentLimit: 100,
-        features: ["100 agents", "Organization namespaces", "SLA guarantee", "Enterprise support", "Custom integrations"],
+        id: "enterprise",
+        name: "Enterprise",
+        price: null,
+        tailored: true,
+        agentLimit: null,
+        rateLimitReqPerMin: null,
+        features: ["Custom agent limits", "Custom rate limits", "Organization namespaces", "SLA guarantee", "Dedicated support", "Custom integrations"],
         cta: "Contact sales",
         popular: false,
       },
+    ],
+    handlePricing: [
+      { minLength: 1, maxLength: 2, tier: "reserved", isReserved: true, annualUsd: null },
+      { minLength: 3, maxLength: 3, tier: "ultra-premium", isReserved: false, annualUsd: 640, annualCents: 64000, note: "On-chain NFT on Base" },
+      { minLength: 4, maxLength: 4, tier: "premium", isReserved: false, annualUsd: 160, annualCents: 16000, note: "On-chain NFT on Base" },
+      { minLength: 5, maxLength: null, tier: "standard", isReserved: false, annualUsd: 10, annualCents: 1000, isFreeWithPlan: true },
     ],
   });
 });
@@ -79,7 +79,7 @@ router.get("/plans", (req, res) => {
 router.get("/subscription", requireAuth, async (req, res, next) => {
   try {
     const activeSub = await getActiveUserSubscription(req.userId!);
-    const plan = activeSub?.plan ?? "free";
+    const plan = activeSub?.plan ?? "none";
     const limits = getPlanLimits(plan);
 
     res.json({
@@ -105,7 +105,7 @@ router.get("/subscriptions", requireAuth, async (req, res, next) => {
   try {
     const subs = await getUserSubscriptions(req.userId!);
     const activeSub = await getActiveUserSubscription(req.userId!);
-    const plan = activeSub?.plan ?? "free";
+    const plan = activeSub?.plan ?? "none";
 
     res.json({
       subscriptions: subs,
@@ -118,7 +118,7 @@ router.get("/subscriptions", requireAuth, async (req, res, next) => {
 });
 
 const checkoutSchema = z.object({
-  plan: z.enum(["builder", "starter", "pro", "team"]).optional(),
+  plan: z.enum(["starter", "pro"]).optional(),
   priceId: z.string().optional(),
   billingInterval: z.enum(["monthly", "yearly"]).default("monthly"),
   successUrl: z.string().url().optional(),
@@ -131,8 +131,8 @@ router.post("/checkout", requireAuth, async (req, res, next) => {
     const APP_URL = process.env.APP_URL || "https://getagent.id";
 
     const resolvedPriceId = body.priceId
-      ?? getPriceIdFromPlan(body.plan ?? "builder", body.billingInterval);
-    const resolvedPlan = body.plan ?? "builder";
+      ?? getPriceIdFromPlan(body.plan ?? "starter", body.billingInterval);
+    const resolvedPlan = body.plan ?? "starter";
     const successUrl = body.successUrl ?? `${APP_URL}/dashboard?upgraded=true`;
     const cancelUrl = body.cancelUrl ?? `${APP_URL}/pricing`;
 

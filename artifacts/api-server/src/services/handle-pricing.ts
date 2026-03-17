@@ -3,13 +3,15 @@ export interface HandlePricingResult {
   annualPriceUsd: number;
   annualPriceCents: number;
   description: string;
+  isReserved: boolean;
+  isFreeWithPlan: boolean;
 }
 
 const TIERS = [
-  { minLength: 3, maxLength: 3, tier: "ultra-premium", annualPriceUsd: 999, description: "Ultra-premium 3-character handle" },
-  { minLength: 4, maxLength: 4, tier: "premium", annualPriceUsd: 199, description: "Premium 4-character handle" },
-  { minLength: 5, maxLength: 5, tier: "standard-plus", annualPriceUsd: 49, description: "Standard-plus 5-character handle" },
-  { minLength: 6, maxLength: Infinity, tier: "standard", annualPriceUsd: 9, description: "Standard handle (6+ characters)" },
+  { minLength: 1, maxLength: 2, tier: "reserved", annualPriceUsd: 0, annualPriceCents: 0, description: "1–2 character handles are reserved", isReserved: true, isFreeWithPlan: false },
+  { minLength: 3, maxLength: 3, tier: "ultra-premium", annualPriceUsd: 640, annualPriceCents: 64000, description: "3-character handle — on-chain NFT on Base", isReserved: false, isFreeWithPlan: false },
+  { minLength: 4, maxLength: 4, tier: "premium", annualPriceUsd: 160, annualPriceCents: 16000, description: "4-character handle — on-chain NFT on Base", isReserved: false, isFreeWithPlan: false },
+  { minLength: 5, maxLength: Infinity, tier: "standard", annualPriceUsd: 10, annualPriceCents: 1000, description: "5+ character handle — included free with active plan", isReserved: false, isFreeWithPlan: true },
 ];
 
 export function getHandlePricing(handle: string): HandlePricingResult {
@@ -18,8 +20,10 @@ export function getHandlePricing(handle: string): HandlePricingResult {
   return {
     tier: match.tier,
     annualPriceUsd: match.annualPriceUsd,
-    annualPriceCents: match.annualPriceUsd * 100,
+    annualPriceCents: match.annualPriceCents,
     description: match.description,
+    isReserved: match.isReserved,
+    isFreeWithPlan: match.isFreeWithPlan,
   };
 }
 
@@ -28,5 +32,8 @@ export const HANDLE_PRICING_TIERS = TIERS.map(t => ({
   maxLength: t.maxLength === Infinity ? undefined : t.maxLength,
   tier: t.tier,
   annualPriceUsd: t.annualPriceUsd,
+  annualPriceCents: t.annualPriceCents,
   description: t.description,
+  isReserved: t.isReserved,
+  isFreeWithPlan: t.isFreeWithPlan,
 }));

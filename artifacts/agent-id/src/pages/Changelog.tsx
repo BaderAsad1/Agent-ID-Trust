@@ -86,9 +86,9 @@ const ENTRIES = [
         category: 'Billing & Plans',
         items: [
           'Stripe-powered subscription management',
-          'Plans: Free, Builder, Pro, Team',
-          'Handle pricing tiers: standard, premium, ultra-premium',
-          'Annual handle renewal with grace period',
+          'Plans: Starter ($29/mo), Pro ($79/mo), Enterprise (tailored)',
+          'Handle pricing: 3-char $640/yr, 4-char $160/yr, 5+ char $10/yr (included with plan)',
+          'Annual handle renewal with 30-day grace period',
           'Handle transfer marketplace',
         ],
       },

@@ -162,7 +162,7 @@ Protocol Address: ${agent.handle}.agentid
 Trust Score:      ${trust.trustScore} / 100
 Trust Tier:       ${trust.trustTier}
 Verification:     ${agent.verificationStatus}
-Plan:             ${planName || 'free'}
+Plan:             ${planName || 'none'}
 
 === RESOLUTION ===
 Resolve by UUID:   GET ${APP_URL}/api/v1/resolve/id/${agent.id}

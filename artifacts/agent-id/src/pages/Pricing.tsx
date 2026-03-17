@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Info } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { Footer } from '@/components/Footer';
 import { PRICING_PLANS, HANDLE_PRICING_TIERS } from '@/lib/pricing';
@@ -12,16 +12,15 @@ export function Pricing() {
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
 
   const getDisplayPrice = (plan: typeof PRICING_PLANS[number]) => {
-    if (plan.price === '$0') return '$0';
+    if (plan.price === 'Tailored') return 'Tailored';
     const monthly = parseInt(plan.price.replace('$', ''));
-    if (billing === 'yearly') {
-      return `$${monthly * 10}`;
-    }
+    if (isNaN(monthly)) return plan.price;
+    if (billing === 'yearly') return `$${monthly * 10}`;
     return plan.price;
   };
 
   const getPeriod = (plan: typeof PRICING_PLANS[number]) => {
-    if (plan.price === '$0') return plan.period;
+    if (plan.price === 'Tailored' || plan.period === '') return '';
     return billing === 'yearly' ? '/ year' : '/ month';
   };
 
@@ -33,7 +32,7 @@ export function Pricing() {
             Simple, transparent pricing
           </h1>
           <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--text-muted)' }}>
-            Start free. Scale when you're ready.
+            Identity infrastructure for AI agents. No surprises.
           </p>
         </div>
 
@@ -61,7 +60,7 @@ export function Pricing() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-16">
           {PRICING_PLANS.map(plan => (
             <GlassCard
               key={plan.name}
@@ -75,24 +74,14 @@ export function Pricing() {
               <h3 className="text-xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{plan.name}</h3>
               <div className="flex items-baseline gap-1 mb-2">
                 <span className="text-3xl font-black" style={{ color: 'var(--text-primary)' }}>{getDisplayPrice(plan)}</span>
-                {plan.period && <span className="text-sm" style={{ color: 'var(--text-dim)' }}>{getPeriod(plan)}</span>}
+                {getPeriod(plan) && <span className="text-sm" style={{ color: 'var(--text-dim)' }}>{getPeriod(plan)}</span>}
               </div>
               <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>{plan.description}</p>
               <ul className="space-y-3 mb-8 flex-1">
                 {plan.features.map(f => (
                   <li key={f} className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
                     <Check className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--success)' }} />
-                    {f === '1 private agent' && plan.name === 'Free' ? (
-                      <span className="flex items-center gap-1">
-                        1 private agent
-                        <span className="relative group">
-                          <Info className="w-3.5 h-3.5 cursor-help" style={{ color: 'var(--text-dim)' }} />
-                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                            Private agents are not listed publicly
-                          </span>
-                        </span>
-                      </span>
-                    ) : f}
+                    {f}
                   </li>
                 ))}
               </ul>
@@ -100,8 +89,8 @@ export function Pricing() {
                 variant={plan.variant}
                 className="w-full"
                 onClick={() => {
-                  if (plan.name === 'Free') {
-                    navigate(userId ? '/dashboard' : '/start');
+                  if (plan.name === 'Enterprise') {
+                    window.location.href = 'mailto:team@getagent.id?subject=Enterprise%20inquiry';
                   } else if (userId) {
                     navigate('/dashboard/settings');
                   } else {
@@ -125,19 +114,22 @@ export function Pricing() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-[800px] mx-auto">
-            {HANDLE_PRICING_TIERS.map(tier => (
-              <GlassCard key={tier.label} className="!p-6 text-center">
-                <div className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                  {tier.label}
-                </div>
-                <div className="text-3xl font-black mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                  ${tier.annualPrice}
-                </div>
-                <div className="text-xs mb-3" style={{ color: 'var(--text-dim)' }}>per year</div>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{tier.description}</p>
-              </GlassCard>
-            ))}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5 max-w-[960px] mx-auto">
+            {HANDLE_PRICING_TIERS.map(tier => {
+              const isReserved = tier.annualPrice === 0;
+              return (
+                <GlassCard key={tier.label} className="!p-6 text-center" style={isReserved ? { opacity: 0.5 } : {}}>
+                  <div className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                    {tier.label}
+                  </div>
+                  <div className="text-3xl font-black mb-1" style={{ color: isReserved ? 'var(--text-dim)' : 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+                    {isReserved ? '—' : `$${tier.annualPrice}`}
+                  </div>
+                  <div className="text-xs mb-3" style={{ color: 'var(--text-dim)' }}>{isReserved ? 'not available' : 'per year'}</div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{tier.description}</p>
+                </GlassCard>
+              );
+            })}
           </div>
 
           <p className="text-center text-xs mt-6" style={{ color: 'var(--text-dim)' }}>

@@ -5,7 +5,7 @@ import { Identicon } from '@/components/shared';
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
   { path: '/dashboard/agents', icon: Bot, label: 'My Agents' },
-  { path: '/dashboard/inbox', icon: Inbox, label: 'Task Inbox', badge: 3 },
+  { path: '/dashboard/inbox', icon: Inbox, label: 'Task Inbox' },
   { path: '/dashboard/mail', icon: Mail, label: 'Agent Mail', dot: 'cyan' },
   { path: '/dashboard/log', icon: Activity, label: 'Activity Log' },
   { path: '/dashboard/marketplace', icon: ShoppingBag, label: 'Marketplace', dot: 'purple' },

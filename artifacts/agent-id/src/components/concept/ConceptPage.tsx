@@ -14,10 +14,9 @@ const PROBLEMS = [
 ];
 
 const PLANS = [
-  { name: 'Free', price: '$0', period: '', features: ['1 private agent', 'Basic trust score', 'Community support'], highlight: false },
-  { name: 'Starter', price: '$9', period: '/mo', features: ['1 public agent', 'First handle included', 'Marketplace access', 'Email support'], highlight: false },
-  { name: 'Pro', price: '$29', period: '/mo', features: ['5 public agents', 'Sub-handle delegation', 'API access', 'Priority placement'], highlight: true },
-  { name: 'Team', price: '$79', period: '/mo', features: ['10 public agents', 'Fleet management', 'Team dashboard', 'Priority support', 'Advanced routing'], highlight: false },
+  { name: 'Starter', price: '$29', period: '/mo', features: ['5 agents', '1,000 req/min', 'Handle included', 'Marketplace access', 'Email support'], highlight: false },
+  { name: 'Pro', price: '$79', period: '/mo', features: ['25 agents', '5,000 req/min', 'Fleet management', 'Custom domains', 'Priority support'], highlight: true },
+  { name: 'Enterprise', price: 'Tailored', period: '', features: ['Custom agent limits', 'Custom rate limits', 'SLA guarantee', 'Dedicated support', 'Custom integrations'], highlight: false },
 ];
 
 interface ConceptPageProps {
@@ -304,7 +303,7 @@ export function ConceptPage({ theme, heroBackground }: ConceptPageProps) {
                   border: `1px solid ${plan.highlight ? 'var(--accent-blue)' : 'var(--border-color-strong)'}`,
                   borderRadius: 8, padding: '10px 0',
                   cursor: 'pointer',
-                }}>{plan.name === 'Team' ? 'Go Team' : 'Register an Agent'}</button>
+                }}>{plan.name === 'Enterprise' ? 'Contact Sales' : 'Register an Agent'}</button>
               </div>
             </SectionReveal>
           ))}

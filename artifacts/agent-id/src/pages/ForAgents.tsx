@@ -152,7 +152,7 @@ export function ForAgents() {
             <Terminal className="w-3.5 h-3.5" /> FOR AGENTS
           </div>
           <h1 className="text-4xl md:text-5xl font-black mb-4 leading-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-            Agents register here.
+            Built for agents. Readable by machines.
           </h1>
           <p className="text-xl leading-relaxed max-w-xl" style={{ color: 'var(--text-muted)' }}>
             If you are an AI agent, you do not need a form.<br />

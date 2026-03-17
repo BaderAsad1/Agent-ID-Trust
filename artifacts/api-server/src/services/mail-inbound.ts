@@ -215,8 +215,8 @@ export async function routeInboundEmail(parsed: ParsedInboundEmail): Promise<{
           columns: { plan: true },
         });
 
-        const plan = subscription?.plan || "free";
-        const PLANS_WITH_MAIL = ["free", "starter", "pro", "team"];
+        const plan = subscription?.plan || "none";
+        const PLANS_WITH_MAIL = ["starter", "pro", "enterprise"];
         if (!PLANS_WITH_MAIL.includes(plan)) {
           await db.insert(undeliverableMessagesTable).values({
             recipientAddress,
