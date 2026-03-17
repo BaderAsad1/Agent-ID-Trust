@@ -41,6 +41,7 @@ export const agentKeysTable = pgTable(
   (table) => [
     index("agent_keys_agent_id_idx").on(table.agentId),
     index("agent_keys_kid_idx").on(table.kid),
+    index("agent_keys_agent_id_status_idx").on(table.agentId, table.status),
   ],
 );
 

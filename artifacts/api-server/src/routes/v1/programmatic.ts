@@ -3,11 +3,13 @@ import { z } from "zod/v4";
 import { randomBytes, createHash } from "crypto";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { logger } from "../../middlewares/request-logger";
 import {
   createAgent,
   getAgentById,
   validateHandle,
   isHandleAvailable,
+  invalidateHandleCache,
 } from "../../services/agents";
 import { formatDomain, formatHandle, formatResolverUrl } from "../../utils/handle";
 import { getUserPlan, getPlanLimits } from "../../services/billing";
@@ -56,6 +58,7 @@ const rotateKeySchema = z.object({
 });
 
 router.post("/agents/register", async (req, res, next) => {
+  const t0 = performance.now();
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -70,12 +73,15 @@ router.post("/agents/register", async (req, res, next) => {
       throw new AppError(400, "INVALID_HANDLE", handleError);
     }
 
+    const tHandleCheck = performance.now();
     const available = await isHandleAvailable(handle);
     if (!available) {
       throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
     }
+    const handleCheckMs = performance.now() - tHandleCheck;
 
     let ownerId = req.userId;
+    const tUser = performance.now();
     if (!ownerId) {
       const autonomousId = `auto_${randomBytes(16).toString("hex")}`;
       const [newUser] = await db.insert(usersTable).values({
@@ -84,7 +90,9 @@ router.post("/agents/register", async (req, res, next) => {
       }).returning({ id: usersTable.id });
       ownerId = newUser.id;
     }
+    const userMs = performance.now() - tUser;
 
+    const tCreateAgent = performance.now();
     let agent;
     try {
       agent = await createAgent({
@@ -102,24 +110,47 @@ router.post("/agents/register", async (req, res, next) => {
       }
       throw err;
     }
+    const createAgentMs = performance.now() - tCreateAgent;
 
-    const agentKey = await createAgentKey({
-      agentId: agent.id,
-      keyType,
-      publicKey,
-    });
+    invalidateHandleCache(handle);
 
-    const challenge = await initiateVerification(agent.id, "key_challenge");
+    const tKeyAndChallenge = performance.now();
+    const [agentKey, challenge] = await Promise.all([
+      createAgentKey({
+        agentId: agent.id,
+        keyType,
+        publicKey,
+      }),
+      initiateVerification(agent.id, "key_challenge"),
+    ]);
+    const keyAndChallengeMs = performance.now() - tKeyAndChallenge;
 
-    await logActivity({
-      agentId: agent.id,
-      eventType: "agent.programmatic_registered",
-      payload: { handle: agent.handle, autonomous: !req.userId },
-      ipAddress: req.ip,
-      userAgent: req.headers["user-agent"],
-    });
+    const tSideEffects = performance.now();
+    await Promise.all([
+      logActivity({
+        agentId: agent.id,
+        eventType: "agent.programmatic_registered",
+        payload: { handle: agent.handle, autonomous: !req.userId },
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      }),
+      recomputeAndStore(agent.id),
+    ]);
+    const sideEffectsMs = performance.now() - tSideEffects;
 
-    await recomputeAndStore(agent.id);
+    const totalMs = performance.now() - t0;
+    logger.info({
+      step: "register",
+      handle: agent.handle,
+      timings: {
+        handleCheckMs: Math.round(handleCheckMs),
+        userMs: Math.round(userMs),
+        createAgentMs: Math.round(createAgentMs),
+        keyAndChallengeMs: Math.round(keyAndChallengeMs),
+        sideEffectsMs: Math.round(sideEffectsMs),
+        totalMs: Math.round(totalMs),
+      },
+    }, `[programmatic] register completed in ${Math.round(totalMs)}ms`);
 
     res.status(201).json({
       agentId: agent.id,
@@ -136,6 +167,7 @@ router.post("/agents/register", async (req, res, next) => {
 });
 
 router.post("/agents/verify", async (req, res, next) => {
+  const t0 = performance.now();
   try {
     const parsed = verifySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -144,6 +176,7 @@ router.post("/agents/verify", async (req, res, next) => {
 
     const { agentId, challenge, signature, kid } = parsed.data;
 
+    const tLookup = performance.now();
     const agent = await getAgentById(agentId);
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
@@ -151,7 +184,9 @@ router.post("/agents/verify", async (req, res, next) => {
     if (req.userId && agent.userId !== req.userId) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
+    const lookupMs = performance.now() - tLookup;
 
+    const tChallenge = performance.now();
     const result = await verifyChallenge(agentId, challenge, signature, kid);
     if (!result.success) {
       await logActivity({
@@ -163,52 +198,70 @@ router.post("/agents/verify", async (req, res, next) => {
       });
       throw new AppError(400, "VERIFICATION_FAILED", result.error!);
     }
-
-    await logActivity({
-      agentId,
-      eventType: "agent.verified",
-      payload: { method: "key_challenge", autonomous: !req.userId },
-      ipAddress: req.ip,
-      userAgent: req.headers["user-agent"],
-    });
-
-    const trust = await recomputeAndStore(agentId);
+    const challengeMs = performance.now() - tChallenge;
 
     const apiKey = generateAgentApiKey();
-    await db.insert(apiKeysTable).values({
-      ownerType: "agent",
-      ownerId: agentId,
-      name: `${agent.handle}-primary`,
-      keyPrefix: apiKey.prefix,
-      hashedKey: apiKey.hashed,
-      scopes: [],
-    });
-
-    await db
-      .update(agentsTable)
-      .set({
-        status: 'active',
-        verificationStatus: 'verified',
-        verificationMethod: 'key_challenge',
-        verifiedAt: new Date(),
-        bootstrapIssuedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(agentsTable.id, agentId));
-
-    await getOrCreateInbox(agentId);
-
     const claimToken = generateClaimToken(agentId, apiKey.prefix);
-    await db.insert(agentClaimTokensTable).values({
-      agentId,
-      token: claimToken,
-    });
 
-    const freshAgent = await getAgentById(agentId);
+    const tParallel = performance.now();
+    await Promise.all([
+      db.insert(apiKeysTable).values({
+        ownerType: "agent",
+        ownerId: agentId,
+        name: `${agent.handle}-primary`,
+        keyPrefix: apiKey.prefix,
+        hashedKey: apiKey.hashed,
+        scopes: [],
+      }),
+      db
+        .update(agentsTable)
+        .set({
+          status: 'active',
+          verificationStatus: 'verified',
+          verificationMethod: 'key_challenge',
+          verifiedAt: new Date(),
+          bootstrapIssuedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(agentsTable.id, agentId)),
+      getOrCreateInbox(agentId),
+      db.insert(agentClaimTokensTable).values({
+        agentId,
+        token: claimToken,
+      }),
+      logActivity({
+        agentId,
+        eventType: "agent.verified",
+        payload: { method: "key_challenge", autonomous: !req.userId },
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      }),
+    ]);
+    const parallelMs = performance.now() - tParallel;
+
+    const tFinalize = performance.now();
+    const [trust, freshAgent, ownerPlan] = await Promise.all([
+      recomputeAndStore(agentId),
+      getAgentById(agentId),
+      getUserPlan(agent.userId),
+    ]);
     const bootstrap = await buildBootstrapBundle(freshAgent!);
-
-    const ownerPlan = await getUserPlan(agent.userId);
     const limits = getPlanLimits(ownerPlan);
+    const finalizeMs = performance.now() - tFinalize;
+
+    const totalMs = performance.now() - t0;
+    logger.info({
+      step: "verify",
+      agentId,
+      timings: {
+        lookupMs: Math.round(lookupMs),
+        challengeMs: Math.round(challengeMs),
+        parallelMs: Math.round(parallelMs),
+        finalizeMs: Math.round(finalizeMs),
+        totalMs: Math.round(totalMs),
+      },
+    }, `[programmatic] verify completed in ${Math.round(totalMs)}ms`);
+
     const APP_URL = process.env.APP_URL || "https://getagent.id";
     const claimUrl = `${APP_URL}/claim?token=${encodeURIComponent(claimToken)}`;
 

@@ -50,12 +50,36 @@ export function validateHandle(handle: string): string | null {
   return null;
 }
 
+const handleCache = new Map<string, { available: boolean; expiresAt: number }>();
+const HANDLE_CACHE_TTL_MS = 60_000;
+
 export async function isHandleAvailable(handle: string): Promise<boolean> {
+  const cacheKey = handle.toLowerCase();
+  const cached = handleCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.available;
+  }
+
   const existing = await db.query.agentsTable.findFirst({
     where: ilike(agentsTable.handle, handle),
     columns: { id: true },
   });
-  return !existing;
+  const available = !existing;
+
+  handleCache.set(cacheKey, { available, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
+
+  if (handleCache.size > 10_000) {
+    const now = Date.now();
+    for (const [key, entry] of handleCache) {
+      if (entry.expiresAt <= now) handleCache.delete(key);
+    }
+  }
+
+  return available;
+}
+
+export function invalidateHandleCache(handle: string): void {
+  handleCache.delete(handle.toLowerCase());
 }
 
 export async function createAgent(input: CreateAgentInput): Promise<Agent> {
