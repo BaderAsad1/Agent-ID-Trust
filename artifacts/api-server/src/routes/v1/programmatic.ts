@@ -10,6 +10,7 @@ import {
   validateHandle,
   isHandleAvailable,
   invalidateHandleCache,
+  getHandleReservation,
 } from "../../services/agents";
 import { formatDomain, formatHandle, formatResolverUrl } from "../../utils/handle";
 import { getUserPlan, getPlanLimits } from "../../services/billing";
@@ -74,6 +75,12 @@ router.post("/agents/register", async (req, res, next) => {
     }
 
     const tHandleCheck = performance.now();
+
+    const reservation = await getHandleReservation(handle.toLowerCase());
+    if (reservation.isReserved) {
+      throw new AppError(409, "HANDLE_RESERVED", "This handle is reserved. If you are the legitimate brand owner, please contact support@getagent.id to claim it.");
+    }
+
     const available = await isHandleAvailable(handle);
     if (!available) {
       throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");

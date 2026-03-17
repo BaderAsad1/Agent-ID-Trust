@@ -14,6 +14,7 @@ import {
   deleteAgent,
   validateHandle,
   isHandleAvailable,
+  getHandleReservation,
 } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
@@ -85,6 +86,12 @@ router.post("/", requireAuth, async (req, res, next) => {
     }
 
     const normalizedHandle = handle.toLowerCase();
+
+    const reservation = await getHandleReservation(normalizedHandle);
+    if (reservation.isReserved) {
+      throw new AppError(409, "HANDLE_RESERVED", "This handle is reserved. If you are the legitimate brand owner, please contact support@getagent.id to claim it.");
+    }
+
     const available = await isHandleAvailable(normalizedHandle);
     if (!available) {
       throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod/v4";
 import { AppError } from "../../middlewares/error-handler";
-import { validateHandle, isHandleAvailable } from "../../services/agents";
+import { validateHandle, isHandleAvailable, getHandleReservation } from "../../services/agents";
 
 const router = Router();
 
@@ -34,6 +34,23 @@ router.get("/check", async (req, res, next) => {
     const validationError = validateHandle(normalized);
     if (validationError) {
       res.json({ available: false, handle: normalized, reason: validationError });
+      return;
+    }
+
+    const reservation = await getHandleReservation(normalized);
+    if (reservation.isReserved) {
+      const { annualPrice, tier } = getHandlePrice(normalized);
+      res.json({
+        available: false,
+        handle: normalized,
+        reserved: true,
+        reservedReason: reservation.reservedReason,
+        pricing: {
+          annualPrice,
+          tierLabel: tier.label,
+          description: tier.description,
+        },
+      });
       return;
     }
 

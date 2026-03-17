@@ -35,17 +35,10 @@ export interface UpdateAgentInput {
 }
 
 const HANDLE_RE = /^[a-z0-9][a-z0-9\-]{1,98}[a-z0-9]$/;
-const RESERVED_HANDLES = new Set([
-  "admin", "api", "system", "root", "agent", "agents",
-  "help", "support", "billing", "status", "www",
-]);
 
 export function validateHandle(handle: string): string | null {
   if (!HANDLE_RE.test(handle)) {
     return "Handle must be 3-100 lowercase alphanumeric characters or hyphens, starting and ending with alphanumeric";
-  }
-  if (RESERVED_HANDLES.has(handle)) {
-    return "This handle is reserved";
   }
   return null;
 }
@@ -80,6 +73,17 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
 
 export function invalidateHandleCache(handle: string): void {
   handleCache.delete(handle.toLowerCase());
+}
+
+export async function getHandleReservation(handle: string): Promise<{ isReserved: boolean; reservedReason: string | null }> {
+  const existing = await db.query.agentsTable.findFirst({
+    where: and(ilike(agentsTable.handle, handle), eq(agentsTable.isReserved, true)),
+    columns: { isReserved: true, reservedReason: true },
+  });
+  if (existing) {
+    return { isReserved: true, reservedReason: existing.reservedReason };
+  }
+  return { isReserved: false, reservedReason: null };
 }
 
 export async function createAgent(input: CreateAgentInput): Promise<Agent> {

@@ -79,6 +79,8 @@ export const agentsTable = pgTable(
     ownerUserId: uuid("owner_user_id"),
     ownerVerifiedAt: timestamp("owner_verified_at", { withTimezone: true }),
     ownerVerificationMethod: varchar("owner_verification_method", { length: 50 }),
+    isReserved: boolean("is_reserved").default(false).notNull(),
+    reservedReason: varchar("reserved_reason", { length: 50 }),
     isClaimed: boolean("is_claimed").default(false).notNull(),
     claimedAt: timestamp("claimed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -99,6 +101,9 @@ export const agentsTable = pgTable(
     index("agents_agent_type_idx").on(table.agentType),
     index("agents_ttl_expires_at_idx").on(table.ttlExpiresAt),
     uniqueIndex("agents_stripe_connect_account_id_idx").on(table.stripeConnectAccountId),
+    index("agents_is_reserved_idx")
+      .on(table.isReserved)
+      .where(sql`is_reserved = true`),
   ],
 );
 
