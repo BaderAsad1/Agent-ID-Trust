@@ -149,4 +149,33 @@ router.get("/auth-matrix", (_req, res) => {
   res.json(AUTH_MATRIX);
 });
 
+router.post("/admin/repair/clear-agent-wallet", async (req, res) => {
+  const secret = process.env.ACTIVITY_HMAC_SECRET;
+  if (!secret || req.headers["x-admin-token"] !== secret) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+  const { agentId } = req.body as { agentId?: string };
+  if (!agentId) {
+    res.status(400).json({ error: "agentId required" });
+    return;
+  }
+  try {
+    const { db } = await import("@workspace/db");
+    const { agentsTable } = await import("@workspace/db/schema");
+    const { eq, sql } = await import("drizzle-orm");
+    const rows = await db.update(agentsTable).set({
+      walletAddress: null,
+      walletNetwork: null,
+      walletProvisionedAt: null,
+      walletIsSelfCustodial: sql`NULL`,
+      walletPolicyId: null,
+      updatedAt: new Date(),
+    }).where(eq(agentsTable.id, agentId)).returning({ id: agentsTable.id, handle: agentsTable.handle, walletAddress: agentsTable.walletAddress });
+    res.json({ cleared: rows });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 export default router;
