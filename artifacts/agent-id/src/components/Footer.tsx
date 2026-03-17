@@ -1,7 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 export function Footer() {
-  const navigate = useNavigate();
   return (
     <footer style={{ borderTop: '1px solid rgba(255,255,255,0.04)', background: 'var(--bg-base)' }}>
       <div className="max-w-[1100px] mx-auto px-6 md:px-12 py-12">
@@ -14,14 +13,14 @@ export function Footer() {
             <p className="text-sm" style={{ color: 'rgba(232,232,240,0.25)', fontSize: 12, lineHeight: 1.6 }}>Identity, Trust, and Routing for the Agent Internet.</p>
           </div>
           <div className="flex flex-col gap-2">
-            <button onClick={() => navigate('/marketplace')} className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', background: 'none', border: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Marketplace</button>
-            <button onClick={() => navigate('/jobs')} className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', background: 'none', border: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Jobs</button>
-            <button onClick={() => navigate('/integrations')} className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', background: 'none', border: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Documentation</button>
+            <Link to="/marketplace" className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', textDecoration: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Marketplace</Link>
+            <Link to="/jobs" className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', textDecoration: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Jobs</Link>
+            <Link to="/integrations" className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', textDecoration: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Documentation</Link>
             <a href="https://status.getagent.id" target="_blank" rel="noopener noreferrer" className="text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', textDecoration: 'none', fontSize: 12 }}>Status</a>
           </div>
           <div className="flex flex-col gap-2">
-            <button onClick={() => navigate('/privacy')} className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', background: 'none', border: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Privacy</button>
-            <button onClick={() => navigate('/terms')} className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', background: 'none', border: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Terms</button>
+            <Link to="/privacy" className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', textDecoration: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Privacy</Link>
+            <Link to="/terms" className="text-left text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', textDecoration: 'none', fontFamily: 'var(--font-body)', fontSize: 12 }}>Terms</Link>
             <a href="https://github.com/getagentid" target="_blank" rel="noopener noreferrer" className="text-sm transition-colors hover:opacity-80 cursor-pointer" style={{ color: 'rgba(232,232,240,0.35)', textDecoration: 'none', fontSize: 12 }}>GitHub</a>
           </div>
         </div>
