@@ -3,7 +3,22 @@ import { z } from "zod/v4";
 import { eq, and } from "drizzle-orm";
 import { AppError } from "../../middlewares/error-handler";
 import { validateHandle, isHandleAvailable, getHandleReservation, isHandleReserved } from "../../services/agents";
-import { getHandlePricing, HANDLE_PRICING_TIERS } from "../../services/handle-pricing";
+import { getHandleTier, isHandleReserved as isHandleTierReserved } from "../../services/handle";
+
+function legacyPricingShape(tier: ReturnType<typeof getHandleTier>) {
+  return {
+    tier: tier.tier,
+    annualPriceUsd: tier.annualUsd,
+    annualPriceCents: tier.annualCents,
+    description: `${tier.tier === "premium_3" ? "Ultra-premium 3-char (ENS pricing)" : tier.tier === "premium_4" ? "Premium 4-char (ENS pricing)" : "Standard 5+ char handle"}`,
+  };
+}
+
+const HANDLE_PRICING_TIERS = [
+  { minLength: 3, maxLength: 3, tier: "premium_3", annualPriceUsd: 640, annualPriceCents: 64000, description: "Ultra-premium 3-char (ENS pricing)" },
+  { minLength: 4, maxLength: 4, tier: "premium_4", annualPriceUsd: 160, annualPriceCents: 16000, description: "Premium 4-char (ENS pricing)" },
+  { minLength: 5, maxLength: undefined, tier: "standard_5plus", annualPriceUsd: 10, annualPriceCents: 1000, description: "Standard 5+ char handle" },
+];
 import { requireAuth } from "../../middlewares/replit-auth";
 import { db } from "@workspace/db";
 import { agentsTable, handleAuctionsTable, handleTrademarkClaimsTable } from "@workspace/db/schema";
@@ -45,19 +60,14 @@ router.get("/check", async (req, res, next) => {
 
     const reservation = await getHandleReservation(normalized);
     if (reservation.isReserved) {
-      const pricing = getHandlePricing(normalized);
+      const pricing = legacyPricingShape(getHandleTier(normalized));
       res.json({
         available: false,
         handle: normalized,
         status: "reserved",
         reserved: true,
         reservedReason: reservation.reservedReason,
-        pricing: {
-          tier: pricing.tier,
-          annualPriceUsd: pricing.annualPriceUsd,
-          annualPriceCents: pricing.annualPriceCents,
-          description: pricing.description,
-        },
+        pricing,
       });
       return;
     }
@@ -105,7 +115,7 @@ router.get("/check", async (req, res, next) => {
       return;
     }
 
-    const pricing = getHandlePricing(normalized);
+    const pricing = legacyPricingShape(getHandleTier(normalized));
 
     const pendingClaim = await db
       .select({ id: handleTrademarkClaimsTable.id })
@@ -132,12 +142,10 @@ router.get("/check", async (req, res, next) => {
       available: true,
       handle: normalized,
       status: "available",
-      pricing: {
-        tier: pricing.tier,
-        annualPriceUsd: pricing.annualPriceUsd,
-        annualPriceCents: pricing.annualPriceCents,
-        description: pricing.description,
-      },
+      tier: pricing.tier,
+      annual: pricing.annualPriceCents,
+      annualUsd: pricing.annualPriceUsd,
+      pricing,
     });
   } catch (err) {
     next(err);

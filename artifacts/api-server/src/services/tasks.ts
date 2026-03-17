@@ -100,7 +100,7 @@ export async function submitTask(input: SubmitTaskInput): Promise<Task> {
         const { sendNewTaskEmail } = await import("./email.js");
         await sendNewTaskEmail(
           owner.email,
-          recipientAgent.handle,
+          recipientAgent.handle ?? "",
           recipientAgent.displayName,
           input.taskType,
           task.id,

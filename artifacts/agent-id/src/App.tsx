@@ -29,6 +29,8 @@ import { ClaudeDesktopIntegration } from '@/pages/integrations/ClaudeDesktop';
 import { CursorIntegration } from '@/pages/integrations/Cursor';
 import { VSCodeIntegration } from '@/pages/integrations/VSCode';
 import IssuanceFilm from '@/components/IssuanceFilm';
+import { AgentUUIDProfile } from '@/pages/AgentUUIDProfile';
+import { HandlePurchase } from '@/pages/HandlePurchase';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -98,6 +100,8 @@ function AppContent() {
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/org/:slug" element={<OrgProfile />} />
         <Route path="/u/:handle" element={<HumanProfile />} />
+        <Route path="/id/:agentId" element={<AgentUUIDProfile />} />
+        <Route path="/handle/purchase" element={<HandlePurchase />} />
         <Route path="/v2" element={<Navigate to="/" replace />} />
         <Route path="/:handle" element={<AgentProfile />} />
         <Route path="*" element={<NotFound />} />

@@ -17,17 +17,19 @@ async function getLineageBlock(agent: typeof agentsTable.$inferSelect): Promise<
 
   const parent = await db.query.agentsTable.findFirst({
     where: eq(agentsTable.id, agent.parentAgentId),
-    columns: { handle: true, id: true },
+    columns: { handle: true, id: true, handlePaid: true },
   });
 
   if (!parent) return null;
 
-  const parentHandle = normalizeHandle(parent.handle);
+  const parentHasHandle = parent.handlePaid && parent.handle;
+  const parentHandle = parentHasHandle ? normalizeHandle(parent.handle!) : null;
+  const APP_URL = process.env.APP_URL || 'https://getagent.id';
 
   return {
     parentAgentId: parent.id,
-    parentHandle: parent.handle,
-    parentResolverUrl: formatResolverUrl(parentHandle),
+    parentHandle: parent.handle ?? null,
+    parentResolverUrl: parentHandle ? formatResolverUrl(parentHandle) : `${APP_URL}/api/v1/resolve/id/${parent.id}`,
     lineageDepth: agent.lineageDepth,
     agentType: agent.agentType,
     isEphemeral: agent.agentType === "ephemeral",
@@ -90,13 +92,31 @@ function toResolvedAgent(
   ownerKey: string | null,
   pricing: ({ hasListing: true; priceType: string; priceAmount: string | null; currency: string; deliveryHours: number | null; listingUrl: string } | { hasListing: false }),
 ) {
-  const handle = normalizeHandle(agent.handle);
+  const APP_URL = process.env.APP_URL || 'https://getagent.id';
+  const hasHandle = agent.handlePaid && agent.handle;
+  const handle = hasHandle ? normalizeHandle(agent.handle!) : null;
+
   return {
-    handle: agent.handle,
-    domain: formatDomain(handle),
-    protocolAddress: formatHandle(handle),
-    did: formatDID(handle),
-    resolverUrl: formatResolverUrl(handle),
+    machineIdentity: {
+      agentId: agent.id,
+      did: `did:agentid:${agent.id}`,
+      resolutionUrl: `${APP_URL}/api/v1/resolve/id/${agent.id}`,
+    },
+    handleIdentity: handle ? {
+      handle: agent.handle,
+      domain: formatDomain(handle),
+      protocolAddress: formatHandle(handle),
+      did: formatDID(handle),
+      resolverUrl: formatResolverUrl(handle),
+      profileUrl: formatProfileUrl(handle),
+      erc8004Uri: `${APP_URL}/api/v1/p/${handle}/erc8004`,
+      expiresAt: agent.handleExpiresAt ?? null,
+    } : null,
+    handle: agent.handle ?? null,
+    domain: handle ? formatDomain(handle) : null,
+    protocolAddress: handle ? formatHandle(handle) : null,
+    did: handle ? formatDID(handle) : `did:agentid:${agent.id}`,
+    resolverUrl: handle ? formatResolverUrl(handle) : `${APP_URL}/api/v1/resolve/id/${agent.id}`,
     displayName: agent.displayName,
     description: agent.description,
     endpointUrl: agent.endpointUrl,
@@ -118,12 +138,12 @@ function toResolvedAgent(
     tasksCompleted: agent.tasksCompleted,
     createdAt: agent.createdAt,
     updatedAt: agent.updatedAt,
-    profileUrl: formatProfileUrl(handle),
-    erc8004Uri: `${process.env.APP_URL || 'https://getagent.id'}/api/v1/p/${handle}/erc8004`,
+    profileUrl: handle ? formatProfileUrl(handle) : `${APP_URL}/id/${agent.id}`,
+    erc8004Uri: handle ? `${APP_URL}/api/v1/p/${handle}/erc8004` : null,
     credential: {
       namespace: ".agentid",
-      did: formatDID(handle),
-      domain: formatDomain(handle),
+      did: handle ? formatDID(handle) : `did:agentid:${agent.id}`,
+      domain: handle ? formatDomain(handle) : null,
     },
   };
 }
@@ -211,7 +231,7 @@ router.get("/id/:agentId", async (req: Request, res: Response, next: NextFunctio
     }
 
     const agent = await getAgentById(agentId);
-    if (!agent || agent.verificationStatus !== "verified") {
+    if (!agent) {
       throw new AppError(404, "AGENT_NOT_FOUND", "Agent not found");
     }
 
@@ -256,7 +276,7 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
 
     if (agent.status === "revoked") {
       const APP_URL = process.env.APP_URL || "https://getagent.id";
-      const revokedHandle = normalizeHandle(agent.handle);
+      const revokedHandle = agent.handle ? normalizeHandle(agent.handle) : handle;
       logResolutionEvent(handle, agent.id, "machine", Date.now() - startTime, "NONE");
       res.status(410).json({
         error: "AGENT_REVOKED",

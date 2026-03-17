@@ -1,11 +1,11 @@
-import { eq, and, ilike } from "drizzle-orm";
+import { eq, and, ilike, sql } from "drizzle-orm";
 import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import { agentsTable, usersTable, type Agent } from "@workspace/db/schema";
 
 export interface CreateAgentInput {
   userId: string;
-  handle: string;
+  handle?: string | null;
   displayName: string;
   description?: string;
   endpointUrl?: string;
@@ -175,7 +175,7 @@ export async function createAgent(input: CreateAgentInput): Promise<Agent> {
     .insert(agentsTable)
     .values({
       userId: input.userId,
-      handle: input.handle.toLowerCase(),
+      handle: input.handle ? input.handle.toLowerCase() : sql`NULL`,
       displayName: input.displayName,
       description: input.description,
       endpointUrl: input.endpointUrl,
@@ -187,7 +187,6 @@ export async function createAgent(input: CreateAgentInput): Promise<Agent> {
       isPublic: input.isPublic ?? false,
       metadata: input.metadata,
     })
-    .onConflictDoNothing({ target: agentsTable.handle })
     .returning();
 
   if (result.length === 0) {
@@ -215,7 +214,7 @@ export async function createAgent(input: CreateAgentInput): Promise<Agent> {
     const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, input.userId) });
     if (user?.email) {
       const { sendAgentRegisteredEmail } = await import("./email");
-      await sendAgentRegisteredEmail(user.email, agent.handle, agent.displayName);
+      await sendAgentRegisteredEmail(user.email, agent.handle ?? "", agent.displayName);
     }
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : err, agentId: agent.id }, "[agents] Failed to send registration email for agent");
@@ -277,7 +276,7 @@ export async function updateAgent(
     try {
       const { deleteResolutionCache } = await import("../routes/v1/resolve");
       const { normalizeHandle } = await import("../utils/handle");
-      await deleteResolutionCache(normalizeHandle(updated.handle));
+      await deleteResolutionCache(normalizeHandle(updated.handle ?? ""));
     } catch {}
   }
 
@@ -332,7 +331,7 @@ export async function deleteAgent(
         columns: { handle: true },
       });
       if (agent) {
-        await deleteResolutionCache(normalizeHandle(agent.handle));
+        await deleteResolutionCache(normalizeHandle(agent.handle ?? ""));
       }
     } catch {}
   }

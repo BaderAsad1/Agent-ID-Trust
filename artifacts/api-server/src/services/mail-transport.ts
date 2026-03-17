@@ -260,7 +260,7 @@ async function enrichEnvelopeWithAgentInfo(envelope: TransportEnvelope): Promise
       columns: { handle: true, trustScore: true },
     });
     if (agent) {
-      envelope.agentHandle = envelope.agentHandle || agent.handle;
+      envelope.agentHandle = envelope.agentHandle || agent.handle || undefined;
       envelope.agentTrustScore = envelope.agentTrustScore ?? agent.trustScore;
     }
   } catch (err) {

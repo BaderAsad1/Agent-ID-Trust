@@ -19,7 +19,7 @@ export interface TransferBlocker {
 
 export interface TransferReadinessReport {
   agentId: string;
-  handle: string;
+  handle: string | null;
   isReady: boolean;
   blockers: TransferBlocker[];
   assets: {
@@ -132,7 +132,7 @@ export async function generateReadinessReport(agentId: string): Promise<Transfer
 
   return {
     agentId,
-    handle: agent.handle,
+    handle: agent.handle ?? null,
     isReady: blockers.length === 0,
     blockers,
     assets: {

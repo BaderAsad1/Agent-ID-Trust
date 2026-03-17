@@ -58,7 +58,7 @@ export async function createAgentKey(
       const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, agent.userId) });
       if (user?.email) {
         const { sendCredentialIssuedEmail } = await import("./email");
-        await sendCredentialIssuedEmail(user.email, agent.handle, input.keyType);
+        await sendCredentialIssuedEmail(user.email, agent.handle ?? "", input.keyType);
       }
     }
   } catch (err) {

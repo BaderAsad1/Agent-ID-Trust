@@ -138,7 +138,7 @@ export async function verifyChallenge(
         const { sendVerificationCompleteEmail } = await import("./email.js");
         await sendVerificationCompleteEmail(
           user.email,
-          fullAgent.handle,
+          fullAgent.handle ?? "",
           fullAgent.displayName,
           "key_challenge",
         );
@@ -156,7 +156,7 @@ export async function verifyChallenge(
     if (agentForCache) {
       const { deleteResolutionCache } = await import("../routes/v1/resolve");
       const { normalizeHandle } = await import("../utils/handle");
-      await deleteResolutionCache(normalizeHandle(agentForCache.handle));
+      await deleteResolutionCache(normalizeHandle(agentForCache.handle ?? ""));
     }
   } catch {}
 
@@ -180,7 +180,7 @@ export async function initiateVerification(
     if (agent) {
       const { deleteResolutionCache } = await import("../routes/v1/resolve");
       const { normalizeHandle } = await import("../utils/handle");
-      await deleteResolutionCache(normalizeHandle(agent.handle));
+      await deleteResolutionCache(normalizeHandle(agent.handle ?? ""));
     }
   } catch {}
 

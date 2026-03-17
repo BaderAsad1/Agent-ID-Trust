@@ -85,7 +85,7 @@ export function verificationCompleteTemplate(params: {
 }
 
 export function newMessageReceivedTemplate(params: {
-  handle: string;
+  handle: string | undefined;
   messageCount: number;
   senders: string[];
   subjects: string[];
@@ -214,7 +214,7 @@ export function planUpgradeConfirmedTemplate(params: {
 const MESSAGE_BATCH_INTERVAL_MS = 5 * 60 * 1000;
 
 interface PendingNotification {
-  handle: string;
+  handle: string | undefined;
   recipientEmail: string;
   senderAddress: string;
   subject: string;
@@ -226,7 +226,7 @@ const pendingBatches = new Map<string, PendingNotification>();
 
 export function queueMessageNotification(
   agentId: string,
-  handle: string,
+  handle: string | undefined,
   recipientEmail: string,
   senderAddress: string,
   subject: string,

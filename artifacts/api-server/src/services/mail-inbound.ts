@@ -334,7 +334,7 @@ export async function routeInboundEmail(parsed: ParsedInboundEmail): Promise<{
           if (owner?.email) {
             const config = env();
             const agentId = targetInbox.agentId;
-            const agentHandle = agent.handle;
+            const agentHandle = agent.handle ?? undefined;
             const agentTrustScore = agent.trustScore;
             queueMessageNotification(
               agentId,

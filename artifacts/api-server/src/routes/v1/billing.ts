@@ -5,6 +5,7 @@ import { AppError } from "../../middlewares/error-handler";
 import { validateUuidParam } from "../../middlewares/validation";
 import {
   getUserSubscriptions,
+  getUserPlan,
   getAgentBillingStatus,
   activateAgent,
   deactivateAgent,
@@ -24,9 +25,8 @@ router.get("/plans", (req, res) => {
   const e = process.env;
   res.json({
     launchMode: e.LAUNCH_MODE === "true",
-    marketplaceFee: 2.5,
-    marketplaceFeeBps: 250,
-    plans: [
+    plans: ["starter", "pro", "enterprise"],
+    planDetails: [
       {
         id: "starter",
         name: "Starter",
@@ -36,9 +36,8 @@ router.get("/plans", (req, res) => {
           yearly: e.STRIPE_PRICE_STARTER_YEARLY ?? null,
         },
         agentLimit: 5,
-        rateLimit: { requestsPerMinute: 1000 },
-        features: ["5 agents", "1,000 req/min", ".agentid address", "5+ char handle included", "Marketplace listing", "Trust score", "Email support"],
-        cta: "Get started",
+        features: ["5 agents", "Inbox access", "Tasks", "Handle (5+ chars, $10/yr)", "Trust score", "Email support"],
+        cta: "Start for $29/mo",
         popular: false,
       },
       {
@@ -50,28 +49,27 @@ router.get("/plans", (req, res) => {
           yearly: e.STRIPE_PRICE_PRO_YEARLY ?? null,
         },
         agentLimit: 25,
-        rateLimit: { requestsPerMinute: 5000 },
-        features: ["25 agents", "5,000 req/min", "Fleet management", "Advanced trust verification", "Priority marketplace placement", "Custom domains", "Analytics", "Priority support"],
+        features: ["25 agents", "Fleet management", "Analytics dashboard", "Custom domains", "Priority support"],
         cta: "Go Pro",
         popular: true,
       },
       {
         id: "enterprise",
         name: "Enterprise",
-        tailored: true,
-        contactEmail: "sales@getagent.id",
+        price: { monthly: null, yearly: null },
+        priceIds: { monthly: null, yearly: null },
         agentLimit: null,
-        rateLimit: { requestsPerMinute: null, note: "tailored" },
-        features: ["Custom agent count", "Tailored rate limits", "Dedicated infrastructure", "Organization namespaces", "SLA guarantee", "Enterprise support", "Custom integrations"],
-        cta: "Contact us",
+        features: ["Unlimited agents", "SLA guarantee", "Dedicated support", "Custom integrations", "Enterprise contract"],
+        cta: "Contact sales",
         popular: false,
+        contactUrl: "mailto:enterprise@getagent.id",
       },
     ],
     handlePricing: [
-      { minLength: 1, maxLength: 2, tier: "reserved", isReserved: true, annualUsd: null },
-      { minLength: 3, maxLength: 3, tier: "ultra-premium", isReserved: false, annualUsd: 640, annualCents: 64000, note: "On-chain NFT on Base" },
-      { minLength: 4, maxLength: 4, tier: "premium", isReserved: false, annualUsd: 160, annualCents: 16000, note: "On-chain NFT on Base" },
-      { minLength: 5, maxLength: null, tier: "standard", isReserved: false, annualUsd: 10, annualCents: 1000, isFreeWithPlan: true },
+      { tier: "reserved_1_2", chars: "1-2", annualUsd: null, annualCents: null, note: "Reserved" },
+      { tier: "premium_3", chars: "3", annualUsd: 640, annualCents: 64000, note: "On-chain premium" },
+      { tier: "premium_4", chars: "4", annualUsd: 160, annualCents: 16000, note: "On-chain premium" },
+      { tier: "standard_5plus", chars: "5+", annualUsd: 10, annualCents: 1000, note: "Free with active plan" },
     ],
   });
 });
@@ -79,7 +77,8 @@ router.get("/plans", (req, res) => {
 router.get("/subscription", requireAuth, async (req, res, next) => {
   try {
     const activeSub = await getActiveUserSubscription(req.userId!);
-    const plan = activeSub?.plan ?? "none";
+    const rawPlan = activeSub?.plan ?? "none";
+    const plan = (rawPlan === "free" || rawPlan === "builder") ? (rawPlan === "builder" ? "starter" : "none") : (rawPlan === "team" ? "pro" : rawPlan);
     const limits = getPlanLimits(plan);
 
     res.json({
@@ -104,13 +103,12 @@ router.get("/subscription", requireAuth, async (req, res, next) => {
 router.get("/subscriptions", requireAuth, async (req, res, next) => {
   try {
     const subs = await getUserSubscriptions(req.userId!);
-    const activeSub = await getActiveUserSubscription(req.userId!);
-    const plan = activeSub?.plan ?? "none";
+    const currentPlan = await getUserPlan(req.userId!);
 
     res.json({
       subscriptions: subs,
-      currentPlan: plan,
-      limits: getPlanLimits(plan),
+      currentPlan,
+      limits: getPlanLimits(currentPlan),
     });
   } catch (err) {
     next(err);
@@ -131,7 +129,7 @@ router.post("/checkout", requireAuth, async (req, res, next) => {
     const APP_URL = process.env.APP_URL || "https://getagent.id";
 
     const resolvedPriceId = body.priceId
-      ?? getPriceIdFromPlan(body.plan ?? "starter", body.billingInterval);
+      ?? (body.plan ? getPriceIdFromPlan(body.plan, body.billingInterval) : undefined);
     const resolvedPlan = body.plan ?? "starter";
     const successUrl = body.successUrl ?? `${APP_URL}/dashboard?upgraded=true`;
     const cancelUrl = body.cancelUrl ?? `${APP_URL}/pricing`;
@@ -234,6 +232,7 @@ router.post("/cancel", requireAuth, async (req, res, next) => {
 
 const handleCheckoutSchema = z.object({
   handle: z.string().min(3).max(100),
+  agentId: z.string().uuid().optional(),
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
 });
@@ -248,6 +247,7 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
       normalizedHandle,
       body.successUrl,
       body.cancelUrl,
+      body.agentId,
     );
 
     if (result.error) {

@@ -324,7 +324,8 @@ export function Start() {
 
 
   if (showSuccess) {
-    const { annualPrice } = handle ? getHandlePrice(handle) : { annualPrice: 0 };
+    const { annualPrice: annualPriceRaw } = handle ? getHandlePrice(handle) : { annualPrice: 0 };
+    const annualPrice = annualPriceRaw ?? 0;
     return (
       <div style={shell}>
         <div style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
@@ -524,7 +525,8 @@ export function Start() {
               </FieldGroup>
 
               {handle && (() => {
-                const { annualPrice, tier } = getHandlePrice(handle);
+                const { annualPrice: rawAnnualPrice, tier } = getHandlePrice(handle);
+                const annualPrice = rawAnnualPrice ?? 0;
                 const isUltraPremium = annualPrice >= 640;
                 const isPremium = annualPrice >= 160 && annualPrice < 640;
                 const priceLabel = isUltraPremium ? `$${annualPrice}/yr — Ultra-premium` : isPremium ? `$${annualPrice}/yr — Premium` : 'Included — Standard';

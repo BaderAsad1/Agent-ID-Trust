@@ -1,6 +1,6 @@
 export interface PricingPlan {
   name: string;
-  price: string;
+  price: string | null;
   yearlyPrice?: string;
   period: string;
   description: string;
@@ -8,8 +8,7 @@ export interface PricingPlan {
   cta: string;
   variant: 'blue' | 'purple' | 'ghost' | 'danger';
   highlight: boolean;
-  enterprise?: boolean;
-  contactEmail?: string;
+  contactOnly?: boolean;
 }
 
 export const PRICING_PLANS: PricingPlan[] = [
@@ -18,17 +17,16 @@ export const PRICING_PLANS: PricingPlan[] = [
     price: '$29',
     yearlyPrice: '$290',
     period: '/ month',
-    description: 'For individual operators launching their first agents.',
+    description: 'For operators launching their first agent.',
     features: [
-      'Up to 5 agents',
-      '1,000 req/min rate limit',
-      '.agentid address included',
-      '5+ char handle included ($10/yr value)',
-      'Marketplace listing',
+      '5 agents',
+      'Inbox access',
+      'Tasks & messaging',
+      '5+ char handle ($10/yr)',
       'Trust score & verification',
       'Email support',
     ],
-    cta: 'Get started',
+    cta: 'Start for $29/mo',
     variant: 'ghost',
     highlight: false,
   },
@@ -48,28 +46,27 @@ export const PRICING_PLANS: PricingPlan[] = [
       'Analytics',
       'Priority support',
     ],
-    cta: 'Upgrade to Pro',
+    cta: 'Go Pro',
     variant: 'blue',
     highlight: true,
   },
   {
     name: 'Enterprise',
-    price: 'Tailored',
+    price: null,
     period: '',
-    description: 'Custom agent count, rate limits, and pricing per your needs.',
+    description: 'For large-scale deployments and enterprise teams.',
     features: [
-      'Custom agent count',
-      'Tailored rate limits',
-      'Dedicated infrastructure',
+      'Unlimited agents',
       'SLA guarantee',
       'Enterprise support',
       'Custom integrations',
+      'Enterprise contract',
+      'Custom pricing',
     ],
-    cta: 'Contact us',
+    cta: 'Contact Sales',
     variant: 'ghost',
     highlight: false,
-    enterprise: true,
-    contactEmail: 'sales@getagent.id',
+    contactOnly: true,
   },
 ];
 
@@ -77,28 +74,47 @@ export interface HandlePricingTier {
   minLength: number;
   maxLength: number;
   label: string;
-  annualPrice: number;
+  annualPrice: number | null;
   description: string;
-  reserved?: boolean;
+  onchain?: boolean;
 }
 
 export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
-  { minLength: 1, maxLength: 2, label: '1-2 characters', annualPrice: 0, description: 'Reserved — not available', reserved: true },
-  { minLength: 3, maxLength: 3, label: '3 characters', annualPrice: 640, description: 'Ultra-premium, scarce namespace · on-chain NFT on Base' },
-  { minLength: 4, maxLength: 4, label: '4 characters', annualPrice: 160, description: 'Premium short handle · on-chain NFT on Base' },
-  { minLength: 5, maxLength: 100, label: '5+ characters', annualPrice: 10, description: 'Standard handle · included free with any active plan' },
+  {
+    minLength: 3,
+    maxLength: 3,
+    label: '3 characters',
+    annualPrice: 640,
+    description: 'Ultra-premium on-chain handle — ENS-exact pricing',
+    onchain: true,
+  },
+  {
+    minLength: 4,
+    maxLength: 4,
+    label: '4 characters',
+    annualPrice: 160,
+    description: 'Premium on-chain handle — ENS-exact pricing',
+    onchain: true,
+  },
+  {
+    minLength: 5,
+    maxLength: 100,
+    label: '5+ characters',
+    annualPrice: 10,
+    description: 'Standard handle — free with any active plan',
+  },
 ];
 
-export function getHandlePrice(handle: string): { annualPrice: number; tier: HandlePricingTier } {
+export function getHandlePrice(handle: string): { annualPrice: number | null; tier: HandlePricingTier } {
   const len = handle.replace(/[^a-z0-9]/g, '').length;
   const tier = HANDLE_PRICING_TIERS.find(t => len >= t.minLength && len <= t.maxLength)
-    || HANDLE_PRICING_TIERS[HANDLE_PRICING_TIERS.length - 1];
-  return { annualPrice: tier.reserved ? 0 : tier.annualPrice, tier };
+    ?? HANDLE_PRICING_TIERS[HANDLE_PRICING_TIERS.length - 1];
+  return { annualPrice: tier.annualPrice, tier };
 }
 
 export function formatHandlePrice(handle: string): string {
-  const { annualPrice, tier } = getHandlePrice(handle);
-  if (tier.reserved) return 'Reserved';
+  const { annualPrice } = getHandlePrice(handle);
+  if (annualPrice === null) return 'Reserved';
   return `$${annualPrice}/yr`;
 }
 

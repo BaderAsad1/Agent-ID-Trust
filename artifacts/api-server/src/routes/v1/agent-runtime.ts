@@ -81,18 +81,27 @@ async function buildBootstrapBundle(agent: Agent) {
 
   const trustImprovementTips = getTrustImprovementTips(trust.trustBreakdown ?? {}, agent);
 
+  const hasHandle = agent.handlePaid && agent.handle;
+  const handleIdentity = hasHandle
+    ? {
+        handle: agent.handle,
+        protocol_address: `${agent.handle}.agentid`,
+        erc8004_uri: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
+        public_profile_url: `${APP_URL}/${agent.handle}`,
+        handle_expires_at: agent.handleExpiresAt ?? null,
+        handle_tier: agent.handleTier ?? null,
+      }
+    : null;
+
   const bundle: Record<string, unknown> = {
     spec_version: SPEC_VERSION,
-    agent_id: agent.id,
-    handle: agent.handle,
+    machine_identity: {
+      agent_id: agent.id,
+      did: `did:agentid:${agent.id}`,
+      uuid_resolution_url: `${APP_URL}/api/v1/resolve/id/${agent.id}`,
+    },
+    handle_identity: handleIdentity,
     display_name: agent.displayName,
-    did: `did:agentid:${agent.handle}`,
-    protocol_address: `${agent.handle}.agentid`,
-    protocolAddress: `${agent.handle}.agentid`,
-    erc8004_uri: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
-    erc8004Uri: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
-    provisional_domain: `${agent.handle.toLowerCase()}.getagent.id`,
-    public_profile_url: `/api/v1/public/agents/${agent.handle}`,
     inbox_id: effectiveInbox?.id || null,
     inbox_address: effectiveInbox?.address || null,
     inbox_poll_endpoint: effectiveInbox ? inboxPollEndpoint(agent.id) : null,
@@ -116,7 +125,6 @@ async function buildBootstrapBundle(agent: Agent) {
     })),
     status: agent.status,
     prompt_block: promptBlock,
-    uuid_resolution_url: `${APP_URL}/api/v1/resolve/id/${agent.id}`,
     claim_url: claimUrl,
     is_owned: !!agent.isClaimed,
   };
@@ -153,11 +161,9 @@ Send message:   POST ${APP_URL}/api/v1/mail/agents/${agent.id}/messages
   Body: { "recipientAddress": "<addr>", "subject": "...", "body": "...", "direction": "outbound", "senderType": "agent" }`
     : `Inbox: not available — upgrade at ${APP_URL}/pricing`;
 
-  return `=== AGENT ID IDENTITY ===
-Name:             ${agent.displayName}
-Handle:           ${agent.handle}.agentID
-DID:              did:agentid:${agent.handle}
-Agent ID:         ${agent.id}
+  const hasHandle = agent.handlePaid && agent.handle;
+  const handleSection = hasHandle
+    ? `Handle (alias):   @${agent.handle}.agentID
 Protocol Address: ${agent.handle}.agentid
 Trust Score:      ${trust.trustScore} / 100
 Trust Tier:       ${trust.trustTier}
@@ -169,6 +175,22 @@ Resolve by UUID:   GET ${APP_URL}/api/v1/resolve/id/${agent.id}
 Resolve by handle: GET ${APP_URL}/api/v1/resolve/${agent.handle}
 Public profile:    ${APP_URL}/${agent.handle}
 ERC-8004 export:   ${APP_URL}/api/v1/p/${agent.handle}/erc8004
+Handle expires:   ${agent.handleExpiresAt ? agent.handleExpiresAt.toISOString().split('T')[0] : 'N/A'}`
+    : `Handle:           none — purchase at ${APP_URL}/handle/purchase?agentId=${agent.id}`;
+
+  return `=== AGENT ID IDENTITY ===
+Name:             ${agent.displayName}
+Machine ID:       ${agent.id}  (permanent, never expires)
+DID:              did:agentid:${agent.id}
+Trust Score:      ${trust.trustScore} / 100
+Trust Tier:       ${trust.trustTier}
+Verification:     ${agent.verificationStatus}
+Plan:             ${planName && planName !== 'none' ? planName : 'no active plan — upgrade at ' + APP_URL + '/pricing'}
+
+${handleSection}
+
+=== RESOLUTION ===
+Resolve by UUID:   GET ${APP_URL}/api/v1/resolve/id/${agent.id}
 
 === MAIL ===
 ${inboxSection}
@@ -233,12 +255,22 @@ function buildPromptBlockJson(
 ): Record<string, unknown> {
   const scopes = (agent.scopes as string[]) || [];
 
+  const hasHandleJson = agent.handlePaid && agent.handle;
+
   return {
     agent_name: agent.displayName,
-    handle: `@${agent.handle}`,
     agent_id: agent.id,
-    protocol_address: `${agent.handle}.agentid`,
-    public_profile_url: `/api/v1/public/agents/${agent.handle}`,
+    machine_identity: {
+      did: `did:agentid:${agent.id}`,
+      uuid: agent.id,
+    },
+    handle_identity: hasHandleJson
+      ? {
+          handle: `@${agent.handle}`,
+          protocol_address: `${agent.handle}.agentid`,
+          public_profile_url: `/api/v1/public/agents/${agent.handle}`,
+        }
+      : null,
     inbox_address: inbox?.address || null,
     trust_tier: trust.trustTier,
     capabilities,
@@ -413,8 +445,11 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
       server_time: now.toISOString(),
       next_expected_heartbeat: new Date(now.getTime() + HEARTBEAT_INTERVAL_SECONDS * 1000).toISOString(),
       identity: {
-        handle: `${current.handle}.agentID`,
-        did: `did:agentid:${current.handle}`,
+        agent_id: current.id,
+        did: `did:agentid:${current.id}`,
+        handle: current.handlePaid && current.handle
+          ? `${current.handle}.agentID`
+          : null,
         trustScore: trust.trustScore,
         trustTier: trust.trustTier,
         verificationStatus: current.verificationStatus,

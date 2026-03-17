@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { getHandleTier } from "./handle";
 import { db } from "@workspace/db";
 import { logger } from "../middlewares/request-logger";
 import {
@@ -15,29 +16,38 @@ import {
 
 const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
 
-const MARKETPLACE_FEE_BPS = 250;
+export const MARKETPLACE_FEE_BPS = 250;
 
 const PLAN_LIMITS: Record<string, { maxPublicAgents: number; maxPrivateAgents: number; agentLimit: number; maxSubagents: number }> = {
   none: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
   starter: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
   pro: { maxPublicAgents: 25, maxPrivateAgents: 25, agentLimit: 25, maxSubagents: 100 },
   enterprise: { maxPublicAgents: 999, maxPrivateAgents: 999, agentLimit: 999, maxSubagents: 9999 },
+  free: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
 };
 
 const PLAN_PRICES: Record<string, Record<string, number>> = {
   starter: { monthly: 2900, yearly: 29000 },
   pro: { monthly: 7900, yearly: 79000 },
+  enterprise: { monthly: 0, yearly: 0 },
 };
 
-import { getHandlePricing as _getHandlePricingService } from "./handle-pricing";
+export const ENS_HANDLE_PRICING = [
+  { minLength: 3, maxLength: 3, tier: "premium_3", annualCents: 64000, annualUsd: 640 },
+  { minLength: 4, maxLength: 4, tier: "premium_4", annualCents: 16000, annualUsd: 160 },
+  { minLength: 5, maxLength: Infinity, tier: "standard_5plus", annualCents: 1000, annualUsd: 10 },
+];
 
 export function getHandlePriceCents(handle: string): number {
-  return _getHandlePricingService(handle).annualPriceCents;
+  const len = handle.replace(/[^a-z0-9]/g, "").length;
+  const tier = ENS_HANDLE_PRICING.find(t => len >= t.minLength && len <= t.maxLength)
+    ?? ENS_HANDLE_PRICING[ENS_HANDLE_PRICING.length - 1];
+  return tier.annualCents;
 }
 
-export { MARKETPLACE_FEE_BPS };
-
-type PlanType = "none" | "starter" | "pro" | "enterprise";
+type DbPlanType = "free" | "starter" | "builder" | "pro" | "team" | "enterprise";
+type AppPlanType = "starter" | "pro" | "enterprise" | "none";
+type PlanType = DbPlanType | "none";
 type SubStatus = "active" | "past_due" | "cancelled" | "paused" | "trialing";
 type BillingInterval = "monthly" | "yearly";
 
@@ -46,6 +56,9 @@ import { getStripe } from "./stripe-client";
 
 export function getPlanLimits(plan: string) {
   const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.none;
+  const isPaid = plan !== "none" && plan !== "free";
+  const isProOrAbove = plan === "pro" || plan === "enterprise";
+  const isEnterprise = plan === "enterprise";
   return {
     plan,
     agentLimit: LAUNCH_MODE ? 999 : limits.agentLimit,
@@ -53,27 +66,28 @@ export function getPlanLimits(plan: string) {
     maxPublicAgents: LAUNCH_MODE ? 999 : limits.maxPublicAgents,
     maxPrivateAgents: LAUNCH_MODE ? 999 : limits.maxPrivateAgents,
     maxSubagents: LAUNCH_MODE ? 999 : limits.maxSubagents,
-    publicResolution: LAUNCH_MODE || plan !== "none",
+    publicResolution: LAUNCH_MODE || isPaid,
     canReceiveMail: true,
-    canBePublic: LAUNCH_MODE || plan !== "none",
-    canListOnMarketplace: LAUNCH_MODE || plan === "starter" || plan === "pro" || plan === "enterprise",
-    marketplaceListing: LAUNCH_MODE || plan === "starter" || plan === "pro" || plan === "enterprise",
-    canUsePremiumRouting: LAUNCH_MODE || plan === "pro" || plan === "enterprise",
-    premiumRouting: LAUNCH_MODE || plan === "pro" || plan === "enterprise",
-    canUseAdvancedAuth: LAUNCH_MODE || plan === "pro" || plan === "enterprise",
-    analyticsAccess: LAUNCH_MODE || plan === "pro" || plan === "enterprise",
-    customDomain: plan === "pro" || plan === "enterprise",
-    canUseTeamFeatures: plan === "enterprise",
+    canBePublic: LAUNCH_MODE || isPaid,
+    canListOnMarketplace: LAUNCH_MODE || isPaid,
+    marketplaceListing: LAUNCH_MODE || isPaid,
+    canUsePremiumRouting: LAUNCH_MODE || isProOrAbove,
+    premiumRouting: LAUNCH_MODE || isProOrAbove,
+    canUseAdvancedAuth: LAUNCH_MODE || isProOrAbove,
+    analyticsAccess: LAUNCH_MODE || isProOrAbove,
+    customDomain: isProOrAbove,
+    canUseTeamFeatures: isEnterprise,
     fleetManagement: plan === "pro" || plan === "enterprise",
-    includesStandardHandle: LAUNCH_MODE || plan === "starter" || plan === "pro" || plan === "enterprise",
-    supportLevel: plan === "enterprise" ? "sla" : plan === "pro" ? "priority" : plan === "starter" ? "email" : "community",
+    includesStandardHandle: LAUNCH_MODE || isPaid,
+    inboxAccess: LAUNCH_MODE || isPaid,
+    tasksAccess: LAUNCH_MODE || isPaid,
+    supportLevel: isEnterprise ? "sla" : isProOrAbove ? "priority" : isPaid ? "email" : "community",
     launchMode: LAUNCH_MODE,
   };
 }
 
 export async function getUserPlanLimits(userId: string) {
-  const sub = await getActiveUserSubscription(userId);
-  const plan = sub?.plan ?? "none";
+  const plan = await getUserPlan(userId);
   return getPlanLimits(plan);
 }
 
@@ -123,7 +137,7 @@ export async function handleSubscriptionCreatedOrUpdated(subscription: Stripe.Su
 
   const priceId = subscription.items.data[0]?.price.id;
   const plan = getPlanFromPriceId(priceId ?? "") as PlanType;
-  const resolvedPlan = (plan === "none" ? "starter" : plan) as PlanType;
+  const resolvedPlan = (plan === "free" || (plan as string) === "none") ? "starter" : plan;
   const billingInterval: BillingInterval = subscription.items.data[0]?.price.recurring?.interval === "year" ? "yearly" : "monthly";
   const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id ?? null;
 
@@ -193,7 +207,12 @@ export async function getActiveUserSubscription(userId: string): Promise<Subscri
 
 export async function getUserPlan(userId: string): Promise<string> {
   const sub = await getActiveUserSubscription(userId);
-  return sub?.plan ?? "none";
+  if (!sub) return "none";
+  const plan = sub.plan;
+  if (plan === "free" || (plan as string) === "none") return "none";
+  if (plan === "builder") return "starter";
+  if (plan === "team") return "pro";
+  return plan;
 }
 
 export async function getAgentPlan(agentId: string): Promise<string> {
@@ -203,6 +222,186 @@ export async function getAgentPlan(agentId: string): Promise<string> {
   });
   if (!agent) return "none";
   return getUserPlan(agent.userId);
+}
+
+export async function activatePlanForAgent(agentId: string, plan: string, billingInterval: BillingInterval = "monthly"): Promise<void> {
+  const period = { start: new Date(), end: new Date() };
+  if (billingInterval === "yearly") {
+    period.end.setFullYear(period.end.getFullYear() + 1);
+  } else {
+    period.end.setMonth(period.end.getMonth() + 1);
+  }
+
+  await db.update(agentsTable).set({
+    planTier: plan,
+    inboxActive: true,
+    apiAccess: true,
+    updatedAt: new Date(),
+  }).where(eq(agentsTable.id, agentId));
+
+  const agent = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.id, agentId),
+    columns: { userId: true },
+  });
+  if (!agent) return;
+
+  const existingSub = await db.select().from(agentSubscriptionsTable)
+    .where(and(eq(agentSubscriptionsTable.agentId, agentId), eq(agentSubscriptionsTable.status, "active")))
+    .limit(1);
+
+  if (existingSub.length > 0) {
+    await db.update(agentSubscriptionsTable).set({
+      plan: plan as PlanType,
+      billingInterval,
+      currentPeriodStart: period.start,
+      currentPeriodEnd: period.end,
+      updatedAt: new Date(),
+    }).where(eq(agentSubscriptionsTable.id, existingSub[0].id));
+  } else {
+    await db.insert(agentSubscriptionsTable).values({
+      agentId,
+      userId: agent.userId,
+      plan: plan as PlanType,
+      status: "active",
+      provider: "stripe",
+      billingInterval,
+      currentPeriodStart: period.start,
+      currentPeriodEnd: period.end,
+    });
+  }
+}
+
+export async function activatePlanForUser(userId: string, plan: string, subscriptionId?: string, billingInterval: BillingInterval = "monthly"): Promise<void> {
+  const period = { start: new Date(), end: new Date() };
+  if (billingInterval === "yearly") {
+    period.end.setFullYear(period.end.getFullYear() + 1);
+  } else {
+    period.end.setMonth(period.end.getMonth() + 1);
+  }
+
+  await db.update(usersTable).set({ plan: plan as PlanType, updatedAt: new Date() }).where(eq(usersTable.id, userId));
+
+  const existingSub = await db.select().from(subscriptionsTable)
+    .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+    .limit(1);
+
+  if (existingSub.length > 0) {
+    await db.update(subscriptionsTable).set({
+      plan: plan as PlanType,
+      providerSubscriptionId: subscriptionId ?? existingSub[0].providerSubscriptionId,
+      billingInterval,
+      currentPeriodStart: period.start,
+      currentPeriodEnd: period.end,
+      updatedAt: new Date(),
+    }).where(eq(subscriptionsTable.id, existingSub[0].id));
+  } else {
+    await db.insert(subscriptionsTable).values({
+      userId,
+      plan: plan as PlanType,
+      status: "active",
+      provider: "stripe",
+      providerSubscriptionId: subscriptionId ?? null,
+      billingInterval,
+      currentPeriodStart: period.start,
+      currentPeriodEnd: period.end,
+    });
+  }
+
+  await db.update(agentSubscriptionsTable).set({
+    plan: plan as PlanType,
+    billingInterval,
+    currentPeriodStart: period.start,
+    currentPeriodEnd: period.end,
+    updatedAt: new Date(),
+  }).where(and(eq(agentSubscriptionsTable.userId, userId), eq(agentSubscriptionsTable.status, "active")));
+}
+
+export async function deactivatePlanForUser(userId: string): Promise<void> {
+  await db.update(usersTable).set({ plan: "free" as PlanType, updatedAt: new Date() }).where(eq(usersTable.id, userId));
+  await db.update(subscriptionsTable).set({ status: "cancelled", updatedAt: new Date() })
+    .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")));
+  await enforceAgentLimitsForUser(userId, "free");
+}
+
+export async function createPlanCheckout(
+  userId: string,
+  plan: "starter" | "pro",
+  billingInterval: BillingInterval,
+  successUrl: string,
+  cancelUrl: string,
+): Promise<{ url: string | null; error?: string }> {
+  return createCheckoutSession(userId, plan, billingInterval, successUrl, cancelUrl);
+}
+
+export async function createHandleCheckout(
+  userId: string,
+  handle: string,
+  successUrl: string,
+  cancelUrl: string,
+): Promise<{ url: string | null; error?: string; priceCents: number }> {
+  const result = await createHandleCheckoutSession(userId, handle, successUrl, cancelUrl);
+  return { url: result.url, error: result.error, priceCents: result.priceCents };
+}
+
+export async function getPortalUrl(userId: string): Promise<string> {
+  return getCustomerPortalUrl(userId);
+}
+
+export async function setupStripeProducts(): Promise<void> {
+  const stripe = getStripe();
+  const APP_URL = process.env.APP_URL || "https://getagent.id";
+
+  logger.info("[billing] Setting up Stripe products for Starter and Pro plans");
+
+  const starterProduct = await stripe.products.create({
+    name: "Agent ID Starter",
+    description: "Starter plan — 5 agents, inbox, tasks",
+    metadata: { plan: "starter" },
+  });
+
+  await stripe.prices.create({
+    product: starterProduct.id,
+    unit_amount: 2900,
+    currency: "usd",
+    recurring: { interval: "month" },
+    metadata: { plan: "starter", interval: "monthly" },
+    nickname: "Starter Monthly",
+  });
+
+  await stripe.prices.create({
+    product: starterProduct.id,
+    unit_amount: 29000,
+    currency: "usd",
+    recurring: { interval: "year" },
+    metadata: { plan: "starter", interval: "yearly" },
+    nickname: "Starter Yearly",
+  });
+
+  const proProduct = await stripe.products.create({
+    name: "Agent ID Pro",
+    description: "Pro plan — 25 agents, fleet, analytics",
+    metadata: { plan: "pro" },
+  });
+
+  await stripe.prices.create({
+    product: proProduct.id,
+    unit_amount: 7900,
+    currency: "usd",
+    recurring: { interval: "month" },
+    metadata: { plan: "pro", interval: "monthly" },
+    nickname: "Pro Monthly",
+  });
+
+  await stripe.prices.create({
+    product: proProduct.id,
+    unit_amount: 79000,
+    currency: "usd",
+    recurring: { interval: "year" },
+    metadata: { plan: "pro", interval: "yearly" },
+    nickname: "Pro Yearly",
+  });
+
+  logger.info("[billing] Stripe products created. Add price IDs to STRIPE_PRICE_STARTER_MONTHLY, STRIPE_PRICE_STARTER_YEARLY, STRIPE_PRICE_PRO_MONTHLY, STRIPE_PRICE_PRO_YEARLY env vars.");
 }
 
 export async function getAgentSubscription(agentId: string): Promise<AgentSubscription | null> {
@@ -225,7 +424,8 @@ export async function getAgentBillingStatus(agentId: string, userId: string) {
 
   const agentSub = await getAgentSubscription(agentId);
   const userSub = await getActiveUserSubscription(userId);
-  const userPlan = userSub?.plan ?? "none";
+  const rawUserPlan = userSub?.plan ?? "none";
+  const userPlan = (rawUserPlan === "free") ? "none" : (rawUserPlan === "builder") ? "starter" : (rawUserPlan === "team") ? "pro" : rawUserPlan;
   const limits = getPlanLimits(userPlan);
 
   return {
@@ -367,7 +567,7 @@ export async function createCheckoutSession(
 ): Promise<{ url: string | null; error?: string }> {
   const stripe = getStripe();
 
-  if (plan === "none" || plan === "enterprise") {
+  if (plan === "free" || plan === "none" || plan === "enterprise") {
     return { url: null, error: "INVALID_PLAN" };
   }
 
@@ -460,6 +660,7 @@ export async function createHandleCheckoutSession(
   handle: string,
   successUrl: string,
   cancelUrl: string,
+  agentId?: string,
 ): Promise<{ url: string | null; error?: string; priceCents: number; included?: boolean }> {
   const priceCents = getHandlePriceCents(handle);
 
@@ -509,20 +710,21 @@ export async function createHandleCheckoutSession(
   }
 
   const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
-  const tierLabel = handleLen <= 3 ? "Ultra-Premium (3-char)" : handleLen === 4 ? "Premium (4-char)" : "Standard";
+  const tierLabel = handleLen <= 3 ? "3-char ENS Handle" : handleLen === 4 ? "4-char ENS Handle" : "5+ char ENS Handle";
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
-    mode: "payment",
+    mode: "subscription",
     line_items: [
       {
         price_data: {
           currency: "usd",
           product_data: {
-            name: `Handle Registration: @${handle}`,
-            description: `${tierLabel} .agentid handle — owned asset`,
+            name: `Handle: @${handle}.agentid`,
+            description: `${tierLabel} — annual renewal, cancel to release`,
           },
           unit_amount: priceCents,
+          recurring: { interval: "year" },
         },
         quantity: 1,
       },
@@ -534,6 +736,15 @@ export async function createHandleCheckoutSession(
       type: "handle_registration",
       handle,
       priceCents: String(priceCents),
+      ...(agentId ? { agentId } : {}),
+    },
+    subscription_data: {
+      metadata: {
+        userId: user.id,
+        type: "handle_registration",
+        handle,
+        ...(agentId ? { agentId } : {}),
+      },
     },
   });
 
@@ -612,7 +823,8 @@ export async function requirePlanFeature(
   feature: "canReceiveMail" | "canBePublic" | "canListOnMarketplace" | "canUsePremiumRouting" | "canUseAdvancedAuth" | "canUseTeamFeatures",
 ): Promise<{ allowed: boolean; currentPlan: string; requiredPlan: string }> {
   const userSub = await getActiveUserSubscription(userId);
-  const plan = userSub?.plan ?? "none";
+  const rawPlan = userSub?.plan ?? "none";
+  const plan = (rawPlan === "free") ? "none" : (rawPlan === "builder") ? "starter" : (rawPlan === "team") ? "pro" : rawPlan;
   const limits = getPlanLimits(plan);
 
   const featurePlanMap: Record<string, string> = {
@@ -621,7 +833,7 @@ export async function requirePlanFeature(
     canListOnMarketplace: "starter",
     canUsePremiumRouting: "pro",
     canUseAdvancedAuth: "pro",
-    canUseTeamFeatures: "enterprise",
+    canUseTeamFeatures: "pro",
   };
 
   return {
@@ -686,13 +898,37 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
   if (sessionType === "handle_registration") {
     const handle = session.metadata?.handle;
     const userId = session.metadata?.userId;
+    const agentIdMeta = session.metadata?.agentId;
     if (handle && userId) {
-      const agent = await db.query.agentsTable.findFirst({
-        where: and(eq(agentsTable.handle, handle), eq(agentsTable.userId, userId)),
-        columns: { id: true },
-      });
-      if (agent) {
-        await markHandlePaymentComplete(agent.id);
+      let agentRecord: { id: string } | undefined;
+      if (agentIdMeta) {
+        agentRecord = await db.query.agentsTable.findFirst({
+          where: and(eq(agentsTable.id, agentIdMeta), eq(agentsTable.userId, userId)),
+          columns: { id: true },
+        });
+      }
+      if (!agentRecord) {
+        agentRecord = await db.query.agentsTable.findFirst({
+          where: and(eq(agentsTable.handle, handle), eq(agentsTable.userId, userId)),
+          columns: { id: true },
+        });
+      }
+      if (agentRecord) {
+        const expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        await Promise.all([
+          markHandlePaymentComplete(agentRecord.id),
+          db.update(agentsTable)
+            .set({
+              handle: handle.toLowerCase(),
+              handleTier: getHandleTier(handle).tier,
+              handlePaid: true,
+              handleExpiresAt: expiresAt,
+              handleRegisteredAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(agentsTable.id, agentRecord.id)),
+        ]);
       }
     }
     return;
@@ -892,7 +1128,7 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   if (sub?.userId) {
     await db
       .update(usersTable)
-      .set({ plan: "none", updatedAt: new Date() })
+      .set({ plan: "free" as PlanType, updatedAt: new Date() })
       .where(eq(usersTable.id, sub.userId));
 
     await enforceAgentLimitsForUser(sub.userId, "none");
@@ -915,7 +1151,7 @@ export async function handleSubscriptionDeleted(subscription: Stripe.Subscriptio
 
   await db
     .update(usersTable)
-    .set({ plan: "none", updatedAt: new Date() })
+    .set({ plan: "free" as PlanType, updatedAt: new Date() })
     .where(eq(usersTable.id, sub.userId));
 
   await enforceAgentLimitsForUser(sub.userId, "none");

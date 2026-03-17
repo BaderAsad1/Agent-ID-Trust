@@ -151,7 +151,7 @@ Upgrade at \`${APP_URL}/billing/upgrade\` to unlock these features.
 }
 
 interface AgentData {
-  handle: string;
+  handle: string | null | undefined;
   displayName: string | null;
   description: string | null;
   endpointUrl: string | null;
@@ -161,10 +161,10 @@ interface AgentData {
   trustTier: string | null;
   verificationStatus: string | null;
   status: string | null;
-  domain?: string;
-  protocolAddress?: string;
-  profileUrl?: string;
-  resolverUrl?: string;
+  domain?: string | null;
+  protocolAddress?: string | null;
+  profileUrl?: string | null;
+  resolverUrl?: string | null;
 }
 
 export function generateAgentProfileMarkdown(agent: AgentData): string {

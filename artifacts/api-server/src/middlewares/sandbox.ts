@@ -62,7 +62,7 @@ export function sandboxMiddleware(
  * a sandbox agent — i.e. it was created under a sandbox request.
  */
 export function isAgentSandbox(
-  agent: { handle?: string; metadata?: unknown } | null | undefined,
+  agent: { handle?: string | null; metadata?: unknown } | null | undefined,
 ): boolean {
   if (!agent) return false;
   if (agent.handle && agent.handle.startsWith("sandbox-")) return true;
@@ -80,7 +80,7 @@ export function isAgentSandbox(
  */
 export function assertSandboxIsolation(
   req: Request,
-  targetAgent: { handle?: string; metadata?: unknown } | null | undefined,
+  targetAgent: { handle?: string | null; metadata?: unknown } | null | undefined,
   label = "agent",
 ): void {
   const requestIsSandbox = req.isSandbox === true;

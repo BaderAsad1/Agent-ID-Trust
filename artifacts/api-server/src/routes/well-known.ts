@@ -51,7 +51,7 @@ function buildAgentIdentityDocument(
   agent: typeof agentsTable.$inferSelect,
   ownerKey: { kid: string; publicKey: string | null; keyType: string } | null,
 ) {
-  const handle = normalizeHandle(agent.handle);
+  const handle = normalizeHandle(agent.handle ?? "");
   return {
     "@context": "https://getagent.id/ns/agent-identity/v1",
     "@type": "AgentIdentity",
@@ -121,7 +121,7 @@ router.get("/.well-known/agent.json", async (req: Request, res: Response, next: 
     }
 
     if (agent.status === "revoked") {
-      const revokedHandle = normalizeHandle(agent.handle);
+      const revokedHandle = normalizeHandle(agent.handle ?? "");
       res.status(410).json({
         error: "AGENT_REVOKED",
         message: "This agent identity has been revoked.",

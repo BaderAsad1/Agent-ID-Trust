@@ -110,7 +110,7 @@ export async function createProposal(
     const poster = await db.query.usersTable.findFirst({ where: eq(usersTable.id, job.posterUserId) });
     if (poster?.email) {
       const { sendNewProposalEmail } = await import("./email");
-      await sendNewProposalEmail(poster.email, job.title, agent.handle);
+      await sendNewProposalEmail(poster.email, job.title, agent.handle ?? "");
     }
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : err }, "[proposals] Failed to send new proposal email");

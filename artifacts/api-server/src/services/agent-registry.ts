@@ -37,7 +37,7 @@ export async function getRegistryStatus(
     columns: { status: true },
   });
 
-  const domain = formatDomain(agent.handle);
+  const domain = formatDomain(agent.handle ?? "");
   const config = (await import("../lib/env")).env();
   const baseDomain = config.BASE_AGENT_DOMAIN;
   const appBase = config.APP_URL;

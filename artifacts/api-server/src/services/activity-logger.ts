@@ -40,6 +40,7 @@ export type ActivityEventType =
   | "agent.profile_viewed"
   | "agent.trust_updated"
   | "agent.status_changed"
+  | "agent.shutdown"
   | "agent.programmatic_registered"
   | "agent.domain_provisioned"
   | "agent.domain_provisioning_started"

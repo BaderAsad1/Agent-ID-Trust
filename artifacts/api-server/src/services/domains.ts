@@ -80,7 +80,7 @@ export async function resolveDomain(
 
   return {
     agentId: agent.id,
-    handle: agent.handle,
+    handle: agent.handle ?? "",
     status: record.status,
   };
 }
@@ -122,8 +122,8 @@ export async function provisionDomain(
   });
   if (!agent) return { success: false, error: "AGENT_NOT_FOUND" };
 
-  const fqdn = buildFqdn(agent.handle);
-  const subdomain = handleToSubdomain(agent.handle);
+  const fqdn = buildFqdn(agent.handle ?? "");
+  const subdomain = handleToSubdomain(agent.handle ?? "");
 
   const existing = await db.query.agentDomainsTable.findFirst({
     where: eq(agentDomainsTable.agentId, agentId),
@@ -212,8 +212,8 @@ export async function reprovisionDomain(
     return { success: false, error: "PROVISIONING_IN_PROGRESS" };
   }
 
-  const fqdn = buildFqdn(agent.handle);
-  const subdomain = handleToSubdomain(agent.handle);
+  const fqdn = buildFqdn(agent.handle ?? "");
+  const subdomain = handleToSubdomain(agent.handle ?? "");
   const cfConfig = getCloudflareConfig();
 
   const [updated] = await db

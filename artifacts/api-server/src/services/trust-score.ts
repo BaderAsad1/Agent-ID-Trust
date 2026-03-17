@@ -539,7 +539,7 @@ export async function recomputeAndStore(agentId: string) {
     if (agentForCache) {
       const { deleteResolutionCache } = await import("../routes/v1/resolve");
       const { normalizeHandle } = await import("../utils/handle");
-      await deleteResolutionCache(normalizeHandle(agentForCache.handle));
+      await deleteResolutionCache(normalizeHandle(agentForCache.handle ?? ""));
     }
   } catch {}
 

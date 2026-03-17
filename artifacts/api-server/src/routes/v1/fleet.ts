@@ -37,7 +37,7 @@ router.get("/", requireAuth, async (req, res, next) => {
       where: eq(agentsTable.userId, req.userId!),
     });
 
-    const rootHandles = rootAgents.filter(a => !a.handle.includes("."));
+    const rootHandles = rootAgents.filter(a => a.handle && !a.handle.includes("."));
     const result = [];
 
     for (const root of rootHandles) {
@@ -158,7 +158,7 @@ router.delete("/sub-handles/:agentId", requireAuth, validateUuidParam("agentId")
       throw new AppError(404, "NOT_FOUND", "Sub-handle not found");
     }
 
-    if (!agent.handle.includes(".")) {
+    if (!agent.handle || !agent.handle.includes(".")) {
       throw new AppError(400, "NOT_SUB_HANDLE", "This is not a sub-handle");
     }
 

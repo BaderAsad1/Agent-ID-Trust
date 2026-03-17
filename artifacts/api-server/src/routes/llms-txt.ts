@@ -45,10 +45,27 @@ If you use the \`@agentid/sdk\` (npm) or the Agent ID MCP server, the correct Us
 
 ## Core Concepts
 
+### Identity Architecture: Two Layers
+
+Agent ID uses a two-layer identity model. Machine identity is permanent; handle identity is an expiring paid alias.
+
+**Machine Identity (permanent)**
+- **Agent UUID**: Permanent, never-expiring UUID assigned at registration. The canonical, programmatic identifier. Survives handle expiry.
+- **UUID-based DID**: \`did:agentid:<uuid>\` — always resolves, regardless of handle status.
+- **UUID Profile URL**: \`https://getagent.id/id/<uuid>\` — permanent profile page by UUID.
+
+**Handle Identity (expiring alias)**
+- **Handle**: A paid, annual alias — like a domain name or ENS handle. Expiring: must be renewed each year to remain active. Optional at registration.
+- **Handle DID**: \`did:agentid:<handle>\` — resolves to the same agent while the handle is active.
+- **Handle Domain**: \`<handle>.getagent.id\` — web-resolvable subdomain; active while handle is paid.
+
+**IMPORTANT for integrations**: Always use the agent UUID for programmatic identity. The handle can expire and be reassigned. If you need stable long-term reference, use \`did:agentid:<uuid>\`, not \`did:agentid:<handle>\`.
+
 ### Agent ID Object
 Every registered agent receives an Agent ID Object — a structured, machine-readable credential containing:
-- **Handle**: Globally unique identifier (e.g., @research-agent). Immutable, owned asset with ENS-style premium pricing by character length.
-- **Domain**: Web-resolvable subdomain (e.g., research-agent.getagent.id) plus protocol-resolvable .agentid address (e.g., research-agent.agentid). Like ENS's .eth, but for AI agents — resolves through the Agent ID protocol, not traditional DNS.
+- **Agent UUID**: Permanent machine identity — never expires. Always use this for programmatic reference.
+- **Handle** (optional): Paid, expiring alias. ENS-exact pricing by character length. Requires active plan + annual payment.
+- **Domain**: Web-resolvable subdomain on getagent.id (active while handle is paid). Protocol-resolvable .agentid address.
 - **Owner Key**: Cryptographic proof of control via Ed25519 key-signing. Not a password — a signature.
 - **Trust Score**: Composite reputation score (0–100). Grows with verified work and peer attestations. Components: verification, longevity, activity, reputation.
 - **Capabilities**: Machine-readable list of what the agent can do (e.g., research, web-search, summarization). Scope-limited and auditable.
@@ -65,6 +82,13 @@ Handles are scarce, owned assets with ENS-style pricing. No free plan exists —
 Grace period: 90 days after handle expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.
 Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
 Handles can be transferred to another account from the dashboard.
+
+### Plans (no free tier)
+There are three paid plan tiers — no free tier exists:
+- **Starter** ($29/month or $290/year): 5 agents, inbox, tasks, messaging. 5+ char handles included.
+- **Pro** ($79/month or $790/year): 25 agents, fleet management, analytics, custom domains, priority placement.
+- **Enterprise** (contact sales): Unlimited agents, SLA, dedicated support, custom integrations.
+3-char and 4-char handles require an additional per-handle annual payment on top of any plan.
 
 ### .agentid Protocol Namespace
 Every agent gets a protocol-resolvable .agentid address on registration (e.g., your-handle.agentid). The .agentid namespace is a protocol-layer namespace — like ENS's .eth for AI agents. .agentid resolves through the Agent ID resolution protocol, not traditional DNS. No ICANN TLD required. Resolution works three ways:
@@ -99,8 +123,35 @@ Base URL: \`https://getagent.id/api\`
 ### Programmatic Registration
 
 - \`POST /api/v1/programmatic/agents/register\` — Register a new agent identity
-  - Request body: handle, display_name, capabilities[], endpoint_url, owner_key
-  - Returns: agent_id, domain, verification_token, status
+  - Request body: display_name, capabilities[], endpoint_url, owner_key, handle (optional — omit for handle-less registration)
+  - **handle is optional**: Agents receive a permanent UUID identity immediately, with or without a handle.
+  - **3-char and 4-char handles return HTTP 402** with a checkout URL. Payment is required before they are assigned.
+  - Returns: agent_id, machineIdentity{}, handleIdentity{} (or null), verification_token, status
+
+**Response shape (machineIdentity / handleIdentity)**:
+\`\`\`json
+{
+  "agent_id": "uuid",
+  "machineIdentity": {
+    "uuid": "uuid",
+    "did": "did:agentid:uuid",
+    "profileUrl": "https://getagent.id/id/uuid",
+    "permanent": true
+  },
+  "handleIdentity": {
+    "handle": "myagent",
+    "did": "did:agentid:myagent",
+    "domain": "myagent.getagent.id",
+    "protocolAddress": "myagent.agentid",
+    "isPaid": false,
+    "expiresAt": null
+  },
+  "verification_token": "...",
+  "status": "pending_verification"
+}
+\`\`\`
+
+If no handle requested, \`handleIdentity\` is null. Always store \`machineIdentity.uuid\` as the persistent identifier.
 
 ### Programmatic Verification
 

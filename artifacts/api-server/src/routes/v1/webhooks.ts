@@ -1,7 +1,7 @@
 import { Router, raw } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { marketplaceOrdersTable } from "@workspace/db/schema";
+import { marketplaceOrdersTable, agentsTable } from "@workspace/db/schema";
 import {
   verifyStripeWebhook,
   handleCheckoutCompleted,
@@ -11,7 +11,10 @@ import {
   handleSubscriptionCreatedOrUpdated,
   claimWebhookEvent,
   finalizeWebhookEvent,
+  activatePlanForUser,
+  deactivatePlanForUser,
 } from "../../services/billing";
+import { assignHandleToAgent, processHandleExpiry } from "../../services/handle";
 import { AppError } from "../../middlewares/error-handler";
 import { handleConnectAccountUpdated } from "../../services/stripe-connect";
 import type Stripe from "stripe";
@@ -119,12 +122,58 @@ router.post(
             await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
             break;
           case "customer.subscription.created":
-          case "customer.subscription.updated":
-            await handleSubscriptionCreatedOrUpdated(event.data.object as Stripe.Subscription);
+          case "customer.subscription.updated": {
+            const subscription = event.data.object as Stripe.Subscription;
+            const subType = subscription.metadata?.type;
+            const subUserId = subscription.metadata?.userId;
+            const subPlan = subscription.metadata?.plan;
+            const subInterval = (subscription.metadata?.billingInterval ?? "monthly") as "monthly" | "yearly";
+
+            if (subType === "handle_registration" && subscription.metadata?.handle && subUserId) {
+              const handle = subscription.metadata.handle;
+              const agent = await db.query.agentsTable.findFirst({
+                where: and(eq(agentsTable.handle, handle), eq(agentsTable.userId, subUserId)),
+                columns: { id: true, handle: true },
+              });
+              if (agent) {
+                const { getHandleTier } = await import("../../services/handle");
+                const tierInfo = getHandleTier(handle);
+                await assignHandleToAgent(agent.id, handle, {
+                  tier: tierInfo.tier,
+                  paid: true,
+                  stripeSubscriptionId: subscription.id,
+                });
+              }
+            } else {
+              await handleSubscriptionCreatedOrUpdated(subscription);
+              if (subUserId && subPlan && (subPlan === "starter" || subPlan === "pro")) {
+                await activatePlanForUser(subUserId, subPlan, subscription.id, subInterval);
+              }
+            }
             break;
-          case "customer.subscription.deleted":
-            await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+          }
+          case "customer.subscription.deleted": {
+            const deletedSub = event.data.object as Stripe.Subscription;
+            const deletedType = deletedSub.metadata?.type;
+            const deletedUserId = deletedSub.metadata?.userId;
+
+            if (deletedType === "handle_registration" && deletedSub.metadata?.handle && deletedUserId) {
+              const handle = deletedSub.metadata.handle;
+              const agent = await db.query.agentsTable.findFirst({
+                where: and(eq(agentsTable.handle, handle), eq(agentsTable.userId, deletedUserId)),
+                columns: { id: true },
+              });
+              if (agent) {
+                await processHandleExpiry(agent.id);
+              }
+            } else {
+              await handleSubscriptionDeleted(deletedSub);
+              if (deletedUserId) {
+                await deactivatePlanForUser(deletedUserId);
+              }
+            }
             break;
+          }
           case "payment_intent.succeeded":
             await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
             break;

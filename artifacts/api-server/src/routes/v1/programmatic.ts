@@ -27,8 +27,8 @@ import {
 } from "../../services/agent-keys";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
-import { buildBootstrapBundle } from "./agent-runtime";
-import { getHandlePricing } from "../../services/handle-pricing";
+import { buildBootstrapBundle } from "../../services/identity";
+import { getHandleTier, checkHandleAvailability, assignHandleToAgent } from "../../services/handle";
 import { getStripe } from "../../services/stripe-client";
 import { getOrCreateInbox } from "../../services/mail";
 import { generateClaimToken } from "../../utils/claim-token";
@@ -47,7 +47,7 @@ function hashIp(ip: string | string[] | undefined): string | undefined {
 const router = Router();
 
 const registerSchema = z.object({
-  handle: z.string().min(3).max(100),
+  handle: z.string().min(3).max(100).optional(),
   displayName: z.string().min(1).max(255),
   publicKey: z.string().min(1),
   keyType: z.string().default("ed25519"),
@@ -71,6 +71,7 @@ const rotateKeySchema = z.object({
 
 router.post("/agents/register", async (req, res, next) => {
   const t0 = performance.now();
+  const APP_URL = process.env.APP_URL || "https://getagent.id";
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -80,21 +81,66 @@ router.post("/agents/register", async (req, res, next) => {
     const { handle, displayName, publicKey, keyType, description, capabilities, endpointUrl } =
       parsed.data;
 
-    const handleError = validateHandle(handle.toLowerCase());
-    if (handleError) {
-      throw new AppError(400, "INVALID_HANDLE", handleError);
-    }
+    let requestedHandle: string | null = handle ? handle.toLowerCase() : null;
+    let handleTierInfo = requestedHandle ? getHandleTier(requestedHandle) : null;
 
     const tHandleCheck = performance.now();
 
-    const reservation = await getHandleReservation(handle.toLowerCase());
-    if (reservation.isReserved) {
-      throw new AppError(409, "HANDLE_RESERVED", "This handle is reserved. If you are the legitimate brand owner, please contact support@getagent.id to claim it.");
-    }
+    if (requestedHandle) {
+      const handleError = validateHandle(requestedHandle);
+      if (handleError) {
+        throw new AppError(400, "INVALID_HANDLE", handleError);
+      }
 
-    const available = await isHandleAvailable(handle);
-    if (!available) {
-      throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
+      if (handleTierInfo?.tier === "reserved_1_2") {
+        throw new AppError(400, "HANDLE_RESERVED", "Handles of 1-2 characters are reserved");
+      }
+
+      if (handleTierInfo?.tier === "premium_3" || handleTierInfo?.tier === "premium_4") {
+        throw new AppError(402, "PAYMENT_REQUIRED", `${requestedHandle.length}-character handles require on-chain payment ($${handleTierInfo.annualUsd}/yr)`, {
+          handle: requestedHandle,
+          tier: handleTierInfo.tier,
+          annualCents: handleTierInfo.annualCents,
+          annualUsd: handleTierInfo.annualUsd,
+          checkoutUrl: `${APP_URL}/api/v1/pay/handle/claim`,
+          note: `Register without a handle first to obtain your permanent UUID identity, then claim this handle via /api/v1/pay/handle/claim after payment.`,
+          upgradeUrl: `${APP_URL}/pricing`,
+          paymentOptions: `${APP_URL}/api/v1/pay/options`,
+        });
+      }
+
+      if (handleTierInfo?.tier === "standard_5plus") {
+        const existingUserId = req.userId;
+        let ownerPlanNow = "none";
+        if (existingUserId) {
+          ownerPlanNow = await getUserPlan(existingUserId);
+        }
+        if (ownerPlanNow === "none" || ownerPlanNow === "free") {
+          throw new AppError(402, "PLAN_REQUIRED", "A 5+ character handle requires an active Starter plan or above", {
+            handle: requestedHandle,
+            tier: "standard_5plus",
+            annualCents: handleTierInfo.annualCents,
+            annualUsd: handleTierInfo.annualUsd,
+            note: "Register without a handle first to obtain your permanent UUID identity, then upgrade to a Starter plan and claim a handle at /api/v1/pay/handle/claim.",
+            upgradeUrl: `${APP_URL}/pricing`,
+            paymentOptions: `${APP_URL}/api/v1/pay/options`,
+            plans: [
+              { id: "starter", name: "Starter", monthlyUsd: 29, yearlyUsd: 290 },
+              { id: "pro", name: "Pro", monthlyUsd: 79, yearlyUsd: 790 },
+            ],
+          });
+        }
+      }
+
+      const reservation = await getHandleReservation(requestedHandle);
+      if (reservation.isReserved) {
+        throw new AppError(409, "HANDLE_RESERVED", "This handle is reserved. If you are the legitimate brand owner, please contact support@getagent.id to claim it.");
+      }
+
+      const available = await isHandleAvailable(requestedHandle);
+      if (!available) {
+        throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
+      }
     }
     const handleCheckMs = performance.now() - tHandleCheck;
 
@@ -105,7 +151,7 @@ router.post("/agents/register", async (req, res, next) => {
       const [newUser] = await db.insert(usersTable).values({
         provider: "autonomous",
         providerId: autonomousId,
-        displayName: `autonomous-${handle.toLowerCase()}`,
+        displayName: requestedHandle ? `autonomous-${requestedHandle}` : `autonomous-${autonomousId.slice(0, 8)}`,
       }).returning({ id: usersTable.id });
       ownerId = newUser.id;
     }
@@ -116,13 +162,32 @@ router.post("/agents/register", async (req, res, next) => {
     try {
       agent = await createAgent({
         userId: ownerId,
-        handle: handle.toLowerCase(),
+        handle: requestedHandle ?? null,
         displayName,
         description,
         capabilities,
         endpointUrl,
         isPublic: false,
       });
+      if (requestedHandle && agent.handle === requestedHandle.toLowerCase()) {
+        const oneYearFromNow = new Date();
+        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+        const tierInfo = getHandleTier(requestedHandle);
+        await db.update(agentsTable).set({
+          handleTier: tierInfo.tier,
+          handlePaid: true,
+          handleRegisteredAt: new Date(),
+          handleExpiresAt: oneYearFromNow,
+          updatedAt: new Date(),
+        }).where(eq(agentsTable.id, agent.id));
+        agent = {
+          ...agent,
+          handleTier: tierInfo.tier,
+          handlePaid: true,
+          handleRegisteredAt: new Date(),
+          handleExpiresAt: oneYearFromNow,
+        };
+      }
     } catch (err) {
       if (err instanceof Error && err.message === "HANDLE_CONFLICT") {
         throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
@@ -131,7 +196,9 @@ router.post("/agents/register", async (req, res, next) => {
     }
     const createAgentMs = performance.now() - tCreateAgent;
 
-    invalidateHandleCache(handle);
+    if (requestedHandle) {
+      invalidateHandleCache(requestedHandle);
+    }
 
     const tKeyAndChallenge = performance.now();
     const [agentKey, challenge] = await Promise.all([
@@ -149,7 +216,7 @@ router.post("/agents/register", async (req, res, next) => {
       logActivity({
         agentId: agent.id,
         eventType: "agent.programmatic_registered",
-        payload: { handle: agent.handle, autonomous: !req.userId },
+        payload: { handle: agent.handle, hasHandle: !!requestedHandle, autonomous: !req.userId },
         ipAddress: req.ip,
         userAgent: req.headers["user-agent"],
       }),
@@ -160,7 +227,9 @@ router.post("/agents/register", async (req, res, next) => {
     const totalMs = performance.now() - t0;
     logger.info({
       step: "register",
+      agentId: agent.id,
       handle: agent.handle,
+      hasHandle: !!requestedHandle,
       timings: {
         handleCheckMs: Math.round(handleCheckMs),
         userMs: Math.round(userMs),
@@ -171,14 +240,33 @@ router.post("/agents/register", async (req, res, next) => {
       },
     }, `[programmatic] register completed in ${Math.round(totalMs)}ms`);
 
+    const handleExpiresAt = agent.handleExpiresAt ?? null;
     res.status(201).json({
       agentId: agent.id,
-      handle: agent.handle,
+      machineIdentity: {
+        agentId: agent.id,
+        did: `did:agentid:${agent.id}`,
+        permanent: true,
+        resolutionUrl: `${APP_URL}/api/v1/resolve/id/${agent.id}`,
+        profileUrl: `${APP_URL}/id/${agent.id}`,
+      },
+      handleIdentity: requestedHandle ? {
+        handle: requestedHandle,
+        did: `did:agentid:${requestedHandle}`,
+        tier: handleTierInfo?.tier ?? null,
+        expiresAt: handleExpiresAt,
+        renewalUrl: `${APP_URL}/api/v1/pay/handle/renew`,
+        claimUrl: `${APP_URL}/api/v1/pay/handle/claim`,
+      } : null,
+      handle: requestedHandle ?? null,
       kid: agentKey.kid,
       challenge: challenge.challenge,
       expiresAt: challenge.expiresAt,
-      provisionalDomain: formatDomain(agent.handle),
-      protocolAddress: formatHandle(agent.handle),
+      provisionalDomain: requestedHandle ? formatDomain(requestedHandle) : null,
+      protocolAddress: requestedHandle ? formatHandle(requestedHandle) : null,
+      note: requestedHandle
+        ? "Handle alias registered. Complete verification to activate. Handle renewal required annually."
+        : `No handle alias requested. Your permanent machine identity is did:agentid:${agent.id}. Claim a handle alias at ${APP_URL}/handle/purchase after verification.`,
     });
   } catch (err) {
     next(err);
@@ -227,7 +315,7 @@ router.post("/agents/verify", async (req, res, next) => {
       db.insert(apiKeysTable).values({
         ownerType: "agent",
         ownerId: agentId,
-        name: `${agent.handle}-primary`,
+        name: `${agent.handle ? agent.handle + "-primary" : "primary-" + agentId.slice(0, 8)}`,
         keyPrefix: apiKey.prefix,
         hashedKey: apiKey.hashed,
         scopes: [],
@@ -287,9 +375,14 @@ router.post("/agents/verify", async (req, res, next) => {
     res.json({
       verified: true,
       agentId,
-      handle: agent.handle,
-      domain: formatDomain(agent.handle),
-      protocolAddress: formatHandle(agent.handle),
+      machineIdentity: {
+        agentId,
+        did: `did:agentid:${agentId}`,
+        resolutionUrl: `${APP_URL}/api/v1/resolve/id/${agentId}`,
+      },
+      handle: agent.handle ?? null,
+      domain: agent.handle ? formatDomain(agent.handle) : null,
+      protocolAddress: agent.handle ? formatHandle(agent.handle) : null,
       trustScore: trust.trustScore,
       trustTier: trust.trustTier,
       apiKey: apiKey.raw,
@@ -308,7 +401,7 @@ router.post("/agents/verify", async (req, res, next) => {
         upgradePath: limits.canReceiveMail ? null : `${APP_URL}/billing/upgrade`,
         note: limits.canReceiveMail
           ? "All features are enabled on your current plan."
-          : "Free plan includes UUID identity, Ed25519 key, signed credential, bootstrap bundle, UUID-based lookup, and heartbeat. Upgrade to unlock inbox, public resolution, and marketplace listing.",
+          : "UUID identity, Ed25519 key, signed credential, and bootstrap bundle are available without a plan. Upgrade to a Starter plan or above to unlock inbox, public resolution, and marketplace listing.",
       },
     });
   } catch (err) {
@@ -465,7 +558,7 @@ router.post("/agents/:agentId/handle/renew", requireAuth, async (req, res, next)
       throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
     }
 
-    const pricing = getHandlePricing(agent.handle);
+    const pricing = getHandleTier(agent.handle);
     const stripe = getStripe();
 
     const user = await db
@@ -503,7 +596,7 @@ router.post("/agents/:agentId/handle/renew", requireAuth, async (req, res, next)
               name: `Handle Renewal: @${agent.handle}`,
               description: `One-year renewal for @${agent.handle} on Agent ID (${pricing.tier})`,
             },
-            unit_amount: pricing.annualPriceCents,
+            unit_amount: pricing.annualCents,
           },
           quantity: 1,
         },
@@ -516,7 +609,7 @@ router.post("/agents/:agentId/handle/renew", requireAuth, async (req, res, next)
         handle: agent.handle,
         userId: req.userId!,
         tier: pricing.tier,
-        priceCents: String(pricing.annualPriceCents),
+        priceCents: String(pricing.annualCents),
       },
     });
 
@@ -524,8 +617,8 @@ router.post("/agents/:agentId/handle/renew", requireAuth, async (req, res, next)
       url: session.url,
       handle: agent.handle,
       tier: pricing.tier,
-      annualPriceUsd: pricing.annualPriceUsd,
-      annualPriceCents: pricing.annualPriceCents,
+      annualPriceUsd: Math.round(pricing.annualCents / 100),
+      annualPriceCents: pricing.annualCents,
       currentExpiry: agent.handleExpiresAt,
     });
   } catch (err) {

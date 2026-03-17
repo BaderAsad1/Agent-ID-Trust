@@ -49,7 +49,7 @@ async function sendRenewalReminders(): Promise<number> {
 
       if (user?.email) {
         const { sendRenewalReminderEmail } = await import("../services/email");
-        await sendRenewalReminderEmail(user.email, agent.handle, agent.handleExpiresAt!.toISOString());
+        await sendRenewalReminderEmail(user.email, agent.handle ?? "", agent.handleExpiresAt!.toISOString());
       }
 
       await db
@@ -88,7 +88,7 @@ async function expireHandles(): Promise<number> {
 
   for (const agent of expired) {
     await db.transaction(async (tx) => {
-      const oldHandle = agent.handle;
+      const oldHandle = agent.handle!;
 
       await tx
         .update(agentsTable)
@@ -108,7 +108,7 @@ async function expireHandles(): Promise<number> {
       const endsAt = new Date(Date.now() + AUCTION_DURATION_DAYS * 24 * 60 * 60 * 1000);
 
       await tx.insert(handleAuctionsTable).values({
-        handle: oldHandle,
+        handle: oldHandle as string,
         startPrice,
         reservePrice: pricing.annualPriceCents,
         currentPrice: startPrice,
