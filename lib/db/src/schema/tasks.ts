@@ -4,6 +4,7 @@ import {
   varchar,
   integer,
   jsonb,
+  boolean,
   timestamp,
   index,
   uniqueIndex,
@@ -43,6 +44,7 @@ export const tasksTable = pgTable(
     paymentStatus: varchar("payment_status", { length: 50 }),
     relatedOrderId: uuid("related_order_id"),
     originatingMessageId: uuid("originating_message_id"),
+    trustCreditEligible: boolean("trust_credit_eligible").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

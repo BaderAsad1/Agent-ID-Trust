@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import {
   tasksTable,
   agentsTable,
+  agentLineageTable,
   usersTable,
   type Task,
 } from "@workspace/db/schema";
@@ -261,21 +262,64 @@ export async function updateBusinessStatus(
     updates.result = result;
   }
 
+  if (newStatus === "completed") {
+    const isSelfTask = task.senderAgentId != null && task.senderAgentId === task.recipientAgentId;
+    let isLineageTask = false;
+    if (!isSelfTask && task.senderAgentId) {
+      const lineageRows = await db
+        .select({ id: agentLineageTable.agentId })
+        .from(agentLineageTable)
+        .where(
+          and(
+            eq(agentLineageTable.agentId, task.senderAgentId),
+            eq(agentLineageTable.ancestorId, task.recipientAgentId),
+          ),
+        )
+        .limit(1);
+      if (lineageRows.length === 0) {
+        const reverseRows = await db
+          .select({ id: agentLineageTable.agentId })
+          .from(agentLineageTable)
+          .where(
+            and(
+              eq(agentLineageTable.agentId, task.recipientAgentId),
+              eq(agentLineageTable.ancestorId, task.senderAgentId),
+            ),
+          )
+          .limit(1);
+        isLineageTask = reverseRows.length > 0;
+      } else {
+        isLineageTask = true;
+      }
+    }
+    const trustCreditEligible = !isSelfTask && !isLineageTask;
+    updates.trustCreditEligible = trustCreditEligible;
+    updates.completedAt = new Date();
+
+    const [updated] = await db
+      .update(tasksTable)
+      .set(updates)
+      .where(eq(tasksTable.id, taskId))
+      .returning();
+
+    if (trustCreditEligible) {
+      await db
+        .update(agentsTable)
+        .set({
+          tasksCompleted: sql`${agentsTable.tasksCompleted} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(agentsTable.id, task.recipientAgentId));
+    }
+
+    return updated ?? null;
+  }
+
   const [updated] = await db
     .update(tasksTable)
     .set(updates)
     .where(eq(tasksTable.id, taskId))
     .returning();
-
-  if (newStatus === "completed") {
-    await db
-      .update(agentsTable)
-      .set({
-        tasksCompleted: sql`${agentsTable.tasksCompleted} + 1`,
-        updatedAt: new Date(),
-      })
-      .where(eq(agentsTable.id, task.recipientAgentId));
-  }
 
   return updated ?? null;
 }

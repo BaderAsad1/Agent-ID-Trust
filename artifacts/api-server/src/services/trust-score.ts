@@ -1,10 +1,11 @@
-import { eq, sql, and, isNull, or, gte } from "drizzle-orm";
+import { eq, sql, and, isNull, or, gte, gt } from "drizzle-orm";
 import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import {
   agentsTable,
   agentReputationEventsTable,
   marketplaceReviewsTable,
+  tasksTable,
   type Agent,
 } from "@workspace/db/schema";
 
@@ -78,7 +79,7 @@ const activityProvider: TrustProvider = {
   id: "activity",
   label: "Task Activity",
   maxScore: 15,
-  async compute(agent) {
+  async compute(agent, context) {
     const completed = agent.tasksCompleted;
     let score = 0;
     if (completed >= 100) score = 15;
@@ -87,7 +88,25 @@ const activityProvider: TrustProvider = {
     else if (completed >= 10) score = 6;
     else if (completed >= 5) score = 4;
     else if (completed >= 1) score = 2;
-    return { score };
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const velocityResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(tasksTable)
+      .where(
+        and(
+          eq(tasksTable.recipientAgentId, context.agentId),
+          eq(tasksTable.businessStatus, "completed"),
+          gt(tasksTable.completedAt, oneHourAgo),
+        ),
+      );
+    const recentCount = Number(velocityResult[0]?.count ?? 0);
+    const velocityFlag = recentCount > 10;
+    if (velocityFlag) {
+      score = Math.min(score, 5);
+    }
+
+    return { score, metadata: { completedTotal: completed, recentHourCount: recentCount, velocityFlag } };
   },
 };
 
