@@ -180,6 +180,37 @@ router.post("/:agentId/wallet/provision", requireAgentAuth, async (req, res, nex
       throw new AppError(403, "FORBIDDEN", "You can only provision your own wallet");
     }
 
+    if (authedAgent.walletAddress) {
+      res.json({
+        alreadyProvisioned: true,
+        walletAddress: authedAgent.walletAddress,
+        network: authedAgent.walletNetwork ?? NETWORK_ID,
+      });
+      return;
+    }
+
+    const { walletAddress: bodyAddress } = req.body as { walletAddress?: string };
+    if (bodyAddress) {
+      if (!/^0x[a-fA-F0-9]{40}$/.test(bodyAddress)) {
+        throw new AppError(400, "INVALID_WALLET_ADDRESS", "walletAddress must be a valid EVM address (0x followed by 40 hex chars)");
+      }
+      const network = process.env.CDP_NETWORK_ID ?? NETWORK_ID;
+      await db.update(agentsTable).set({
+        walletAddress: bodyAddress,
+        walletNetwork: network,
+        walletProvisionedAt: new Date(),
+        walletIsSelfCustodial: true,
+        updatedAt: new Date(),
+      }).where(eq(agentsTable.id, agentId));
+      res.json({
+        provisioned: true,
+        walletAddress: bodyAddress,
+        network,
+        selfCustodial: true,
+      });
+      return;
+    }
+
     if (!isCdpConfigured()) {
       throw new AppError(503, "CDP_NOT_CONFIGURED", "Wallet provisioning is not available — CDP credentials not configured");
     }
@@ -205,10 +236,10 @@ router.post("/:agentId/wallet/provision", requireAgentAuth, async (req, res, nex
     }
 
     res.status(201).json({
-      success: true,
-      address: result.address,
+      provisioned: true,
+      walletAddress: result.address,
       network: result.network,
-      basescanUrl: `${BASE_EXPLORER_URL}/address/${result.address}`,
+      selfCustodial: false,
     });
   } catch (err) {
     next(err);

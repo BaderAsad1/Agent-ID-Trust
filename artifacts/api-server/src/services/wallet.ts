@@ -33,62 +33,30 @@ export async function provisionAgentWallet(
     const cdp = getCdpClient();
     console.log(`[wallet] agentId=${agentId} CDP client obtained`);
 
-    const accountName = `agentid-${agentId}`;
+    const accountName = `aid-${agentId.replace(/-/g, "").substring(0, 28)}`;
     console.log(`[wallet] agentId=${agentId} requesting EVM account name=${accountName}`);
     const account = await cdp.evm.getOrCreateAccount({ name: accountName });
     const address = account.address;
     console.log(`[wallet] agentId=${agentId} EVM account obtained, address=${address}`);
-
-    let policyId: string | null = null;
-    try {
-      const defaultMaxUsdcWei = "10000000";
-      const policy = await cdp.policies.createPolicy({
-        policy: {
-          scope: "account",
-          description: `AgentID ${(handle || agentId).slice(0, 30)} limits`,
-          rules: [
-            {
-              action: "reject",
-              operation: "signEvmTransaction",
-              criteria: [
-                {
-                  type: "ethValue",
-                  ethValue: defaultMaxUsdcWei,
-                  operator: ">",
-                },
-              ],
-            },
-          ],
-        },
-        idempotencyKey: `agentid-policy-${agentId}`,
-      });
-      policyId = policy.id;
-      console.log(`[wallet] agentId=${agentId} CDP policy created policyId=${policyId}`);
-      logger.info({ agentId, policyId }, "[wallet] CDP policy created");
-    } catch (policyErr) {
-      const msg = policyErr instanceof Error ? policyErr.message : String(policyErr);
-      console.warn(`[wallet] agentId=${agentId} CDP policy creation failed (continuing without policy): ${msg}`);
-      logger.warn({ agentId, error: msg }, "[wallet] CDP policy creation failed, continuing without policy");
-    }
 
     await db.update(agentsTable).set({
       walletAddress: address,
       walletNetwork: NETWORK_ID,
       walletProvisionedAt: new Date(),
       walletIsSelfCustodial: false,
-      walletPolicyId: policyId,
+      walletPolicyId: null,
       updatedAt: new Date(),
     }).where(eq(agentsTable.id, agentId));
 
-    const [spendingRule] = await db.insert(agentSpendingRulesTable).values({
+    await db.insert(agentSpendingRulesTable).values({
       agentId,
       maxPerTransactionCents: 1000,
       dailyCapCents: 5000,
       monthlyCapCents: 50000,
       allowedAddresses: [],
-      cdpPolicyId: policyId,
+      cdpPolicyId: null,
       isActive: true,
-    }).returning();
+    });
 
     await db.insert(agentWalletTransactionsTable).values({
       agentId,
@@ -98,11 +66,11 @@ export async function provisionAgentWallet(
       token: "USDC",
       toAddress: address,
       status: "completed",
-      description: `Wallet provisioned on ${NETWORK_ID}${policyId ? ` with policy ${policyId}` : ""}`,
+      description: `Wallet provisioned on ${NETWORK_ID}`,
     });
 
-    console.log(`[wallet] agentId=${agentId} wallet provisioned successfully address=${address} network=${NETWORK_ID} policyId=${policyId ?? "(none)"}`);
-    logger.info({ agentId, address, network: NETWORK_ID, policyId }, "[wallet] Wallet provisioned");
+    console.log(`[wallet] agentId=${agentId} wallet provisioned successfully address=${address} network=${NETWORK_ID}`);
+    logger.info({ agentId, address, network: NETWORK_ID }, "[wallet] Wallet provisioned");
 
     return { address, network: NETWORK_ID };
   } catch (err) {
