@@ -184,10 +184,15 @@ router.post("/:agentId/wallet/provision", requireAgentAuth, async (req, res, nex
       throw new AppError(503, "CDP_NOT_CONFIGURED", "Wallet provisioning is not available — CDP credentials not configured");
     }
 
-    const result = await provisionAgentWallet(agentId, authedAgent.handle);
-
-    if (!result) {
-      throw new AppError(500, "PROVISIONING_FAILED", "Failed to provision wallet");
+    let result: { address: string; network: string };
+    try {
+      result = (await provisionAgentWallet(agentId, authedAgent.handle))!;
+    } catch (cdpErr) {
+      const msg = cdpErr instanceof Error ? cdpErr.message : String(cdpErr);
+      if (msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("forbidden")) {
+        throw new AppError(503, "CDP_AUTH_FAILED", "Wallet provisioning unavailable — CDP credentials are invalid");
+      }
+      throw cdpErr;
     }
 
     res.status(201).json({
@@ -372,10 +377,15 @@ router.post("/user/:agentId/wallet/provision", requireAuth, async (req, res, nex
       columns: { handle: true },
     });
 
-    const result = await provisionAgentWallet(agentId, agent?.handle);
-
-    if (!result) {
-      throw new AppError(500, "PROVISIONING_FAILED", "Failed to provision wallet");
+    let result: { address: string; network: string };
+    try {
+      result = (await provisionAgentWallet(agentId, agent?.handle))!;
+    } catch (cdpErr) {
+      const msg = cdpErr instanceof Error ? cdpErr.message : String(cdpErr);
+      if (msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("forbidden")) {
+        throw new AppError(503, "CDP_AUTH_FAILED", "Wallet provisioning unavailable — CDP credentials are invalid");
+      }
+      throw cdpErr;
     }
 
     res.status(201).json({
