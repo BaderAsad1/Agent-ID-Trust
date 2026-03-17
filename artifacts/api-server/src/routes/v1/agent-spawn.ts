@@ -28,6 +28,7 @@ const spawnSchema = z.object({
   description: z.string().max(5000).optional(),
   agentType: z.enum(["subagent", "ephemeral"]).default("subagent"),
   ttlSeconds: z.number().int().positive().optional(),
+  ttlHours: z.number().int().min(1).max(168).optional(),
   publicKey: z.string().min(1).optional(),
   keyType: z.string().default("ed25519"),
   capabilities: z.array(z.string()).max(50).optional(),
@@ -64,7 +65,7 @@ router.post("/:agentId/subagents", requireAgentAuth, validateUuidParam("agentId"
       throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
     }
 
-    const { handle, displayName, publicKey, keyType, description, capabilities, protocols, endpointUrl, agentType, ttlSeconds } = parsed.data;
+    const { handle, displayName, publicKey, keyType, description, capabilities, protocols, endpointUrl, agentType, ttlSeconds, ttlHours } = parsed.data;
     const normalizedHandle = handle.toLowerCase();
 
     const handleError = validateHandle(normalizedHandle);
@@ -77,14 +78,18 @@ router.post("/:agentId/subagents", requireAgentAuth, validateUuidParam("agentId"
       throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
     }
 
-    if (agentType === "ephemeral" && !ttlSeconds) {
-      throw new AppError(400, "VALIDATION_ERROR", "ttlSeconds is required for ephemeral agents");
-    }
+    const ttlMs = ttlSeconds
+      ? ttlSeconds * 1000
+      : ttlHours
+        ? ttlHours * 3600 * 1000
+        : agentType === "ephemeral"
+          ? 24 * 3600 * 1000
+          : null;
 
     const lineageDepth = (parentAgent.lineageDepth ?? 0) + 1;
     const kid = generateKid();
     const apiKey = generateApiKey();
-    const ttlExpiresAt = ttlSeconds ? new Date(Date.now() + ttlSeconds * 1000) : null;
+    const ttlExpiresAt = ttlMs ? new Date(Date.now() + ttlMs) : null;
 
     let spawnedByKeyId: string | undefined;
     const rawKey = req.headers["x-agent-key"] as string | undefined;
@@ -218,10 +223,10 @@ router.post("/:agentId/subagents", requireAgentAuth, validateUuidParam("agentId"
       response.kid = kid;
     }
 
-    if (ttlExpiresAt) {
+    if (ttlExpiresAt && ttlMs) {
       response.ttl = {
         expiresAt: ttlExpiresAt.toISOString(),
-        remainingSeconds: ttlSeconds,
+        remainingSeconds: Math.floor(ttlMs / 1000),
         isEphemeral: true,
       };
     }

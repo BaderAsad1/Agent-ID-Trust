@@ -25,8 +25,11 @@ function requireHumanOrAgentAuth(req: Request, res: Response, next: NextFunction
 const router = Router();
 
 const registerWebhookSchema = z.object({
-  url: z.url(),
+  endpointUrl: z.url().optional(),
+  url: z.url().optional(),
   events: z.array(z.string()).max(50).default([]),
+}).refine((data) => data.endpointUrl || data.url, {
+  message: "Either endpointUrl or url is required",
 });
 
 router.post("/:agentId/webhooks", requireHumanOrAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
@@ -48,13 +51,14 @@ router.post("/:agentId/webhooks", requireHumanOrAgentAuth, validateUuidParam("ag
       }
     }
 
+    const resolvedUrl = parsed.data.endpointUrl ?? parsed.data.url!;
     const secret = randomBytes(32).toString("hex");
 
     const [webhook] = await db
       .insert(agentWebhooksTable)
       .values({
         agentId,
-        url: parsed.data.url,
+        url: resolvedUrl,
         secret,
         events: parsed.data.events,
       })
@@ -63,12 +67,13 @@ router.post("/:agentId/webhooks", requireHumanOrAgentAuth, validateUuidParam("ag
     await logActivity({
       agentId,
       eventType: "agent.webhook_created",
-      payload: { webhookId: webhook.id, url: parsed.data.url, events: parsed.data.events },
+      payload: { webhookId: webhook.id, url: resolvedUrl, events: parsed.data.events },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });
 
     res.status(201).json({
+      webhookId: webhook.id,
       id: webhook.id,
       url: webhook.url,
       events: webhook.events,

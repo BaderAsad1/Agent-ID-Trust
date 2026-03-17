@@ -336,15 +336,32 @@ router.delete("/:agentId", requireHumanOrAgentAuthForDelete, validateUuidParam("
   }
 });
 
-router.get("/:agentId/activity", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
+function requireHumanOrAgentAuthForActivity(req: Request, res: Response, next: NextFunction) {
+  if (req.headers["x-agent-key"]) {
+    return requireAgentAuth(req, res, (err?: unknown) => {
+      if (err) return next(err);
+      next();
+    });
+  }
+  return requireAuth(req, res, next);
+}
+
+router.get("/:agentId/activity", requireHumanOrAgentAuthForActivity, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
-    const agent = await getAgentById(agentId);
-    if (!agent) {
-      throw new AppError(404, "NOT_FOUND", "Agent not found");
-    }
-    if (agent.userId !== req.userId) {
-      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+
+    if (req.authenticatedAgent) {
+      if (req.authenticatedAgent.id !== agentId) {
+        throw new AppError(403, "FORBIDDEN", "Agent can only read its own activity log");
+      }
+    } else {
+      const agent = await getAgentById(agentId);
+      if (!agent) {
+        throw new AppError(404, "NOT_FOUND", "Agent not found");
+      }
+      if (agent.userId !== req.userId) {
+        throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+      }
     }
 
     const source = req.query.source as string | undefined;

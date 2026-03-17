@@ -58,9 +58,6 @@ export async function submitTask(input: SubmitTaskInput): Promise<Task> {
     throw new Error("SENDER_REQUIRED");
   }
 
-  if (input.senderAgentId === input.recipientAgentId) {
-    throw new Error("SELF_TASK_NOT_ALLOWED");
-  }
 
   const [task] = await db
     .insert(tasksTable)

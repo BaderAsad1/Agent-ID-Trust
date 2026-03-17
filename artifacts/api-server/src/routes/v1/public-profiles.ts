@@ -128,6 +128,17 @@ router.get("/:handle/credential", async (req, res, next) => {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
 
+    const formatQuery = (req.query.format as string | undefined)?.toLowerCase();
+
+    if (formatQuery === "jwt") {
+      const { issueVerifiableCredential } = await import("../../services/verifiable-credential");
+      const jwt = await issueVerifiableCredential(agent.id);
+      res.set("Content-Type", "application/jwt");
+      res.set("Cache-Control", "public, max-age=60");
+      res.send(jwt);
+      return;
+    }
+
     const accept = req.headers.accept || "";
     if (accept.includes("application/json") && !accept.includes("application/jwt")) {
       let credential = await getActiveCredential(agent.id);

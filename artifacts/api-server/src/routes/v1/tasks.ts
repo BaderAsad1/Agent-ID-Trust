@@ -178,12 +178,6 @@ router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
         .json({ code: "SENDER_REQUIRED", message: "Either senderUserId or senderAgentId is required" });
       return;
     }
-    if (message === "SELF_TASK_NOT_ALLOWED") {
-      res
-        .status(400)
-        .json({ code: "SELF_TASK_NOT_ALLOWED", message: "Agent cannot send a task to itself" });
-      return;
-    }
     if (message === "RECIPIENT_CONNECT_REQUIRED") {
       res.status(422).json({
         code: "RECIPIENT_CONNECT_REQUIRED",
