@@ -21,7 +21,7 @@ async function getJose() {
 
 let cachedKeyPair: { privateKey: CryptoKey; publicKey: CryptoKey; kid: string } | null = null;
 
-async function getSigningKeyPair() {
+export async function getSigningKeyPair() {
   if (cachedKeyPair) return cachedKeyPair;
 
   const jose = await getJose();
@@ -178,6 +178,8 @@ export async function getJwks(): Promise<{
         kid,
         use: "sig",
         alg: "EdDSA",
+        key_ops: ["verify"],
+        purpose: "sig",
       },
     ],
   };

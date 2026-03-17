@@ -33,6 +33,7 @@ import organizationsRouter from "./organizations";
 import humansRouter from "./humans";
 import agentWebhooksRouter from "./agent-webhooks";
 import agentAttestationsRouter from "./agent-attestations";
+import { controlPlaneAgentRouter, controlPlaneVerifyRouter } from "./control-plane";
 
 const router = Router();
 
@@ -79,5 +80,7 @@ router.use("/org", organizationsRouter);
 router.use("/humans", humansRouter);
 router.use("/agents", agentWebhooksRouter);
 router.use("/agents", agentAttestationsRouter);
+router.use("/agents", controlPlaneAgentRouter);
+router.use("/", controlPlaneVerifyRouter);
 
 export default router;

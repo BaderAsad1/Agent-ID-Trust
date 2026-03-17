@@ -7,6 +7,7 @@ export { TaskModule } from "./modules/tasks.js";
 export { TrustModule } from "./modules/trust.js";
 export { ResolveModule } from "./modules/resolve.js";
 export { MarketplaceModule } from "./modules/marketplace.js";
+export { verifyControlPlaneInstruction } from "./modules/control-plane.js";
 
 export type {
   AgentIDConfig,
@@ -54,3 +55,9 @@ export type {
   ListSubagentsOptions,
   TerminateSubagentResult,
 } from "./types.js";
+
+export type {
+  ControlPlaneInstruction,
+  SignedControlPlaneInstruction,
+  VerifyControlPlaneOptions,
+} from "./modules/control-plane.js";
