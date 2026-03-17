@@ -144,8 +144,9 @@ export async function handleSubscriptionCreatedOrUpdated(subscription: Stripe.Su
     .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
     .limit(1);
 
-  const periodStart = new Date(subscription.current_period_start * 1000);
-  const periodEnd = new Date(subscription.current_period_end * 1000);
+  const item = subscription.items.data[0];
+  const periodStart = new Date((item?.current_period_start ?? subscription.start_date) * 1000);
+  const periodEnd = new Date((item?.current_period_end ?? Math.floor(Date.now() / 1000) + 30 * 24 * 3600) * 1000);
 
   if (existingSub.length > 0) {
     await db.update(subscriptionsTable)
