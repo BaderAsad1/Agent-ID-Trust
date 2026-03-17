@@ -146,14 +146,100 @@ router.get("/agents/:agentId/threads", requireHumanOrAgentAuth, async (req, res,
     const inbox = await mailService.getInboxByAgent(agentId);
     if (!inbox) throw new AppError(404, "NOT_FOUND", "Inbox not found");
 
-    const { status, limit, offset } = req.query;
+    const { status, limit, offset, cursor } = req.query;
     const result = await mailService.listThreads({
       inboxId: inbox.id,
       status: status as string | undefined,
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
+      cursor: cursor as string | undefined,
     });
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/agents/:agentId/threads/:threadId/star", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = param(req.params.agentId); const threadId = param(req.params.threadId);
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const schema = z.object({ starred: z.boolean() });
+    const { starred } = schema.parse(req.body);
+
+    const ok = await mailService.starThread(threadId, agentId, starred);
+    if (!ok) throw new AppError(404, "NOT_FOUND", "Thread not found");
+    res.json({ success: true, starred });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/agents/:agentId/threads/:threadId", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = param(req.params.agentId); const threadId = param(req.params.threadId);
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const ok = await mailService.deleteThread(threadId, agentId);
+    if (!ok) throw new AppError(404, "NOT_FOUND", "Thread not found");
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/agents/:agentId/messages/:messageId", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = param(req.params.agentId); const messageId = param(req.params.messageId);
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const ok = await mailService.deleteMessage(messageId, agentId);
+    if (!ok) throw new AppError(404, "NOT_FOUND", "Message not found");
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/agents/:agentId/drafts", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = param(req.params.agentId);
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const schema = z.object({
+      subject: z.string().optional(),
+      body: z.string().min(1),
+      recipientAddress: z.string().optional(),
+      bodyFormat: z.enum(["text", "html", "markdown"]).optional(),
+    });
+    const data = schema.parse(req.body);
+
+    const message = await mailService.saveDraft(agentId, data);
+    res.status(201).json({ message });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/agents/:agentId/threads/bulk", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = param(req.params.agentId);
+    const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+    if (!owned) throw new AppError(403, "FORBIDDEN", "Not your agent");
+
+    const schema = z.object({
+      threadIds: z.array(z.string().uuid()).min(1),
+      action: z.enum(["mark_read", "archive", "delete"]),
+    });
+    const { threadIds, action } = schema.parse(req.body);
+
+    const result = await mailService.bulkThreadAction(agentId, threadIds, action);
+    res.json({ success: true, ...result });
   } catch (err) {
     next(err);
   }

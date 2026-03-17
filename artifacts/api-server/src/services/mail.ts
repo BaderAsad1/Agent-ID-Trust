@@ -162,17 +162,29 @@ export interface ThreadListFilters {
   status?: string;
   limit?: number;
   offset?: number;
+  cursor?: string;
 }
 
 export async function listThreads(filters: ThreadListFilters): Promise<{
   threads: (AgentThread & { lastMessage?: { id: string; senderAddress: string | null; senderType: string; snippet: string; isRead: boolean; senderVerified: boolean | null; senderTrustScore: number | null; createdAt: Date }; labels?: { id: string; name: string; color: string | null }[] })[];
   total: number;
+  nextCursor?: string;
+  hasMore: boolean;
 }> {
+  const pageSize = filters.limit || 25;
   const conditions = [eq(agentThreadsTable.inboxId, filters.inboxId)];
   if (filters.status) {
     conditions.push(
       eq(agentThreadsTable.status, filters.status as AgentThread["status"]),
     );
+  }
+  if (filters.cursor) {
+    try {
+      const cursorDate = new Date(filters.cursor);
+      conditions.push(
+        sql`${agentThreadsTable.lastMessageAt} < ${cursorDate}`,
+      );
+    } catch {}
   }
   const where = and(...conditions);
 
@@ -180,17 +192,23 @@ export async function listThreads(filters: ThreadListFilters): Promise<{
     db.query.agentThreadsTable.findMany({
       where,
       orderBy: [desc(agentThreadsTable.lastMessageAt)],
-      limit: filters.limit || 50,
-      offset: filters.offset || 0,
+      limit: pageSize + 1,
+      offset: filters.cursor ? 0 : (filters.offset || 0),
     }),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(agentThreadsTable)
-      .where(where),
+      .where(and(eq(agentThreadsTable.inboxId, filters.inboxId), filters.status ? eq(agentThreadsTable.status, filters.status as AgentThread["status"]) : undefined)),
   ]);
 
+  const hasMore = threads.length > pageSize;
+  if (hasMore) threads.pop();
+  const nextCursor = hasMore && threads.length > 0
+    ? threads[threads.length - 1].lastMessageAt?.toISOString()
+    : undefined;
+
   if (threads.length === 0) {
-    return { threads: [], total: countResult[0].count };
+    return { threads: [], total: countResult[0].count, hasMore: false };
   }
 
   const threadIds = threads.map(t => t.id);
@@ -257,7 +275,7 @@ export async function listThreads(filters: ThreadListFilters): Promise<{
     };
   });
 
-  return { threads: enriched, total: countResult[0].count };
+  return { threads: enriched, total: countResult[0].count, nextCursor, hasMore };
 }
 
 export async function getThread(threadId: string): Promise<AgentThread | null> {
@@ -272,6 +290,217 @@ export async function getThreadMessages(threadId: string): Promise<AgentMessage[
     where: eq(agentMessagesTable.threadId, threadId),
     orderBy: [desc(agentMessagesTable.createdAt)],
   });
+}
+
+export async function starThread(threadId: string, agentId: string, starred: boolean): Promise<boolean> {
+  const thread = await getThread(threadId);
+  if (!thread || thread.agentId !== agentId) return false;
+
+  const inbox = await getInboxByAgent(agentId);
+  if (!inbox) return false;
+
+  const flaggedLabel = await db.query.messageLabelsTable.findFirst({
+    where: and(
+      eq(messageLabelsTable.agentId, agentId),
+      eq(messageLabelsTable.name, "flagged"),
+    ),
+  });
+  if (!flaggedLabel) return false;
+
+  const msgs = await db.query.agentMessagesTable.findMany({
+    where: eq(agentMessagesTable.threadId, threadId),
+  });
+
+  for (const msg of msgs) {
+    if (starred) {
+      await db
+        .insert(messageLabelAssignmentsTable)
+        .values({ messageId: msg.id, labelId: flaggedLabel.id })
+        .onConflictDoNothing();
+    } else {
+      await db
+        .delete(messageLabelAssignmentsTable)
+        .where(
+          and(
+            eq(messageLabelAssignmentsTable.messageId, msg.id),
+            eq(messageLabelAssignmentsTable.labelId, flaggedLabel.id),
+          ),
+        );
+    }
+  }
+  return true;
+}
+
+export async function deleteMessage(messageId: string, agentId: string): Promise<boolean> {
+  const message = await getMessage(messageId);
+  if (!message || message.agentId !== agentId) return false;
+
+  const threadId = message.threadId;
+  await db.delete(agentMessagesTable).where(eq(agentMessagesTable.id, messageId));
+
+  const remaining = await db
+    .select({ id: agentMessagesTable.id })
+    .from(agentMessagesTable)
+    .where(eq(agentMessagesTable.threadId, threadId))
+    .limit(1);
+
+  if (remaining.length === 0) {
+    await db.delete(agentThreadsTable).where(eq(agentThreadsTable.id, threadId));
+  } else {
+    const [latest] = await db
+      .select({
+        lastMessageAt: sql<Date | null>`max(${agentMessagesTable.createdAt})`,
+        unreadCount: sql<number>`count(*) filter (where ${agentMessagesTable.isRead} = false)::int`,
+        messageCount: sql<number>`count(*)::int`,
+      })
+      .from(agentMessagesTable)
+      .where(eq(agentMessagesTable.threadId, threadId));
+
+    if (latest) {
+      await db
+        .update(agentThreadsTable)
+        .set({
+          lastMessageAt: latest.lastMessageAt ?? undefined,
+          unreadCount: latest.unreadCount,
+          messageCount: latest.messageCount,
+        })
+        .where(eq(agentThreadsTable.id, threadId));
+    }
+  }
+
+  return true;
+}
+
+export async function deleteThread(threadId: string, agentId: string): Promise<boolean> {
+  const thread = await db.query.agentThreadsTable.findFirst({
+    where: and(eq(agentThreadsTable.id, threadId), eq(agentThreadsTable.agentId, agentId)),
+  });
+  if (!thread) return false;
+
+  await db.delete(agentMessagesTable).where(eq(agentMessagesTable.threadId, threadId));
+  await db.delete(agentThreadsTable).where(eq(agentThreadsTable.id, threadId));
+  return true;
+}
+
+export async function saveDraft(
+  agentId: string,
+  data: {
+    subject?: string;
+    body: string;
+    recipientAddress?: string;
+    bodyFormat?: string;
+  },
+): Promise<AgentMessage> {
+  const inbox = await getOrCreateInbox(agentId);
+  await ensureSystemLabels(agentId);
+
+  const [thread] = await db
+    .insert(agentThreadsTable)
+    .values({
+      inboxId: inbox.id,
+      agentId,
+      subject: data.subject || '(draft)',
+      status: 'open',
+    })
+    .returning();
+
+  const [message] = await db
+    .insert(agentMessagesTable)
+    .values({
+      threadId: thread.id,
+      inboxId: inbox.id,
+      agentId,
+      direction: 'outbound',
+      senderType: 'user',
+      recipientAddress: data.recipientAddress || undefined,
+      subject: data.subject || undefined,
+      body: data.body,
+      bodyFormat: (data.bodyFormat as "text" | "html" | "markdown") || 'text',
+      isDraft: true,
+      deliveryStatus: 'queued',
+      isRead: true,
+    })
+    .returning();
+
+  const draftsLabel = await db.query.messageLabelsTable.findFirst({
+    where: and(
+      eq(messageLabelsTable.agentId, agentId),
+      eq(messageLabelsTable.name, "drafts"),
+    ),
+  });
+  if (draftsLabel) {
+    await db
+      .insert(messageLabelAssignmentsTable)
+      .values({ messageId: message.id, labelId: draftsLabel.id })
+      .onConflictDoNothing();
+  }
+
+  await db
+    .update(agentThreadsTable)
+    .set({
+      messageCount: 1,
+      unreadCount: 0,
+      lastMessageAt: message.createdAt,
+      updatedAt: message.createdAt,
+    })
+    .where(eq(agentThreadsTable.id, thread.id));
+
+  return message;
+}
+
+export async function bulkThreadAction(
+  agentId: string,
+  threadIds: string[],
+  action: 'mark_read' | 'archive' | 'delete',
+): Promise<{ count: number; errors: string[] }> {
+  let count = 0;
+  const errors: string[] = [];
+
+  for (const threadId of threadIds) {
+    try {
+      const thread = await getThread(threadId);
+      if (!thread || thread.agentId !== agentId) {
+        errors.push(threadId);
+        continue;
+      }
+
+      if (action === 'mark_read') {
+        await db
+          .update(agentMessagesTable)
+          .set({ isRead: true, updatedAt: new Date() })
+          .where(eq(agentMessagesTable.threadId, threadId));
+        await db
+          .update(agentThreadsTable)
+          .set({ unreadCount: 0, updatedAt: new Date() })
+          .where(eq(agentThreadsTable.id, threadId));
+        count++;
+      } else if (action === 'archive') {
+        const msgs = await db.query.agentMessagesTable.findMany({
+          where: eq(agentMessagesTable.threadId, threadId),
+        });
+        for (const msg of msgs) {
+          await archiveMessage(msg.id, agentId);
+        }
+        await db
+          .update(agentThreadsTable)
+          .set({ status: 'archived', updatedAt: new Date() })
+          .where(eq(agentThreadsTable.id, threadId));
+        count++;
+      } else if (action === 'delete') {
+        await db
+          .delete(agentMessagesTable)
+          .where(eq(agentMessagesTable.threadId, threadId));
+        await db
+          .delete(agentThreadsTable)
+          .where(eq(agentThreadsTable.id, threadId));
+        count++;
+      }
+    } catch (err) {
+      errors.push(threadId);
+    }
+  }
+
+  return { count, errors };
 }
 
 export async function archiveMessage(messageId: string, agentId: string): Promise<AgentMessage | null> {

@@ -149,6 +149,7 @@ export const agentMessagesTable = pgTable(
     structuredPayload: jsonb("structured_payload").$type<Record<string, unknown>>(),
     isRead: boolean("is_read").default(false).notNull(),
     readAt: timestamp("read_at", { withTimezone: true }),
+    isDraft: boolean("is_draft").default(false).notNull(),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     deliveryStatus: messageDeliveryStatusEnum("delivery_status")
       .default("queued")

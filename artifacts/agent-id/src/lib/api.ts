@@ -293,9 +293,9 @@ export const api = {
     inboxStats: (agentId: string) =>
       request<InboxStats>(`/mail/agents/${agentId}/inbox/stats`),
 
-    threads: (agentId: string, params?: Record<string, string>) => {
+    threads: (agentId: string, params?: Record<string, string> & { limit?: string; cursor?: string }) => {
       const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-      return request<{ threads: MailThread[]; total: number }>(`/mail/agents/${agentId}/threads${qs}`);
+      return request<{ threads: MailThread[]; total: number; nextCursor?: string; hasMore: boolean }>(`/mail/agents/${agentId}/threads${qs}`);
     },
     thread: (agentId: string, threadId: string) =>
       request<{ thread: MailThread }>(`/mail/agents/${agentId}/threads/${threadId}`),
@@ -353,6 +353,30 @@ export const api = {
       const qs = new URLSearchParams(params).toString();
       return request<{ messages: MailMessage[]; total: number }>(`/mail/agents/${agentId}/search?${qs}`);
     },
+
+    starThread: (agentId: string, threadId: string, starred: boolean) =>
+      request<{ success: boolean; starred: boolean }>(`/mail/agents/${agentId}/threads/${threadId}/star`, {
+        method: "POST",
+        body: JSON.stringify({ starred }),
+      }),
+
+    deleteThread: (agentId: string, threadId: string) =>
+      request<void>(`/mail/agents/${agentId}/threads/${threadId}`, { method: "DELETE" }),
+
+    deleteMessage: (agentId: string, messageId: string) =>
+      request<void>(`/mail/agents/${agentId}/messages/${messageId}`, { method: "DELETE" }),
+
+    saveDraft: (agentId: string, data: { subject?: string; body: string; recipientAddress?: string; bodyFormat?: string }) =>
+      request<{ message: MailMessage }>(`/mail/agents/${agentId}/drafts`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+
+    bulkAction: (agentId: string, threadIds: string[], action: 'mark_read' | 'archive' | 'delete') =>
+      request<{ success: boolean; count: number; errors: string[] }>(`/mail/agents/${agentId}/threads/bulk`, {
+        method: "POST",
+        body: JSON.stringify({ threadIds, action }),
+      }),
   },
 };
 

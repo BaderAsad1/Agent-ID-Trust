@@ -3,7 +3,8 @@ import {
   Mail as MailIcon, Send, Search, ArrowLeft, Tag, CheckCircle, XCircle,
   ShieldCheck, ShieldAlert, Bot, User, Clock, Paperclip, ChevronRight,
   Archive, RotateCcw, AlertCircle, RefreshCw, Inbox as InboxIcon,
-  FileText, Filter, X, Loader2, CheckSquare, Eye, EyeOff, Code, ChevronDown, Settings
+  FileText, Filter, X, Loader2, CheckSquare, Eye, EyeOff, Code, ChevronDown, Settings,
+  Star, Trash2
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { api, type Agent, type MailThread, type MailMessage, type MailLabel, type MailEvent, type InboxStats, type MailInbox, type RoutingRule, type MailAttachment } from '@/lib/api';
@@ -327,7 +328,7 @@ function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void })
 }
 
 function LabelFilter({ labels, activeLabel, onSelect }: { labels: MailLabel[]; activeLabel: string | null; onSelect: (id: string | null) => void }) {
-  const systemLabels = labels.filter(l => l.isSystem && ['inbox', 'sent', 'archived', 'spam', 'important', 'tasks', 'flagged', 'verified', 'quarantine', 'requires-approval'].includes(l.name));
+  const systemLabels = labels.filter(l => l.isSystem && ['inbox', 'sent', 'drafts', 'archived', 'spam', 'important', 'tasks', 'flagged', 'verified', 'quarantine', 'requires-approval'].includes(l.name));
   const customLabels = labels.filter(l => !l.isSystem);
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -368,17 +369,48 @@ function LabelFilter({ labels, activeLabel, onSelect }: { labels: MailLabel[]; a
   );
 }
 
-function ThreadListItem({ thread, onClick }: { thread: MailThread; onClick: () => void }) {
+function ThreadListItem({
+  thread,
+  onClick,
+  onStar,
+  onDelete,
+  selectMode,
+  selected,
+  onSelect,
+}: {
+  thread: MailThread;
+  onClick: () => void;
+  onStar?: (starred: boolean) => void;
+  onDelete?: () => void;
+  selectMode?: boolean;
+  selected?: boolean;
+  onSelect?: (selected: boolean) => void;
+}) {
   const lm = thread.lastMessage;
+  const isStarred = thread.labels?.some(l => l.name === 'flagged');
+
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left px-4 py-3 border-b transition-colors hover:bg-white/5 cursor-pointer"
-      style={{ background: thread.unreadCount > 0 ? 'rgba(59,130,246,0.04)' : 'transparent', borderColor: 'var(--border-color)', border: 'none', borderBottom: '1px solid var(--border-color)' }}
+    <div
+      className="w-full text-left px-4 py-3 border-b transition-colors group"
+      style={{ background: selected ? 'rgba(59,130,246,0.08)' : thread.unreadCount > 0 ? 'rgba(59,130,246,0.04)' : 'transparent', borderBottom: '1px solid var(--border-color)', position: 'relative' }}
     >
       <div className="flex items-start gap-3">
-        {thread.unreadCount > 0 && <span className="mt-2 block w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--accent)' }} />}
-        <div className="flex-1 min-w-0">
+        {selectMode ? (
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={e => { e.stopPropagation(); onSelect?.(e.target.checked); }}
+            className="mt-1.5 w-4 h-4 flex-shrink-0 cursor-pointer"
+            onClick={e => e.stopPropagation()}
+          />
+        ) : (
+          thread.unreadCount > 0 && <span className="mt-2 block w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--accent)' }} />
+        )}
+        <button
+          onClick={onClick}
+          className="flex-1 min-w-0 text-left cursor-pointer"
+          style={{ background: 'none', border: 'none' }}
+        >
           <div className="flex items-center gap-2 mb-0.5">
             {lm && (
               <span className="text-xs truncate" style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
@@ -408,13 +440,33 @@ function ThreadListItem({ thread, onClick }: { thread: MailThread; onClick: () =
             </span>
             {thread.labels && thread.labels.length > 0 && thread.labels.slice(0, 3).map(l => <LabelChip key={l.id} label={l} />)}
           </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        </button>
+        <div className="flex items-center gap-1 flex-shrink-0">
           {thread.lastMessageAt && <TimeAgo date={thread.lastMessageAt} />}
+          {onStar && (
+            <button
+              onClick={e => { e.stopPropagation(); onStar(!isStarred); }}
+              className="p-1 rounded hover:bg-white/10"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: isStarred ? '#f59e0b' : 'var(--text-dim)' }}
+              title={isStarred ? 'Unstar' : 'Star'}
+            >
+              <Star className="w-3.5 h-3.5" fill={isStarred ? '#f59e0b' : 'none'} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={e => { e.stopPropagation(); onDelete(); }}
+              className="p-1 rounded hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}
+              title="Delete thread"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
           <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-dim)' }} />
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -506,7 +558,7 @@ function ProvenanceTimeline({ chain }: { chain: Array<{ actor: string; action: s
   );
 }
 
-function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAttachments, onBack, onRefresh }: { message: MailMessage; agentId: string; labels?: MailLabel[]; attachments?: MailAttachment[]; onBack: () => void; onRefresh: () => void }) {
+function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAttachments, onBack, onRefresh, onDelete }: { message: MailMessage; agentId: string; labels?: MailLabel[]; attachments?: MailAttachment[]; onBack: () => void; onRefresh: () => void; onDelete?: () => void }) {
   const [events, setEvents] = useState<MailEvent[]>([]);
   const [showEvents, setShowEvents] = useState(false);
   const [replyBody, setReplyBody] = useState('');
@@ -539,6 +591,19 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
   };
 
   const handleAction = async (action: string) => {
+    if (action === 'delete') {
+      if (!window.confirm('Delete this message? This cannot be undone.')) return;
+      setActionLoading(action);
+      try {
+        await api.mail.deleteMessage(agentId, message.id);
+        onDelete ? onDelete() : onBack();
+      } catch (err) {
+        console.error('[mail] Delete failed:', err);
+      } finally {
+        setActionLoading(null);
+      }
+      return;
+    }
     setActionLoading(action);
     try {
       if (action === 'archive') await api.mail.archiveMessage(agentId, message.id);
@@ -641,6 +706,10 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
             {actionLoading === 'archive' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
             <span className="ml-1.5">Archive</span>
           </PrimaryButton>
+          <PrimaryButton variant="danger" onClick={() => handleAction('delete')} disabled={!!actionLoading}>
+            {actionLoading === 'delete' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            <span className="ml-1.5">Delete</span>
+          </PrimaryButton>
           {!message.convertedTaskId && (
             <PrimaryButton variant="ghost" onClick={() => handleAction('convert')} disabled={!!actionLoading}>
               {actionLoading === 'convert' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckSquare className="w-3.5 h-3.5" />}
@@ -717,6 +786,7 @@ function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; a
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const otherAgents = agents.filter(a => a.id !== agentId);
@@ -739,6 +809,25 @@ function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; a
       setError(err instanceof Error ? err.message : 'Failed to send');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!body.trim() || savingDraft) return;
+    setSavingDraft(true);
+    setError(null);
+    try {
+      await api.mail.saveDraft(agentId, {
+        recipientAddress: recipientAddress || undefined,
+        subject: subject || undefined,
+        body: body.trim(),
+        bodyFormat: 'text',
+      });
+      onSent();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save draft');
+    } finally {
+      setSavingDraft(false);
     }
   };
 
@@ -804,7 +893,11 @@ function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; a
 
         <div className="flex justify-end gap-2 mt-4">
           <PrimaryButton variant="ghost" onClick={onClose}>Cancel</PrimaryButton>
-          <PrimaryButton onClick={handleSend} disabled={!body.trim() || sending}>
+          <PrimaryButton variant="ghost" onClick={handleSaveDraft} disabled={!body.trim() || savingDraft || sending}>
+            {savingDraft ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <FileText className="w-4 h-4 mr-1.5" />}
+            Save Draft
+          </PrimaryButton>
+          <PrimaryButton onClick={handleSend} disabled={!body.trim() || sending || savingDraft}>
             {sending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Send className="w-4 h-4 mr-1.5" />}
             Send
           </PrimaryButton>
@@ -837,6 +930,11 @@ export function Mail() {
   const [error, setError] = useState<string | null>(null);
   const [showCompose, setShowCompose] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [threadCursor, setThreadCursor] = useState<string | undefined>(undefined);
+  const [hasMoreThreads, setHasMoreThreads] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedThreadIds, setSelectedThreadIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (agents.length > 0 && !selectedAgent) {
@@ -869,6 +967,8 @@ export function Mail() {
     if (!selectedAgent) return;
     setLoading(true);
     setError(null);
+    setThreadCursor(undefined);
+    setSelectedThreadIds(new Set());
     try {
       const inboxRes = await api.mail.inbox(selectedAgent);
       setInboxData(inboxRes.inbox);
@@ -885,8 +985,10 @@ export function Mail() {
         setMessages(searchRes.messages);
         setView('search-results');
       } else {
-        const threadsRes = await api.mail.threads(selectedAgent);
+        const threadsRes = await api.mail.threads(selectedAgent, { limit: '25' });
         setThreads(threadsRes.threads);
+        setHasMoreThreads(threadsRes.hasMore);
+        setThreadCursor(threadsRes.nextCursor);
         if (view === 'search-results') setView('threads');
       }
     } catch (e) {
@@ -895,6 +997,21 @@ export function Mail() {
       setLoading(false);
     }
   }, [selectedAgent, activeLabel]);
+
+  const loadMoreThreads = useCallback(async () => {
+    if (!selectedAgent || !hasMoreThreads || loadingMore || !threadCursor) return;
+    setLoadingMore(true);
+    try {
+      const threadsRes = await api.mail.threads(selectedAgent, { limit: '25', cursor: threadCursor });
+      setThreads(prev => [...prev, ...threadsRes.threads]);
+      setHasMoreThreads(threadsRes.hasMore);
+      setThreadCursor(threadsRes.nextCursor);
+    } catch (e) {
+      console.error('[mail] Load more failed:', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [selectedAgent, hasMoreThreads, loadingMore, threadCursor]);
 
   useEffect(() => { loadInbox(); }, [loadInbox]);
 
@@ -961,6 +1078,53 @@ export function Mail() {
     }
   };
 
+  const handleStarThread = async (threadId: string, starred: boolean) => {
+    try {
+      await api.mail.starThread(selectedAgent, threadId, starred);
+      setThreads(prev => prev.map(t => {
+        if (t.id !== threadId) return t;
+        const flaggedLabel = labels.find(l => l.name === 'flagged');
+        if (!flaggedLabel) return t;
+        const currentLabels = t.labels || [];
+        if (starred) {
+          return { ...t, labels: currentLabels.some(l => l.name === 'flagged') ? currentLabels : [...currentLabels, flaggedLabel] };
+        } else {
+          return { ...t, labels: currentLabels.filter(l => l.name !== 'flagged') };
+        }
+      }));
+    } catch (e) {
+      console.error('[mail] Star failed:', e);
+    }
+  };
+
+  const handleDeleteThread = async (threadId: string) => {
+    if (!window.confirm('Delete this thread? This cannot be undone.')) return;
+    try {
+      await api.mail.deleteThread(selectedAgent, threadId);
+      setThreads(prev => prev.filter(t => t.id !== threadId));
+      if (selectedThread?.id === threadId) {
+        setSelectedThread(null);
+        setSelectedMessage(null);
+        setView('threads');
+      }
+    } catch (e) {
+      console.error('[mail] Delete thread failed:', e);
+    }
+  };
+
+  const handleBulkAction = async (action: 'mark_read' | 'archive' | 'delete') => {
+    if (selectedThreadIds.size === 0) return;
+    if (action === 'delete' && !window.confirm(`Delete ${selectedThreadIds.size} thread(s)? This cannot be undone.`)) return;
+    try {
+      await api.mail.bulkAction(selectedAgent, Array.from(selectedThreadIds), action);
+      setSelectedThreadIds(new Set());
+      setSelectMode(false);
+      loadInbox();
+    } catch (e) {
+      console.error('[mail] Bulk action failed:', e);
+    }
+  };
+
   if (agents.length === 0) {
     return (
       <div>
@@ -978,11 +1142,34 @@ export function Mail() {
           <PrimaryButton variant="ghost" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="w-4 h-4" />
           </PrimaryButton>
+          <PrimaryButton
+            variant={selectMode ? 'blue' : 'ghost'}
+            onClick={() => { setSelectMode(s => !s); setSelectedThreadIds(new Set()); }}
+          >
+            <CheckSquare className="w-4 h-4" />
+          </PrimaryButton>
           <PrimaryButton onClick={() => setShowCompose(true)}>
             <Send className="w-4 h-4 mr-1.5" /> Compose
           </PrimaryButton>
         </div>
       </div>
+
+      {selectMode && selectedThreadIds.size > 0 && (
+        <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+          <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>{selectedThreadIds.size} selected</span>
+          <div className="flex items-center gap-1 ml-auto">
+            <PrimaryButton variant="ghost" onClick={() => handleBulkAction('mark_read')}>
+              <Eye className="w-3.5 h-3.5 mr-1" /> Mark read
+            </PrimaryButton>
+            <PrimaryButton variant="ghost" onClick={() => handleBulkAction('archive')}>
+              <Archive className="w-3.5 h-3.5 mr-1" /> Archive
+            </PrimaryButton>
+            <PrimaryButton variant="danger" onClick={() => handleBulkAction('delete')}>
+              <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+            </PrimaryButton>
+          </div>
+        </div>
+      )}
 
       <InboxList agents={agents} selectedAgent={selectedAgent} allStats={agentStats} inboxes={allInboxes} onSelect={(id) => { setSelectedAgent(id); setView('threads'); setSelectedThread(null); setSelectedMessage(null); }} />
 
@@ -1050,6 +1237,22 @@ export function Mail() {
             setSelectedMessage(res.message);
             setMessageLabels(res.labels || []);
             setMessageAttachments(res.attachments || []);
+          }}
+          onDelete={async () => {
+            setSelectedMessage(null);
+            if (selectedThread) {
+              const updatedThread = await api.mail.thread(selectedAgent, selectedThread.id).catch(() => null);
+              if (updatedThread) {
+                setSelectedThread(updatedThread.thread);
+                setView('thread-detail');
+              } else {
+                setSelectedThread(null);
+                setView('threads');
+              }
+            } else {
+              setView('threads');
+            }
+            loadInbox();
           }}
         />
       ) : view === 'thread-detail' && selectedThread ? (
@@ -1120,11 +1323,34 @@ export function Mail() {
               action={<PrimaryButton onClick={() => setShowCompose(true)}><Send className="w-4 h-4 mr-1.5" /> Compose</PrimaryButton>}
             />
           ) : (
-            <GlassCard className="!p-0">
-              {threads.map(t => (
-                <ThreadListItem key={t.id} thread={t} onClick={() => openThread(t)} />
-              ))}
-            </GlassCard>
+            <>
+              <GlassCard className="!p-0">
+                {threads.map(t => (
+                  <ThreadListItem
+                    key={t.id}
+                    thread={t}
+                    onClick={() => openThread(t)}
+                    onStar={starred => handleStarThread(t.id, starred)}
+                    onDelete={() => handleDeleteThread(t.id)}
+                    selectMode={selectMode}
+                    selected={selectedThreadIds.has(t.id)}
+                    onSelect={sel => setSelectedThreadIds(prev => {
+                      const next = new Set(prev);
+                      if (sel) next.add(t.id); else next.delete(t.id);
+                      return next;
+                    })}
+                  />
+                ))}
+              </GlassCard>
+              {hasMoreThreads && (
+                <div className="mt-3 flex justify-center">
+                  <PrimaryButton variant="ghost" onClick={loadMoreThreads} disabled={loadingMore}>
+                    {loadingMore ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <ChevronDown className="w-4 h-4 mr-1.5" />}
+                    Load more
+                  </PrimaryButton>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
