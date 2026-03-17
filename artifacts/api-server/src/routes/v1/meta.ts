@@ -168,7 +168,7 @@ router.post("/admin/repair/clear-agent-wallet", async (req, res) => {
       walletAddress: null,
       walletNetwork: null,
       walletProvisionedAt: null,
-      walletIsSelfCustodial: sql`NULL`,
+      walletIsSelfCustodial: false,
       walletPolicyId: null,
       updatedAt: new Date(),
     }).where(eq(agentsTable.id, agentId)).returning({ id: agentsTable.id, handle: agentsTable.handle, walletAddress: agentsTable.walletAddress });
