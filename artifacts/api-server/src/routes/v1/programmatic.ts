@@ -354,6 +354,16 @@ router.post("/agents/verify", async (req, res, next) => {
     ]);
     const bootstrap = await buildBootstrapBundle(freshAgent!);
     const limits = getPlanLimits(ownerPlan);
+
+    setImmediate(async () => {
+      try {
+        const { provisionAgentWallet } = await import("../../services/wallet");
+        await provisionAgentWallet(agentId, agent.handle);
+      } catch (err) {
+        logger.error({ agentId, error: err instanceof Error ? err.message : err }, "[programmatic] Background wallet provisioning failed");
+      }
+    });
+
     const finalizeMs = performance.now() - tFinalize;
 
     const totalMs = performance.now() - t0;
@@ -389,6 +399,9 @@ router.post("/agents/verify", async (req, res, next) => {
       bootstrap,
       claimUrl,
       ownershipNote: "Save this claim URL. Visit it while signed in to your Agent ID account to permanently link this agent to your account.",
+      wallet: freshAgent?.walletAddress
+        ? { address: freshAgent.walletAddress, network: freshAgent.walletNetwork || "base-mainnet" }
+        : { status: "provisioning", note: "Wallet is being provisioned in the background. Poll GET /api/v1/agents/{agentId}/wallet for status." },
       planStatus: {
         currentPlan: ownerPlan,
         features: {

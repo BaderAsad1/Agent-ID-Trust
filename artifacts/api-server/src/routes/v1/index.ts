@@ -37,6 +37,7 @@ import { controlPlaneAgentRouter, controlPlaneVerifyRouter } from "./control-pla
 import governanceRouter from "./governance";
 import agenticPayRouter from "./agentic-pay";
 import metaRouter from "./meta";
+import walletRouter from "./wallet";
 import { requireInboxAccess, requireAgentPlan, requirePlan, checkAgentLimit } from "../../middlewares/feature-gate";
 
 const router = Router();
@@ -87,6 +88,7 @@ router.use("/pay", agenticPayRouter);
 router.use("/humans", humansRouter);
 router.use("/agents", agentWebhooksRouter);
 router.use("/agents", agentAttestationsRouter);
+router.use("/agents", walletRouter);
 router.use("/agents", controlPlaneAgentRouter);
 router.use("/", governanceRouter);
 router.use("/agents", governanceRouter);

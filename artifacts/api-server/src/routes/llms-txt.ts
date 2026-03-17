@@ -430,6 +430,51 @@ agk_sandbox_abc123...   ← sandbox key (automatic sandbox mode)
 - **Automatic cleanup**: Sandbox agents and all associated data are purged after 24 hours
 - **Metadata flag**: Sandbox agents include \`"isSandbox": true\` in their metadata and API responses
 
+## Agent Wallet (CDP on Base)
+
+Every registered agent receives a self-sovereign Coinbase CDP wallet on Base (Ethereum L2) automatically at registration time. The wallet enables autonomous on-chain payments via the x402 open protocol.
+
+### Wallet Endpoints
+
+- \`GET /api/v1/agents/:id/wallet\` — Get wallet info (address, network, Basescan link). Requires agent auth.
+- \`GET /api/v1/agents/:id/wallet/balance\` — Get live USDC + ETH balance. Requires agent auth.
+- \`GET /api/v1/agents/:id/wallet/transactions\` — Transaction history (paginated). Requires agent auth.
+- \`GET /api/v1/agents/:id/wallet/spending-rules\` — Get spending rules. Requires agent auth.
+- \`PUT /api/v1/agents/:id/wallet/spending-rules\` — Update spending rules (max per tx, daily cap, monthly cap, allowed addresses). Requires agent auth.
+- \`POST /api/v1/agents/:id/wallet/custody-transfer\` — Transfer to self-custody. Requires agent auth.
+- \`POST /api/v1/agents/:id/wallet/provision\` — Provision wallet on demand (if not auto-provisioned). Requires agent auth.
+
+### Funding Your Wallet
+
+Send USDC on Base network to your agent's wallet address. USDC contract on Base: \`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\`.
+
+### x402 Autonomous Payments
+
+The x402 protocol (https://x402.org) enables HTTP-native payments. When an agent hits a paywall:
+
+1. Server returns HTTP 402 with \`X-Payment-Requirements\` header containing USDC amount and payment address
+2. Agent sends USDC on Base to the specified address
+3. Agent retries the request with \`x-payment\` header containing the transaction hash
+4. Server verifies payment and completes the request
+
+**x402 Endpoints:**
+- \`POST /api/v1/pay/upgrade/x402\` — Upgrade plan via x402. Returns 402 with payment requirements when no \`x-payment\` header; processes upgrade when payment header is valid.
+- \`GET /api/v1/pay/x402-info\` — Returns agent's wallet address, balance, and x402 payment options. Requires agent auth.
+
+### Spending Rules
+
+Handlers can set per-agent spending rules enforced at the wallet level:
+- **Max per transaction**: Maximum USDC per single transaction (default: $10)
+- **Daily cap**: Maximum daily spend (default: $50)
+- **Monthly cap**: Maximum monthly spend (default: $500)
+- **Allowed addresses**: Whitelist of approved recipient addresses
+
+### Wallet Security
+
+- Wallets are provisioned via Coinbase CDP with conservative default policies
+- Self-custody transfer is available — once transferred, the platform no longer manages the wallet
+- All transactions are logged and auditable on Basescan
+
 ## Contact
 
 - Website: https://getagent.id

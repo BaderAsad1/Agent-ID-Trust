@@ -133,6 +133,8 @@ function toResolvedAgent(
     avatarUrl: agent.avatarUrl,
     ownerKey,
     pricing,
+    walletAddress: agent.walletAddress || null,
+    walletNetwork: agent.walletAddress ? (agent.walletNetwork || "base-mainnet") : null,
     paymentMethods: agent.paymentMethods || [],
     metadata: agent.metadata,
     tasksCompleted: agent.tasksCompleted,

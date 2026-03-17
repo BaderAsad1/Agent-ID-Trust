@@ -17,6 +17,8 @@ Key capabilities:
 - Agent Organizations for managing agent fleets under shared namespaces (e.g., `acme.agentID`)
 - Human Profiles for developer/operator public identity with owned agent listings
 - Agent ownership claim system — programmatically registered agents can be claimed by human handlers via signed claim tokens
+- CDP wallet provisioning on Base (Ethereum L2) with USDC balance tracking
+- x402 payment protocol for autonomous agent-to-agent on-chain payments
 - API-first design for programmatic agent interaction
 
 ## Tech Stack
@@ -62,6 +64,9 @@ Key capabilities:
 
 | Variable | Purpose |
 |---|---|
+| `CDP_API_KEY_ID` | Coinbase CDP API key ID for wallet provisioning |
+| `CDP_API_KEY_SECRET` | Coinbase CDP API key secret |
+| `PLATFORM_TREASURY_ADDRESS` | Platform wallet address (0x...) for receiving x402 upgrade payments |
 | `REDIS_URL` | Enables BullMQ background jobs and Redis-backed rate limiting |
 | `STRIPE_SECRET_KEY` | Stripe payment processing |
 | `STRIPE_PUBLISHABLE_KEY` | Stripe client-side integration |

@@ -198,4 +198,98 @@ router.post("/handle/claim", requireAgentAuth, async (req, res, next) => {
   }
 });
 
+router.post("/upgrade/x402", requireAgentAuth, async (req, res, next) => {
+  try {
+    const { verifyAndSettleX402Payment } = await import("../../middlewares/x402");
+    const { getPlatformTreasuryAddress } = await import("../../lib/cdp");
+    const agentId = req.authenticatedAgent!.id;
+    const plan = req.body?.plan || "starter";
+
+    const planPrices: Record<string, string> = {
+      starter: "29.00",
+      pro: "79.00",
+    };
+    const amountUsdc = planPrices[plan] || "29.00";
+
+    const treasuryAddress = getPlatformTreasuryAddress();
+    if (!treasuryAddress) {
+      throw new AppError(503, "SERVICE_UNAVAILABLE", "Platform treasury wallet not configured. x402 upgrades are currently unavailable.");
+    }
+
+    const paymentHeader = req.headers["x-payment"] as string | undefined;
+
+    const x402PaymentType = "plan_upgrade";
+
+    if (!paymentHeader) {
+      const { x402PaymentRequired: factory } = await import("../../middlewares/x402");
+      req.authenticatedAgent = { ...req.authenticatedAgent!, walletAddress: treasuryAddress };
+      const middleware = factory(amountUsdc, `Upgrade to ${plan} plan via x402`, x402PaymentType, plan);
+      return middleware(req, res, next);
+    }
+
+    const result = await verifyAndSettleX402Payment(
+      agentId,
+      paymentHeader,
+      amountUsdc,
+      x402PaymentType,
+      plan,
+      treasuryAddress,
+    );
+
+    if (!result.success) {
+      throw new AppError(402, "PAYMENT_FAILED", result.error || "Payment verification failed");
+    }
+
+    try {
+      const { activatePlanForAgent, activatePlanForUser } = await import("../../services/billing");
+      const agent = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, agentId),
+        columns: { userId: true },
+      });
+      if (agent) {
+        await activatePlanForAgent(agentId, plan as "starter" | "pro", "monthly");
+        await activatePlanForUser(agent.userId, plan as "starter" | "pro", undefined, "monthly");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[x402] Plan activation failed:", msg);
+    }
+
+    res.json({
+      success: true,
+      plan,
+      paymentId: result.paymentId,
+      message: `Successfully upgraded to ${plan} plan via x402 payment`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/x402-info", requireAgentAuth, async (req, res, next) => {
+  try {
+    const agentId = req.authenticatedAgent!.id;
+    const { getAgentWallet } = await import("../../services/wallet");
+    const { NETWORK_ID: networkId, USDC_CONTRACT_ADDRESS: usdcAddr, BASE_EXPLORER_URL: explorerUrl } = await import("../../lib/cdp");
+
+    const wallet = await getAgentWallet(agentId);
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
+
+    res.json({
+      walletAddress: wallet?.address || null,
+      network: wallet?.network || networkId,
+      usdcBalance: wallet?.usdcBalance || null,
+      basescanUrl: wallet?.basescanUrl || null,
+      x402Endpoints: {
+        upgradeViax402: `${APP_URL}/api/v1/pay/upgrade/x402`,
+        info: `${APP_URL}/api/v1/pay/x402-info`,
+      },
+      usdcContract: usdcAddr,
+      explorerUrl,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

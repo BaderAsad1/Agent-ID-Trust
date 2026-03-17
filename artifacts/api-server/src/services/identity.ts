@@ -83,6 +83,22 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
 
   const promptBlock = buildPromptBlock(agent, trust, effectiveInbox, capabilities, limits, baseUrl, plan, apiKeyRecord?.keyPrefix);
 
+  const walletInfo = agent.walletAddress ? {
+    status: "provisioned" as const,
+    address: agent.walletAddress,
+    network: agent.walletNetwork || "base-mainnet",
+    provisionedAt: agent.walletProvisionedAt,
+    isSelfCustodial: agent.walletIsSelfCustodial || false,
+    usdcBalance: agent.walletUsdcBalance || "0",
+    basescanUrl: `https://basescan.org/address/${agent.walletAddress}`,
+    fundingInstructions: `Send USDC on Base to ${agent.walletAddress}`,
+    x402Endpoint: `${baseUrl}/api/v1/pay/upgrade/x402`,
+  } : {
+    status: "not_provisioned" as const,
+    address: null,
+    provisionEndpoint: `${baseUrl}/api/v1/agents/${agent.id}/wallet/provision`,
+  };
+
   const bundle: Record<string, unknown> = {
     spec_version: SPEC_VERSION,
     machineIdentity,
@@ -123,6 +139,7 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
     claim_url: claimUrl,
     is_owned: !!agent.isClaimed,
     payment_options: paymentOptions,
+    wallet: walletInfo,
     plan: plan,
     plan_features: {
       inbox: limits.canReceiveMail,
@@ -221,6 +238,16 @@ All API requests MUST include a descriptive User-Agent header.
 Required headers for every request:
   User-Agent:   AgentID-Client/1.0 <your-platform>/<version>
   X-Agent-Key:  ${apiKeyPrefix ? apiKeyPrefix + "..." : "<your-api-key>"}
+
+=== AGENT WALLET ===
+${agent.walletAddress ? `Wallet Address: ${agent.walletAddress}
+Network:        Base (Ethereum L2)
+USDC Balance:   ${agent.walletUsdcBalance || "0"}
+Fund wallet:    Send USDC on Base to ${agent.walletAddress}
+USDC Contract:  0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+Basescan:       https://basescan.org/address/${agent.walletAddress}
+x402 Payment:   POST ${baseUrl}/api/v1/pay/upgrade/x402 (include x-payment header)` : `Wallet: not provisioned
+Provision:   POST ${baseUrl}/api/v1/agents/${agentId}/wallet/provision`}
 
 === IDENTITY MODEL ===
 Your Agent ID (UUID) is your permanent machine identity — like an IP address. It never expires.

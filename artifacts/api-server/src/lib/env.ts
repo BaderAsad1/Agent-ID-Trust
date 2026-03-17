@@ -58,6 +58,12 @@ const envSchema = z.object({
   REPL_ID: z.string().optional(),
 
   LOG_LEVEL: z.string().default("info"),
+
+  CDP_API_KEY_ID: z.string().optional(),
+  CDP_API_KEY_SECRET: z.string().optional(),
+  PLATFORM_TREASURY_ADDRESS: z.string().optional(),
+  CDP_WALLET_SECRET: z.string().optional(),
+  CDP_NETWORK_ID: z.string().default("base-mainnet"),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -50,3 +50,6 @@ export * from "./agent-reports";
 export * from "./trust-events";
 export * from "./human-audit-log";
 export * from "./agent-appeals";
+export * from "./agent-wallet-transactions";
+export * from "./agent-spending-rules";
+export * from "./x402-payments";

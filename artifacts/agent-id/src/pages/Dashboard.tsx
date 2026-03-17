@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -1561,6 +1561,365 @@ function CredentialDashboard() {
   );
 }
 
+function WalletDashboard() {
+  const { agents } = useAuth();
+  const [selectedAgent, setSelectedAgent] = useState<string>('');
+  const [walletInfo, setWalletInfo] = useState<import('@/lib/api').WalletInfo | null>(null);
+  const [balance, setBalance] = useState<import('@/lib/api').WalletBalance | null>(null);
+  const [transactions, setTransactions] = useState<import('@/lib/api').WalletTransaction[]>([]);
+  const [rules, setRules] = useState<import('@/lib/api').SpendingRules | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [provisioning, setProvisioning] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [editingRules, setEditingRules] = useState(false);
+  const [rulesDraft, setRulesDraft] = useState<import('@/lib/api').SpendingRules | null>(null);
+  const [savingRules, setSavingRules] = useState(false);
+
+  useEffect(() => {
+    if (agents.length > 0 && !selectedAgent) {
+      setSelectedAgent(agents[0].id);
+    }
+  }, [agents, selectedAgent]);
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const fetchWallet = useCallback(async () => {
+    if (!selectedAgent) { setLoading(false); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const [w, b, t, r] = await Promise.all([
+        api.agents.wallet.get(selectedAgent),
+        api.agents.wallet.balance(selectedAgent).catch(() => null),
+        api.agents.wallet.transactions(selectedAgent, 10).catch(() => ({ transactions: [] })),
+        api.agents.wallet.spendingRules(selectedAgent).catch(() => ({ rules: null })),
+      ]);
+      setWalletInfo(w);
+      setBalance(b);
+      setTransactions(t.transactions);
+      setRules(r.rules);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load wallet');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedAgent]);
+
+  useEffect(() => { fetchWallet(); }, [fetchWallet]);
+
+  const handleProvision = async () => {
+    if (!selectedAgent) return;
+    setProvisioning(true);
+    try {
+      await api.agents.wallet.provision(selectedAgent);
+      await fetchWallet();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to provision wallet');
+    } finally {
+      setProvisioning(false);
+    }
+  };
+
+  const handleCustodyTransfer = async () => {
+    if (!selectedAgent) return;
+    setTransferring(true);
+    try {
+      await api.agents.wallet.custodyTransfer(selectedAgent);
+      await fetchWallet();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to transfer custody');
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  const handleSaveRules = async () => {
+    if (!selectedAgent || !rulesDraft) return;
+    setSavingRules(true);
+    try {
+      const res = await api.agents.wallet.updateSpendingRules(selectedAgent, rulesDraft);
+      setRules(res.rules);
+      setEditingRules(false);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to update rules');
+    } finally {
+      setSavingRules(false);
+    }
+  };
+
+  const refreshBalance = async () => {
+    if (!selectedAgent) return;
+    try {
+      const b = await api.agents.wallet.balance(selectedAgent);
+      setBalance(b);
+    } catch {}
+  };
+
+  if (agents.length === 0) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Wallet</h1>
+        <EmptyState icon={<Wallet className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents found" description="Register an agent to access wallet features." />
+      </div>
+    );
+  }
+
+  if (loading) return (
+    <div>
+      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Wallet</h1>
+      <CardSkeleton />
+    </div>
+  );
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Wallet</h1>
+
+      {agents.length > 1 && (
+        <div className="mb-6">
+          <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Select Agent</label>
+          <select
+            value={selectedAgent}
+            onChange={e => setSelectedAgent(e.target.value)}
+            className="w-full max-w-xs rounded-lg border px-3 py-2 text-sm outline-none"
+            style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+          >
+            {agents.map(a => (
+              <option key={a.id} value={a.id}>{a.displayName} {a.handle ? `(@${a.handle})` : ''}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-3 p-4 rounded-xl mb-6" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+          <AlertCircle className="w-5 h-5" style={{ color: 'var(--danger)' }} />
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{error}</p>
+        </div>
+      )}
+
+      {!walletInfo?.provisioned ? (
+        <GlassCard className="!p-6">
+          <div className="text-center py-8">
+            <Wallet className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-dim)' }} />
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>No Wallet Provisioned</h3>
+            <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+              Provision a CDP wallet on Base to enable autonomous on-chain payments with USDC.
+            </p>
+            <PrimaryButton onClick={handleProvision} disabled={provisioning}>
+              <Wallet className="w-4 h-4 mr-2" /> {provisioning ? 'Provisioning...' : 'Provision Wallet'}
+            </PrimaryButton>
+          </div>
+        </GlassCard>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <GlassCard>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Balance</h3>
+              <div className="flex items-baseline gap-2 mb-4">
+                <span className="text-3xl font-bold" style={{ color: 'var(--accent)' }}>{balance?.usdc || '0'}</span>
+                <span className="text-sm" style={{ color: 'var(--text-dim)' }}>USDC</span>
+                <button onClick={refreshBalance} className="ml-auto cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }} aria-label="Refresh">
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+              {balance?.eth && balance.eth !== '0' && (
+                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  <span className="font-medium">{balance.eth}</span> ETH (for gas)
+                </div>
+              )}
+              {balance?.cached && (
+                <div className="text-xs mt-2" style={{ color: 'var(--text-dim)' }}>Cached balance — click refresh for live data</div>
+              )}
+            </GlassCard>
+
+            <GlassCard>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Wallet Address</h3>
+              <div className="rounded-lg p-3 mb-3" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-color)' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <code className="text-xs break-all" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{walletInfo.address}</code>
+                  <button
+                    onClick={() => copyToClipboard(walletInfo.address!, 'addr')}
+                    className="flex-shrink-0 p-1.5 rounded-md"
+                    style={{ background: 'transparent', border: 'none', color: copied === 'addr' ? 'var(--success)' : 'var(--text-dim)', cursor: 'pointer' }}
+                    aria-label="Copy address"
+                  >
+                    {copied === 'addr' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(79,125,243,0.1)', color: 'var(--accent)' }}>
+                  {walletInfo.network || 'base-mainnet'}
+                </span>
+                {walletInfo.basescanUrl && (
+                  <a href={walletInfo.basescanUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1" style={{ color: 'var(--accent)' }}>
+                    <ExternalLink className="w-3 h-3" /> Basescan
+                  </a>
+                )}
+              </div>
+            </GlassCard>
+          </div>
+
+          <GlassCard>
+            <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Fund Wallet</h3>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+              Send USDC on Base to the address below. Only send USDC on Base network.
+            </p>
+            <div className="rounded-lg p-3" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-color)' }}>
+              <div className="flex items-center justify-between gap-2">
+                <code className="text-xs break-all" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{walletInfo.address}</code>
+                <button
+                  onClick={() => copyToClipboard(walletInfo.address!, 'fund')}
+                  className="flex-shrink-0 p-1.5 rounded-md"
+                  style={{ background: 'transparent', border: 'none', color: copied === 'fund' ? 'var(--success)' : 'var(--text-dim)', cursor: 'pointer' }}
+                  aria-label="Copy funding address"
+                >
+                  {copied === 'fund' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transaction History</h3>
+            </div>
+            {transactions.length === 0 ? (
+              <p className="text-xs py-4 text-center" style={{ color: 'var(--text-dim)' }}>No transactions yet</p>
+            ) : (
+              <div className="space-y-2">
+                {transactions.map(tx => (
+                  <div key={tx.id} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: 'var(--border-color)' }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{tx.type.replace(/_/g, ' ')}</div>
+                      <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{new Date(tx.createdAt).toLocaleDateString()}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs font-medium" style={{ color: tx.direction === 'inbound' ? 'var(--success)' : 'var(--text-muted)' }}>
+                        {tx.direction === 'inbound' ? '+' : ''}{tx.amount} {tx.token}
+                      </div>
+                      <div className="text-xs" style={{ color: tx.status === 'completed' ? 'var(--success)' : 'var(--text-dim)' }}>{tx.status}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+
+          <GlassCard>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Spending Rules</h3>
+              {!editingRules && (
+                <PrimaryButton variant="ghost" onClick={() => { setEditingRules(true); setRulesDraft(rules || { maxPerTransactionCents: 1000, dailyCapCents: 5000, monthlyCapCents: 50000, allowedAddresses: [] }); }} className="!py-1 !px-2 !text-xs">
+                  Edit
+                </PrimaryButton>
+              )}
+            </div>
+            {editingRules && rulesDraft ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Max per transaction ($)</label>
+                  <input
+                    type="number"
+                    value={rulesDraft.maxPerTransactionCents / 100}
+                    onChange={e => setRulesDraft({ ...rulesDraft, maxPerTransactionCents: Math.round(Number(e.target.value) * 100) })}
+                    className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                    style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Daily cap ($)</label>
+                  <input
+                    type="number"
+                    value={rulesDraft.dailyCapCents / 100}
+                    onChange={e => setRulesDraft({ ...rulesDraft, dailyCapCents: Math.round(Number(e.target.value) * 100) })}
+                    className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                    style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Monthly cap ($)</label>
+                  <input
+                    type="number"
+                    value={rulesDraft.monthlyCapCents / 100}
+                    onChange={e => setRulesDraft({ ...rulesDraft, monthlyCapCents: Math.round(Number(e.target.value) * 100) })}
+                    className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                    style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <PrimaryButton onClick={handleSaveRules} disabled={savingRules}>
+                    {savingRules ? 'Saving...' : 'Save Rules'}
+                  </PrimaryButton>
+                  <PrimaryButton variant="ghost" onClick={() => setEditingRules(false)}>Cancel</PrimaryButton>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <div className="text-xs" style={{ color: 'var(--text-dim)' }}>Max per tx</div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${(rules?.maxPerTransactionCents || 1000) / 100}</div>
+                </div>
+                <div>
+                  <div className="text-xs" style={{ color: 'var(--text-dim)' }}>Daily cap</div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${(rules?.dailyCapCents || 5000) / 100}</div>
+                </div>
+                <div>
+                  <div className="text-xs" style={{ color: 'var(--text-dim)' }}>Monthly cap</div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${(rules?.monthlyCapCents || 50000) / 100}</div>
+                </div>
+              </div>
+            )}
+          </GlassCard>
+
+          <div>
+            <button
+              onClick={() => setAdvancedOpen(!advancedOpen)}
+              className="flex items-center gap-2 text-sm font-medium cursor-pointer mb-3"
+              style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }}
+            >
+              {advancedOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              Advanced
+            </button>
+            {advancedOpen && (
+              <GlassCard>
+                <div className="flex items-start gap-4">
+                  <Shield className="w-8 h-8 flex-shrink-0" style={{ color: 'var(--danger)' }} />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Self-Custody Transfer</h4>
+                    <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+                      Transfer this wallet to self-custody. Once transferred, the platform will no longer manage the wallet.
+                      This action cannot be undone.
+                    </p>
+                    {walletInfo.isSelfCustodial ? (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" style={{ color: 'var(--success)' }} />
+                        <span className="text-xs" style={{ color: 'var(--success)' }}>Already self-custodial</span>
+                      </div>
+                    ) : (
+                      <PrimaryButton variant="ghost" onClick={handleCustodyTransfer} disabled={transferring}>
+                        {transferring ? 'Transferring...' : 'Transfer to Self-Custody'}
+                      </PrimaryButton>
+                    )}
+                  </div>
+                </div>
+              </GlassCard>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -1580,6 +1939,7 @@ export function Dashboard() {
   else if (path === '/dashboard/log') content = <ActivityLogPage />;
   else if (path === '/dashboard/marketplace') content = <MarketplaceDashboard />;
   else if (path === '/dashboard/credential') content = <CredentialDashboard />;
+  else if (path === '/dashboard/wallet') content = <WalletDashboard />;
   else if (path === '/dashboard/domain') content = <DomainDashboard />;
   else if (path === '/dashboard/fleet') content = <FleetManagement />;
   else if (path === '/dashboard/settings') content = <SettingsPage />;

@@ -132,6 +132,26 @@ export const api = {
         }),
       status: (id: string) => request<{ verificationStatus: VerificationStatus }>(`/agents/${id}/verify/status`),
     },
+    wallet: {
+      get: (id: string) => request<WalletInfo>(`/agents/user/${id}/wallet`),
+      balance: (id: string) => request<WalletBalance>(`/agents/user/${id}/wallet/balance`),
+      transactions: (id: string, limit = 20, offset = 0) =>
+        request<{ transactions: WalletTransaction[]; limit: number; offset: number }>(
+          `/agents/user/${id}/wallet/transactions?limit=${limit}&offset=${offset}`
+        ),
+      spendingRules: (id: string) => request<{ rules: SpendingRules }>(`/agents/user/${id}/wallet/spending-rules`),
+      updateSpendingRules: (id: string, data: Partial<SpendingRules>) =>
+        request<{ rules: SpendingRules }>(`/agents/user/${id}/wallet/spending-rules`, {
+          method: "PUT",
+          body: JSON.stringify(data),
+        }),
+      custodyTransfer: (id: string) =>
+        request<{ success: boolean; isSelfCustodial: boolean }>(`/agents/user/${id}/wallet/custody-transfer`, { method: "POST" }),
+      provision: (id: string) =>
+        request<{ success: boolean; address: string; network: string; basescanUrl: string }>(
+          `/agents/user/${id}/wallet/provision`, { method: "POST" }
+        ),
+    },
   },
 
   handles: {
@@ -407,6 +427,48 @@ export interface Agent {
     characterLength: number;
     paymentStatus?: string;
   };
+  walletAddress?: string;
+  walletNetwork?: string;
+}
+
+export interface WalletInfo {
+  provisioned: boolean;
+  address?: string;
+  network?: string;
+  provisionedAt?: string;
+  isSelfCustodial?: boolean;
+  basescanUrl?: string;
+  message?: string;
+}
+
+export interface WalletBalance {
+  usdc: string;
+  eth: string;
+  cached: boolean;
+  network?: string;
+  usdcContract?: string;
+  error?: string;
+}
+
+export interface WalletTransaction {
+  id: string;
+  txHash?: string;
+  type: string;
+  direction: string;
+  amount: string;
+  token: string;
+  fromAddress?: string;
+  toAddress?: string;
+  status: string;
+  description?: string;
+  createdAt: string;
+}
+
+export interface SpendingRules {
+  maxPerTransactionCents: number;
+  dailyCapCents: number;
+  monthlyCapCents: number;
+  allowedAddresses: string[];
 }
 
 export interface CreateAgentInput {

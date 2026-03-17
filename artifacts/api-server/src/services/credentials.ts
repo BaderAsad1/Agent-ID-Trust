@@ -294,6 +294,20 @@ export async function buildErc8004(handle: string) {
     });
   }
 
+  if (agent.walletAddress) {
+    services.push({
+      id: `did:web:getagent.id:agents:${agent.handle}#wallet`,
+      type: "EVMPaymentMethod",
+      serviceEndpoint: `ethereum:${agent.walletAddress}@8453`,
+    });
+
+    services.push({
+      id: `did:web:getagent.id:agents:${agent.handle}#x402`,
+      type: "X402PaymentEndpoint",
+      serviceEndpoint: `${baseUrl}/pay/upgrade/x402`,
+    });
+  }
+
   const verificationMethod = keys.map((k) => ({
     id: `did:web:getagent.id:agents:${agent.handle}#${k.kid}`,
     type: k.keyType === "ed25519" ? "Ed25519VerificationKey2020" : "JsonWebKey2020",
