@@ -325,17 +325,34 @@ router.post("/agents/:agentId/messages", requireHumanOrAgentAuth, async (req, re
       senderUserId: z.string().uuid().optional(),
       senderAddress: z.string().optional(),
       recipientAddress: z.string().optional(),
+      recipientAgentId: z.string().uuid().optional(),
       subject: z.string().optional(),
       body: z.string().min(1),
       bodyFormat: z.enum(["text", "html", "markdown"]).optional(),
       structuredPayload: z.record(z.string(), z.unknown()).optional(),
       inReplyToId: z.string().uuid().optional(),
+      replyToId: z.string().uuid().optional(),
+      threadId: z.string().uuid().optional(),
+      threadSubject: z.string().max(500).optional(),
+      encrypt: z.boolean().optional(),
       senderTrustScore: z.number().int().min(0).max(100).optional(),
       senderVerified: z.boolean().optional(),
       priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
       metadata: z.record(z.string(), z.unknown()).optional(),
     });
     const body = schema.parse(req.body);
+
+    const BODY_MAX_BYTES = 100 * 1024;
+    const PAYLOAD_MAX_BYTES = 1024 * 1024;
+    if (Buffer.byteLength(body.body, "utf8") > BODY_MAX_BYTES) {
+      throw new AppError(413, "BODY_TOO_LARGE", "Message body exceeds the 100 KB limit");
+    }
+    if (body.structuredPayload) {
+      const payloadBytes = Buffer.byteLength(JSON.stringify(body.structuredPayload), "utf8");
+      if (payloadBytes > PAYLOAD_MAX_BYTES) {
+        throw new AppError(413, "PAYLOAD_TOO_LARGE", "Structured payload exceeds the 1 MB limit");
+      }
+    }
 
     if (req.authenticatedAgent) {
       body.senderAgentId = req.authenticatedAgent.id;
@@ -367,7 +384,11 @@ router.post("/agents/:agentId/messages", requireHumanOrAgentAuth, async (req, re
       userAgent: req.headers["user-agent"],
     }).catch(() => {});
 
-    res.status(201).json({ message });
+    res.status(201).json({
+      message,
+      threadId: message.threadId,
+      replyTo: message.replyToId ?? null,
+    });
   } catch (err) {
     next(err);
   }

@@ -85,6 +85,13 @@
       "when": 1774003200000,
       "tag": "0012_agent_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1742169600000,
+      "tag": "0013_comm_economic_hardening",
+      "breakpoints": true
     }
   ]
 }

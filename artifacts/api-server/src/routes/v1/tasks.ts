@@ -1,11 +1,12 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { z } from "zod/v4";
-import { eq } from "drizzle-orm";
+import { eq, and, gte, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, tasksTable } from "@workspace/db/schema";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { logger } from "../../middlewares/request-logger";
 import {
   submitTask,
   getTaskById,
@@ -39,6 +40,8 @@ const submitTaskSchema = z.object({
   relatedOrderId: z.string().uuid().optional(),
   idempotencyKey: z.string().max(255).optional(),
   paymentAmount: z.number().int().positive().optional(),
+  escrowAmount: z.number().int().positive().optional(),
+  escrowCurrency: z.string().max(10).optional().default("usd"),
 });
 
 router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
@@ -144,16 +147,26 @@ router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
     } catch {}
 
     let paymentInfo: { clientSecret: string | null; paymentIntentId: string } | undefined;
-    if (body.paymentAmount && body.paymentAmount > 0) {
+    const escrowAmountCents = body.escrowAmount || body.paymentAmount;
+    if (escrowAmountCents && escrowAmountCents > 0) {
       paymentInfo = await createTaskPaymentIntent(
-        body.paymentAmount,
+        escrowAmountCents,
         body.recipientAgentId,
         createdTask.id,
       );
+      await db.update(tasksTable).set({
+        escrowAmount: escrowAmountCents,
+        escrowCurrency: body.escrowCurrency || "usd",
+        escrowStatus: "held",
+        stripePaymentIntentId: paymentInfo.paymentIntentId,
+        updatedAt: new Date(),
+      }).where(eq(tasksTable.id, createdTask.id));
     }
 
+    const freshTask = await getTaskById(createdTask.id);
+
     res.status(201).json({
-      task,
+      task: freshTask,
       delivery: {
         status: forwardResult.deliveryReceipt.status,
         attemptNumber: forwardResult.deliveryReceipt.attemptNumber,
@@ -430,6 +443,27 @@ router.post("/:taskId/complete", requireHumanOrAgentAuth, async (req, res, next)
     if (body.rating) {
       await db.update(tasksTable).set({ rating: body.rating }).where(eq(tasksTable.id, taskId));
     }
+
+    const completedTask = await db.query.tasksTable.findFirst({
+      where: eq(tasksTable.id, taskId),
+      columns: { escrowStatus: true, stripePaymentIntentId: true },
+    });
+    if (completedTask?.escrowStatus === "held") {
+      const releaseAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      await db.update(tasksTable).set({
+        escrowStatus: "released",
+        escrowReleaseAt: releaseAt,
+        updatedAt: new Date(),
+      }).where(eq(tasksTable.id, taskId));
+      if (completedTask.stripePaymentIntentId) {
+        try {
+          await captureTaskPayment(taskId);
+        } catch (captureErr) {
+          logger.error({ err: captureErr, taskId }, "[tasks] Failed to capture escrow payment on completion");
+        }
+      }
+    }
+
     await logActivity({
       agentId: task.recipientAgentId,
       eventType: "agent.task_completed",
@@ -619,6 +653,58 @@ router.patch("/:taskId/business-status", requireHumanOrAgentAuth, async (req, re
       });
       return;
     }
+    next(err);
+  }
+});
+
+router.post("/:taskId/dispute", requireHumanOrAgentAuth, async (req, res, next) => {
+  try {
+    const taskId = req.params.taskId as string;
+
+    let hasAccess = false;
+    if (req.authenticatedAgent) {
+      const task = await getTaskById(taskId);
+      hasAccess = !!(task && (task.recipientAgentId === req.authenticatedAgent.id || task.senderAgentId === req.authenticatedAgent.id));
+    } else {
+      hasAccess = await canAccessTask(taskId, req.userId!);
+    }
+    if (!hasAccess) {
+      res.status(404).json({ code: "NOT_FOUND", message: "Task not found" });
+      return;
+    }
+
+    const disputeTask = await db.query.tasksTable.findFirst({
+      where: eq(tasksTable.id, taskId),
+      columns: { escrowStatus: true, stripePaymentIntentId: true, recipientAgentId: true },
+    });
+
+    if (!disputeTask) {
+      res.status(404).json({ code: "NOT_FOUND", message: "Task not found" });
+      return;
+    }
+
+    if (disputeTask.escrowStatus !== "held" && disputeTask.escrowStatus !== "released") {
+      res.status(409).json({ code: "INVALID_ESCROW_STATE", message: "Task escrow is not in a disputable state" });
+      return;
+    }
+
+    await db.update(tasksTable).set({
+      escrowStatus: "disputed",
+      updatedAt: new Date(),
+    }).where(eq(tasksTable.id, taskId));
+
+    if (disputeTask.stripePaymentIntentId) {
+      try {
+        await cancelTaskPayment(taskId);
+        await db.update(tasksTable).set({ escrowStatus: "refunded", updatedAt: new Date() }).where(eq(tasksTable.id, taskId));
+      } catch (cancelErr) {
+        logger.error({ err: cancelErr, taskId }, "[tasks] Failed to cancel/refund payment intent on dispute");
+      }
+    }
+
+    const updatedTask = await getTaskById(taskId);
+    res.json({ task: updatedTask });
+  } catch (err) {
     next(err);
   }
 });

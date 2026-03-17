@@ -29,7 +29,7 @@ import { buildBootstrapBundle } from "./agent-runtime";
 import { verifyClaimToken, generateClaimToken } from "../../utils/claim-token";
 import { desc, eq, and, gte, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable } from "@workspace/db/schema";
+import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -743,6 +743,50 @@ router.post("/:agentId/report", requireHumanOrAgentAuthForReport, validateUuidPa
       status: report.status,
       createdAt: report.createdAt,
       autoSuspended,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/:agentId/revenue", requireAgentAuth, async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    if (req.authenticatedAgent!.id !== agentId) {
+      throw new AppError(403, "FORBIDDEN", "Agent can only view its own revenue");
+    }
+
+    const periodParam = (req.query.period as string) || "30d";
+    const periodDays: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
+    const days = periodDays[periodParam];
+    if (!days) {
+      throw new AppError(400, "INVALID_PERIOD", "period must be one of: 7d, 30d, 90d");
+    }
+
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [earned] = await db
+      .select({
+        totalEarned: sql<number>`COALESCE(SUM(CASE WHEN ${tasksTable.escrowStatus} = 'released' THEN ${tasksTable.escrowAmount} ELSE 0 END), 0)::bigint`,
+        totalPending: sql<number>`COALESCE(SUM(CASE WHEN ${tasksTable.escrowStatus} = 'held' THEN ${tasksTable.escrowAmount} ELSE 0 END), 0)::bigint`,
+        taskCount: sql<number>`COUNT(CASE WHEN ${tasksTable.escrowAmount} > 0 THEN 1 END)::int`,
+        avgTaskValue: sql<number>`COALESCE(AVG(CASE WHEN ${tasksTable.escrowAmount} > 0 THEN ${tasksTable.escrowAmount} END), 0)`,
+      })
+      .from(tasksTable)
+      .where(
+        and(
+          eq(tasksTable.recipientAgentId, agentId),
+          gte(tasksTable.createdAt, since),
+        ),
+      );
+
+    res.json({
+      agentId,
+      period: periodParam,
+      totalEarned: Number(earned.totalEarned),
+      totalPending: Number(earned.totalPending),
+      taskCount: Number(earned.taskCount),
+      avgTaskValue: Math.round(Number(earned.avgTaskValue)),
     });
   } catch (err) {
     next(err);

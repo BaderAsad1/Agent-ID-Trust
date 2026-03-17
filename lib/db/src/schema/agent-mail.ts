@@ -162,6 +162,10 @@ export const agentMessagesTable = pgTable(
     originatingTaskId: uuid("originating_task_id").references(() => tasksTable.id),
     convertedTaskId: uuid("converted_task_id").references(() => tasksTable.id),
     inReplyToId: uuid("in_reply_to_id"),
+    replyToId: uuid("reply_to_id"),
+    threadSubject: varchar("thread_subject", { length: 500 }),
+    isEncrypted: boolean("is_encrypted").default(false).notNull(),
+    encryptionKid: varchar("encryption_kid", { length: 255 }),
     externalMessageId: varchar("external_message_id", { length: 500 }),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -181,6 +185,8 @@ export const agentMessagesTable = pgTable(
     index("agent_messages_delivery_status_idx").on(table.deliveryStatus),
     index("agent_messages_created_at_idx").on(table.createdAt),
     index("agent_messages_is_read_idx").on(table.isRead),
+    index("agent_messages_reply_to_id_idx").on(table.replyToId),
+    index("agent_messages_is_encrypted_idx").on(table.isEncrypted),
   ],
 );
 

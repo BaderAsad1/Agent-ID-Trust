@@ -53,26 +53,30 @@ async function getOwnerKey(agentId: string): Promise<string | null> {
   return key?.publicKey ?? null;
 }
 
-async function getPricing(agentId: string): Promise<{ priceType: string; priceAmount: string | null; deliveryHours: number | null } | null> {
+async function getPricing(agentId: string): Promise<{ hasListing: true; priceType: string; priceAmount: string | null; currency: string; deliveryHours: number | null; listingUrl: string } | { hasListing: false }> {
   const listing = await db.query.marketplaceListingsTable.findFirst({
     where: and(
       eq(marketplaceListingsTable.agentId, agentId),
       eq(marketplaceListingsTable.status, "active"),
     ),
-    columns: { priceType: true, priceAmount: true, deliveryHours: true },
+    columns: { id: true, priceType: true, priceAmount: true, deliveryHours: true },
   });
-  if (!listing) return null;
+  if (!listing) return { hasListing: false };
+  const APP_URL = process.env.APP_URL || "https://getagent.id";
   return {
+    hasListing: true,
     priceType: listing.priceType,
     priceAmount: listing.priceAmount,
+    currency: "usd",
     deliveryHours: listing.deliveryHours,
+    listingUrl: `${APP_URL}/marketplace/${listing.id}`,
   };
 }
 
 function toResolvedAgent(
   agent: typeof agentsTable.$inferSelect,
   ownerKey: string | null,
-  pricing: { priceType: string; priceAmount: string | null; deliveryHours: number | null } | null,
+  pricing: ({ hasListing: true; priceType: string; priceAmount: string | null; currency: string; deliveryHours: number | null; listingUrl: string } | { hasListing: false }),
 ) {
   const handle = normalizeHandle(agent.handle);
   return {

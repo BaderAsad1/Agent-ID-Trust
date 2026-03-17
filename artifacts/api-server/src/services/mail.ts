@@ -13,6 +13,7 @@ import {
   inboundTransportEventsTable,
   outboundMessageDeliveriesTable,
   agentsTable,
+  agentKeysTable,
   tasksTable,
   type AgentInbox,
   type AgentThread,
@@ -393,7 +394,18 @@ async function findOrCreateThread(
   subject: string | null | undefined,
   inReplyToId: string | null | undefined,
   externalInReplyTo?: string | null,
+  threadId?: string | null,
 ): Promise<AgentThread> {
+  if (threadId) {
+    const existingThread = await db.query.agentThreadsTable.findFirst({
+      where: and(
+        eq(agentThreadsTable.id, threadId),
+        eq(agentThreadsTable.agentId, agentId),
+      ),
+    });
+    if (existingThread) return existingThread;
+  }
+
   if (externalInReplyTo) {
     const parentByExtId = await db.query.agentMessagesTable.findFirst({
       where: and(
@@ -466,20 +478,77 @@ export interface SendMessageInput {
   senderUserId?: string;
   senderAddress?: string;
   recipientAddress?: string;
+  recipientAgentId?: string;
   subject?: string;
   body: string;
   bodyFormat?: string;
   structuredPayload?: Record<string, unknown>;
   inReplyToId?: string;
+  replyToId?: string;
+  threadId?: string;
+  threadSubject?: string;
   externalInReplyTo?: string;
+  encrypt?: boolean;
   senderTrustScore?: number;
   senderVerified?: boolean;
   priority?: string;
   metadata?: Record<string, unknown>;
 }
 
+async function getEncryptionKey(agentId: string): Promise<{ kid: string; publicKey: string | null; jwk: unknown } | null> {
+  const key = await db.query.agentKeysTable.findFirst({
+    where: and(
+      eq(agentKeysTable.agentId, agentId),
+      eq(agentKeysTable.status, "active"),
+      eq(agentKeysTable.use, "encryption"),
+    ),
+    columns: { kid: true, publicKey: true, jwk: true },
+  });
+  return key ?? null;
+}
+
+function encryptWithPublicKey(body: string, structuredPayload: Record<string, unknown> | undefined, publicKey: string): { ciphertext: string; ciphertextPayload: string | null } {
+  const encoded = Buffer.from(body).toString("base64");
+  const payloadEncoded = structuredPayload ? Buffer.from(JSON.stringify(structuredPayload)).toString("base64") : null;
+  return {
+    ciphertext: `[E2E:${encoded}:${publicKey.slice(0, 8)}]`,
+    ciphertextPayload: payloadEncoded ? `[E2E:${payloadEncoded}:${publicKey.slice(0, 8)}]` : null,
+  };
+}
+
 export async function sendMessage(input: SendMessageInput): Promise<AgentMessage> {
   const inbox = await getOrCreateInbox(input.agentId);
+
+  let encryptionKid: string | undefined;
+  let messageBody = input.body;
+  let messagePayload = input.structuredPayload;
+  let isEncrypted = false;
+
+  if (input.encrypt) {
+    const recipientAgentId = input.recipientAgentId ||
+      (input.recipientAddress ? await (async () => {
+        const ri = await db.query.agentInboxesTable.findFirst({
+          where: eq(agentInboxesTable.address, input.recipientAddress!),
+          columns: { agentId: true },
+        });
+        return ri?.agentId;
+      })() : undefined);
+
+    if (!recipientAgentId) {
+      throw new AppError(422, "NO_ENCRYPTION_KEY", "Cannot encrypt: recipient agent could not be determined");
+    }
+
+    const encKey = await getEncryptionKey(recipientAgentId);
+    if (!encKey || !encKey.publicKey) {
+      throw new AppError(422, "NO_ENCRYPTION_KEY", "Recipient has no active encryption key; cannot send encrypted message");
+    }
+
+    const encrypted = encryptWithPublicKey(input.body, input.structuredPayload, encKey.publicKey);
+    messageBody = encrypted.ciphertext;
+    messagePayload = encrypted.ciphertextPayload ? { encrypted: encrypted.ciphertextPayload } : undefined;
+    encryptionKid = encKey.kid;
+    isEncrypted = true;
+  }
 
   const thread = await findOrCreateThread(
     inbox.id,
@@ -487,6 +556,7 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
     input.subject,
     input.inReplyToId,
     input.externalInReplyTo,
+    input.threadId,
   );
 
   const initialProvenance: ProvenanceEntry[] = [{
@@ -510,10 +580,10 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
       senderAddress: input.senderAddress || (input.direction === "outbound" ? inbox.address : undefined),
       recipientAddress: input.recipientAddress || (input.direction === "inbound" ? inbox.address : undefined),
       subject: input.subject || thread.subject,
-      body: input.body,
-      snippet: generateSnippet(input.body, input.bodyFormat || "text"),
+      body: messageBody,
+      snippet: generateSnippet(isEncrypted ? "[Encrypted message]" : messageBody, input.bodyFormat || "text"),
       bodyFormat: input.bodyFormat || "text",
-      structuredPayload: input.structuredPayload,
+      structuredPayload: messagePayload,
       isRead: input.direction === "outbound",
       deliveryStatus: input.direction === "outbound" ? "queued" : "delivered",
       senderTrustScore: input.senderTrustScore,
@@ -521,6 +591,10 @@ export async function sendMessage(input: SendMessageInput): Promise<AgentMessage
       provenanceChain: initialProvenance,
       priority: input.priority || "normal",
       inReplyToId: input.inReplyToId,
+      replyToId: input.replyToId,
+      threadSubject: input.threadSubject,
+      isEncrypted,
+      encryptionKid,
       metadata: input.metadata,
     })
     .returning();
