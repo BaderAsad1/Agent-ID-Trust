@@ -2,8 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { usersTable, type User, type ApiKey } from "@workspace/db/schema";
-import { getSessionId, getSession, type AuthSessionUser } from "../lib/auth";
-import { env } from "../lib/env";
+import { getSessionId, getSession } from "../lib/auth";
 
 declare global {
   namespace Express {
@@ -11,45 +10,8 @@ declare global {
       user?: User;
       userId?: string;
       apiKey?: ApiKey;
-      replitRoles?: string;
     }
   }
-}
-
-interface ReplitHeaders {
-  replitUserId: string;
-  replitUserName?: string;
-  replitUserProfileImage?: string;
-  replitUserRoles?: string;
-}
-
-async function upsertUser(headers: ReplitHeaders): Promise<User> {
-  const { replitUserId, replitUserName, replitUserProfileImage } = headers;
-
-  const updateSet: Record<string, unknown> = { updatedAt: new Date() };
-  if (replitUserName) {
-    updateSet.username = replitUserName;
-    updateSet.displayName = replitUserName;
-  }
-  if (replitUserProfileImage) {
-    updateSet.avatarUrl = replitUserProfileImage;
-  }
-
-  const [user] = await db
-    .insert(usersTable)
-    .values({
-      replitUserId,
-      username: replitUserName || undefined,
-      displayName: replitUserName || undefined,
-      avatarUrl: replitUserProfileImage || undefined,
-    })
-    .onConflictDoUpdate({
-      target: usersTable.replitUserId,
-      set: updateSet,
-    })
-    .returning();
-
-  return user;
 }
 
 async function loadUserFromSession(req: Request): Promise<User | null> {
@@ -72,35 +34,6 @@ export async function replitAuth(
   _res: Response,
   next: NextFunction,
 ) {
-  let replitUserId = req.headers["x-replit-user-id"] as string | undefined;
-  if (!replitUserId && env().NODE_ENV === "development") {
-    replitUserId = req.headers["x-agentid-user-id"] as string | undefined;
-  }
-
-  if (replitUserId) {
-    try {
-      const replitUserName = req.headers["x-replit-user-name"] as string | undefined;
-      const replitUserProfileImage = req.headers["x-replit-user-profile-image"] as string | undefined;
-      const replitUserRoles = req.headers["x-replit-user-roles"] as string | undefined;
-
-      const user = await upsertUser({
-        replitUserId,
-        replitUserName,
-        replitUserProfileImage,
-        replitUserRoles,
-      });
-
-      req.user = user;
-      req.userId = user.id;
-      req.replitRoles = replitUserRoles;
-      next();
-      return;
-    } catch (err) {
-      next(err);
-      return;
-    }
-  }
-
   try {
     const user = await loadUserFromSession(req);
     if (user) {
@@ -108,7 +41,6 @@ export async function replitAuth(
       req.userId = user.id;
     }
   } catch {}
-
   next();
 }
 

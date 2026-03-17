@@ -215,7 +215,7 @@ workspace/
 
 **Backend (`artifacts/api-server`):** Express 5 API serving routes under `/api/v1/...`. Core services: agents, marketplace, jobs, tasks, mail, billing (Stripe), domain provisioning (Cloudflare), resolution protocol, trust scoring, agent transfers, and fleet management.
 
-**Auth:** Replit OIDC (OpenID Connect). Session-based with dev-mode header bypass (`X-AgentID-User-Id`).
+**Auth:** Multi-provider — GitHub OAuth, Google OAuth, email magic link. Session-based (Postgres `sessions` table, `sid` cookie). No Replit branding. Providers configured via `GITHUB_CLIENT_ID/SECRET` and `GOOGLE_CLIENT_ID/SECRET` env vars. Session TTL 7 days.
 
 **Background Jobs:** BullMQ workers (when Redis is connected) for webhook delivery, domain provisioning, and async processing. Trust recalculation worker runs hourly via setInterval.
 

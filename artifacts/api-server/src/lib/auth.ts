@@ -1,19 +1,16 @@
-import * as client from "openid-client";
 import crypto from "crypto";
 import { type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sessionsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
-import { env } from "./env";
-
-export const ISSUER_URL = env().ISSUER_URL;
 export const SESSION_COOKIE = "sid";
 export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 
 export interface AuthSessionUser {
   id: string;
-  replitUserId: string;
+  replitUserId?: string | null;
+  provider?: string | null;
   username: string | null;
   displayName: string | null;
   email: string | null;
@@ -22,21 +19,9 @@ export interface AuthSessionUser {
 
 export interface SessionData {
   user: AuthSessionUser;
-  access_token: string;
+  access_token?: string;
   refresh_token?: string;
   expires_at?: number;
-}
-
-let oidcConfig: client.Configuration | null = null;
-
-export async function getOidcConfig(): Promise<client.Configuration> {
-  if (!oidcConfig) {
-    oidcConfig = await client.discovery(
-      new URL(ISSUER_URL),
-      env().REPL_ID!,
-    );
-  }
-  return oidcConfig;
 }
 
 export async function createSession(data: SessionData): Promise<string> {

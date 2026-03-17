@@ -41,7 +41,7 @@ router.use("/resolve", resolutionRateLimit, resolveRouter);
 router.post("/reverse", resolutionRateLimit, handleReverse);
 router.get("/agents", (req, res, next) => {
   const hasDiscoveryParams = req.query.q || req.query.capability || req.query.minTrust || req.query.protocol || req.query.verifiedOnly || req.query.sort || req.query.limit || req.query.offset;
-  const hasAuthHeader = req.headers["x-replit-user-id"] || req.headers["x-agentid-user-id"] || req.headers["authorization"];
+  const hasAuthHeader = req.headers["authorization"] || req.headers["x-api-key"] || req.cookies?.sid;
   if (hasDiscoveryParams && !hasAuthHeader) {
     return handleAgentDiscovery(req, res, next);
   }

@@ -1,11 +1,11 @@
-import * as oidc from "openid-client";
 import { Router, type Request, type Response } from "express";
-import { logger } from "../middlewares/request-logger";
+import { GitHub, Google, generateState, generateCodeVerifier } from "arctic";
+import crypto from "crypto";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db/schema";
+import { usersTable, magicLinkTokensTable } from "@workspace/db/schema";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   clearSession,
-  getOidcConfig,
   getSessionId,
   getSession,
   createSession,
@@ -16,15 +16,18 @@ import {
   type AuthSessionUser,
 } from "../lib/auth";
 import { env } from "../lib/env";
-
-const OIDC_COOKIE_TTL = 10 * 60 * 1000;
+import { logger } from "../middlewares/request-logger";
+import { sendMagicLinkEmail } from "../services/email";
 
 const router = Router();
 
-function getOrigin(req: Request): string {
-  const proto = req.headers["x-forwarded-proto"] || "https";
-  const host =
-    req.headers["x-forwarded-host"] || req.headers["host"] || "localhost";
+function getAppUrl(req: Request): string {
+  const cfg = env();
+  if (cfg.AUTH_BASE_URL && cfg.NODE_ENV === "production") {
+    return cfg.AUTH_BASE_URL;
+  }
+  const proto = req.headers["x-forwarded-proto"] || "http";
+  const host = req.headers["x-forwarded-host"] || req.headers["host"] || "localhost";
   return `${proto}://${host}`;
 }
 
@@ -38,71 +41,110 @@ function setSessionCookie(res: Response, sid: string) {
   });
 }
 
-function setOidcCookie(res: Response, name: string, value: string) {
+function setOauthCookie(res: Response, name: string, value: string) {
   res.cookie(name, value, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
-    maxAge: OIDC_COOKIE_TTL,
+    maxAge: 10 * 60 * 1000,
   });
 }
 
 function getSafeReturnTo(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value.startsWith("/") ||
-    value.startsWith("//")
-  ) {
-    return "/";
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+    return "/dashboard";
   }
   return value;
 }
 
-async function upsertUser(
-  claims: Record<string, unknown>,
-): Promise<AuthSessionUser> {
-  const replitUserId = claims.sub as string;
-  const username =
-    (claims.username as string) ||
-    (claims.preferred_username as string) ||
-    (claims.first_name as string) ||
-    null;
-  const displayName =
-    (claims.name as string) ||
-    [claims.first_name, claims.last_name].filter(Boolean).join(" ") ||
-    username ||
-    null;
-  const email = (claims.email as string) || null;
-  const avatarUrl =
-    (claims.profile_image_url as string) ||
-    (claims.picture as string) ||
-    null;
+function getGitHub(baseUrl: string): GitHub | null {
+  const cfg = env();
+  if (!cfg.GITHUB_CLIENT_ID || !cfg.GITHUB_CLIENT_SECRET) return null;
+  return new GitHub(cfg.GITHUB_CLIENT_ID, cfg.GITHUB_CLIENT_SECRET, `${baseUrl}/api/auth/github/callback`);
+}
 
-  const updateSet: Record<string, unknown> = { updatedAt: new Date() };
-  if (username) updateSet.username = username;
-  if (displayName) updateSet.displayName = displayName;
-  if (email) updateSet.email = email;
-  if (avatarUrl) updateSet.avatarUrl = avatarUrl;
+function getGoogle(baseUrl: string): Google | null {
+  const cfg = env();
+  if (!cfg.GOOGLE_CLIENT_ID || !cfg.GOOGLE_CLIENT_SECRET) return null;
+  return new Google(cfg.GOOGLE_CLIENT_ID, cfg.GOOGLE_CLIENT_SECRET, `${baseUrl}/api/auth/google/callback`);
+}
 
-  const [user] = await db
+async function upsertProviderUser(data: {
+  provider: string;
+  providerId: string;
+  email?: string | null;
+  emailVerified?: boolean;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  githubUsername?: string | null;
+}): Promise<AuthSessionUser> {
+  const existing = await db
+    .select()
+    .from(usersTable)
+    .where(and(eq(usersTable.provider, data.provider), eq(usersTable.providerId, data.providerId)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    const updateSet: Record<string, unknown> = { updatedAt: new Date() };
+    if (data.email) updateSet.email = data.email;
+    if (data.emailVerified !== undefined) updateSet.emailVerified = data.emailVerified;
+    if (data.displayName) updateSet.displayName = data.displayName;
+    if (data.avatarUrl) updateSet.avatarUrl = data.avatarUrl;
+    if (data.githubUsername) updateSet.githubUsername = data.githubUsername;
+
+    const [updated] = await db
+      .update(usersTable)
+      .set(updateSet)
+      .where(eq(usersTable.id, existing[0].id))
+      .returning();
+    return toSessionUser(updated);
+  }
+
+  if (data.email) {
+    const byEmail = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, data.email))
+      .limit(1);
+
+    if (byEmail.length > 0) {
+      const [updated] = await db
+        .update(usersTable)
+        .set({
+          provider: data.provider,
+          providerId: data.providerId,
+          emailVerified: data.emailVerified ?? true,
+          displayName: data.displayName || byEmail[0].displayName,
+          avatarUrl: data.avatarUrl || byEmail[0].avatarUrl,
+          githubUsername: data.githubUsername || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(usersTable.id, byEmail[0].id))
+        .returning();
+      return toSessionUser(updated);
+    }
+  }
+
+  const [created] = await db
     .insert(usersTable)
     .values({
-      replitUserId,
-      username: username || undefined,
-      displayName: displayName || undefined,
-      email: email || undefined,
-      avatarUrl: avatarUrl || undefined,
-    })
-    .onConflictDoUpdate({
-      target: usersTable.replitUserId,
-      set: updateSet,
+      provider: data.provider,
+      providerId: data.providerId,
+      email: data.email || null,
+      emailVerified: data.emailVerified ?? false,
+      displayName: data.displayName || null,
+      avatarUrl: data.avatarUrl || null,
+      githubUsername: data.githubUsername || null,
     })
     .returning();
+  return toSessionUser(created);
+}
 
+function toSessionUser(user: typeof usersTable.$inferSelect): AuthSessionUser {
   return {
     id: user.id,
-    replitUserId: user.replitUserId,
+    provider: user.provider,
     username: user.username,
     displayName: user.displayName,
     email: user.email,
@@ -124,112 +166,230 @@ router.get("/auth/user", async (req: Request, res: Response) => {
     return;
   }
 
-  const userData = { ...session.user };
-  if (env().NODE_ENV === "production") {
-    delete (userData as Record<string, unknown>).replitUserId;
-  }
-  res.json({ user: userData });
+  res.json({ user: session.user });
 });
 
-router.get("/login", async (req: Request, res: Response) => {
-  try {
-    const config = await getOidcConfig();
-    const callbackUrl = `${getOrigin(req)}/api/callback`;
-
-    const returnTo = getSafeReturnTo(req.query.returnTo);
-
-    const state = oidc.randomState();
-    const nonce = oidc.randomNonce();
-    const codeVerifier = oidc.randomPKCECodeVerifier();
-    const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
-
-    const redirectTo = oidc.buildAuthorizationUrl(config, {
-      redirect_uri: callbackUrl,
-      scope: "openid email profile offline_access",
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
-      prompt: "login consent",
-      state,
-      nonce,
-    });
-
-    setOidcCookie(res, "code_verifier", codeVerifier);
-    setOidcCookie(res, "nonce", nonce);
-    setOidcCookie(res, "state", state);
-    setOidcCookie(res, "return_to", returnTo);
-
-    res.redirect(redirectTo.href);
-  } catch (err) {
-    logger.error({ err }, "OIDC login error");
-    res.redirect("/?error=login_failed");
+router.get("/auth/github", async (req: Request, res: Response) => {
+  const baseUrl = getAppUrl(req);
+  const gh = getGitHub(baseUrl);
+  if (!gh) {
+    logger.warn("GitHub OAuth not configured — GITHUB_CLIENT_ID/SECRET missing");
+    res.redirect(`${baseUrl}/sign-in?error=provider_not_configured`);
+    return;
   }
+
+  const state = generateState();
+  const returnTo = getSafeReturnTo(req.query.returnTo);
+
+  const url = gh.createAuthorizationURL(state, ["user:email"]);
+
+  setOauthCookie(res, "github_oauth_state", state);
+  setOauthCookie(res, "oauth_return_to", returnTo);
+  res.redirect(url.toString());
 });
 
-router.get("/callback", async (req: Request, res: Response) => {
+router.get("/auth/github/callback", async (req: Request, res: Response) => {
+  const baseUrl = getAppUrl(req);
+  const gh = getGitHub(baseUrl);
+  if (!gh) {
+    res.redirect(`${baseUrl}/sign-in?error=provider_not_configured`);
+    return;
+  }
+
+  const { code, state } = req.query;
+  const storedState = req.cookies?.github_oauth_state;
+  const returnTo = getSafeReturnTo(req.cookies?.oauth_return_to);
+
+  if (!code || !state || !storedState || state !== storedState) {
+    res.redirect(`${baseUrl}/sign-in?error=oauth_state_mismatch`);
+    return;
+  }
+
   try {
-    const config = await getOidcConfig();
-    const callbackUrl = `${getOrigin(req)}/api/callback`;
+    const tokens = await gh.validateAuthorizationCode(String(code));
+    const accessToken = tokens.accessToken();
 
-    const codeVerifier = req.cookies?.code_verifier;
-    const nonce = req.cookies?.nonce;
-    const expectedState = req.cookies?.state;
-    const returnTo = getSafeReturnTo(req.cookies?.return_to);
+    const githubUser = await fetch("https://api.github.com/user", {
+      headers: { Authorization: `Bearer ${accessToken}`, "User-Agent": "AgentID/1.0" },
+    }).then((r) => r.json()) as Record<string, unknown>;
 
-    if (!codeVerifier || !expectedState) {
-      res.redirect("/api/login");
-      return;
+    let email = githubUser.email as string | null;
+    if (!email) {
+      const emails = await fetch("https://api.github.com/user/emails", {
+        headers: { Authorization: `Bearer ${accessToken}`, "User-Agent": "AgentID/1.0" },
+      }).then((r) => r.json()) as Array<{ email: string; primary: boolean; verified: boolean }>;
+      email = emails.find((e) => e.primary && e.verified)?.email ?? emails[0]?.email ?? null;
     }
 
-    const currentUrl = new URL(
-      `${callbackUrl}?${new URL(req.url, `http://${req.headers.host}`).searchParams}`,
-    );
-
-    const tokens = await oidc.authorizationCodeGrant(config, currentUrl, {
-      pkceCodeVerifier: codeVerifier,
-      expectedNonce: nonce,
-      expectedState,
-      idTokenExpected: true,
+    const user = await upsertProviderUser({
+      provider: "github",
+      providerId: String(githubUser.id),
+      email,
+      emailVerified: true,
+      displayName: (githubUser.name as string) || (githubUser.login as string) || null,
+      avatarUrl: (githubUser.avatar_url as string) || null,
+      githubUsername: (githubUser.login as string) || null,
     });
 
-    const claims = tokens.claims();
-    if (!claims) {
-      res.redirect("/?error=no_claims");
-      return;
-    }
-
-    const user = await upsertUser(
-      claims as unknown as Record<string, unknown>,
-    );
-
-    const now = Math.floor(Date.now() / 1000);
-    const sessionData: SessionData = {
-      user,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: tokens.expiresIn()
-        ? now + tokens.expiresIn()!
-        : (claims.exp as number | undefined),
-    };
-
+    const sessionData: SessionData = { user };
     const sid = await createSession(sessionData);
     setSessionCookie(res, sid);
-
-    for (const name of ["code_verifier", "nonce", "state", "return_to"]) {
-      res.clearCookie(name, { path: "/" });
-    }
-
+    res.clearCookie("github_oauth_state");
+    res.clearCookie("oauth_return_to");
     res.redirect(returnTo);
   } catch (err) {
-    logger.error({ err }, "OIDC callback error");
-    res.redirect("/?error=auth_failed");
+    logger.error({ err }, "GitHub OAuth callback error");
+    res.redirect(`${baseUrl}/sign-in?error=oauth_failed`);
   }
+});
+
+router.get("/auth/google", async (req: Request, res: Response) => {
+  const baseUrl = getAppUrl(req);
+  const goog = getGoogle(baseUrl);
+  if (!goog) {
+    logger.warn("Google OAuth not configured — GOOGLE_CLIENT_ID/SECRET missing");
+    res.redirect(`${baseUrl}/sign-in?error=provider_not_configured`);
+    return;
+  }
+
+  const state = generateState();
+  const codeVerifier = generateCodeVerifier();
+  const returnTo = getSafeReturnTo(req.query.returnTo);
+
+  const url = goog.createAuthorizationURL(state, codeVerifier, ["openid", "profile", "email"]);
+
+  setOauthCookie(res, "google_oauth_state", state);
+  setOauthCookie(res, "google_code_verifier", codeVerifier);
+  setOauthCookie(res, "oauth_return_to", returnTo);
+  res.redirect(url.toString());
+});
+
+router.get("/auth/google/callback", async (req: Request, res: Response) => {
+  const baseUrl = getAppUrl(req);
+  const goog = getGoogle(baseUrl);
+  if (!goog) {
+    res.redirect(`${baseUrl}/sign-in?error=provider_not_configured`);
+    return;
+  }
+
+  const { code, state } = req.query;
+  const storedState = req.cookies?.google_oauth_state;
+  const codeVerifier = req.cookies?.google_code_verifier;
+  const returnTo = getSafeReturnTo(req.cookies?.oauth_return_to);
+
+  if (!code || !state || !storedState || state !== storedState || !codeVerifier) {
+    res.redirect(`${baseUrl}/sign-in?error=oauth_state_mismatch`);
+    return;
+  }
+
+  try {
+    const tokens = await goog.validateAuthorizationCode(String(code), codeVerifier);
+    const accessToken = tokens.accessToken();
+
+    const googleUser = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }).then((r) => r.json()) as Record<string, unknown>;
+
+    const user = await upsertProviderUser({
+      provider: "google",
+      providerId: String(googleUser.sub),
+      email: (googleUser.email as string) || null,
+      emailVerified: Boolean(googleUser.email_verified),
+      displayName: (googleUser.name as string) || null,
+      avatarUrl: (googleUser.picture as string) || null,
+    });
+
+    const sessionData: SessionData = { user };
+    const sid = await createSession(sessionData);
+    setSessionCookie(res, sid);
+    res.clearCookie("google_oauth_state");
+    res.clearCookie("google_code_verifier");
+    res.clearCookie("oauth_return_to");
+    res.redirect(returnTo);
+  } catch (err) {
+    logger.error({ err }, "Google OAuth callback error");
+    res.redirect(`${baseUrl}/sign-in?error=oauth_failed`);
+  }
+});
+
+router.post("/auth/magic-link/send", async (req: Request, res: Response) => {
+  const { email } = req.body as { email?: string };
+  if (!email || !email.includes("@")) {
+    res.status(400).json({ error: "INVALID_EMAIL", message: "A valid email address is required" });
+    return;
+  }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+  await db.insert(magicLinkTokensTable).values({
+    email: email.toLowerCase().trim(),
+    token,
+    expiresAt,
+  });
+
+  const baseUrl = env().AUTH_BASE_URL || getAppUrl(req);
+  const magicUrl = `${baseUrl}/api/auth/magic-link/verify?token=${token}`;
+
+  try {
+    await sendMagicLinkEmail(email, magicUrl);
+  } catch (err) {
+    logger.error({ err, email }, "Failed to send magic link email");
+  }
+
+  res.json({ sent: true, email });
+});
+
+router.get("/auth/magic-link/verify", async (req: Request, res: Response) => {
+  const { token } = req.query;
+  const baseUrl = getAppUrl(req);
+
+  if (!token || typeof token !== "string") {
+    res.redirect(`${baseUrl}/sign-in?error=invalid_token`);
+    return;
+  }
+
+  const [record] = await db
+    .select()
+    .from(magicLinkTokensTable)
+    .where(and(eq(magicLinkTokensTable.token, token), isNull(magicLinkTokensTable.usedAt)))
+    .limit(1);
+
+  if (!record || record.expiresAt < new Date()) {
+    res.redirect(`${baseUrl}/sign-in?error=token_expired`);
+    return;
+  }
+
+  await db
+    .update(magicLinkTokensTable)
+    .set({ usedAt: new Date() })
+    .where(eq(magicLinkTokensTable.id, record.id));
+
+  const user = await upsertProviderUser({
+    provider: "email",
+    providerId: record.email,
+    email: record.email,
+    emailVerified: true,
+    displayName: record.email.split("@")[0] || null,
+  });
+
+  const sessionData: SessionData = { user };
+  const sid = await createSession(sessionData);
+  setSessionCookie(res, sid);
+  res.redirect(`${baseUrl}/dashboard`);
+});
+
+router.post("/auth/signout", async (req: Request, res: Response) => {
+  const sid = getSessionId(req);
+  if (sid) await deleteSession(sid);
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  const baseUrl = getAppUrl(req);
+  res.redirect(`${baseUrl}/`);
 });
 
 router.get("/logout", async (req: Request, res: Response) => {
   const sid = getSessionId(req);
-  if (sid) {
-    await deleteSession(sid);
-  }
+  if (sid) await deleteSession(sid);
   res.clearCookie(SESSION_COOKIE, { path: "/" });
   res.redirect("/");
 });

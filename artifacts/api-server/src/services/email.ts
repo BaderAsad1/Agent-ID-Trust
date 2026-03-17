@@ -199,6 +199,13 @@ export async function sendOrderCompletedEmail(
   );
 }
 
+export async function sendMagicLinkEmail(
+  recipientEmail: string,
+  magicUrl: string,
+): Promise<void> {
+  await sendEmail({ type: "magic_link", data: { magicUrl } }, recipientEmail);
+}
+
 export async function sendRenewalReminderEmail(
   userEmail: string,
   handle: string,

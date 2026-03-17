@@ -70,6 +70,8 @@ function AppContent() {
         <Route path="/start" element={<Start />} />
         <Route path="/claim" element={<ClaimPage />} />
         <Route path="/sign-in" element={<SignIn />} />
+        <Route path="/login" element={<Navigate to="/sign-in" replace />} />
+        <Route path="/register" element={<Navigate to="/sign-in" replace />} />
         <Route path="/for-agents" element={<ForAgents />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/protocol" element={<Protocol />} />

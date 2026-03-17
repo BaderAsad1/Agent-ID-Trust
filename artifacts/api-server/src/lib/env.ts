@@ -47,9 +47,16 @@ const envSchema = z.object({
   VC_PUBLIC_KEY: z.string().optional(),
   VC_KEY_ID: z.string().default("agentid-vc-key-1"),
 
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
+
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+
+  AUTH_BASE_URL: z.string().default("https://getagent.id"),
+
   REPLIT_DEV_DOMAIN: z.string().optional(),
   REPL_ID: z.string().optional(),
-  ISSUER_URL: z.string().default("https://replit.com/oidc"),
 
   LOG_LEVEL: z.string().default("info"),
 });

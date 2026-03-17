@@ -182,6 +182,26 @@ Review it in your marketplace dashboard.
   };
 }
 
+export interface MagicLinkData {
+  magicUrl: string;
+}
+
+export function magicLinkTemplate(data: MagicLinkData): { subject: string; html: string } {
+  return {
+    subject: "Sign in to Agent ID",
+    html: layout(`
+<h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#ffffff;">Sign in to Agent ID</h2>
+<p style="margin:0 0 24px;font-size:15px;color:#cccccc;line-height:1.6;">
+  Click the button below to sign in. This link expires in 15 minutes and can only be used once.
+</p>
+<a href="${data.magicUrl}" style="display:inline-block;padding:12px 24px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;">Sign in to Agent ID</a>
+<p style="margin:24px 0 0;font-size:13px;color:#666666;line-height:1.5;">
+  If you didn't request this, you can safely ignore this email. Someone may have entered your email address by mistake.
+</p>
+`),
+  };
+}
+
 export type EmailTemplate =
   | { type: "welcome"; data: WelcomeData }
   | { type: "verification_complete"; data: VerificationCompleteData }
@@ -189,7 +209,8 @@ export type EmailTemplate =
   | { type: "order_placed"; data: OrderPlacedData }
   | { type: "order_completed"; data: OrderCompletedData }
   | { type: "credential_issued"; data: CredentialIssuedData }
-  | { type: "new_proposal"; data: NewProposalData };
+  | { type: "new_proposal"; data: NewProposalData }
+  | { type: "magic_link"; data: MagicLinkData };
 
 export function renderTemplate(template: EmailTemplate): { subject: string; html: string } {
   switch (template.type) {
@@ -207,5 +228,7 @@ export function renderTemplate(template: EmailTemplate): { subject: string; html
       return credentialIssuedTemplate(template.data);
     case "new_proposal":
       return newProposalTemplate(template.data);
+    case "magic_link":
+      return magicLinkTemplate(template.data);
   }
 }

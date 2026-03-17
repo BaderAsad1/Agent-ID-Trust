@@ -103,7 +103,8 @@ router.post("/agents/register", async (req, res, next) => {
     if (!ownerId) {
       const autonomousId = `auto_${randomBytes(16).toString("hex")}`;
       const [newUser] = await db.insert(usersTable).values({
-        replitUserId: autonomousId,
+        provider: "autonomous",
+        providerId: autonomousId,
         displayName: `autonomous-${handle.toLowerCase()}`,
       }).returning({ id: usersTable.id });
       ownerId = newUser.id;

@@ -44,8 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(() => {
     const returnTo = window.location.pathname + window.location.search;
-    const base = import.meta.env.BASE_URL || '/';
-    window.location.href = `${base}api/login?returnTo=${encodeURIComponent(returnTo)}`;
+    window.location.href = `/sign-in?returnTo=${encodeURIComponent(returnTo)}`;
   }, []);
 
   const logout = useCallback(() => {
