@@ -54,7 +54,6 @@ export async function provisionAgentWallet(
       dailyCapCents: 5000,
       monthlyCapCents: 50000,
       allowedAddresses: [],
-      cdpPolicyId: null,
       isActive: true,
     });
 
