@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 
 const BASE = import.meta.env.BASE_URL || '/';
@@ -34,6 +34,7 @@ const TRUST_LABELS: Record<string, string> = {
 export function Authorize() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, agents, loading } = useAuth();
 
   const clientId            = params.get('client_id') || '';
@@ -52,10 +53,11 @@ export function Authorize() {
 
   useEffect(() => {
     if (!loading && !user) {
-      const returnTo = window.location.pathname + window.location.search;
+      // Use router-relative path (no basename prefix) so returnTo navigates correctly after sign-in
+      const returnTo = location.pathname + location.search;
       navigate(`/sign-in?returnTo=${encodeURIComponent(returnTo)}`, { replace: true });
     }
-  }, [loading, user, navigate]);
+  }, [loading, user, navigate, location.pathname, location.search]);
 
   useEffect(() => {
     if (agents.length > 0 && !selectedAgentId) {
