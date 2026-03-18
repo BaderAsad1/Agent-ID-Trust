@@ -8,7 +8,7 @@ import { logger } from "../middlewares/request-logger";
 import { checkSpendingLimits } from "../services/wallet";
 
 export interface X402PaymentRequirement {
-  x402Version: 1;
+  x402Version: 2;
   accepts: Array<{
     scheme: "exact";
     network: string;
@@ -36,7 +36,7 @@ function buildPaymentRequirements(
   resourceId?: string,
 ): X402PaymentRequirement {
   return {
-    x402Version: 1,
+    x402Version: 2,
     accepts: [
       {
         scheme: "exact",
@@ -101,7 +101,7 @@ export function x402PaymentRequired(
 
       res.setHeader("X-Payment-Requirements", JSON.stringify(requirement));
       res.status(402).json({
-        x402Version: 1,
+        x402Version: 2,
         error: "PAYMENT_REQUIRED",
         accepts: requirement.accepts,
         paymentRequirements: requirement,
