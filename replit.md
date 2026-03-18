@@ -258,6 +258,15 @@ workspace/
 
 **Resolution Protocol:** Open `.agentid` name resolution. Forward resolve, reverse resolve by endpoint URL, capability discovery. Public endpoints, no auth required. DNS bridge at `handle.getagent.id`.
 
+## Coherence Audit (2026-03-18)
+
+A full system coherence audit was performed. Key changes:
+- **State drift fixes**: Admin revocation, key revocation, handle lifecycle, handle assignment, transfer handoff now all properly cascade to invalidate resolution cache, VC cache, credentials, and attestations
+- **Concept drift fixes**: Deduplicated `RESERVED_HANDLES` (canonical in `handle.ts`, re-exported from `agents.ts`); fixed SDK `.agentID` → `.agentid` casing; fixed MCP trust tier names to match DB tiers
+- **Surface drift fixes**: Resolver library `ResolvedAgent` type updated with all missing fields (`machineIdentity`, `handleIdentity`, `walletAddress`, etc.) and expanded status/verificationStatus unions
+- **Integration tests**: `cross-system-coherence.integration.test.ts` tests admin revocation cascade, key revocation propagation, RESERVED_HANDLES consistency, MCP trust tier alignment
+- **Report**: `COHERENCE_REPORT.md` at repo root documents all subsystem classifications, canonical sources of truth, state transitions, and drift fixes
+
 ## User Preferences
 
 - Iterative development

@@ -218,7 +218,7 @@ function StepLabel({ n, label, done }: { n: number | string; label: string; done
   );
 }
 
-function TabBar({ tabs, active, onChange }: { tabs: { id: string; label: string }[]; active: string; onChange: (t: string) => void }) {
+function TabBar<T extends string>({ tabs, active, onChange }: { tabs: { id: T; label: string }[]; active: T; onChange: (t: T) => void }) {
   return (
     <div style={{ display: 'flex', gap: 2, marginBottom: 10, borderBottom: '1px solid var(--border-color)' }}>
       {tabs.map(t => (
@@ -295,7 +295,7 @@ export function ForAgents() {
             <TabBar
               tabs={[{ id: 'node', label: 'Node.js' }, { id: 'python', label: 'Python' }, { id: 'cli', label: 'openssl CLI' }]}
               active={keygenTab}
-              onChange={t => setKeygenTab(t as 'node' | 'python' | 'cli')}
+              onChange={setKeygenTab}
             />
             <CodeBlock code={KEYGEN_CODES[keygenTab]} lang={keygenTab === 'cli' ? 'bash' : keygenTab} />
           </div>
@@ -333,7 +333,7 @@ export function ForAgents() {
             <TabBar
               tabs={[{ id: 'node', label: 'Node.js' }, { id: 'python', label: 'Python' }]}
               active={signTab}
-              onChange={t => setSignTab(t as 'node' | 'python')}
+              onChange={setSignTab}
             />
             <CodeBlock code={SIGN_CODES[signTab]} lang={signTab} />
           </div>

@@ -112,6 +112,31 @@ export async function revokeAgentKey(
     )
     .returning();
 
+  if (updated) {
+    try {
+      const { reissueCredential } = await import("./credentials");
+      await reissueCredential(agentId);
+    } catch (err) {
+      logger.error({ err: err instanceof Error ? err.message : err, agentId }, "[agent-keys] Failed to reissue credential after key revocation");
+    }
+
+    try {
+      const { clearVcCache } = await import("./verifiable-credential");
+      clearVcCache(agentId);
+    } catch {}
+
+    try {
+      const agent = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, agentId),
+        columns: { handle: true },
+      });
+      if (agent?.handle) {
+        const { deleteResolutionCache } = await import("../lib/resolution-cache");
+        await deleteResolutionCache(agent.handle.toLowerCase());
+      }
+    } catch {}
+  }
+
   return updated ?? null;
 }
 

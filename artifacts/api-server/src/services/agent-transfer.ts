@@ -399,6 +399,27 @@ export async function completeHandoff(transferId: string, actorId: string): Prom
     },
   });
 
+  try {
+    const { reissueCredential } = await import("./credentials");
+    await reissueCredential(transfer.agentId);
+  } catch {}
+
+  try {
+    const { clearVcCache } = await import("./verifiable-credential");
+    clearVcCache(transfer.agentId);
+  } catch {}
+
+  try {
+    const agent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, transfer.agentId),
+      columns: { handle: true },
+    });
+    if (agent?.handle) {
+      const { deleteResolutionCache } = await import("../lib/resolution-cache");
+      await deleteResolutionCache(agent.handle.toLowerCase());
+    }
+  } catch {}
+
   return result.updated;
 }
 

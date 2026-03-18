@@ -4,10 +4,31 @@ export interface AgentPricing {
   deliveryHours: number | null;
 }
 
-export interface ResolvedAgent {
+export interface MachineIdentity {
+  agentId: string;
+  did: string;
+  resolutionUrl: string;
+}
+
+export interface HandleIdentity {
   handle: string;
   domain: string;
   protocolAddress: string;
+  did: string;
+  resolverUrl: string;
+  profileUrl: string;
+  erc8004Uri: string;
+  expiresAt: string | null;
+}
+
+export interface ResolvedAgent {
+  machineIdentity: MachineIdentity;
+  handleIdentity: HandleIdentity | null;
+  handle: string | null;
+  domain: string | null;
+  protocolAddress: string | null;
+  did: string;
+  resolverUrl: string;
   displayName: string;
   description: string | null;
   endpointUrl: string | null;
@@ -17,19 +38,22 @@ export interface ResolvedAgent {
   trustScore: number;
   trustTier: "unverified" | "basic" | "verified" | "trusted" | "elite";
   trustBreakdown: Record<string, number> | null;
-  verificationStatus: "unverified" | "pending" | "verified";
+  verificationStatus: "unverified" | "pending" | "pending_verification" | "verified" | "failed";
   verificationMethod: string | null;
   verifiedAt: string | null;
-  status: "draft" | "active" | "inactive";
+  status: "draft" | "active" | "inactive" | "suspended" | "pending_verification" | "revoked";
   avatarUrl: string | null;
   ownerKey: string | null;
   pricing: AgentPricing | null;
+  walletAddress: string | null;
+  walletNetwork: string | null;
   paymentMethods: string[];
   metadata: Record<string, unknown> | null;
   tasksCompleted: number;
   createdAt: string;
   updatedAt: string;
   profileUrl: string;
+  erc8004Uri: string | null;
 }
 
 export interface ResolveResponse {

@@ -103,6 +103,11 @@ async function expireHandles(): Promise<number> {
         })
         .where(eq(agentsTable.id, agent.id));
 
+      try {
+        const { deleteResolutionCache } = await import("../lib/resolution-cache");
+        await deleteResolutionCache(oldHandle.toLowerCase());
+      } catch {}
+
       const pricing = getHandlePricing(oldHandle);
       const startPrice = pricing.annualPriceCents * AUCTION_START_MULTIPLIER;
       const endsAt = new Date(Date.now() + AUCTION_DURATION_DAYS * 24 * 60 * 60 * 1000);

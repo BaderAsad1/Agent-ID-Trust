@@ -50,16 +50,24 @@ export const HANDLE_TIERS: Record<HandleTier, HandleTierInfo> = {
 };
 
 export const RESERVED_HANDLES = new Set([
-  "admin", "root", "system", "support", "help", "info", "contact",
+  "admin", "administrator", "root", "system", "support", "help", "info", "contact",
   "team", "staff", "bot", "api", "dev", "test", "null", "undefined",
   "billing", "security", "privacy", "legal", "abuse", "noreply",
   "no-reply", "postmaster", "webmaster", "hostmaster", "register",
   "registration", "signup", "signin", "login", "logout", "auth",
   "oauth", "callback", "webhook", "health", "status", "ping",
   "agentid", "getagent", "getai", "ens", "ethereum", "bitcoin",
-  "openai", "anthropic", "google", "microsoft", "apple", "amazon",
-  "meta", "x", "twitter", "facebook", "instagram", "linkedin",
+  "openai", "anthropic", "google", "deepmind", "mistral", "microsoft", "apple", "amazon",
+  "aws", "nvidia", "meta", "x", "twitter", "facebook", "instagram", "linkedin",
   "github", "gitlab", "stripe", "paypal",
+  "cohere", "stability", "stabilityai", "huggingface", "ollama", "groq",
+  "perplexity", "inflection", "adept", "writer", "together", "replicate",
+  "anyscale", "databricks", "salesforce",
+  "gpt", "gpt4", "gpt3", "claude", "gemini", "llama", "llama2", "llama3",
+  "falcon", "mixtral", "bard", "copilot", "chatgpt", "grok", "xai",
+  "langchain", "llamaindex", "autogpt", "babyagi", "crewai",
+  "agentops", "agentprotocol", "a2a", "mcp", "openrouter",
+  "official", "platform", "moderator", "trust",
 ]);
 
 export function getHandleTier(handle: string): HandleTierInfo {
@@ -185,6 +193,11 @@ export async function assignHandleToAgent(
     updatedAt: new Date(),
   }).where(eq(agentsTable.id, agentId));
 
+  try {
+    const { deleteResolutionCache } = await import("../lib/resolution-cache");
+    await deleteResolutionCache(handle.toLowerCase());
+  } catch {}
+
   logger.info({ agentId, handle, tier: options.tier }, "[handle] Handle assigned to agent");
 }
 
@@ -239,6 +252,11 @@ export async function releaseHandleToAuction(agentId: string): Promise<void> {
     handleStripeSubscriptionId: null,
     updatedAt: new Date(),
   }).where(eq(agentsTable.id, agentId));
+
+  try {
+    const { deleteResolutionCache } = await import("../lib/resolution-cache");
+    await deleteResolutionCache(agent.handle!.toLowerCase());
+  } catch {}
 
   logger.info({ agentId, handle: agent.handle }, "[handle] Handle released to auction");
 }
