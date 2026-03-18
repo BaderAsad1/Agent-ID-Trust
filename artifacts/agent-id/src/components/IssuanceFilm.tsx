@@ -2023,29 +2023,23 @@ function IssuanceMomentFlash({ active }: { active: boolean }) {
   );
 }
 
-function MobileSectionReveal({ children }: { children: React.ReactNode }) {
+function MobileScrollSection({ children }: { children: (progress: number) => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [revealed, setRevealed] = useState(false);
+  const [progress, setProgress] = useState(0);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setRevealed(true);
-          obs.disconnect();
-        }
-      },
-      { threshold: 0.08, rootMargin: '0px 0px -40px 0px' }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const p = Math.max(0, Math.min(1, (vh - rect.top) / (vh * 0.65)));
+      setProgress(p);
+    };
+    window.addEventListener('scroll', update, { passive: true });
+    update();
+    return () => window.removeEventListener('scroll', update);
   }, []);
-  return (
-    <div ref={ref} className={`mobile-section-reveal${revealed ? ' revealed' : ''}`}>
-      {children}
-    </div>
-  );
+  return <div ref={ref}>{children(progress)}</div>;
 }
 
 export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: string) => void } = {}) {
@@ -2138,14 +2132,14 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       </section>
 
       {isMobile ? (
-        /* ── Mobile: plain document flow with per-section IntersectionObserver reveals ── */
+        /* ── Mobile: viewport scroll-progress drives per-section staggered reveals ── */
         <div className="mobile-film-sections">
-          <MobileSectionReveal><AnatomySection anatomyProgress={1} /></MobileSectionReveal>
-          <MobileSectionReveal><OutcomeStripSection outcomeProgress={1} /></MobileSectionReveal>
-          <MobileSectionReveal><SystemActivationSection unlocksProgress={1} /></MobileSectionReveal>
-          <MobileSectionReveal><VerificationAPISection verificationProgress={1} /></MobileSectionReveal>
-          <MobileSectionReveal><DevToolingSection devToolingProgress={1} /></MobileSectionReveal>
-          <MobileSectionReveal><CTASection ctaProgress={1} onNavigate={onNavigate} /></MobileSectionReveal>
+          <MobileScrollSection>{(p) => <AnatomySection anatomyProgress={p} />}</MobileScrollSection>
+          <MobileScrollSection>{(p) => <OutcomeStripSection outcomeProgress={p} />}</MobileScrollSection>
+          <MobileScrollSection>{(p) => <SystemActivationSection unlocksProgress={p} />}</MobileScrollSection>
+          <MobileScrollSection>{(p) => <VerificationAPISection verificationProgress={p} />}</MobileScrollSection>
+          <MobileScrollSection>{(p) => <DevToolingSection devToolingProgress={p} />}</MobileScrollSection>
+          <MobileScrollSection>{(p) => <CTASection ctaProgress={p} onNavigate={onNavigate} />}</MobileScrollSection>
         </div>
       ) : (
         /* ── Desktop: sticky scroll-film ── */

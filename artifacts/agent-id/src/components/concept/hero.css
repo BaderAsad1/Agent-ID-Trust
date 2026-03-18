@@ -102,32 +102,23 @@
 }
 
 /* ─── MOBILE SCROLL-FILM OVERRIDE ─────────────────────────────────────────── */
-/* On mobile the JS-driven sticky scroll-film doesn't work.                     */
-/* useIsMobile() in IssuanceFilm adds .mobile-film-sections when mobile=true.  */
-/* These rules (NO media query) override inline styles via !important.          */
+/* useIsMobile() in IssuanceFilm renders .mobile-film-sections on mobile.       */
+/* MobileScrollSection passes live viewport scroll-progress (0→1) to each      */
+/* section component — inline opacity/transform from JS drives the stagger.     */
+/* These CSS rules only fix layout (height, overflow, grid) — no opacity hack. */
 
-@keyframes film-mobile-in {
-  from {
-    opacity: 0;
-    transform: translateY(22px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Applied via JS (useIsMobile) — not a media query — so these always win */
 .mobile-film-sections {
   background: #050711;
 }
 
+/* Override inline height:100vh so sections stack naturally in document flow */
 .mobile-film-sections .outcome-wrapper,
 .mobile-film-sections .activation-wrapper,
 .mobile-film-sections .verification-wrapper,
 .mobile-film-sections .devtooling-wrapper,
 .mobile-film-sections .anatomy-wrapper {
   height: auto !important;
+  min-height: 0 !important;
   padding: 64px 20px 48px !important;
   display: flex !important;
   flex-direction: column !important;
@@ -136,20 +127,25 @@
 
 .mobile-film-sections .cta-content {
   height: auto !important;
+  min-height: 0 !important;
   padding: 80px 24px !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
 }
 
-/* Always-visible structural/decorative elements (not animated) */
-.mobile-film-sections .activation-node,
-.mobile-film-sections .activation-card-left,
-.mobile-film-sections .activation-card-right,
-.mobile-film-sections .activation-line {
-  opacity: 1 !important;
-  transform: none !important;
-  filter: none !important;
+/* Anatomy internal layout */
+.mobile-film-sections .anatomy-content {
+  overflow: visible !important;
+  height: auto !important;
+}
+.mobile-film-sections .anatomy-credential {
+  display: none !important;
+}
+.mobile-film-sections .anatomy-layers {
+  overflow: visible !important;
+  height: auto !important;
+  min-height: 0 !important;
 }
 
 /* Grid layout adjustments */
@@ -165,84 +161,16 @@
   margin-top: 32px !important;
 }
 
+/* Activation layout */
 .mobile-film-sections .activation-spine {
   display: none !important;
 }
-
 .mobile-film-sections .activation-channel-row {
   height: auto !important;
 }
-
-/* ── Pre-animation: hide card-level children until section scrolls into view ── */
-/* Specificity (0,4,0) beats component inline styles and anatomy <style> block  */
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .outcome-wrapper > div,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .outcome-grid > div,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .activation-wrapper > div:first-child,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .activation-channel-row,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .verification-wrapper > div:first-child,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .verification-code,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .verification-features > div,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .devtooling-wrapper > div:first-child,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .devtooling-grid > div,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .cta-content > div,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .anatomy-title,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .anatomy-layer-item,
-.mobile-film-sections .mobile-section-reveal:not(.revealed) .anatomy-card-row {
-  opacity: 0 !important;
-  transform: translateY(20px) !important;
-  transition: none !important;
+.mobile-film-sections .activation-channels {
+  flex: none !important;
 }
-
-/* ── Revealed: staggered card-by-card entrance when section enters viewport ── */
-
-/* Outcome section */
-.mobile-film-sections .mobile-section-reveal.revealed .outcome-wrapper > div:first-child         { animation: film-mobile-in 0.55s ease 0.00s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .outcome-grid > div:nth-child(1)           { animation: film-mobile-in 0.50s ease 0.14s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .outcome-grid > div:nth-child(2)           { animation: film-mobile-in 0.50s ease 0.26s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .outcome-grid > div:nth-child(3)           { animation: film-mobile-in 0.50s ease 0.38s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .outcome-grid > div:nth-child(4)           { animation: film-mobile-in 0.50s ease 0.50s both; }
-
-/* System Activation section */
-.mobile-film-sections .mobile-section-reveal.revealed .activation-wrapper > div:first-child      { animation: film-mobile-in 0.55s ease 0.00s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .activation-channel-row:nth-child(1)       { animation: film-mobile-in 0.50s ease 0.14s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .activation-channel-row:nth-child(2)       { animation: film-mobile-in 0.50s ease 0.25s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .activation-channel-row:nth-child(3)       { animation: film-mobile-in 0.50s ease 0.36s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .activation-channel-row:nth-child(4)       { animation: film-mobile-in 0.50s ease 0.47s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .activation-channel-row:nth-child(5)       { animation: film-mobile-in 0.50s ease 0.58s both; }
-
-/* Verification section */
-.mobile-film-sections .mobile-section-reveal.revealed .verification-wrapper > div:first-child    { animation: film-mobile-in 0.55s ease 0.00s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .verification-code                         { animation: film-mobile-in 0.50s ease 0.14s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .verification-features > div:nth-child(1)  { animation: film-mobile-in 0.50s ease 0.26s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .verification-features > div:nth-child(2)  { animation: film-mobile-in 0.50s ease 0.36s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .verification-features > div:nth-child(3)  { animation: film-mobile-in 0.50s ease 0.46s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .verification-features > div:nth-child(4)  { animation: film-mobile-in 0.50s ease 0.56s both; }
-
-/* Dev Tooling section */
-.mobile-film-sections .mobile-section-reveal.revealed .devtooling-wrapper > div:first-child      { animation: film-mobile-in 0.55s ease 0.00s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .devtooling-grid > div:nth-child(1)        { animation: film-mobile-in 0.50s ease 0.14s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .devtooling-grid > div:nth-child(2)        { animation: film-mobile-in 0.50s ease 0.22s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .devtooling-grid > div:nth-child(3)        { animation: film-mobile-in 0.50s ease 0.30s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .devtooling-grid > div:nth-child(4)        { animation: film-mobile-in 0.50s ease 0.38s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .devtooling-grid > div:nth-child(5)        { animation: film-mobile-in 0.50s ease 0.46s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .devtooling-grid > div:nth-child(6)        { animation: film-mobile-in 0.50s ease 0.54s both; }
-
-/* CTA section */
-.mobile-film-sections .mobile-section-reveal.revealed .cta-content > div:nth-child(1)            { animation: film-mobile-in 0.55s ease 0.00s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .cta-content > div:nth-child(2)            { animation: film-mobile-in 0.50s ease 0.16s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .cta-content > div:nth-child(3)            { animation: film-mobile-in 0.50s ease 0.32s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .cta-content > div:nth-child(4)            { animation: film-mobile-in 0.50s ease 0.48s both; }
-
-/* Anatomy section */
-.mobile-film-sections .mobile-section-reveal.revealed .anatomy-title                             { animation: film-mobile-in 0.55s ease 0.00s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .anatomy-layer-item:nth-child(1)           { animation: film-mobile-in 0.50s ease 0.12s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .anatomy-layer-item:nth-child(2)           { animation: film-mobile-in 0.50s ease 0.24s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .anatomy-layer-item:nth-child(3)           { animation: film-mobile-in 0.50s ease 0.36s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .anatomy-layer-item:nth-child(4)           { animation: film-mobile-in 0.50s ease 0.48s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .anatomy-layer-item:nth-child(5)           { animation: film-mobile-in 0.50s ease 0.60s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .anatomy-card-row:nth-child(1)             { animation: film-mobile-in 0.50s ease 0.14s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .anatomy-card-row:nth-child(2)             { animation: film-mobile-in 0.50s ease 0.26s both; }
-.mobile-film-sections .mobile-section-reveal.revealed .anatomy-card-row:nth-child(3)             { animation: film-mobile-in 0.50s ease 0.38s both; }
 
 /* ─── MEDIA QUERY FALLBACK (for browsers without JS or SSR) ───────────────── */
 @media (max-width: 768px) {
