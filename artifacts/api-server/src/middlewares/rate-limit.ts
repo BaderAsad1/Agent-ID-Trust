@@ -129,6 +129,17 @@ async function applyLimiter(limit: number, prefix: string, windowMs: number, req
   getLimiter(limit, prefix, windowMs)(req, res, next);
 }
 
+/**
+ * Clear all cached limiter instances and reset Redis factory. Used in tests only to prevent
+ * state leakage between test cases (cached limiters carry accumulated request counts).
+ * Clears redisStoreFactory to avoid re-using a potentially closed Redis client in new limiters.
+ * @internal
+ */
+export function _resetLimitersForTesting(): void {
+  limiters.clear();
+  redisStoreFactory = null;
+}
+
 export function publicRateLimit(req: Request, res: Response, next: NextFunction): void {
   void applyLimiter(100, "rl:pub:", 60_000, req, res, next);
 }

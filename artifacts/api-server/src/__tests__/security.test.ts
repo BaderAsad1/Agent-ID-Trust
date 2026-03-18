@@ -6,7 +6,7 @@
  *   - Express middleware integration tests (supertest) for real enforcement
  */
 
-import { describe, it, expect, vi, beforeAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import express, { type Request, type Response } from "express";
 import request from "supertest";
 
@@ -493,6 +493,11 @@ function buildRateLimitedApp(
 }
 
 describe("Security — Rate Limit Middleware (C2/H5/H9 — integration)", () => {
+  beforeEach(async () => {
+    const { _resetLimitersForTesting } = await import("../middlewares/rate-limit");
+    _resetLimitersForTesting();
+  });
+
   it("allows requests within the limit", async () => {
     const { challengeRateLimit } = await import("../middlewares/rate-limit");
     const app = express();
@@ -664,6 +669,11 @@ describe("Security — Sybil quota fail-closed on Redis errors (C4 — integrati
 });
 
 describe("Security — Per-agent challenge attempt lockout (H9 — integration)", () => {
+  beforeEach(async () => {
+    const { _resetLimitersForTesting } = await import("../middlewares/rate-limit");
+    _resetLimitersForTesting();
+  });
+
   it("per-agent lockout keys are isolated by agentId", async () => {
     // Verify the challenge lockout key format prevents cross-agent pollution.
     // This tests the actual key construction, not a mirrored copy of it.

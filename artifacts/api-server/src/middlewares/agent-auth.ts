@@ -111,9 +111,9 @@ async function verifyEdDsaJwt(token: string): Promise<Record<string, unknown> | 
   }
 }
 
-function verifyEd25519Signature(message: string, signatureB64: string, publicKeyB64: string): boolean {
+function verifyEd25519Signature(message: string, signatureB64url: string, publicKeyB64: string): boolean {
   try {
-    const sigBuffer = Buffer.from(signatureB64, "base64");
+    const sigBuffer = Buffer.from(signatureB64url, "base64url");
     const msgBuffer = Buffer.from(message, "utf8");
     const pubKeyDer = Buffer.from(publicKeyB64, "base64");
     const pubKey = createPublicKey({ key: pubKeyDer, format: "der", type: "spki" });
