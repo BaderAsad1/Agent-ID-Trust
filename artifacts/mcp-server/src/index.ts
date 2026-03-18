@@ -1,5 +1,5 @@
 import express from "express";
-import { randomUUID } from "crypto";
+import { randomUUID, timingSafeEqual } from "crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { logger, requestLogger } from "./logger.js";
@@ -56,6 +56,22 @@ interface SessionEntry {
 
 const transports = new Map<string, SessionEntry>();
 
+/**
+ * Timing-safe API key comparison for session ownership checks.
+ * Prevents timing-oracle attacks where an attacker could guess session keys
+ * byte-by-byte by measuring response latency differences.
+ */
+function apiKeyMatches(provided: string, stored: string): boolean {
+  const a = Buffer.from(provided, "utf8");
+  const b = Buffer.from(stored, "utf8");
+  const maxLen = Math.max(a.length, b.length);
+  const pa = Buffer.alloc(maxLen);
+  const pb = Buffer.alloc(maxLen);
+  a.copy(pa);
+  b.copy(pb);
+  return timingSafeEqual(pa, pb);
+}
+
 function evictExpiredSessions() {
   for (const [sessionId, entry] of transports) {
     const session = getSession(sessionId);
@@ -104,7 +120,7 @@ async function authenticateAndAuthorize(
       });
       return null;
     }
-    if (session.apiKey !== token) {
+    if (!apiKeyMatches(token, session.apiKey)) {
       res.status(403).json({
         error: "FORBIDDEN",
         message: "API key does not match session owner",
@@ -125,7 +141,7 @@ app.post("/mcp", rateLimiter, express.json(), async (req, res) => {
   if (existingSessionId) {
     const existing = transports.get(existingSessionId);
     if (existing) {
-      if (existing.apiKey !== token) {
+      if (!apiKeyMatches(token, existing.apiKey)) {
         res.status(403).json({
           error: "FORBIDDEN",
           message: "API key does not match session owner",
@@ -195,7 +211,7 @@ app.get("/mcp", rateLimiter, async (req, res) => {
     return;
   }
 
-  if (existing.apiKey !== auth.token) {
+  if (!apiKeyMatches(auth.token, existing.apiKey)) {
     res.status(403).json({
       error: "FORBIDDEN",
       message: "API key does not match session owner",
@@ -238,7 +254,7 @@ app.delete("/mcp", rateLimiter, async (req, res) => {
     return;
   }
 
-  if (existing.apiKey !== auth.token) {
+  if (!apiKeyMatches(auth.token, existing.apiKey)) {
     res.status(403).json({
       error: "FORBIDDEN",
       message: "API key does not match session owner",

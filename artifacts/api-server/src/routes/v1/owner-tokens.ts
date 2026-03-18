@@ -4,7 +4,7 @@ import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { db } from "@workspace/db";
 import { ownerTokensTable, agentsTable, apiKeysTable } from "@workspace/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 
 export const ownerTokenRouter = Router();
 export const agentLinkOwnerRouter = Router();
@@ -77,6 +77,13 @@ agentLinkOwnerRouter.post("/link-owner", async (req, res, next) => {
       throw new AppError(403, "AGENT_REVOKED", "This agent has been revoked and cannot be linked");
     }
 
+    // Prevent duplicate claim overwrite: once an agent is claimed it belongs to
+    // its owner. A second link-owner attempt via a different token must be
+    // handled through an explicit admin dispute path, not the normal flow.
+    if (agentRecord.isClaimed) {
+      throw new AppError(409, "ALREADY_CLAIMED", "This agent is already linked to an owner. Use the dispute path to challenge ownership.");
+    }
+
     if (agentRecord.verificationStatus !== "verified") {
       throw new AppError(403, "AGENT_NOT_VERIFIED", "Agent must complete verification before it can be linked to an owner. This prevents pre-claiming of agent slots.", {
         verificationStatus: agentRecord.verificationStatus,
@@ -99,7 +106,10 @@ agentLinkOwnerRouter.post("/link-owner", async (req, res, next) => {
     }
 
     await db.transaction(async (tx) => {
-      await tx
+      // Atomic claim guard: the WHERE clause includes isClaimed = false so that
+      // a concurrent request that races past the earlier pre-check above will
+      // still fail to update the row (0 rows affected = claim lost the race).
+      const result = await tx
         .update(agentsTable)
         .set({
           ownerUserId: ownerToken.userId,
@@ -107,7 +117,13 @@ agentLinkOwnerRouter.post("/link-owner", async (req, res, next) => {
           claimedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(agentsTable.id, agentId));
+        .where(and(eq(agentsTable.id, agentId), sql`${agentsTable.isClaimed} = false`))
+        .returning({ id: agentsTable.id });
+
+      if (result.length === 0) {
+        // Another concurrent request claimed the agent between our read and this write.
+        throw new AppError(409, "ALREADY_CLAIMED", "This agent was claimed by another request. Only one owner can be linked.");
+      }
 
       await tx
         .update(ownerTokensTable)

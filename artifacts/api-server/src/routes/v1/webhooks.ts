@@ -1,7 +1,7 @@
 import { Router, raw } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { marketplaceOrdersTable, agentsTable } from "@workspace/db/schema";
+import { marketplaceOrdersTable, agentsTable, tasksTable } from "@workspace/db/schema";
 import {
   verifyStripeWebhook,
   handleCheckoutCompleted,
@@ -72,6 +72,31 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
     console.log(`[webhook] payment_intent.payment_failed: marked order ${orderId} as payment_failed`);
   } else {
     console.log(`[webhook] payment_intent.payment_failed: order ${orderId} in status ${order.status}, no action`);
+  }
+}
+
+async function handlePaymentIntentCapturableUpdated(pi: Stripe.PaymentIntent) {
+  // Fired when a manual-capture PaymentIntent is confirmed by the client and
+  // funds are now authorised (reserved) on the card. This is when the escrow
+  // truly "holds" money — advance the task from "payment_pending" to "held".
+  if (!pi.metadata?.taskId) {
+    console.log("[webhook] payment_intent.amount_capturable_updated: no taskId in metadata, skipping");
+    return;
+  }
+  const taskId = pi.metadata.taskId;
+  const updated = await db
+    .update(tasksTable)
+    .set({ escrowStatus: "held" as string, updatedAt: new Date() })
+    .where(and(
+      eq(tasksTable.id, taskId),
+      eq(tasksTable.stripePaymentIntentId, pi.id),
+      sql`${tasksTable.escrowStatus} = 'payment_pending'`,
+    ))
+    .returning({ id: tasksTable.id });
+  if (updated.length > 0) {
+    console.log(`[webhook] payment_intent.amount_capturable_updated: task ${taskId} escrow advanced to held`);
+  } else {
+    console.log(`[webhook] payment_intent.amount_capturable_updated: task ${taskId} not in payment_pending state, skipping`);
   }
 }
 
@@ -176,6 +201,10 @@ router.post(
           }
           case "payment_intent.succeeded":
             await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
+            break;
+          case "payment_intent.amount_capturable_updated":
+            // Funds are now authorised (held) on the card — advance task escrow to "held".
+            await handlePaymentIntentCapturableUpdated(event.data.object as Stripe.PaymentIntent);
             break;
           case "payment_intent.payment_failed":
             await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);

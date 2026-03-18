@@ -203,7 +203,7 @@ router.post("/:agentId/transfers/:transferId/accept", requireTransferAuth, requi
 
     await logActivity({
       agentId: req.params.agentId as string,
-      eventType: "transfer.hold_funded",
+      eventType: "transfer.accepted",
       payload: { transferId: req.params.transferId, agreedPrice: parsed.data.agreedPrice },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],

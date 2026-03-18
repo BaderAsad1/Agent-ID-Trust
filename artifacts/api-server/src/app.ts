@@ -54,11 +54,12 @@ app.use(requestLogger);
 
 const corsOrigins: cors.CorsOptions["origin"] = (() => {
   if (config.NODE_ENV !== "production") return true;
-  const origins: string[] = [];
+  // Production: explicit allowlist only. Never fall back to wildcard open-CORS
+  // because a missing env var would otherwise grant any origin access.
+  const origins: string[] = ["https://getagent.id"];
   if (config.REPLIT_DEV_DOMAIN) origins.push(`https://${config.REPLIT_DEV_DOMAIN}`);
   if (config.BASE_AGENT_DOMAIN) origins.push(`https://${config.BASE_AGENT_DOMAIN}`);
-  origins.push("https://getagent.id");
-  return origins.length > 0 ? origins : true;
+  return origins;
 })();
 
 app.use(cors({

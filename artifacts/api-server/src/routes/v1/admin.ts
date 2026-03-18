@@ -13,6 +13,7 @@
  * POST /v1/admin/claims/:agentId/resolve — Adjudicate a dispute claim
  */
 import { Router, type Request, type Response, type NextFunction } from "express";
+import { timingSafeEqual } from "crypto";
 import { z } from "zod/v4";
 import { eq, and, gte, lte, desc, like, or } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -30,16 +31,45 @@ import { writeAuditEvent } from "../../services/auth-session";
 const router = Router();
 
 function adminAuth(req: Request, res: Response, next: NextFunction): void {
-  const adminKey = req.headers["x-admin-key"] as string | undefined;
-  const expectedKey = process.env.ADMIN_SECRET_KEY;
-
-  if (!adminKey || !expectedKey || adminKey !== expectedKey) {
+  // Security: always return the same generic error regardless of which check
+  // fails so callers cannot distinguish missing key vs wrong key (timing oracle).
+  const deny = () => {
     res.status(401).json({
       error: "ADMIN_UNAUTHORIZED",
       message: "Admin authentication required. Provide X-Admin-Key header.",
     });
+  };
+
+  const adminKey = req.headers["x-admin-key"] as string | undefined;
+  const expectedKey = process.env.ADMIN_SECRET_KEY;
+
+  // Fail closed: if env var is not set, no key can ever be valid.
+  if (!adminKey || !expectedKey) {
+    deny();
     return;
   }
+
+  // Use constant-time comparison to prevent timing-oracle attacks that could
+  // allow an attacker to guess the secret byte-by-byte via response timing.
+  // We compare fixed-length Buffers; length differences are normalised by
+  // always comparing expectedKey.length bytes (the attacker learns nothing
+  // new from the length of their own provided string).
+  const provided = Buffer.from(adminKey, "utf8");
+  const expected = Buffer.from(expectedKey, "utf8");
+
+  // Pad the shorter buffer so timingSafeEqual receives equal-length inputs.
+  // Without this, a length mismatch would throw before comparison happens.
+  const maxLen = Math.max(provided.length, expected.length);
+  const a = Buffer.alloc(maxLen);
+  const b = Buffer.alloc(maxLen);
+  provided.copy(a);
+  expected.copy(b);
+
+  if (!timingSafeEqual(a, b)) {
+    deny();
+    return;
+  }
+
   next();
 }
 

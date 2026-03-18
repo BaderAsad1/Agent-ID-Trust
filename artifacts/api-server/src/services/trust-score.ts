@@ -171,9 +171,14 @@ const reviewsProvider: TrustProvider = {
   },
 };
 
-const endpointHealthProvider: TrustProvider = {
-  id: "endpointHealth",
-  label: "Endpoint Health",
+// Renamed from "endpointHealth" to "endpointConfig" for accuracy:
+// this provider scores endpoint *configuration* (URL presence, HTTPS usage,
+// active status). It does NOT make live HTTP requests to probe liveness —
+// that would require SSRF mitigation, allow-listing, and async scheduling.
+// If live health-probing is added in the future, create a separate provider.
+const endpointConfigProvider: TrustProvider = {
+  id: "endpointConfig",
+  label: "Endpoint Configuration",
   maxScore: 10,
   async compute(agent) {
     if (!agent.endpointUrl) return { score: 0 };
@@ -357,7 +362,7 @@ registerTrustProvider(longevityProvider);
 registerTrustProvider(activityProvider);
 registerTrustProvider(reputationProvider);
 registerTrustProvider(reviewsProvider);
-registerTrustProvider(endpointHealthProvider);
+registerTrustProvider(endpointConfigProvider);
 registerTrustProvider(profileCompletenessProvider);
 registerTrustProvider(externalSignalProvider);
 registerTrustProvider(lineageSponsorshipProvider);
@@ -451,14 +456,14 @@ export function getTrustImprovementTips(
     tips.push({ priority: 6, tip: "List your agent on the marketplace and collect reviews to earn up to 15 trust points from ratings." });
   }
 
-  const endpoint = breakdown["endpointHealth"] ?? 0;
+  const endpoint = breakdown["endpointConfig"] ?? 0;
   if (endpoint < 10) {
     if (!agent.endpointUrl) {
-      tips.push({ priority: 7, tip: "Register a live HTTPS endpoint URL to demonstrate your agent is reachable and earn up to 10 endpoint health points." });
+      tips.push({ priority: 7, tip: "Register a live HTTPS endpoint URL to demonstrate your agent is reachable and earn up to 10 endpoint configuration points." });
     } else {
       const url = (() => { try { return new URL(agent.endpointUrl); } catch { return null; } })();
       if (url && url.protocol !== "https:") {
-        tips.push({ priority: 7, tip: "Upgrade your endpoint to HTTPS to earn the full endpoint health score." });
+        tips.push({ priority: 7, tip: "Upgrade your endpoint to HTTPS to earn the full endpoint configuration score." });
       }
     }
   }

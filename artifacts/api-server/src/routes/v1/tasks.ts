@@ -170,10 +170,16 @@ router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
         body.recipientAgentId,
         createdTask.id,
       );
+      // Status is "payment_pending" — NOT "held" — because the Stripe PaymentIntent
+      // has been created but the client must still confirm it on the frontend.
+      // With capture_method: "manual", funds are only authorised (reserved) after
+      // the client confirms. The webhook handler for
+      // payment_intent.amount_capturable_updated advances this to "held" once
+      // the card issuer has reserved the funds and the PI is awaiting capture.
       await db.update(tasksTable).set({
         escrowAmount: escrowAmountCents,
         escrowCurrency: body.escrowCurrency || "usd",
-        escrowStatus: "held",
+        escrowStatus: "payment_pending",
         stripePaymentIntentId: paymentInfo.paymentIntentId,
         updatedAt: new Date(),
       }).where(eq(tasksTable.id, createdTask.id));
@@ -723,7 +729,9 @@ router.post("/:taskId/dispute", requireHumanOrAgentAuth, async (req, res, next) 
       return;
     }
 
-    if (disputeTask.escrowStatus !== "held" && disputeTask.escrowStatus !== "released") {
+    // "payment_pending" is also disputable: the PI was created but the client
+    // may never have confirmed it. We cancel/void it the same way.
+    if (disputeTask.escrowStatus !== "held" && disputeTask.escrowStatus !== "released" && disputeTask.escrowStatus !== "payment_pending") {
       res.status(409).json({ code: "INVALID_ESCROW_STATE", message: "Task escrow is not in a disputable state" });
       return;
     }

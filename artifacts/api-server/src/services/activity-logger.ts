@@ -71,6 +71,7 @@ export type ActivityEventType =
   | "agent.api_key.recovered"
   | "agent.api_key.recovery_attempted"
   | "transfer.created"
+  | "transfer.accepted"
   | "transfer.readiness_report_generated"
   | "transfer.hold_funded"
   | "transfer.trust_snapshotted"

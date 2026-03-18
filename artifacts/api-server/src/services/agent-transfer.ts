@@ -166,22 +166,11 @@ export async function updateTransfer(
   return updated;
 }
 
-export async function listTransfer(transferId: string, actorId: string): Promise<AgentTransfer> {
-  const transfer = await getTransfer(transferId);
-  if (!transfer) throw new Error("Transfer not found");
-  if (transfer.sellerId !== actorId) throw new Error("Only the seller can list a transfer");
-  if (!validateTransition(transfer.status, "listed")) {
-    throw new Error(`Cannot transition from ${transfer.status} to listed`);
-  }
-
-  const [updated] = await db
-    .update(agentTransfersTable)
-    .set({ status: "listed", listedAt: new Date(), updatedAt: new Date() })
-    .where(eq(agentTransfersTable.id, transferId))
-    .returning();
-
-  await appendTransferEvent(transferId, "transfer.listed", transfer.status, "listed", actorId, "user");
-  return updated;
+export async function listTransfer(_transferId: string, _actorId: string): Promise<never> {
+  // Public marketplace listing is not implemented. The /list route is disabled
+  // (returns 501). This function fails explicitly so it cannot be accidentally
+  // re-enabled without a real implementation behind it.
+  throw new Error("LISTING_NOT_AVAILABLE: Public marketplace listing is not enabled. Enable the route and implement this function together.");
 }
 
 export async function acceptTransfer(
@@ -220,49 +209,11 @@ export async function acceptTransfer(
   return updated;
 }
 
-export async function fundHold(transferId: string, actorId: string): Promise<AgentTransfer> {
-  const transfer = await getTransfer(transferId);
-  if (!transfer) throw new Error("Transfer not found");
-  if (transfer.buyerId !== actorId) {
-    throw new Error("Only the buyer can fund a hold");
-  }
-  if (!validateTransition(transfer.status, "hold_pending")) {
-    throw new Error(`Cannot fund hold in ${transfer.status} status`);
-  }
-
-  // ESCROW_PROVIDER_GAP: This is where a real escrow provider would capture funds.
-  // The hold_provider, hold_status, and hold_reference fields are populated with
-  // placeholder values. When a real provider is integrated, this block should:
-  // 1. Call the provider's fund-capture API
-  // 2. Store the provider's reference ID in hold_reference
-  // 3. Store the actual provider name in hold_provider
-  // 4. Map the provider's status to hold_status
-
-  const [updated] = await db
-    .update(agentTransfersTable)
-    .set({
-      status: "hold_pending",
-      holdProvider: "internal", // ESCROW_PROVIDER_GAP: Replace with actual provider
-      holdStatus: "funded", // ESCROW_PROVIDER_GAP: Map from provider status
-      holdReference: `hold_${transferId}_${Date.now()}`, // ESCROW_PROVIDER_GAP: Use provider reference
-      holdFundedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(agentTransfersTable.id, transferId))
-    .returning();
-
-  await appendTransferEvent(transferId, "transfer.hold_funded", transfer.status, "hold_pending", actorId, "user", {
-    holdProvider: "internal",
-    holdStatus: "funded",
-  });
-
-  await logActivity({
-    agentId: transfer.agentId,
-    eventType: "transfer.hold_funded",
-    payload: { transferId },
-  });
-
-  return updated;
+export async function fundHold(_transferId: string, _actorId: string): Promise<never> {
+  // Escrow integration is not implemented. The /fund-hold route is disabled
+  // (returns 501) so this function should never be reached. If it is, we fail
+  // explicitly rather than silently pretending funds are held.
+  throw new Error("ESCROW_NOT_AVAILABLE: Real escrow integration is required before this path can be enabled. Do not simulate fund holds.");
 }
 
 export async function advanceToTransferPending(transferId: string, actorId: string): Promise<AgentTransfer> {
