@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback, type CSSProperties } from 'react';
 import '@/components/concept/hero.css';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ScrollState {
   progress: number;
@@ -2051,6 +2052,7 @@ function IssuanceMomentFlash({ active }: { active: boolean }) {
 export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: string) => void } = {}) {
   const sectionRefs = useSectionRefs();
   const scroll = useScrollFilm(sectionRefs);
+  const isMobile = useIsMobile();
 
   const heroScale = lerp(1, 1.06, scroll.heroProgress);
   const heroOpacity = scroll.heroProgress > 0.85 ? lerp(1, 0, (scroll.heroProgress - 0.85) / 0.15) : 1;
@@ -2136,143 +2138,158 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <section ref={sectionRefs.outcome as React.RefObject<HTMLElement>} className="outcome-section-outer" style={{
-        position: 'relative',
-        minHeight: '220vh',
-        marginTop: '-20vh',
-        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-        zIndex: 2,
-      }}>
-        <div className="outcome-sticky-container" style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflow: 'hidden',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: scroll.outcomeProgress > 0.92
-            ? lerp(1, 0, (scroll.outcomeProgress - 0.92) / 0.08)
-            : 1,
-          transform: scroll.outcomeProgress > 0.92
-            ? `scale(${lerp(1, 0.97, (scroll.outcomeProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.outcomeProgress - 0.92) / 0.08)}px)`
-            : undefined,
-        }}>
-          <OutcomeStripSection outcomeProgress={scroll.outcomeProgress} />
+      {isMobile ? (
+        /* ── Mobile: plain document flow — no sticky, no overflow:hidden ── */
+        <div className="mobile-film-sections">
+          <AnatomySection anatomyProgress={1} />
+          <OutcomeStripSection outcomeProgress={1} />
+          <SystemActivationSection unlocksProgress={1} />
+          <VerificationAPISection verificationProgress={1} />
+          <DevToolingSection devToolingProgress={1} />
+          <CTASection ctaProgress={1} onNavigate={onNavigate} />
         </div>
-      </section>
+      ) : (
+        /* ── Desktop: sticky scroll-film ── */
+        <>
+          <section ref={sectionRefs.outcome as React.RefObject<HTMLElement>} className="outcome-section-outer" style={{
+            position: 'relative',
+            minHeight: '220vh',
+            marginTop: '-20vh',
+            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+            zIndex: 2,
+          }}>
+            <div className="outcome-sticky-container" style={{
+              position: 'sticky',
+              top: 0,
+              height: '100vh',
+              overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: scroll.outcomeProgress > 0.92
+                ? lerp(1, 0, (scroll.outcomeProgress - 0.92) / 0.08)
+                : 1,
+              transform: scroll.outcomeProgress > 0.92
+                ? `scale(${lerp(1, 0.97, (scroll.outcomeProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.outcomeProgress - 0.92) / 0.08)}px)`
+                : undefined,
+            }}>
+              <OutcomeStripSection outcomeProgress={scroll.outcomeProgress} />
+            </div>
+          </section>
 
-      <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} className="anatomy-section-outer" style={{
-        position: 'relative',
-        minHeight: '300vh',
-        marginTop: '-20vh',
-        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-        zIndex: 3,
-      }}>
-        <div className="anatomy-sticky-container" style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflow: 'hidden',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: scroll.anatomyProgress > 0.92
-            ? lerp(1, 0, (scroll.anatomyProgress - 0.92) / 0.08)
-            : 1,
-          transform: scroll.anatomyProgress > 0.92
-            ? `scale(${lerp(1, 0.97, (scroll.anatomyProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.anatomyProgress - 0.92) / 0.08)}px)`
-            : undefined,
-        }}>
-          <AnatomySection anatomyProgress={scroll.anatomyProgress} />
-        </div>
-      </section>
+          <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} className="anatomy-section-outer" style={{
+            position: 'relative',
+            minHeight: '300vh',
+            marginTop: '-20vh',
+            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+            zIndex: 3,
+          }}>
+            <div className="anatomy-sticky-container" style={{
+              position: 'sticky',
+              top: 0,
+              height: '100vh',
+              overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: scroll.anatomyProgress > 0.92
+                ? lerp(1, 0, (scroll.anatomyProgress - 0.92) / 0.08)
+                : 1,
+              transform: scroll.anatomyProgress > 0.92
+                ? `scale(${lerp(1, 0.97, (scroll.anatomyProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.anatomyProgress - 0.92) / 0.08)}px)`
+                : undefined,
+            }}>
+              <AnatomySection anatomyProgress={scroll.anatomyProgress} />
+            </div>
+          </section>
 
-      <section ref={sectionRefs.unlocks as React.RefObject<HTMLElement>} className="activation-section-outer" style={{
-        position: 'relative',
-        minHeight: '280vh',
-        marginTop: '-20vh',
-        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-        zIndex: 4,
-      }}>
-        <div className="activation-sticky-container" style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflow: 'hidden',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: scroll.unlocksProgress > 0.92
-            ? lerp(1, 0, (scroll.unlocksProgress - 0.92) / 0.08)
-            : 1,
-          transform: scroll.unlocksProgress > 0.92
-            ? `scale(${lerp(1, 0.97, (scroll.unlocksProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.unlocksProgress - 0.92) / 0.08)}px)`
-            : undefined,
-        }}>
-          <SystemActivationSection unlocksProgress={scroll.unlocksProgress} />
-        </div>
-      </section>
+          <section ref={sectionRefs.unlocks as React.RefObject<HTMLElement>} className="activation-section-outer" style={{
+            position: 'relative',
+            minHeight: '280vh',
+            marginTop: '-20vh',
+            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+            zIndex: 4,
+          }}>
+            <div className="activation-sticky-container" style={{
+              position: 'sticky',
+              top: 0,
+              height: '100vh',
+              overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: scroll.unlocksProgress > 0.92
+                ? lerp(1, 0, (scroll.unlocksProgress - 0.92) / 0.08)
+                : 1,
+              transform: scroll.unlocksProgress > 0.92
+                ? `scale(${lerp(1, 0.97, (scroll.unlocksProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.unlocksProgress - 0.92) / 0.08)}px)`
+                : undefined,
+            }}>
+              <SystemActivationSection unlocksProgress={scroll.unlocksProgress} />
+            </div>
+          </section>
 
-      <section ref={sectionRefs.verification as React.RefObject<HTMLElement>} className="verification-section-outer" style={{
-        position: 'relative',
-        minHeight: '260vh',
-        marginTop: '-20vh',
-        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-        zIndex: 5,
-      }}>
-        <div className="verification-sticky-container" style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflow: 'hidden',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: scroll.verificationProgress > 0.92
-            ? lerp(1, 0, (scroll.verificationProgress - 0.92) / 0.08)
-            : 1,
-          transform: scroll.verificationProgress > 0.92
-            ? `scale(${lerp(1, 0.97, (scroll.verificationProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.verificationProgress - 0.92) / 0.08)}px)`
-            : undefined,
-        }}>
-          <VerificationAPISection verificationProgress={scroll.verificationProgress} />
-        </div>
-      </section>
+          <section ref={sectionRefs.verification as React.RefObject<HTMLElement>} className="verification-section-outer" style={{
+            position: 'relative',
+            minHeight: '260vh',
+            marginTop: '-20vh',
+            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+            zIndex: 5,
+          }}>
+            <div className="verification-sticky-container" style={{
+              position: 'sticky',
+              top: 0,
+              height: '100vh',
+              overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: scroll.verificationProgress > 0.92
+                ? lerp(1, 0, (scroll.verificationProgress - 0.92) / 0.08)
+                : 1,
+              transform: scroll.verificationProgress > 0.92
+                ? `scale(${lerp(1, 0.97, (scroll.verificationProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.verificationProgress - 0.92) / 0.08)}px)`
+                : undefined,
+            }}>
+              <VerificationAPISection verificationProgress={scroll.verificationProgress} />
+            </div>
+          </section>
 
-      <section ref={sectionRefs.devTooling as React.RefObject<HTMLElement>} className="devtooling-section-outer" style={{
-        position: 'relative',
-        minHeight: '220vh',
-        marginTop: '-20vh',
-        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-        zIndex: 6,
-      }}>
-        <div className="devtooling-sticky-container" style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflow: 'hidden',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: scroll.devToolingProgress > 0.92
-            ? lerp(1, 0, (scroll.devToolingProgress - 0.92) / 0.08)
-            : 1,
-          transform: scroll.devToolingProgress > 0.92
-            ? `scale(${lerp(1, 0.97, (scroll.devToolingProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.devToolingProgress - 0.92) / 0.08)}px)`
-            : undefined,
-        }}>
-          <DevToolingSection devToolingProgress={scroll.devToolingProgress} />
-        </div>
-      </section>
+          <section ref={sectionRefs.devTooling as React.RefObject<HTMLElement>} className="devtooling-section-outer" style={{
+            position: 'relative',
+            minHeight: '220vh',
+            marginTop: '-20vh',
+            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+            zIndex: 6,
+          }}>
+            <div className="devtooling-sticky-container" style={{
+              position: 'sticky',
+              top: 0,
+              height: '100vh',
+              overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: scroll.devToolingProgress > 0.92
+                ? lerp(1, 0, (scroll.devToolingProgress - 0.92) / 0.08)
+                : 1,
+              transform: scroll.devToolingProgress > 0.92
+                ? `scale(${lerp(1, 0.97, (scroll.devToolingProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.devToolingProgress - 0.92) / 0.08)}px)`
+                : undefined,
+            }}>
+              <DevToolingSection devToolingProgress={scroll.devToolingProgress} />
+            </div>
+          </section>
 
-      <section id="get-started" ref={sectionRefs.cta as React.RefObject<HTMLElement>} className="cta-section-outer" style={{
-        position: 'relative',
-        minHeight: '160vh',
-        marginTop: '-20vh',
-        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-        zIndex: 7,
-      }}>
-        <div className="cta-sticky-container" style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflow: 'hidden',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <CTASection ctaProgress={scroll.ctaProgress} onNavigate={onNavigate} />
-        </div>
-      </section>
+          <section id="get-started" ref={sectionRefs.cta as React.RefObject<HTMLElement>} className="cta-section-outer" style={{
+            position: 'relative',
+            minHeight: '160vh',
+            marginTop: '-20vh',
+            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+            zIndex: 7,
+          }}>
+            <div className="cta-sticky-container" style={{
+              position: 'sticky',
+              top: 0,
+              height: '100vh',
+              overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <CTASection ctaProgress={scroll.ctaProgress} onNavigate={onNavigate} />
+            </div>
+          </section>
+        </>
+      )}
 
       <footer className="film-footer" style={{
         borderTop: '1px solid rgba(255,255,255,0.04)',
