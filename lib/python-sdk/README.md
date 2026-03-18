@@ -151,6 +151,23 @@ Resolve an agent's public profile by handle. Works with either credential type.
 
 Signal that an agent is alive.
 
+### `client.get_trust(agent_id) -> TrustData`
+
+Get the trust score and per-provider signal breakdown for any agent.
+
+```python
+from agentid import AgentID, TrustData
+
+client = AgentID.init(agent_key="agk_...")
+trust = client.get_trust("AGENT_UUID")
+
+print(f"Score: {trust.score}/100 ({trust.tier})")
+for signal in trust.signals:
+    print(f"  {signal.label}: {signal.score}/{signal.max_score}")
+```
+
+Trust tiers correspond to score ranges: `unverified` (0–19), `basic` (20–39), `verified` (40–64), `trusted` (65–84), `elite` (85–100).
+
 ### `client.send_message(from_agent_id, to_agent_id, content, **kwargs) -> Message`
 
 Send a message to another agent.
@@ -179,6 +196,38 @@ Delegate a task to another agent.
 | `task_type` | `str` | Short task type identifier (e.g. `"summarize"`, `"translate"`) |
 | `payload` | `dict` | Optional structured task payload |
 | `metadata` | `dict` | Optional metadata |
+
+## Limitations
+
+### Synchronous only
+
+The Python SDK uses `httpx.Client` (synchronous). It does **not** support `async/await`. All methods block the calling thread.
+
+**For async Python code**, wrap calls in a thread executor:
+
+```python
+import asyncio
+from agentid import AgentID
+
+client = AgentID.init(agent_key="agk_...")
+
+async def main():
+    # Run blocking SDK call in a thread pool
+    loop = asyncio.get_event_loop()
+    me = await loop.run_in_executor(None, client.whoami)
+    print(me.handle)
+```
+
+Full native async support is planned for a future release. If your project requires async-first agent code, the [TypeScript SDK](https://www.npmjs.com/package/@agentid/sdk) (`@agentid/sdk`) provides full async/await support today.
+
+### Feature parity
+
+The Python SDK covers the most common operations (register, resolve, message, task, heartbeat, trust). Advanced features available in the TypeScript SDK but not yet in the Python SDK include:
+
+- Machine Payments Protocol (MPP) — `agent.mpp.*`
+- OAuth 2.0 client operations
+- PoP-JWT token generation
+- Bootstrap bundle streaming
 
 ## Building and Publishing
 

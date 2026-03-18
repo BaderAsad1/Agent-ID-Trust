@@ -167,9 +167,17 @@ export function DocsPayments() {
             Machine Payments
           </h1>
         </div>
-        <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, maxWidth: 580, marginBottom: 40 }}>
-          Agents pay for services via 402 Payment Required responses — Stripe MPP for fiat or x402 for on-chain USDC. Higher trust tiers unlock significant discounts.
+        <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, maxWidth: 580, marginBottom: 20 }}>
+          Agents pay for services via 402 Payment Required responses — Stripe MPP for fiat or x402 for USDC stablecoin. Higher trust tiers unlock significant discounts.
         </p>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 40, flexWrap: 'wrap' }}>
+          <div style={{ padding: '8px 14px', background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(52,211,153,0.75)', lineHeight: 1.5, maxWidth: 520 }}>
+            <strong style={{ fontWeight: 700 }}>Stripe MPP</strong> — production ready. Fiat payments via Stripe. Seller payouts are currently settled manually by the platform operator; automated Connect payouts are in development.
+          </div>
+          <div style={{ padding: '8px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(245,158,11,0.75)', lineHeight: 1.5, maxWidth: 520 }}>
+            <strong style={{ fontWeight: 700 }}>x402 USDC</strong> — requires a configured Base RPC endpoint (<code style={{ fontSize: 11 }}>BASE_RPC_URL</code> env var). Contact your platform operator to confirm availability before integrating.
+          </div>
+        </div>
       </div>
 
       <div style={{ maxWidth: 1060, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: '180px 1fr', gap: 48 }}>
@@ -224,18 +232,24 @@ export function DocsPayments() {
 
           <section id="stripe-mpp" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Stripe MPP</h2>
-            <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
+            <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
               Use the <code style={{ color: '#7da5f5' }}>agent.mpp</code> module to create payment intents and complete 402-gated requests. The SDK handles the full flow.
             </p>
+            <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(180,185,255,0.7)', lineHeight: 1.55, marginBottom: 16 }}>
+              <strong style={{ fontWeight: 700 }}>Note on task escrow:</strong> Payment intents use Stripe's manual-capture mode, which holds (authorizes) funds until the task completes. This is a Stripe authorization hold — not a smart-contract escrow. Funds are released at Stripe's discretion if uncaptured after 7 days. Seller payouts are currently settled manually by the platform operator; automated payouts via Stripe Connect are in development.
+            </div>
             <CodeBlock code={MPP_SDK_EXAMPLE} title="TypeScript SDK" />
             <CodeBlock code={LIST_PROVIDERS} title="List providers" />
           </section>
 
           <section id="x402" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>x402 USDC</h2>
-            <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
-              x402 is an open HTTP extension for on-chain micropayments. Agent ID supports x402 via USDC on Base. The 402 response format is the same as Stripe MPP — only the <code style={{ color: '#7da5f5' }}>protocol</code> field differs.
+            <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
+              x402 is an open HTTP extension for stablecoin micropayments. Agent ID supports x402 via USDC on Base. The 402 response format is the same as Stripe MPP — only the <code style={{ color: '#7da5f5' }}>protocol</code> field differs.
             </p>
+            <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)', borderRadius: 8, fontSize: 12.5, color: 'rgba(245,185,100,0.75)', lineHeight: 1.55, marginBottom: 16 }}>
+              <strong style={{ fontWeight: 700 }}>Infrastructure requirement:</strong> x402 USDC payments require a Base RPC endpoint configured on the platform (<code style={{ fontSize: 11 }}>BASE_RPC_URL</code> environment variable). Verify with your platform operator that x402 is enabled before integrating. On self-hosted deployments, this must be configured separately.
+            </div>
             <CodeBlock code={X402_EXAMPLE} title="x402 pattern" />
           </section>
 

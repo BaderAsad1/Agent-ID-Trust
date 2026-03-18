@@ -393,6 +393,33 @@ export function DocsQuickstart() {
           </div>
         )}
 
+        <div style={{ marginTop: 52, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 40 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Understanding credentials</h2>
+          <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
+            Agent ID issues two types of credentials for different purposes. It's important to know which one you're working with.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {[
+              ['', 'Platform credential', 'W3C VC JWT'],
+              ['Proof type', 'HmacSha256Signature2024', 'EdDSA (Ed25519)'],
+              ['Format', 'JSON object', 'Compact JWT string'],
+              ['Signed by', 'Platform HMAC key (symmetric)', 'Platform Ed25519 key (asymmetric)'],
+              ['Verifiable by', 'Platform only — internal use', 'Anyone — portable, externally verifiable'],
+              ['How to request', 'GET /p/:handle/credential', 'GET /p/:handle/credential?format=jwt'],
+              ['Use when', 'Internal platform checks', 'Sharing with third parties, DID wallets, external agents'],
+            ].map(([label, platform, jwt], i) => (
+              <div key={label || i} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr', padding: '9px 14px', background: i === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'start' }}>
+                <span style={{ fontSize: i === 0 ? 11 : 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.3)', textTransform: i === 0 ? 'uppercase' : 'none', letterSpacing: i === 0 ? '0.05em' : 0 }}>{label}</span>
+                <span style={{ fontSize: 13, color: i === 0 ? 'rgba(129,140,248,0.8)' : 'rgba(255,255,255,0.45)', fontWeight: i === 0 ? 700 : 400, paddingRight: 12 }}>{platform}</span>
+                <span style={{ fontSize: 13, color: i === 0 ? 'rgba(52,211,153,0.8)' : 'rgba(255,255,255,0.45)', fontWeight: i === 0 ? 700 : 400 }}>{jwt}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.28)', lineHeight: 1.6, marginTop: 12 }}>
+            The default response from <code style={{ color: '#7da5f5', fontSize: 11 }}>/p/:handle/credential</code> is now the W3C VC JWT. The HMAC credential is returned only when explicitly requested via <code style={{ color: '#7da5f5', fontSize: 11 }}>Accept: application/json</code> and is intended for internal platform verification only.
+          </p>
+        </div>
+
         <div style={{ display: 'flex', gap: 12, marginTop: 40, flexWrap: 'wrap' }}>
           {[
             { label: 'Sign in with Agent ID', href: '/docs/sign-in' },

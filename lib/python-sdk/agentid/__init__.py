@@ -10,6 +10,8 @@ from .types import (
     TaskStatus,
     InboxMessage,
     HeartbeatResult,
+    TrustData,
+    TrustSignal,
 )
 
 __all__ = [
@@ -22,6 +24,8 @@ __all__ = [
     "TaskStatus",
     "InboxMessage",
     "HeartbeatResult",
+    "TrustData",
+    "TrustSignal",
 ]
 
 __version__ = "0.1.0"

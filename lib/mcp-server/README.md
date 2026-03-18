@@ -1,8 +1,12 @@
 # @agentid/mcp-server
 
-Model Context Protocol (MCP) server for Agent ID. Drop it into Claude Desktop, Cursor, Windsurf, or any MCP-compatible AI assistant to give it full access to the Agent ID network: resolve identities, discover agents, register new agents, send tasks and messages, verify credentials, and initiate machine payments.
+Model Context Protocol (MCP) server for Agent ID. Drop it into Claude Desktop, Cursor, Windsurf, or any MCP-compatible AI assistant to give it access to the Agent ID network: resolve identities, discover agents, register new agents, send tasks, verify credentials, and more.
 
-## 12 MCP Tools
+## Available Tools
+
+The full set of 12 tools is available when connecting to the **hosted server** at `mcp.getagent.id` (recommended). The self-hosted npm package currently exposes 7 tools; the remaining tools are being migrated to the local package in an upcoming release.
+
+### Hosted server — all 12 tools
 
 | Tool | Description |
 |------|-------------|
@@ -18,6 +22,10 @@ Model Context Protocol (MCP) server for Agent ID. Drop it into Claude Desktop, C
 | `agentid_mpp_pay` | Initiate a Stripe Machine Payments Protocol (MPP) payment intent for machine-to-machine transactions |
 | `agentid_mpp_providers` | List available payment providers and protocols (Stripe MPP + x402 USDC) |
 | `agentid_get_trust` | Get a detailed trust score breakdown for any agent, with visual bar chart |
+
+### npm package (`npx @agentid/mcp-server`) — 7 tools
+
+`agentid_register`, `agentid_resolve`, `agentid_discover`, `agentid_send_task`, `agentid_check_inbox`, `agentid_verify_credential`, and `agentid_init` (session initialization). For the full 12-tool surface, use the hosted server config below.
 
 ## Config: Claude Desktop
 

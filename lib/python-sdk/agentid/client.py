@@ -20,6 +20,8 @@ from .types import (
     TaskStatus,
     InboxMessage,
     HeartbeatResult,
+    TrustData,
+    TrustSignal,
 )
 
 DEFAULT_BASE_URL = "https://getagent.id/api/v1"
@@ -429,6 +431,38 @@ class AgentID:
             priority="normal",
             metadata=metadata,
             created_at=task_data.get("createdAt"),
+        )
+
+    def get_trust(self, agent_id: str) -> TrustData:
+        """
+        Get the trust score and signal breakdown for an agent.
+
+        Equivalent to the TypeScript SDK's ``agent.trust.get()``.
+
+        Args:
+            agent_id: UUID of the agent to query.
+
+        Returns:
+            TrustData with score (0-100), tier, and per-provider signal list.
+
+        Note:
+            Trust tiers: unverified (0-19), basic (20-39), verified (40-64),
+            trusted (65-84), elite (85-100).
+        """
+        data = self._request("GET", f"/agents/{agent_id}/runtime")
+        trust = data.get("trust", {})
+        return TrustData(
+            score=trust.get("score", 0),
+            tier=trust.get("tier", "unverified"),
+            signals=[
+                TrustSignal(
+                    provider=s.get("provider", ""),
+                    label=s.get("label", ""),
+                    score=s.get("score", 0),
+                    max_score=s.get("maxScore", s.get("max_score", 0)),
+                )
+                for s in trust.get("signals", [])
+            ],
         )
 
     def whoami(self) -> Agent:

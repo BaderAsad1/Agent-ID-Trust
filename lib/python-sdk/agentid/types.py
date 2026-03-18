@@ -104,6 +104,19 @@ class HeartbeatResult(BaseModel):
     trust_score: Optional[int] = None
 
 
+class TrustSignal(BaseModel):
+    provider: str
+    label: str
+    score: int
+    max_score: int
+
+
+class TrustData(BaseModel):
+    score: int
+    tier: str
+    signals: List[TrustSignal] = []
+
+
 class ApiKeyInfo(BaseModel):
     id: str
     name: str
