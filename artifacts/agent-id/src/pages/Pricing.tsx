@@ -1,15 +1,56 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ExternalLink } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { Footer } from '@/components/Footer';
-import { PRICING_PLANS, HANDLE_PRICING_TIERS } from '@/lib/pricing';
+import { PRICING_PLANS } from '@/lib/pricing';
 import { useAuth } from '@/lib/AuthContext';
+import { api } from '@/lib/api';
+
+const FAQ_ITEMS = [
+  {
+    q: 'What happens if I don\'t renew?',
+    a: 'Your UUID machine identity is permanent — it never expires and always resolves. Only your handle (the human-readable alias) is annual. After expiry you get a 90-day grace period, then a 21-day decreasing-price auction before the handle becomes available to others.',
+  },
+  {
+    q: 'Can I upgrade or downgrade at any time?',
+    a: 'Yes. Plan changes take effect immediately and are prorated. Downgrading from Pro to Starter is seamless — your agents retain their UUID identities. 5+ character handles stay active as long as your subscription is active.',
+  },
+  {
+    q: 'What are short handles and how are they priced?',
+    a: '3- and 4-character handles are premium due to their scarcity — priced at $640/yr and $160/yr respectively, similar to ENS short-name pricing. Handles with 5 or more characters are included with any active subscription at no extra cost.',
+  },
+];
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="border-b"
+      style={{ borderColor: 'var(--border-color)' }}
+    >
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between py-4 text-left cursor-pointer gap-4"
+        style={{ background: 'none', border: 'none' }}
+      >
+        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{q}</span>
+        {open
+          ? <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-dim)' }} />
+          : <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-dim)' }} />}
+      </button>
+      {open && (
+        <p className="pb-4 text-sm" style={{ color: 'var(--text-muted)' }}>{a}</p>
+      )}
+    </div>
+  );
+}
 
 export function Pricing() {
   const navigate = useNavigate();
   const { userId } = useAuth();
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   const getDisplayPrice = (plan: typeof PRICING_PLANS[number]) => {
     if (plan.price === null) return null;
@@ -22,6 +63,34 @@ export function Pricing() {
     const monthly = parseInt(plan.price.replace('$', ''), 10);
     const yearly = parseInt(plan.yearlyPrice.replace('$', ''), 10);
     return monthly * 12 - yearly;
+  };
+
+  const handleCta = async (plan: typeof PRICING_PLANS[number]) => {
+    if (plan.contactOnly) {
+      window.location.href = 'mailto:enterprise@getagent.id';
+      return;
+    }
+    if (!userId) {
+      navigate(`/start?plan=${plan.name.toLowerCase()}`);
+      return;
+    }
+    try {
+      setLoadingPlan(plan.name);
+      const base = window.location.origin;
+      const result = await api.billing.checkout({
+        plan: plan.name.toLowerCase() as 'starter' | 'pro',
+        billingInterval: billing,
+        successUrl: `${base}/dashboard?upgraded=true`,
+        cancelUrl: `${base}/pricing`,
+      });
+      if (result.url) {
+        window.location.href = result.url;
+      }
+    } catch {
+      navigate('/dashboard/settings');
+    } finally {
+      setLoadingPlan(null);
+    }
   };
 
   return (
@@ -56,11 +125,11 @@ export function Pricing() {
             }}
           >
             Yearly
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Save up to 17%</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Save 2 months</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {PRICING_PLANS.map(plan => {
             const displayPrice = getDisplayPrice(plan);
             const savings = getYearlySavings(plan);
@@ -110,112 +179,29 @@ export function Pricing() {
                 <PrimaryButton
                   variant={plan.variant}
                   className="w-full"
-                  onClick={() => {
-                    if (plan.contactOnly) {
-                      window.location.href = 'mailto:enterprise@getagent.id';
-                    } else if (userId) {
-                      navigate('/dashboard/settings');
-                    } else {
-                      navigate(`/start?plan=${plan.name.toLowerCase()}`);
-                    }
-                  }}
+                  disabled={loadingPlan === plan.name}
+                  onClick={() => handleCta(plan)}
                 >
-                  {plan.cta}
+                  {loadingPlan === plan.name ? 'Redirecting…' : plan.cta}
                 </PrimaryButton>
               </GlassCard>
             );
           })}
         </div>
 
-        <div className="mb-16">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold mb-3" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-              Handle pricing
-            </h2>
-            <p className="text-base max-w-lg mx-auto" style={{ color: 'var(--text-muted)' }}>
-              Shorter handles are scarcer and priced accordingly. 5+ character handles are included with any active plan. 3 and 4-character handles are premium, with pricing that reflects their scarcity.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-[800px] mx-auto">
-            {HANDLE_PRICING_TIERS.map(tier => (
-              <GlassCard key={tier.label} className="!p-6 text-center">
-                <div className="text-xs uppercase tracking-wider mb-3" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                  {tier.label}
-                </div>
-                {tier.annualPrice !== null ? (
-                  <>
-                    <div className="text-3xl font-black mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                      ${tier.annualPrice}
-                    </div>
-                    <div className="text-xs mb-3" style={{ color: 'var(--text-dim)' }}>per year</div>
-                  </>
-                ) : (
-                  <div className="text-lg font-bold mb-3" style={{ color: 'var(--text-dim)' }}>Reserved</div>
-                )}
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{tier.description}</p>
-              </GlassCard>
-            ))}
-          </div>
-
-          <p className="text-center text-xs mt-6" style={{ color: 'var(--text-dim)' }}>
-            Grace period: 90 days after expiry · Post-grace: 21-day decreasing premium auction · Handle loss never affects UUID machine identity
-          </p>
-        </div>
-
-        <div className="mb-16 max-w-[700px] mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-              How identity works
-            </h2>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Two distinct identity layers — never conflated.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <GlassCard className="!p-5">
-              <div className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>Machine Identity</div>
-              <div className="text-base font-bold mb-2" style={{ color: 'var(--text-primary)' }}>UUID (permanent)</div>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                Every agent gets a permanent UUID at registration — like an IP address. It never expires and always resolves, regardless of handle status.
-              </p>
-              <div className="mt-3 text-xs font-mono" style={{ color: 'var(--accent)' }}>did:agentid:&lt;uuid&gt;</div>
-            </GlassCard>
-            <GlassCard className="!p-5">
-              <div className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>Handle Identity</div>
-              <div className="text-base font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Handle (expiring alias)</div>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                A handle is a paid, annual alias — like a domain name. Renew it or lose it. 5+ character handles are included with any active plan; 3–4 character handles are premium short handles priced by scarcity.
-              </p>
-              <div className="mt-3 text-xs font-mono" style={{ color: 'var(--accent)' }}>did:agentid:&lt;handle&gt;</div>
-            </GlassCard>
-          </div>
-        </div>
+        <p className="text-center text-sm mb-16" style={{ color: 'var(--text-dim)' }}>
+          Trusted by autonomous agents on Base, Solana, and beyond — verifiable, routable, and production-ready.
+        </p>
 
         <div className="max-w-[700px] mx-auto">
-          <GlassCard className="!p-6">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(139,92,246,0.1)' }}>
-                <span className="text-lg">🔗</span>
-              </div>
-              <div>
-                <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                  .agentid Protocol Namespace
-                </h3>
-                <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> is a protocol-layer namespace purpose-built for AI agents. Handles resolve through the Agent ID protocol — no ICANN TLD required. Web access available at <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>name.getagent.id</span> via standard DNS.
-                </p>
-                <a
-                  href="mailto:enterprise@getagent.id"
-                  className="text-xs flex items-center gap-1"
-                  style={{ color: 'var(--accent)' }}
-                >
-                  Enterprise pricing — contact us <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            </div>
-          </GlassCard>
+          <h2 className="text-xl font-bold mb-6 text-center" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+            Frequently asked questions
+          </h2>
+          <div>
+            {FAQ_ITEMS.map(item => (
+              <FaqItem key={item.q} q={item.q} a={item.a} />
+            ))}
+          </div>
         </div>
       </div>
       <Footer />

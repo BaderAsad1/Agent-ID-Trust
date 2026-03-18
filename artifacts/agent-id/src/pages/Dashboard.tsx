@@ -9,13 +9,14 @@ import { api, type Agent, type AgentCredential, type ActivityItem, type Listing,
 import { formatPrice } from '@/lib/pricing';
 import { Mail } from '@/pages/Mail';
 import { TransferWizardModal, TransferStatusBadge, TransferDashboardPage } from '@/pages/TransferSale';
+import { HandlesClaim } from '@/pages/HandlesClaim';
 import { QRCodeSVG } from 'qrcode.react';
 
 async function initiateHandleCheckout(handle: string) {
   const base = window.location.origin;
   const successUrl = `${base}/dashboard?payment=success&handle=${encodeURIComponent(handle)}`;
   const cancelUrl = `${base}/dashboard?payment=cancelled&handle=${encodeURIComponent(handle)}`;
-  const result = await api.payments.handleCheckout(handle, successUrl, cancelUrl);
+  const result = await api.billing.handleCheckout(handle, undefined, successUrl, cancelUrl);
   if (result.url) {
     window.location.href = result.url;
   }
@@ -1944,6 +1945,7 @@ export function Dashboard() {
   else if (path === '/dashboard/fleet') content = <FleetManagement />;
   else if (path === '/dashboard/settings') content = <SettingsPage />;
   else if (path.startsWith('/dashboard/transfers')) content = <TransferDashboardPage />;
+  else if (path === '/dashboard/handles') content = <HandlesClaim />;
   else content = <Overview />;
 
   return <DashboardLayout>{content}</DashboardLayout>;

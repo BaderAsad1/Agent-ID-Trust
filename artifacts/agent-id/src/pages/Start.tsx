@@ -445,7 +445,7 @@ export function Start() {
                   setCheckoutLoading(true);
                   try {
                     const base = window.location.origin;
-                    const r = await api.payments.handleCheckout(handle, `${base}/dashboard?payment=success`, `${base}/dashboard?payment=cancelled`);
+                    const r = await api.billing.handleCheckout(handle, undefined, `${base}/dashboard?payment=success`, `${base}/dashboard?payment=cancelled`);
                     if (r.url) window.location.href = r.url;
                   } catch { setCheckoutLoading(false); }
                 }}

@@ -298,10 +298,18 @@ export const api = {
       const qs = params ? "?" + new URLSearchParams(params).toString() : "";
       return request<{ entries: LedgerEntry[] }>(`/payments/ledger${qs}`);
     },
-    handleCheckout: (handle: string, successUrl: string, cancelUrl: string) =>
-      request<{ url: string | null; handle: string; priceCents: number; priceDollars: number }>("/billing/handle-checkout", {
+  },
+
+  billing: {
+    checkout: (body: { plan: 'starter' | 'pro'; billingInterval: 'monthly' | 'yearly'; successUrl?: string; cancelUrl?: string }) =>
+      request<{ url: string | null }>("/billing/checkout", {
         method: "POST",
-        body: JSON.stringify({ handle, successUrl, cancelUrl }),
+        body: JSON.stringify(body),
+      }),
+    handleCheckout: (handle: string, agentId: string | undefined, successUrl: string, cancelUrl: string) =>
+      request<{ url: string | null; handle: string; priceCents: number; priceDollars: number; included?: boolean }>("/billing/handle-checkout", {
+        method: "POST",
+        body: JSON.stringify({ handle, agentId, successUrl, cancelUrl }),
       }),
   },
 
