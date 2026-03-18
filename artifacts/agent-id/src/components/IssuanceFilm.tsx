@@ -826,32 +826,6 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
 
       <style>{`
         @media (max-width: 768px) {
-          /* Break out of the 100vh sticky clipping box entirely */
-          .anatomy-section-outer {
-            min-height: auto !important;
-          }
-          .anatomy-sticky-container {
-            position: relative !important;
-            height: auto !important;
-            overflow: visible !important;
-            opacity: 1 !important;
-            transform: none !important;
-          }
-          /* Force all JS-animated elements fully visible */
-          .anatomy-title {
-            opacity: 1 !important;
-            transform: none !important;
-          }
-          .anatomy-card-row {
-            opacity: 1 !important;
-            transform: none !important;
-          }
-          .anatomy-layer-item {
-            opacity: 1 !important;
-            transform: none !important;
-            margin-bottom: 14px !important;
-            padding-left: 14px !important;
-          }
           /* Natural-height wrapper, scrolls normally */
           .anatomy-wrapper {
             height: auto !important;
@@ -2049,6 +2023,31 @@ function IssuanceMomentFlash({ active }: { active: boolean }) {
   );
 }
 
+function MobileSectionReveal({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setRevealed(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.08, rootMargin: '0px 0px -40px 0px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={`mobile-section-reveal${revealed ? ' revealed' : ''}`}>
+      {children}
+    </div>
+  );
+}
+
 export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: string) => void } = {}) {
   const sectionRefs = useSectionRefs();
   const scroll = useScrollFilm(sectionRefs);
@@ -2139,14 +2138,14 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       </section>
 
       {isMobile ? (
-        /* ── Mobile: plain document flow — no sticky, no overflow:hidden ── */
+        /* ── Mobile: plain document flow with per-section IntersectionObserver reveals ── */
         <div className="mobile-film-sections">
-          <AnatomySection anatomyProgress={1} />
-          <OutcomeStripSection outcomeProgress={1} />
-          <SystemActivationSection unlocksProgress={1} />
-          <VerificationAPISection verificationProgress={1} />
-          <DevToolingSection devToolingProgress={1} />
-          <CTASection ctaProgress={1} onNavigate={onNavigate} />
+          <MobileSectionReveal><AnatomySection anatomyProgress={1} /></MobileSectionReveal>
+          <MobileSectionReveal><OutcomeStripSection outcomeProgress={1} /></MobileSectionReveal>
+          <MobileSectionReveal><SystemActivationSection unlocksProgress={1} /></MobileSectionReveal>
+          <MobileSectionReveal><VerificationAPISection verificationProgress={1} /></MobileSectionReveal>
+          <MobileSectionReveal><DevToolingSection devToolingProgress={1} /></MobileSectionReveal>
+          <MobileSectionReveal><CTASection ctaProgress={1} onNavigate={onNavigate} /></MobileSectionReveal>
         </div>
       ) : (
         /* ── Desktop: sticky scroll-film ── */
