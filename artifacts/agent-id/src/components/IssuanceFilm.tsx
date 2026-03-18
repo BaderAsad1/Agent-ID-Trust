@@ -55,13 +55,10 @@ function useScrollFilm(refs: SectionRefs): ScrollState {
       const vh = window.innerHeight;
       const top = el.offsetTop;
       const height = el.offsetHeight;
-      const start = Math.max(0, top - vh);
-      const end = top + height - vh;
-      const range = end - start;
-      if (range <= 0) {
-        const visible = scrollY >= top && scrollY < top + height;
-        return visible ? 1 : (scrollY >= top + height ? 1 : 0);
-      }
+      // Progress runs 0→1 over the section's sticky range:
+      // from when section top hits viewport top, to when section bottom leaves.
+      const start = top;
+      const range = Math.max(1, height - vh);
       return Math.max(0, Math.min(1, (scrollY - start) / range));
     };
 
@@ -1628,9 +1625,9 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
 }
 
 function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNavigate?: (path: string) => void }) {
-  const ctaT = Math.max(0, Math.min(1, (ctaProgress - 0.50) / 0.20));
+  const ctaT = Math.max(0, Math.min(1, (ctaProgress - 0.20) / 0.25));
   const opacity = ctaT;
-  const translateY = lerp(60, 0, Math.max(0, Math.min(1, (ctaProgress - 0.50) / 0.25)));
+  const translateY = lerp(60, 0, Math.max(0, Math.min(1, (ctaProgress - 0.20) / 0.30)));
 
   return (
     <div style={{
