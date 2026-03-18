@@ -35,25 +35,26 @@ export async function signControlPlaneInstruction(
   ttlSeconds = DEFAULT_TTL_SECONDS,
 ): Promise<SignedControlPlaneResult> {
   const jose = await getJose();
-  const { getSigningKeyPair } = await import("./verifiable-credential");
-  const { privateKey, kid } = await getSigningKeyPair();
+  const { getVcSigner } = await import("./vc-signer");
+  const signer = await getVcSigner();
 
   const now = Math.floor(Date.now() / 1000);
   const exp = now + ttlSeconds;
 
-  const token = await new jose.SignJWT({
-    instruction,
-  } as unknown as Record<string, unknown>)
-    .setProtectedHeader({
-      alg: "EdDSA",
-      kid,
-      typ: EXPECTED_TYP,
-    })
-    .setIssuer("did:web:getagent.id")
-    .setSubject(agentId)
-    .setIssuedAt(now)
-    .setExpirationTime(exp)
-    .sign(privateKey);
+  const token = await signer.sign(
+    new jose.SignJWT({
+      instruction,
+    } as unknown as Record<string, unknown>)
+      .setProtectedHeader({
+        alg: "EdDSA",
+        kid: signer.kid,
+        typ: EXPECTED_TYP,
+      })
+      .setIssuer("did:web:getagent.id")
+      .setSubject(agentId)
+      .setIssuedAt(now)
+      .setExpirationTime(exp),
+  );
 
   return {
     token,

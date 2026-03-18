@@ -67,6 +67,18 @@ export async function verifyChallenge(
       type: "spki",
     });
 
+    // H2: Cryptographic enforcement — verify the key material is actually Ed25519.
+    // A label of keyType="ed25519" in the DB is insufficient: attackers can submit
+    // RSA/ECDSA key material with an ed25519 label. We must check the parsed key object.
+    const actualKeyType = pubKey.asymmetricKeyType;
+    if (actualKeyType !== "ed25519") {
+      logger.warn(
+        { agentId, kid, actualKeyType },
+        "[verification] H2: rejected non-ed25519 key material (label mismatch attack)",
+      );
+      return { success: false, error: "Only Ed25519 keys are permitted for challenge verification" };
+    }
+
     const isValid = cryptoVerify(
       null,
       Buffer.from(challengeToken),

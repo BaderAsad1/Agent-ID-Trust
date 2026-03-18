@@ -79,6 +79,11 @@ router.post("/:agentId/attest/:subjectHandle", requireAgentAuth, validateUuidPar
           format: "der",
           type: "spki",
         });
+        // H2: Cryptographic enforcement — reject non-Ed25519 key material regardless of stored label
+        if (publicKeyObj.asymmetricKeyType !== "ed25519") {
+          logger.warn({ kid: key.kid, actualKeyType: publicKeyObj.asymmetricKeyType }, "[attestations] H2: skipping non-ed25519 key material");
+          continue;
+        }
         signatureValid = crypto.verify(
           null,
           Buffer.from(canonicalPayload),
@@ -93,6 +98,21 @@ router.post("/:agentId/attest/:subjectHandle", requireAgentAuth, validateUuidPar
 
     if (!signatureValid) {
       throw new AppError(400, "INVALID_SIGNATURE", "Ed25519 signature verification failed against all active keys");
+    }
+
+    const existingAttestation = await db.query.agentAttestationsTable.findFirst({
+      where: and(
+        eq(agentAttestationsTable.attesterId, agentId),
+        eq(agentAttestationsTable.subjectId, subjectAgent.id),
+        isNull(agentAttestationsTable.revokedAt),
+      ),
+    });
+
+    if (existingAttestation) {
+      throw new AppError(409, "ATTESTATION_EXISTS", "An active attestation already exists for this subject from this attester. Revoke the existing one before submitting a new attestation.", {
+        existingAttestationId: existingAttestation.id,
+        existingCreatedAt: existingAttestation.createdAt,
+      });
     }
 
     const attester = req.authenticatedAgent!;
@@ -178,11 +198,11 @@ router.post("/:agentId/trust-attestation", requireAgentAuth, validateUuidParam("
     }
 
     const { computeTrustScore } = await import("../../services/trust-score");
-    const { getSigningKeyPair } = await import("../../services/verifiable-credential");
+    const { getVcSigner } = await import("../../services/vc-signer");
     const jose = await import("jose");
 
     const trust = await computeTrustScore(agentId);
-    const { privateKey, kid } = await getSigningKeyPair();
+    const signer = await getVcSigner();
 
     const APP_URL = process.env.APP_URL || "https://getagent.id";
     const now = Math.floor(Date.now() / 1000);
@@ -199,13 +219,14 @@ router.post("/:agentId/trust-attestation", requireAgentAuth, validateUuidParam("
       aud: "trust-attestation",
     };
 
-    const jwt = await new jose.SignJWT(attestationPayload)
-      .setProtectedHeader({ alg: "EdDSA", kid, typ: "JWT" })
-      .setIssuer(APP_URL)
-      .setSubject(`did:agentid:${agent.handle}`)
-      .setIssuedAt(now)
-      .setExpirationTime(expiresAt)
-      .sign(privateKey);
+    const jwt = await signer.sign(
+      new jose.SignJWT(attestationPayload)
+        .setProtectedHeader({ alg: "EdDSA", kid: signer.kid, typ: "JWT" })
+        .setIssuer(APP_URL)
+        .setSubject(`did:agentid:${agent.handle}`)
+        .setIssuedAt(now)
+        .setExpirationTime(expiresAt),
+    );
 
     res.json({
       attestation: jwt,

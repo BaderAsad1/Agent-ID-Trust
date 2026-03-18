@@ -39,6 +39,12 @@ const envSchema = z.object({
   BASE_AGENT_DOMAIN: z.string().default("getagent.id"),
   APP_URL: z.string().default("https://getagent.id"),
   AGENT_PROXY_IP: z.string().default("127.0.0.1"),
+  // C2: Trust proxy configuration — MUST be set explicitly for your infrastructure topology.
+  // Defaults to "false" (secure-by-default, no proxy trust) to prevent XFF spoofing in bare deployments.
+  // Set TRUST_PROXY="1" for single-proxy, "2" for Cloudflare+nginx,
+  // or a CIDR list (e.g., "103.21.244.0/22,103.22.200.0/22") for Cloudflare IP-based trust.
+  // WARNING: Leaving this as "false" in a proxied deployment will cause req.ip to show proxy IPs.
+  TRUST_PROXY: z.string().default("false"),
   MAIL_BASE_DOMAIN: z.string().default("getagent.id"),
   RESEND_WEBHOOK_SECRET: z.string().optional(),
 
@@ -110,6 +116,14 @@ export function validateEnv(): Env {
   }
   if (isProd && !env.WEBHOOK_SECRET_KEY) {
     console.error("[env] FATAL: WEBHOOK_SECRET_KEY is required in production.");
+    process.exit(1);
+  }
+  if (isProd && !env.VC_SIGNING_KEY) {
+    console.error("[env] FATAL: VC_SIGNING_KEY is required in production for W3C VC issuance.");
+    process.exit(1);
+  }
+  if (isProd && !env.VC_PUBLIC_KEY) {
+    console.error("[env] FATAL: VC_PUBLIC_KEY is required in production for W3C VC verification.");
     process.exit(1);
   }
 

@@ -22,6 +22,30 @@ const config = env();
 
 const app: Express = express();
 
+// C2: Trust proxy is environment-driven; defaults to false (secure-by-default).
+// In production behind Cloudflare+nginx, set TRUST_PROXY="2" or a CIDR list.
+// An incorrect value here allows XFF spoofing that undermines IP-based rate limits.
+const trustProxyValue: boolean | number | string = (() => {
+  const raw = (config.TRUST_PROXY ?? "false").trim().toLowerCase();
+  if (raw === "false") return false;
+  if (raw === "true") return true;
+  const n = Number(raw);
+  if (!isNaN(n) && Number.isInteger(n) && n >= 0) return n;
+  // CIDR string or comma-separated list — pass through to Express
+  return raw;
+})();
+
+if (config.NODE_ENV === "production" && trustProxyValue === false) {
+  // Deliberately not throwing — proxy trust is infrastructure-dependent.
+  // Operators MUST set TRUST_PROXY for their deployment. Log a clear startup warning.
+  console.warn(
+    "[security] WARNING: TRUST_PROXY is 'false' in production. " +
+    "If running behind a reverse proxy, req.ip will reflect proxy IPs, " +
+    "undermining IP-based rate limits. Set TRUST_PROXY to your proxy hop count or CIDR range.",
+  );
+}
+app.set("trust proxy", trustProxyValue);
+
 app.use(requestIdMiddleware);
 app.use(securityHeaders);
 app.use(sandboxMiddleware);

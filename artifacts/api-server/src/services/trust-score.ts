@@ -246,6 +246,9 @@ const externalSignalProvider: TrustProvider = {
 
 const BASIC_TIER_CEILING = 39;
 
+const MAX_LINEAGE_DEPTH = 3;
+const MAX_CHILDREN_PER_PARENT = 10;
+
 const lineageSponsorshipProvider: TrustProvider = {
   id: "lineageSponsorship",
   label: "Lineage Sponsorship",
@@ -255,15 +258,59 @@ const lineageSponsorshipProvider: TrustProvider = {
 
     const parent = await db.query.agentsTable.findFirst({
       where: eq(agentsTable.id, agent.parentAgentId),
-      columns: { trustScore: true, trustTier: true, handle: true },
+      columns: { trustScore: true, trustTier: true, handle: true, parentAgentId: true, userId: true },
     });
 
     if (!parent) return { score: 0 };
 
+    if (parent.userId !== agent.userId) {
+      return {
+        score: 0,
+        metadata: { reason: "lineage_ownership_mismatch", parentHandle: parent.handle },
+      };
+    }
+
+    let depth = 1;
+    let ancestor = parent;
+    while (ancestor.parentAgentId && depth < MAX_LINEAGE_DEPTH) {
+      const next = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, ancestor.parentAgentId),
+        columns: { parentAgentId: true, userId: true },
+      });
+      if (!next) break;
+      depth++;
+      ancestor = next as typeof parent;
+    }
+
+    if (depth >= MAX_LINEAGE_DEPTH && ancestor.parentAgentId) {
+      return {
+        score: 0,
+        metadata: { reason: "lineage_depth_exceeded", depth, maxDepth: MAX_LINEAGE_DEPTH },
+      };
+    }
+
+    const childCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(agentsTable)
+      .where(
+        and(
+          eq(agentsTable.parentAgentId, agent.parentAgentId),
+          eq(agentsTable.userId, agent.userId),
+        ),
+      );
+
+    const children = Number(childCount[0]?.count ?? 0);
+    if (children > MAX_CHILDREN_PER_PARENT) {
+      return {
+        score: 0,
+        metadata: { reason: "too_many_children", childCount: children, maxChildren: MAX_CHILDREN_PER_PARENT },
+      };
+    }
+
     const bonus = Math.min(10, Math.floor(parent.trustScore / 10));
     return {
       score: bonus,
-      metadata: { parentTrustScore: parent.trustScore, parentTier: parent.trustTier, parentHandle: parent.handle },
+      metadata: { parentTrustScore: parent.trustScore, parentTier: parent.trustTier, parentHandle: parent.handle, depth, childCount: children },
     };
   },
 };
@@ -504,6 +551,11 @@ export async function recomputeAndStore(agentId: string) {
     .where(eq(agentsTable.id, agentId));
 
   if (Math.abs(trustScore - previousScore) >= 5) {
+    try {
+      const { clearVcCache } = await import("./verifiable-credential");
+      clearVcCache(agentId);
+    } catch {}
+
     try {
       const { reissueCredential } = await import("./credentials");
       await reissueCredential(agentId);

@@ -26,6 +26,7 @@ import {
   issueCredential,
   reissueCredential,
 } from "../../services/credentials";
+import { clearVcCache } from "../../services/verifiable-credential";
 import { buildBootstrapBundle } from "./agent-runtime";
 import { verifyClaimToken, generateClaimToken } from "../../utils/claim-token";
 import { desc, eq, and, gte, sql } from "drizzle-orm";
@@ -422,14 +423,29 @@ router.post("/:agentId/keys/rotate", requireAgentAuth, validateUuidParam("agentI
       throw new AppError(403, "FORBIDDEN", "Agent can only rotate its own keys");
     }
 
-    const { oldKeyId, newPublicKey, keyType, reason } = req.body;
+    const { oldKeyId, newPublicKey, keyType, reason, immediateRevoke } = req.body;
     if (!oldKeyId || !newPublicKey) {
       throw new AppError(400, "VALIDATION_ERROR", "oldKeyId and newPublicKey are required");
     }
 
+    // H2: Enforce ed25519-only at the route layer — reject any other key type at ingest
+    const resolvedKeyType = keyType || "ed25519";
+    if (resolvedKeyType !== "ed25519") {
+      throw new AppError(400, "UNSUPPORTED_KEY_TYPE", "Only ed25519 keys are supported. Other key types (RSA, ECDSA, etc.) are not permitted.");
+    }
+
+    // H1: Emergency rotation — immediateRevoke=true or reason="compromise" bypasses 24h grace period
+    // and sets old key status to "revoked" immediately instead of "rotating".
     const { initiateKeyRotation } = await import("../../services/agent-keys");
 
-    const result = await initiateKeyRotation(agentId, oldKeyId, newPublicKey, keyType || "ed25519", reason);
+    const result = await initiateKeyRotation(
+      agentId,
+      oldKeyId,
+      newPublicKey,
+      resolvedKeyType,
+      reason,
+      { immediateRevoke: immediateRevoke === true || reason === "compromise" },
+    );
     if (!result) {
       throw new AppError(404, "NOT_FOUND", "Active key not found");
     }
@@ -707,6 +723,7 @@ router.post("/:agentId/shutdown", requireAgentAuth, validateUuidParam("agentId")
       } catch {}
     }
 
+    clearVcCache(agentId);
     await deleteAgent(agentId, agent.userId, {
       reason: parsed.data.reason || "agent_shutdown",
       statement: parsed.data.statement,
@@ -991,6 +1008,7 @@ router.post("/:agentId/report", requireHumanOrAgentAuthForReport, validateUuidPa
         .set({ status: "suspended", updatedAt: new Date() })
         .where(eq(agentsTable.id, agentId));
       autoSuspended = true;
+      clearVcCache(agentId);
       logger.warn({ agentId, pendingCount }, "[agents] Agent auto-suspended due to report threshold");
     }
 

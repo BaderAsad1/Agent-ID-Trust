@@ -14,7 +14,7 @@ import {
   getHandleReservation,
 } from "../../services/agents";
 import { formatDomain, formatHandle, formatResolverUrl } from "../../utils/handle";
-import { getUserPlan, getPlanLimits } from "../../services/billing";
+import { getUserPlan, getPlanLimits, getActiveUserSubscription } from "../../services/billing";
 import {
   initiateVerification,
   verifyChallenge,
@@ -37,7 +37,7 @@ import type { Agent as DbAgent } from "@workspace/db";
 import { apiKeysTable, usersTable, agentsTable, agentClaimTokensTable, agentKeysTable, ownerTokensTable } from "@workspace/db/schema";
 import { eq, and, or } from "drizzle-orm";
 import { getRedis, isRedisConfigured } from "../../lib/redis";
-import { recoveryRateLimit } from "../../middlewares/rate-limit";
+import { recoveryRateLimit, registrationRateLimitStrict, challengeRateLimit } from "../../middlewares/rate-limit";
 
 function hashIp(ip: string | string[] | undefined): string | undefined {
   const raw = Array.isArray(ip) ? ip[0] : ip;
@@ -51,7 +51,7 @@ const registerSchema = z.object({
   handle: z.string().min(3).max(100).optional(),
   displayName: z.string().min(1).max(255),
   publicKey: z.string().min(1),
-  keyType: z.string().default("ed25519"),
+  keyType: z.enum(["ed25519"]).default("ed25519"),
   description: z.string().max(5000).optional(),
   capabilities: z.array(z.string()).max(50).optional(),
   endpointUrl: z.url().optional(),
@@ -68,10 +68,113 @@ const verifySchema = z.object({
 const rotateKeySchema = z.object({
   oldKeyId: z.string().uuid(),
   newPublicKey: z.string().min(1),
-  keyType: z.string().default("ed25519"),
+  keyType: z.enum(["ed25519"]).default("ed25519"),
 });
 
-router.post("/agents/register", async (req, res, next) => {
+const AUTONOMOUS_REG_WINDOW_SEC = 24 * 60 * 60;
+const AUTONOMOUS_REG_LIMIT = 5;
+
+// C4: Separate cap on total unverified agents registered per IP per day
+const UNVERIFIED_AGENT_DAILY_LIMIT = 20;
+
+/**
+ * Increment and check the daily count of unverified agents for a given IP.
+ * This is separate from the Sybil quota (which only applies to autonomous/no-owner registrations).
+ * All registrations — authenticated or not — count toward this limit.
+ * Fails-closed in production if Redis is unavailable.
+ */
+async function checkUnverifiedAgentDailyLimit(clientIp: string | undefined): Promise<void> {
+  if (!clientIp) {
+    if (process.env.NODE_ENV === "production") {
+      throw new AppError(503, "SERVICE_UNAVAILABLE", "Registration temporarily unavailable: client identity cannot be determined.");
+    }
+    return;
+  }
+
+  if (!isRedisConfigured()) {
+    if (process.env.NODE_ENV === "production") {
+      logger.error("[programmatic] ALERT: Unverified agent daily limit check blocked — Redis not configured in production");
+      throw new AppError(503, "SERVICE_UNAVAILABLE", "Registration temporarily unavailable. Please try again shortly.");
+    }
+    return;
+  }
+
+  try {
+    const redis = getRedis();
+    const key = `unverified_agents:daily:${createHash("sha256").update(clientIp).digest("hex").slice(0, 16)}`;
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, AUTONOMOUS_REG_WINDOW_SEC);
+    }
+    if (count > UNVERIFIED_AGENT_DAILY_LIMIT) {
+      // Anomaly instrumentation: log high-velocity registration activity for SOC monitoring
+      logger.warn(
+        { ip: createHash("sha256").update(clientIp).digest("hex").slice(0, 8), count },
+        "[programmatic] SECURITY ALERT: Registration velocity anomaly — IP exceeded unverified agent daily cap",
+      );
+      throw new AppError(429, "DAILY_AGENT_LIMIT_EXCEEDED", "Daily unverified agent registration limit exceeded for this IP address.", {
+        retryAfterSeconds: AUTONOMOUS_REG_WINDOW_SEC,
+      });
+    }
+    // Anomaly warning at 80% threshold for early detection
+    if (count >= Math.floor(UNVERIFIED_AGENT_DAILY_LIMIT * 0.8)) {
+      logger.warn(
+        { ip: createHash("sha256").update(clientIp).digest("hex").slice(0, 8), count, limit: UNVERIFIED_AGENT_DAILY_LIMIT },
+        "[programmatic] SECURITY NOTICE: Registration velocity nearing daily IP cap",
+      );
+    }
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    if (process.env.NODE_ENV === "production") {
+      logger.error({ err: (err as Error).message }, "[programmatic] ALERT: Unverified agent daily limit check failed — blocking registration (fail-closed)");
+      throw new AppError(503, "SERVICE_UNAVAILABLE", "Registration temporarily unavailable. Please try again shortly.");
+    }
+    logger.warn({ err: (err as Error).message }, "[programmatic] Unverified agent daily limit check failed (dev mode: allowing request)");
+  }
+}
+
+async function checkSybilQuota(clientIp: string | undefined): Promise<void> {
+  if (!clientIp) {
+    // No client IP means we cannot enforce the quota — fail-closed in production.
+    if (process.env.NODE_ENV === "production") {
+      throw new AppError(503, "SERVICE_UNAVAILABLE", "Registration temporarily unavailable: client identity cannot be determined.");
+    }
+    return;
+  }
+
+  if (!isRedisConfigured()) {
+    // No Redis configured — fail-closed in production (Sybil quota requires Redis).
+    if (process.env.NODE_ENV === "production") {
+      logger.error("[programmatic] ALERT: Sybil quota check blocked — Redis not configured in production");
+      throw new AppError(503, "SERVICE_UNAVAILABLE", "Registration temporarily unavailable. Please try again shortly.");
+    }
+    return; // Dev/test: allow without Redis
+  }
+
+  try {
+    const redis = getRedis();
+    const key = `sybil:auto_reg:${createHash("sha256").update(clientIp).digest("hex").slice(0, 16)}`;
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, AUTONOMOUS_REG_WINDOW_SEC);
+    }
+    if (count > AUTONOMOUS_REG_LIMIT) {
+      throw new AppError(429, "SYBIL_LIMIT_EXCEEDED", "Autonomous registration quota exceeded. Register fewer agents per day or authenticate with an account.", {
+        retryAfterSeconds: AUTONOMOUS_REG_WINDOW_SEC,
+      });
+    }
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    // Redis error — fail-closed in production to prevent Sybil bypass via Redis unavailability.
+    if (process.env.NODE_ENV === "production") {
+      logger.error({ err: (err as Error).message }, "[programmatic] ALERT: Sybil quota check failed — blocking registration (fail-closed in production)");
+      throw new AppError(503, "SERVICE_UNAVAILABLE", "Registration temporarily unavailable. Please try again shortly.");
+    }
+    logger.warn({ err: (err as Error).message }, "[programmatic] Sybil quota check failed (dev mode: allowing request)");
+  }
+}
+
+router.post("/agents/register", registrationRateLimitStrict, async (req, res, next) => {
   const t0 = performance.now();
   const APP_URL = process.env.APP_URL || "https://getagent.id";
   try {
@@ -112,12 +215,21 @@ router.post("/agents/register", async (req, res, next) => {
       }
 
       if (handleTierInfo?.tier === "standard_5plus") {
+        // H6: Standard handle entitlement check.
+        // Requires an ACTIVE subscription (not just any plan) at registration time.
+        // We verify against the subscriptions table directly rather than the cached plan name,
+        // and record the subscription ID for audit trail.
         const existingUserId = req.userId;
-        let ownerPlanNow = "none";
-        if (existingUserId) {
-          ownerPlanNow = await getUserPlan(existingUserId);
+        if (!existingUserId) {
+          throw new AppError(402, "PLAN_REQUIRED", "Autonomous agents cannot register standard handles. Authenticate with an account and subscribe to a Starter plan or above.", {
+            handle: requestedHandle,
+            tier: "standard_5plus",
+          });
         }
-        if (ownerPlanNow === "none" || ownerPlanNow === "free") {
+        const activeSub = await getActiveUserSubscription(existingUserId);
+        const eligiblePlans = ["starter", "builder", "pro", "team", "enterprise"];
+        const isEligible = activeSub !== null && eligiblePlans.includes(activeSub.plan);
+        if (!isEligible) {
           throw new AppError(402, "PLAN_REQUIRED", "A 5+ character handle requires an active Starter plan or above", {
             handle: requestedHandle,
             tier: "standard_5plus",
@@ -130,8 +242,13 @@ router.post("/agents/register", async (req, res, next) => {
               { id: "starter", name: "Starter", monthlyUsd: 29, yearlyUsd: 290 },
               { id: "pro", name: "Pro", monthlyUsd: 79, yearlyUsd: 790 },
             ],
+            subscriptionStatus: activeSub?.status ?? "none",
           });
         }
+        // Store the granting subscription ID for audit trail (attached to agent after creation below)
+        // activeSub.providerSubscriptionId is the Stripe subscription ID
+        // This is used further down when setting handlePaid=true
+        (req as unknown as Record<string, unknown>)._grantingSubscriptionId = activeSub.providerSubscriptionId ?? activeSub.id;
       }
 
       const reservation = await getHandleReservation(requestedHandle);
@@ -148,7 +265,12 @@ router.post("/agents/register", async (req, res, next) => {
 
     let ownerId = req.userId;
     const tUser = performance.now();
+    // C4: Per-IP daily unverified agent cap applies to ALL registrations (auth'd and anon)
+    await checkUnverifiedAgentDailyLimit(req.ip);
     if (!ownerId) {
+      const clientIp = req.ip;
+      await checkSybilQuota(clientIp);
+
       const autonomousId = `auto_${randomBytes(16).toString("hex")}`;
       const [newUser] = await db.insert(usersTable).values({
         provider: "autonomous",
@@ -175,12 +297,17 @@ router.post("/agents/register", async (req, res, next) => {
         const oneYearFromNow = new Date();
         oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
         const tierInfo = getHandleTier(requestedHandle);
+        const grantingSubscriptionId = (req as unknown as Record<string, unknown>)._grantingSubscriptionId as string | undefined;
         await db.update(agentsTable).set({
           handleTier: tierInfo.tier,
           handlePaid: true,
           handleRegisteredAt: new Date(),
           handleExpiresAt: oneYearFromNow,
           updatedAt: new Date(),
+          // Record the Stripe subscription ID that granted this handle for audit trail
+          ...(grantingSubscriptionId ? {
+            metadata: { grantingSubscriptionId },
+          } : {}),
         }).where(eq(agentsTable.id, agent.id));
         agent = {
           ...agent,
@@ -214,27 +341,40 @@ router.post("/agents/register", async (req, res, next) => {
     const keyAndChallengeMs = performance.now() - tKeyAndChallenge;
 
     if (ownerToken) {
-      try {
-        const tokenRecord = await db.query.ownerTokensTable.findFirst({
-          where: and(
-            eq(ownerTokensTable.token, ownerToken),
-            eq(ownerTokensTable.used, false),
-          ),
-        });
-        if (tokenRecord && new Date() < tokenRecord.expiresAt) {
-          await db.transaction(async (tx) => {
-            await tx.update(agentsTable).set({
-              ownerUserId: tokenRecord.userId,
-              isClaimed: true,
-              claimedAt: new Date(),
-              updatedAt: new Date(),
-            }).where(eq(agentsTable.id, agent.id));
-            await tx.update(ownerTokensTable).set({ used: true }).where(eq(ownerTokensTable.id, tokenRecord.id));
+      // C5: Owner-token linking at registration is only permitted for authenticated (non-autonomous) registrations.
+      // Autonomous agents must go through the verified /link-owner flow after gaining verificationStatus="verified".
+      // This prevents the ownerToken path from bypassing the verification requirement enforced on /link-owner.
+      if (!req.userId) {
+        logger.warn({ agentId: agent.id }, "[programmatic] C5: Rejecting ownerToken for autonomous registration — owner linking requires authenticated session");
+        // Do not throw — just skip the token (autonomous agents can't claim ownership at registration)
+      } else {
+        try {
+          const tokenRecord = await db.query.ownerTokensTable.findFirst({
+            where: and(
+              eq(ownerTokensTable.token, ownerToken),
+              eq(ownerTokensTable.used, false),
+            ),
           });
-          agent = { ...agent, ownerUserId: tokenRecord.userId, isClaimed: true, claimedAt: new Date() };
+          if (tokenRecord && new Date() < tokenRecord.expiresAt) {
+            // Additional guard: token must belong to the authenticated user making this request
+            if (tokenRecord.userId !== req.userId) {
+              logger.warn({ agentId: agent.id, tokenUserId: tokenRecord.userId, requestUserId: req.userId }, "[programmatic] C5: ownerToken userId mismatch — rejecting");
+            } else {
+              await db.transaction(async (tx) => {
+                await tx.update(agentsTable).set({
+                  ownerUserId: tokenRecord.userId,
+                  isClaimed: true,
+                  claimedAt: new Date(),
+                  updatedAt: new Date(),
+                }).where(eq(agentsTable.id, agent.id));
+                await tx.update(ownerTokensTable).set({ used: true }).where(eq(ownerTokensTable.id, tokenRecord.id));
+              });
+              agent = { ...agent, ownerUserId: tokenRecord.userId, isClaimed: true, claimedAt: new Date() };
+            }
+          }
+        } catch {
+          logger.warn({ agentId: agent.id }, "[programmatic] Failed to link owner token, continuing without linking");
         }
-      } catch {
-        logger.warn({ agentId: agent.id }, "[programmatic] Failed to link owner token, continuing without linking");
       }
     }
 
@@ -300,7 +440,7 @@ router.post("/agents/register", async (req, res, next) => {
   }
 });
 
-router.post("/agents/verify", async (req, res, next) => {
+router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
   const t0 = performance.now();
   try {
     const parsed = verifySchema.safeParse(req.body);
@@ -321,8 +461,42 @@ router.post("/agents/verify", async (req, res, next) => {
     const lookupMs = performance.now() - tLookup;
 
     const tChallenge = performance.now();
+
+    // H9: Per-agent challenge attempt tracking (Redis-backed, in addition to per-IP rate limiting).
+    // Prevents distributed brute-force where many IPs submit wrong signatures for one agentId.
+    const CHALLENGE_MAX_ATTEMPTS = 5;
+    const CHALLENGE_ATTEMPT_WINDOW_SEC = 15 * 60; // 15 min lockout window
+    const challengeLockKey = `challenge_lock:${agentId}`;
+    let challengeLockout = false;
+    if (isRedisConfigured()) {
+      try {
+        const redis = getRedis();
+        const attempts = await redis.get(challengeLockKey);
+        if (attempts && parseInt(attempts, 10) >= CHALLENGE_MAX_ATTEMPTS) {
+          challengeLockout = true;
+        }
+      } catch {
+        // Redis error: allow request through (per-IP rate limit still applies)
+      }
+    }
+    if (challengeLockout) {
+      throw new AppError(429, "CHALLENGE_LOCKED", "Too many failed verification attempts for this agent. Try again in 15 minutes.");
+    }
+
     const result = await verifyChallenge(agentId, challenge, signature, kid);
     if (!result.success) {
+      // Increment per-agent failure counter
+      if (isRedisConfigured()) {
+        try {
+          const redis = getRedis();
+          const count = await redis.incr(challengeLockKey);
+          if (count === 1) {
+            await redis.expire(challengeLockKey, CHALLENGE_ATTEMPT_WINDOW_SEC);
+          }
+        } catch {
+          // Non-fatal — per-IP rate limit still provides protection
+        }
+      }
       await logActivity({
         agentId,
         eventType: "agent.verification_failed",
@@ -331,6 +505,13 @@ router.post("/agents/verify", async (req, res, next) => {
         userAgent: req.headers["user-agent"],
       });
       throw new AppError(400, "VERIFICATION_FAILED", result.error!);
+    }
+    // Clear the per-agent lockout counter on successful verification
+    if (isRedisConfigured()) {
+      try {
+        const redis = getRedis();
+        await redis.del(challengeLockKey);
+      } catch {}
     }
     const challengeMs = performance.now() - tChallenge;
 
@@ -501,7 +682,7 @@ router.post("/agents/:agentId/rotate-key", requireAuth, async (req, res, next) =
   }
 });
 
-router.get("/agents/:agentId/auth-metadata", async (req, res, next) => {
+router.get("/agents/:agentId/auth-metadata", challengeRateLimit, async (req, res, next) => {
   try {
     const meta = await getAuthMetadata(req.params.agentId as string);
     if (!meta) {
@@ -857,6 +1038,10 @@ router.post("/recover", recoveryRateLimit, async (req, res, next) => {
           format: "der",
           type: "spki",
         });
+        // H2: Cryptographic enforcement — reject non-Ed25519 key material regardless of stored label
+        if (pubKey.asymmetricKeyType !== "ed25519") {
+          continue;
+        }
         const isValid = cryptoVerify(
           null,
           Buffer.from(challenge),

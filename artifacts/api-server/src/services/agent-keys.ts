@@ -22,6 +22,11 @@ function generateKid(): string {
 export async function createAgentKey(
   input: CreateAgentKeyInput,
 ): Promise<AgentKey> {
+  // H2: Enforce ed25519-only at the root key ingest point (belt-and-suspenders)
+  if (input.keyType !== "ed25519") {
+    throw new Error(`[agent-keys] createAgentKey: unsupported key type '${input.keyType}' — only ed25519 is permitted`);
+  }
+
   const kid = generateKid();
 
   if (input.purpose) {
@@ -116,6 +121,10 @@ export async function rotateAgentKey(
   newPublicKey: string,
   keyType: string = "ed25519",
 ): Promise<{ revokedKey: AgentKey; newKey: AgentKey } | null> {
+  // H2: Service-level ed25519-only guard — belt-and-suspenders behind route validation
+  if (keyType !== "ed25519") {
+    throw new Error(`[agent-keys] Unsupported key type '${keyType}': only ed25519 is permitted`);
+  }
   const revokedKey = await revokeAgentKey(agentId, oldKeyId);
   if (!revokedKey) {
     return null;
@@ -138,7 +147,13 @@ export async function initiateKeyRotation(
   newPublicKey: string,
   keyType: string = "ed25519",
   reason?: string,
+  options?: { immediateRevoke?: boolean },
 ): Promise<{ oldKey: AgentKey; newKey: AgentKey; rotationLogId: string } | null> {
+  // H2: Service-level ed25519-only guard — belt-and-suspenders behind route validation
+  if (keyType !== "ed25519") {
+    throw new Error(`[agent-keys] Unsupported key type '${keyType}': only ed25519 is permitted`);
+  }
+
   const oldKey = await db.query.agentKeysTable.findFirst({
     where: and(
       eq(agentKeysTable.id, oldKeyId),
@@ -155,16 +170,19 @@ export async function initiateKeyRotation(
     publicKey: newPublicKey,
   });
 
-  const expiresAt = new Date(Date.now() + GRACE_PERIOD_MS);
+  const immediateRevoke = options?.immediateRevoke === true || reason === "compromise";
+  const expiresAt = immediateRevoke ? new Date() : new Date(Date.now() + GRACE_PERIOD_MS);
+  const newStatus = immediateRevoke ? "revoked" : "rotating";
 
   await db
     .update(agentKeysTable)
     .set({
-      status: "rotating",
+      status: newStatus,
       rotatedAt: new Date(),
       rotatedByKid: newKey.kid,
       expiresAt,
       rotationReason: reason,
+      ...(immediateRevoke ? { revokedAt: new Date() } : {}),
     })
     .where(eq(agentKeysTable.id, oldKeyId));
 
@@ -178,7 +196,7 @@ export async function initiateKeyRotation(
       newKeyId: newKey.id,
       rotationReason: reason,
       rotatedByKid: oldKey.kid,
-      status: "pending",
+      status: immediateRevoke ? "verified" : "pending",
     })
     .returning();
 

@@ -1,4 +1,4 @@
-import { eq, and, ilike, sql, or } from "drizzle-orm";
+import { eq, and, ilike, sql, or, isNull } from "drizzle-orm";
 import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import { agentsTable, usersTable, type Agent } from "@workspace/db/schema";
@@ -337,6 +337,51 @@ export async function deleteAgent(
         await deleteResolutionCache(normalizeHandle(agent.handle ?? ""));
       }
     } catch {}
+
+    try {
+      const { clearVcCache } = await import("./verifiable-credential");
+      clearVcCache(agentId);
+    } catch {}
+
+    setImmediate(async () => {
+      try {
+        const { agentAttestationsTable } = await import("@workspace/db/schema");
+        const { recomputeAndStore } = await import("./trust-score");
+
+        // H3: Revoke all active attestations made by this agent so their weight is
+        // removed from trust computation. Trust recomputation below then picks up
+        // the zeroed-out attesterTrustScore from revoked attestation rows.
+        const revokedNow = new Date();
+        const attestedAgents = await db
+          .select({ subjectId: agentAttestationsTable.subjectId })
+          .from(agentAttestationsTable)
+          .where(and(
+            eq(agentAttestationsTable.attesterId, agentId),
+            isNull(agentAttestationsTable.revokedAt),
+          ));
+
+        if (attestedAgents.length > 0) {
+          await db
+            .update(agentAttestationsTable)
+            .set({ revokedAt: revokedNow })
+            .where(and(
+              eq(agentAttestationsTable.attesterId, agentId),
+              isNull(agentAttestationsTable.revokedAt),
+            ));
+        }
+
+        // Now recompute trust for every subject whose attestor just got revoked.
+        for (const { subjectId } of attestedAgents) {
+          try {
+            await recomputeAndStore(subjectId);
+          } catch (err) {
+            logger.warn({ err, agentId, subjectId }, "[agents] Failed to recompute trust for attested subject");
+          }
+        }
+      } catch (err) {
+        logger.error({ err, agentId }, "[agents] Failed to revoke attestations / recompute trust for revoked agent");
+      }
+    });
   }
 
   return !!updated;

@@ -61,9 +61,5 @@ export async function clearSession(
 }
 
 export function getSessionId(req: Request): string | undefined {
-  const authHeader = req.headers["authorization"];
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7);
-  }
   return req.cookies?.[SESSION_COOKIE];
 }

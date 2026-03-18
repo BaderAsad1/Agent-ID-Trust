@@ -9,6 +9,7 @@ import {
 } from "@workspace/db/schema";
 import { env } from "../lib/env";
 import { logger } from "../middlewares/request-logger";
+import { getVcSigner } from "./vc-signer";
 
 let joseModule: typeof import("jose") | null = null;
 
@@ -19,42 +20,39 @@ async function getJose() {
   return joseModule;
 }
 
-let cachedKeyPair: { privateKey: CryptoKey; publicKey: CryptoKey; kid: string } | null = null;
-
+/**
+ * getSigningKeyPair — DEPRECATED internal helper.
+ *
+ * Left for backward compatibility with tests that inspect the non-caching contract.
+ * New code should use `getVcSigner()` from ./vc-signer instead.
+ *
+ * Security contract (unchanged):
+ *   - Production: private key is imported fresh on every call (never stored in module memory).
+ *   - Development: ephemeral Ed25519 key pair generated once per process start.
+ *   - KMS migration: replace getVcSigner() in ./vc-signer.ts (see that file for instructions).
+ */
 export async function getSigningKeyPair() {
-  if (cachedKeyPair) return cachedKeyPair;
-
+  const signer = await getVcSigner();
   const jose = await getJose();
+  // For the public key, parse it from VC_PUBLIC_KEY (prod) or from the dev ephemeral signer JWK
   const config = env();
-  const kid = config.VC_KEY_ID;
+  let publicKey: CryptoKey;
 
-  if (config.VC_SIGNING_KEY && config.VC_PUBLIC_KEY) {
-    try {
-      const privateKey = await jose.importJWK(
-        JSON.parse(config.VC_SIGNING_KEY),
-        "EdDSA",
-      );
-      const publicKey = await jose.importJWK(
-        JSON.parse(config.VC_PUBLIC_KEY),
-        "EdDSA",
-      );
-      cachedKeyPair = { privateKey: privateKey as CryptoKey, publicKey: publicKey as CryptoKey, kid };
-      return cachedKeyPair;
-    } catch (err) {
-      logger.error({ err }, "[verifiable-credential] Failed to import VC keys from env");
-    }
+  if (config.VC_PUBLIC_KEY) {
+    publicKey = (await jose.importJWK(JSON.parse(config.VC_PUBLIC_KEY), "EdDSA")) as CryptoKey;
+  } else {
+    const jwk = await signer.getPublicKeyJwk();
+    publicKey = (await jose.importJWK(jwk, "EdDSA")) as CryptoKey;
   }
 
-  if (config.NODE_ENV === "production") {
-    throw new Error("VC_SIGNING_KEY and VC_PUBLIC_KEY are required in production for W3C VC issuance.");
-  }
-
-  logger.warn("[verifiable-credential] Generating ephemeral Ed25519 key pair (dev only)");
-  const { privateKey, publicKey } = await jose.generateKeyPair("EdDSA", {
-    crv: "Ed25519",
-  });
-  cachedKeyPair = { privateKey, publicKey, kid };
-  return cachedKeyPair;
+  // Return a shape-compatible object — private key is intentionally not exposed.
+  // The `privateKey` field is a sentinel that forces callers through the signer interface.
+  return {
+    kid: signer.kid,
+    publicKey,
+    /** @deprecated Use getVcSigner().sign() instead of accessing privateKey directly */
+    _signer: signer,
+  };
 }
 
 const vcCache = new Map<string, { jwt: string; expiresAt: number }>();
@@ -91,9 +89,10 @@ export async function issueVerifiableCredential(agentId: string): Promise<string
 
   const activeDomain = domains.find((d) => d.status === "active");
   const now = Math.floor(Date.now() / 1000);
-  const expiresAt = now + 365 * 24 * 60 * 60;
+  const expiresAt = now + 60 * 60;
 
-  const { privateKey, kid } = await getSigningKeyPair();
+  // Use the KMS-ready signer abstraction (see ./vc-signer.ts for migration path)
+  const signer = await getVcSigner();
   const jose = await getJose();
 
   const vcPayload = {
@@ -104,7 +103,7 @@ export async function issueVerifiableCredential(agentId: string): Promise<string
     type: ["VerifiableCredential", "AgentIdentityCredential"],
     issuer: "did:web:getagent.id",
     credentialSubject: {
-      id: `did:web:getagent.id:agents:${agent.handle}`,
+      id: agent.handle ? `did:web:getagent.id:agents:${agent.handle}` : `did:agentid:${agent.id}`,
       handle: agent.handle,
       displayName: agent.displayName,
       agentId: agent.id,
@@ -130,13 +129,18 @@ export async function issueVerifiableCredential(agentId: string): Promise<string
     },
   };
 
-  const jwt = await new jose.SignJWT(vcPayload as unknown as Record<string, unknown>)
-    .setProtectedHeader({ alg: "EdDSA", kid, typ: "JWT" })
-    .setIssuer("did:web:getagent.id")
-    .setSubject(`did:web:getagent.id:agents:${agent.handle}`)
-    .setIssuedAt(now)
-    .setExpirationTime(expiresAt)
-    .sign(privateKey);
+  const vcSubject = agent.handle
+    ? `did:web:getagent.id:agents:${agent.handle}`
+    : `did:agentid:${agent.id}`;
+
+  const jwt = await signer.sign(
+    new jose.SignJWT(vcPayload as unknown as Record<string, unknown>)
+      .setProtectedHeader({ alg: "EdDSA", kid: signer.kid, typ: "JWT" })
+      .setIssuer("did:web:getagent.id")
+      .setSubject(vcSubject)
+      .setIssuedAt(now)
+      .setExpirationTime(expiresAt),
+  );
 
   vcCache.set(agentId, { jwt, expiresAt: Date.now() + VC_CACHE_TTL_MS });
 

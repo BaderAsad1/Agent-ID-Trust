@@ -77,6 +77,12 @@ agentLinkOwnerRouter.post("/link-owner", async (req, res, next) => {
       throw new AppError(403, "AGENT_REVOKED", "This agent has been revoked and cannot be linked");
     }
 
+    if (agentRecord.verificationStatus !== "verified") {
+      throw new AppError(403, "AGENT_NOT_VERIFIED", "Agent must complete verification before it can be linked to an owner. This prevents pre-claiming of agent slots.", {
+        verificationStatus: agentRecord.verificationStatus,
+      });
+    }
+
     const ownerToken = await db.query.ownerTokensTable.findFirst({
       where: and(
         eq(ownerTokensTable.token, token),

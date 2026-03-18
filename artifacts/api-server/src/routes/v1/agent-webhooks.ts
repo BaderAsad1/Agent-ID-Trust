@@ -12,6 +12,10 @@ import { getAgentById } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
 import { buildSignatureHeader } from "../../services/webhook-delivery";
 import type { Request, Response, NextFunction } from "express";
+import { validateWebhookUrl, ssrfSafeFetch } from "../../lib/ssrf-guard";
+
+// Re-export so existing tests that import from agent-webhooks continue to work.
+export { validateWebhookUrl };
 
 function requireHumanOrAgentAuth(req: Request, res: Response, next: NextFunction) {
   if (req.headers["x-agent-key"]) {
@@ -53,6 +57,7 @@ router.post("/:agentId/webhooks", requireHumanOrAgentAuth, validateUuidParam("ag
     }
 
     const resolvedUrl = parsed.data.endpointUrl ?? parsed.data.url!;
+    await validateWebhookUrl(resolvedUrl);
     const secret = randomBytes(32).toString("hex");
 
     const [webhook] = await db
@@ -264,7 +269,7 @@ router.post("/:agentId/webhooks/:webhookId/test", requireHumanOrAgentAuth, valid
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
 
-      const response = await fetch(webhook.url, {
+      const response = await ssrfSafeFetch(webhook.url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -7,6 +7,7 @@ import {
   type AgentWebhook,
 } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
+import { ssrfSafeFetch } from "../lib/ssrf-guard";
 
 const RETRY_INTERVALS_MS = [
   60 * 1000,
@@ -76,7 +77,7 @@ async function attemptDelivery(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
 
-    const response = await fetch(webhook.url, {
+    const response = await ssrfSafeFetch(webhook.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -207,7 +208,7 @@ export async function retryPendingDeliveries() {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
 
-      const response = await fetch(webhook.url, {
+      const response = await ssrfSafeFetch(webhook.url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
