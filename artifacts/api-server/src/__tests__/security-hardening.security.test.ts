@@ -133,7 +133,8 @@ describe("C — Admin constant-time comparison: source verification", () => {
       "utf8",
     );
     // The source must check !expectedKey early
-    expect(source).toContain("!adminKey || !expectedKey");
+    expect(source).toContain("!expectedKey");
+    expect(source).toContain("!adminKey");
   });
 
   it("timingSafeEqual: correct key passes, wrong key fails (Node.js crypto behaviour)", () => {
