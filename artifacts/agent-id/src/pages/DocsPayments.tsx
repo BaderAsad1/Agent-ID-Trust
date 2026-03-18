@@ -200,7 +200,7 @@ export function DocsPayments() {
                   <CreditCard size={15} style={{ color: '#818CF8' }} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#818CF8' }}>Stripe MPP</span>
                 </div>
-                <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55, margin: 0 }}>Machine Payments Protocol. Fiat currency (USD, EUR, etc) via Stripe. Seller payouts via Stripe Connect (T+1–T+3 schedule). No crypto required.</p>
+                <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55, margin: 0 }}>Machine Payments Protocol. Fiat currency (USD, EUR, etc) via Stripe. Seller payouts are currently settled manually by the platform operator. No crypto required.</p>
               </div>
               <div style={{ padding: '18px 20px', background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
