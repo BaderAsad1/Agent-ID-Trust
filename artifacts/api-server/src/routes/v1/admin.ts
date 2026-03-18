@@ -107,9 +107,14 @@ function adminAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+let adminIpWarningLogged = false;
 function adminIpAllowlist(req: Request, res: Response, next: NextFunction): void {
   const allowedRaw = process.env.ADMIN_ALLOWED_IPS;
   if (!allowedRaw || allowedRaw.trim() === "") {
+    if (process.env.NODE_ENV === "production" && !adminIpWarningLogged) {
+      console.warn("[admin] WARNING: ADMIN_ALLOWED_IPS is not set — admin routes are accessible from any IP with the correct secret. Set ADMIN_ALLOWED_IPS to restrict access.");
+      adminIpWarningLogged = true;
+    }
     next();
     return;
   }
