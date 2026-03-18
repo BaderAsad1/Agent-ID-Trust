@@ -33,6 +33,7 @@ Key capabilities:
 | Database | PostgreSQL + Drizzle ORM | Drizzle 0.45.1 |
 | Cache / Queues | Redis + BullMQ | ioredis 5.10.0, BullMQ 5.70.4 |
 | Payments | Stripe | 20.4.1 (server), 8.9.0 (client) |
+| On-chain Payments | x402 protocol (@x402/core, @x402/fetch, @x402/evm) | 2.7.0 |
 | Email | Resend | 6.9.3 |
 | DNS | Cloudflare API | — |
 | CSS | Tailwind CSS | 4 |
