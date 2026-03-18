@@ -24,3 +24,9 @@ id = "xMWmmWDUpWlD6lbH3P1yj"
 uri = "file://.local/tasks/agent-id-testing-audit-findings.md"
 type = "text"
 title = "Agent ID — Testing & Validation Audit Findings"
+
+[[outputs]]
+id = "DB-LR8WhO9AdS_AFUFL-c"
+uri = "file://.local/tasks/agent-id-system-architecture.md"
+type = "text"
+title = "Agent ID — Full System Architecture Analysis"

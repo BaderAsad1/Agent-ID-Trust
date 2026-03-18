@@ -113,6 +113,7 @@ function buildAccessTokenPayload(
   scopes: string[],
   tokenId: string,
   trustContext: Record<string, unknown>,
+  sessionType: "delegated" | "autonomous" = "delegated",
 ): Record<string, unknown> {
   const now = Math.floor(Date.now() / 1000);
   const exp = now + 900; // 15 min
@@ -127,10 +128,15 @@ function buildAccessTokenPayload(
     exp,
     jti: tokenId,
     agent_id: agent.id,
+    handle: agent.handle ?? null,
     trust_tier: agent.trustTier,
     verification_status: agent.verificationStatus,
+    agent_state: agent.status,
+    claim_state: agent.isClaimed ? "claimed" : "unclaimed",
     owner_type: trustContext.owner_type,
+    owner_backed: !!(agent.ownerUserId || agent.orgId),
     scope: scopes.join(" "),
+    session_type: sessionType,
     trust_context: trustContext,
   };
 }
@@ -165,7 +171,7 @@ export async function exchangeAuthorizationCode(
   clientId: string,
   redirectUri: string | undefined,
   codeVerifier: string | undefined,
-): Promise<{ accessToken: string; refreshToken: string; expiresIn: number; tokenType: string }> {
+): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string }> {
   const authCode = await db.query.oauthAuthorizationCodesTable.findFirst({
     where: and(
       eq(oauthAuthorizationCodesTable.code, code),
@@ -212,7 +218,7 @@ export async function signedAssertionGrant(
   clientId: string,
   scopes: string[],
   assertionJwt: string,
-): Promise<{ accessToken: string; refreshToken: string; expiresIn: number; tokenType: string }> {
+): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string }> {
   const parts = assertionJwt.split(".");
   if (parts.length !== 3) throw new Error("invalid_grant: malformed assertion JWT");
 
@@ -305,7 +311,7 @@ export async function issueTokenPair(
   clientId: string | null,
   scopes: string[],
   grantType: string,
-): Promise<{ accessToken: string; refreshToken: string; expiresIn: number; tokenType: string }> {
+): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string }> {
   const agent = await db.query.agentsTable.findFirst({
     where: eq(agentsTable.id, agentId),
   });
@@ -400,7 +406,8 @@ export async function issueTokenPair(
 
   const trustContext = await buildTrustContext(agent);
   const tokenId = randomBytes(24).toString("hex");
-  const accessToken = await signJwt(buildAccessTokenPayload(agent, clientId, scopes, tokenId, trustContext));
+  const sessionType = grantType === "urn:agentid:grant-type:signed-assertion" ? "autonomous" : "delegated";
+  const accessToken = await signJwt(buildAccessTokenPayload(agent, clientId, scopes, tokenId, trustContext, sessionType));
   const refreshToken = randomBytes(40).toString("hex");
   const accessExpiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MS);
   const refreshExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
@@ -430,10 +437,10 @@ export async function issueTokenPair(
   });
 
   return {
-    accessToken,
-    refreshToken,
-    expiresIn: Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
-    tokenType: "Bearer",
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_in: Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
+    token_type: "Bearer",
   };
 }
 

@@ -32,6 +32,7 @@ import IssuanceFilm from '@/components/IssuanceFilm';
 import { AgentUUIDProfile } from '@/pages/AgentUUIDProfile';
 import { HandlePurchase } from '@/pages/HandlePurchase';
 import { Authorize } from '@/pages/Authorize';
+import { DocsSignIn } from '@/pages/DocsSignIn';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -73,6 +74,8 @@ function AppContent() {
 
   if (isLanding) return <><ScrollToTop /><LandingPage /></>;
 
+  // Fullscreen pages that don't render the Nav
+  if (location.pathname === '/authorize') return <><ScrollToTop /><Authorize /></>;
 
   return (
     <div
@@ -105,6 +108,7 @@ function AppContent() {
         <Route path="/integrations/cursor" element={<CursorIntegration />} />
         <Route path="/integrations/vscode" element={<VSCodeIntegration />} />
         <Route path="/docs/integrations" element={<DocsIntegrations />} />
+        <Route path="/docs/sign-in" element={<DocsSignIn />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/marketplace" element={<Marketplace />} />
@@ -115,7 +119,6 @@ function AppContent() {
         <Route path="/u/:handle" element={<HumanProfile />} />
         <Route path="/id/:agentId" element={<AgentUUIDProfile />} />
         <Route path="/handle/purchase" element={<HandlePurchase />} />
-        <Route path="/authorize" element={<Authorize />} />
         <Route path="/v2" element={<Navigate to="/" replace />} />
         <Route path="/:handle" element={<AgentProfile />} />
         <Route path="*" element={<NotFound />} />

@@ -18,6 +18,8 @@ import {
   exchangeAuthorizationCode,
   signedAssertionGrant,
   revokeOAuthToken,
+  introspectOAuthToken,
+  verifyJwt,
 } from "../services/oauth";
 import { AppError } from "../middlewares/error-handler";
 import { requireAuth } from "../middlewares/replit-auth";
@@ -282,6 +284,102 @@ router.post("/token", registrationRateLimit, async (req: Request, res: Response,
   } catch (err) {
     next(err);
   }
+});
+
+/**
+ * GET/POST /oauth/userinfo  (OIDC Core §5.3)
+ * Returns agent identity claims for a valid access token.
+ * Accepts Bearer token in Authorization header.
+ */
+router.get("/userinfo", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      res.status(401).set("WWW-Authenticate", 'Bearer realm="agentid"').json({ error: "invalid_token", error_description: "Bearer token required" });
+      return;
+    }
+    const token = authHeader.slice(7);
+
+    // Try JWT verification first for fast path
+    let sub: string | undefined;
+    let jwtClaims: Record<string, unknown> | null = null;
+    try {
+      jwtClaims = await verifyJwt(token);
+      sub = jwtClaims?.sub as string | undefined;
+    } catch {
+      // fall through to introspection
+    }
+
+    // Validate token is active in DB
+    const info = await introspectOAuthToken(token);
+    if (!info.active) {
+      res.status(401).set("WWW-Authenticate", 'Bearer realm="agentid", error="invalid_token"').json({ error: "invalid_token", error_description: "Token is expired, revoked, or invalid" });
+      return;
+    }
+
+    const issuer = env().APP_URL || "https://getagent.id";
+
+    res.set("Cache-Control", "no-store").json({
+      sub: info.sub,
+      iss: issuer,
+      // Agent identity
+      agent_id: jwtClaims?.agent_id ?? info.sub,
+      handle: jwtClaims?.handle ?? null,
+      // Trust & verification
+      trust_tier: info.trust_tier,
+      verification_status: info.verification_status,
+      agent_state: jwtClaims?.agent_state ?? null,
+      claim_state: jwtClaims?.claim_state ?? null,
+      owner_type: info.owner_type,
+      owner_backed: jwtClaims?.owner_backed ?? null,
+      // Session
+      session_type: jwtClaims?.session_type ?? "delegated",
+      scope: info.scope,
+      client_id: info.client_id,
+      // Token metadata
+      iat: info.iat,
+      exp: info.exp,
+      // Full trust context for richer queries
+      trust_context: info.trust_context,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Also accept POST for clients that send the token in the request body (§5.3.1)
+router.post("/userinfo", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const bodyToken = req.body?.access_token as string | undefined;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : bodyToken;
+
+    if (!token) {
+      res.status(401).set("WWW-Authenticate", 'Bearer realm="agentid"').json({ error: "invalid_token", error_description: "Bearer token required" });
+      return;
+    }
+
+    let jwtClaims: Record<string, unknown> | null = null;
+    try { jwtClaims = await verifyJwt(token); } catch { /* ignore */ }
+
+    const info = await introspectOAuthToken(token);
+    if (!info.active) {
+      res.status(401).set("WWW-Authenticate", 'Bearer realm="agentid", error="invalid_token"').json({ error: "invalid_token", error_description: "Token is expired, revoked, or invalid" });
+      return;
+    }
+
+    const issuer = env().APP_URL || "https://getagent.id";
+    res.set("Cache-Control", "no-store").json({
+      sub: info.sub, iss: issuer,
+      agent_id: jwtClaims?.agent_id ?? info.sub, handle: jwtClaims?.handle ?? null,
+      trust_tier: info.trust_tier, verification_status: info.verification_status,
+      agent_state: jwtClaims?.agent_state ?? null, claim_state: jwtClaims?.claim_state ?? null,
+      owner_type: info.owner_type, owner_backed: jwtClaims?.owner_backed ?? null,
+      session_type: jwtClaims?.session_type ?? "delegated",
+      scope: info.scope, client_id: info.client_id,
+      iat: info.iat, exp: info.exp, trust_context: info.trust_context,
+    });
+  } catch (err) { next(err); }
 });
 
 router.post("/revoke", async (req: Request, res: Response, next: NextFunction) => {
