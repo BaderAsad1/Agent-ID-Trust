@@ -127,6 +127,13 @@
       "when": 1742428800000,
       "tag": "0017_mail_draft_and_features",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1773797182765,
+      "tag": "0018_owner_tokens",
+      "breakpoints": true
     }
   ]
 }

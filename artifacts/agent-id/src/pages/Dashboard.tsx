@@ -11,6 +11,8 @@ import { Mail } from '@/pages/Mail';
 import { TransferWizardModal, TransferStatusBadge, TransferDashboardPage } from '@/pages/TransferSale';
 import { HandlesClaim } from '@/pages/HandlesClaim';
 import { QRCodeSVG } from 'qrcode.react';
+import { OnboardingScreen } from '@/pages/dashboard/Onboarding';
+import { DashboardOverview } from '@/pages/dashboard/Overview';
 
 async function initiateHandleCheckout(handle: string) {
   const base = window.location.origin;
@@ -1924,14 +1926,42 @@ function WalletDashboard() {
 export function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { userId } = useAuth();
+  const { userId, agents, refreshAgents, loading: authLoading } = useAuth();
+  const [agentLinked, setAgentLinked] = useState(false);
+  const [userPlan, setUserPlan] = useState<string | undefined>(undefined);
   const path = location.pathname;
 
   useEffect(() => {
     if (!userId) navigate('/sign-in');
   }, [userId, navigate]);
 
-  if (!userId) return null;
+  useEffect(() => {
+    if (!userId) return;
+    api.billing.subscription().then(res => setUserPlan(res.plan)).catch(() => {});
+  }, [userId]);
+
+  const handleAgentLinked = useCallback(async () => {
+    await refreshAgents();
+    setAgentLinked(true);
+  }, [refreshAgents]);
+
+  if (!userId || authLoading) return null;
+
+  const hasAgents = agents.length > 0;
+  const isOnboardingPath = path === '/dashboard' || path === '/dashboard/agents';
+
+  if (isOnboardingPath && !hasAgents && !agentLinked) {
+    return <OnboardingScreen onAgentLinked={handleAgentLinked} />;
+  }
+
+  if (isOnboardingPath && hasAgents) {
+    const primaryAgent = agents[0];
+    return (
+      <DashboardLayout>
+        <DashboardOverview agent={primaryAgent} plan={userPlan} />
+      </DashboardLayout>
+    );
+  }
 
   let content;
   if (path === '/dashboard' || path === '/dashboard/agents') content = <Overview />;
@@ -1941,7 +1971,7 @@ export function Dashboard() {
   else if (path === '/dashboard/marketplace') content = <MarketplaceDashboard />;
   else if (path === '/dashboard/credential') content = <CredentialDashboard />;
   else if (path === '/dashboard/wallet') content = <WalletDashboard />;
-  else if (path === '/dashboard/domain') content = <DomainDashboard />;
+  else if (path === '/dashboard/domain' || path === '/dashboard/handles') content = <DomainDashboard />;
   else if (path === '/dashboard/fleet') content = <FleetManagement />;
   else if (path === '/dashboard/settings') content = <SettingsPage />;
   else if (path.startsWith('/dashboard/transfers')) content = <TransferDashboardPage />;

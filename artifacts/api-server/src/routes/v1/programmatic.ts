@@ -33,7 +33,8 @@ import { getStripe } from "../../services/stripe-client";
 import { getOrCreateInbox } from "../../services/mail";
 import { generateClaimToken } from "../../utils/claim-token";
 import { db } from "@workspace/db";
-import { apiKeysTable, usersTable, agentsTable, agentClaimTokensTable, agentKeysTable } from "@workspace/db/schema";
+import type { Agent as DbAgent } from "@workspace/db";
+import { apiKeysTable, usersTable, agentsTable, agentClaimTokensTable, agentKeysTable, ownerTokensTable } from "@workspace/db/schema";
 import { eq, and, or } from "drizzle-orm";
 import { getRedis, isRedisConfigured } from "../../lib/redis";
 import { recoveryRateLimit } from "../../middlewares/rate-limit";
@@ -54,6 +55,7 @@ const registerSchema = z.object({
   description: z.string().max(5000).optional(),
   capabilities: z.array(z.string()).max(50).optional(),
   endpointUrl: z.url().optional(),
+  ownerToken: z.string().optional(),
 });
 
 const verifySchema = z.object({
@@ -78,7 +80,7 @@ router.post("/agents/register", async (req, res, next) => {
       throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
     }
 
-    const { handle, displayName, publicKey, keyType, description, capabilities, endpointUrl } =
+    const { handle, displayName, publicKey, keyType, description, capabilities, endpointUrl, ownerToken } =
       parsed.data;
 
     let requestedHandle: string | null = handle ? handle.toLowerCase() : null;
@@ -158,7 +160,7 @@ router.post("/agents/register", async (req, res, next) => {
     const userMs = performance.now() - tUser;
 
     const tCreateAgent = performance.now();
-    let agent;
+    let agent: DbAgent & Record<string, unknown>;
     try {
       agent = await createAgent({
         userId: ownerId,
@@ -210,6 +212,31 @@ router.post("/agents/register", async (req, res, next) => {
       initiateVerification(agent.id, "key_challenge"),
     ]);
     const keyAndChallengeMs = performance.now() - tKeyAndChallenge;
+
+    if (ownerToken) {
+      try {
+        const tokenRecord = await db.query.ownerTokensTable.findFirst({
+          where: and(
+            eq(ownerTokensTable.token, ownerToken),
+            eq(ownerTokensTable.used, false),
+          ),
+        });
+        if (tokenRecord && new Date() < tokenRecord.expiresAt) {
+          await db.transaction(async (tx) => {
+            await tx.update(agentsTable).set({
+              ownerUserId: tokenRecord.userId,
+              isClaimed: true,
+              claimedAt: new Date(),
+              updatedAt: new Date(),
+            }).where(eq(agentsTable.id, agent.id));
+            await tx.update(ownerTokensTable).set({ used: true }).where(eq(ownerTokensTable.id, tokenRecord.id));
+          });
+          agent = { ...agent, ownerUserId: tokenRecord.userId, isClaimed: true, claimedAt: new Date() };
+        }
+      } catch {
+        logger.warn({ agentId: agent.id }, "[programmatic] Failed to link owner token, continuing without linking");
+      }
+    }
 
     const tSideEffects = performance.now();
     await Promise.all([

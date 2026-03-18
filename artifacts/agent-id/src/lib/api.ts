@@ -282,6 +282,16 @@ export const api = {
       request<ConnectStatus>(`/agents/${agentId}/payment/status`),
   },
 
+  ownerTokens: {
+    generate: () =>
+      request<{ token: string; expiresAt: string; validForHours: number }>("/owner-tokens/generate", { method: "POST" }),
+  },
+
+  billing: {
+    subscription: () =>
+      request<{ plan: string; limits: Record<string, unknown>; subscription: unknown | null }>("/billing/subscription"),
+  },
+
   dashboard: {
     stats: () => request<DashboardStats>("/dashboard/stats"),
   },
@@ -437,6 +447,11 @@ export interface Agent {
   };
   walletAddress?: string;
   walletNetwork?: string;
+  walletUsdcBalance?: string;
+  tasksReceived?: number;
+  tasksCompleted?: number;
+  isClaimed?: boolean;
+  ownerUserId?: string;
 }
 
 export interface WalletInfo {

@@ -38,6 +38,7 @@ import governanceRouter from "./governance";
 import agenticPayRouter from "./agentic-pay";
 import metaRouter from "./meta";
 import walletRouter from "./wallet";
+import { ownerTokenRouter, agentLinkOwnerRouter } from "./owner-tokens";
 import { requireInboxAccess, requireAgentPlan, requirePlan, checkAgentLimit } from "../../middlewares/feature-gate";
 import { tryAgentAuth } from "../../middlewares/agent-auth";
 
@@ -95,5 +96,7 @@ router.use("/", governanceRouter);
 router.use("/agents", governanceRouter);
 router.use("/", controlPlaneVerifyRouter);
 router.use("/meta", metaRouter);
+router.use("/owner-tokens", ownerTokenRouter);
+router.use("/agents", agentLinkOwnerRouter);
 
 export default router;

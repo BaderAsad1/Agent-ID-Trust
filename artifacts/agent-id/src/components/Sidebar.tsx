@@ -1,9 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bot, Inbox, Mail, Activity, ShoppingBag, Globe, Network, Settings, ArrowUpRight, ArrowRightLeft, ShieldCheck, Wallet, X, AtSign } from 'lucide-react';
+import { LayoutDashboard, Bot, Inbox, Mail, Activity, ShoppingBag, Globe, Network, Settings, ArrowUpRight, ArrowRightLeft, ShieldCheck, Wallet, Lock, X, AtSign } from 'lucide-react';
 import { Identicon } from '@/components/shared';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
+
+function useUserPlan(): string {
+  const [plan, setPlan] = useState<string>('none');
+  const { userId } = useAuth();
+
+  useEffect(() => {
+    if (!userId) return;
+    api.billing.subscription().then(res => setPlan(res.plan)).catch(() => {});
+  }, [userId]);
+
+  return plan;
+}
 
 function useInboxCount() {
   const [count, setCount] = useState(0);
@@ -21,6 +33,18 @@ function useInboxCount() {
   return count;
 }
 
+type UserPlan = 'none' | 'free' | 'starter' | 'pro' | 'enterprise';
+
+function planLevel(plan: UserPlan | string | undefined): number {
+  switch (plan) {
+    case 'enterprise': return 4;
+    case 'pro': return 3;
+    case 'starter': return 2;
+    case 'free': return 1;
+    default: return 0;
+  }
+}
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,20 +57,23 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     onNavigate?.();
   };
 
+  const userPlan = useUserPlan();
+  const userPlanLevel = planLevel(userPlan);
+
   const navItems = [
-    { path: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
-    { path: '/dashboard/agents', icon: Bot, label: 'My Agents' },
-    { path: '/dashboard/handles', icon: AtSign, label: 'Handles' },
-    { path: '/dashboard/inbox', icon: Inbox, label: 'Task Inbox', count: inboxCount },
-    { path: '/dashboard/mail', icon: Mail, label: 'Agent Mail', dot: 'cyan' as const },
-    { path: '/dashboard/log', icon: Activity, label: 'Activity Log' },
-    { path: '/dashboard/marketplace', icon: ShoppingBag, label: 'Marketplace', dot: 'purple' as const },
-    { path: '/dashboard/credential', icon: ShieldCheck, label: 'Credential' },
-    { path: '/dashboard/wallet', icon: Wallet, label: 'Wallet' },
-    { path: '/dashboard/transfers', icon: ArrowRightLeft, label: 'Transfers' },
-    { path: '/dashboard/domain', icon: Globe, label: '.agentid Domains', dot: 'cyan' as const },
-    { path: '/dashboard/fleet', icon: Network, label: 'Fleet Management' },
-    { path: '/dashboard/settings', icon: Settings, label: 'Settings' },
+    { path: '/dashboard', icon: LayoutDashboard, label: 'Overview', minPlan: 0 },
+    { path: '/dashboard/agents', icon: Bot, label: 'My Agents', minPlan: 0 },
+    { path: '/dashboard/handles', icon: AtSign, label: 'Handles', minPlan: 0 },
+    { path: '/dashboard/inbox', icon: Inbox, label: 'Task Inbox', count: inboxCount, minPlan: 2 },
+    { path: '/dashboard/mail', icon: Mail, label: 'Agent Mail', dot: 'cyan' as const, minPlan: 2 },
+    { path: '/dashboard/log', icon: Activity, label: 'Activity Log', minPlan: 0 },
+    { path: '/dashboard/marketplace', icon: ShoppingBag, label: 'Marketplace', dot: 'purple' as const, minPlan: 0 },
+    { path: '/dashboard/credential', icon: ShieldCheck, label: 'Credential', minPlan: 2 },
+    { path: '/dashboard/wallet', icon: Wallet, label: 'Wallet', minPlan: 0 },
+    { path: '/dashboard/transfers', icon: ArrowRightLeft, label: 'Transfers', minPlan: 0 },
+    { path: '/dashboard/domain', icon: Globe, label: '.agentid Domains', dot: 'cyan' as const, minPlan: 0 },
+    { path: '/dashboard/fleet', icon: Network, label: 'Agent Fleet', minPlan: 3 },
+    { path: '/dashboard/settings', icon: Settings, label: 'Settings', minPlan: 0 },
   ];
 
   return (
@@ -75,26 +102,30 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           const active = item.path === '/dashboard'
             ? location.pathname === '/dashboard'
             : location.pathname.startsWith(item.path);
+          const locked = userPlanLevel < item.minPlan;
           return (
             <button
               key={item.path}
-              onClick={() => handleNav(item.path)}
+              onClick={() => !locked && handleNav(item.path)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-0.5 text-sm transition-colors cursor-pointer"
               style={{
                 background: active ? 'rgba(59,130,246,0.1)' : 'transparent',
-                color: active ? 'var(--accent)' : 'var(--text-muted)',
+                color: locked ? 'var(--text-dim)' : active ? 'var(--accent)' : 'var(--text-muted)',
                 border: 'none',
                 fontFamily: 'var(--font-body)',
+                opacity: locked ? 0.6 : 1,
               }}
               aria-label={item.label}
+              title={locked ? `Requires a higher plan` : undefined}
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
               <span className="flex-1 text-left">{item.label}</span>
-              {'count' in item && (item.count ?? 0) > 0 && (
+              {locked && <Lock className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--text-dim)' }} />}
+              {!locked && 'count' in item && (item.count ?? 0) > 0 && (
                 <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--accent)', color: '#fff', fontSize: '10px' }}>{item.count}</span>
               )}
-              {item.dot === 'purple' && <span className="w-2 h-2 rounded-full" style={{ background: 'var(--marketplace)' }} />}
-              {item.dot === 'cyan' && <span className="w-2 h-2 rounded-full animate-pulse-dot" style={{ background: 'var(--domain)' }} />}
+              {!locked && item.dot === 'purple' && <span className="w-2 h-2 rounded-full" style={{ background: 'var(--marketplace)' }} />}
+              {!locked && item.dot === 'cyan' && <span className="w-2 h-2 rounded-full animate-pulse-dot" style={{ background: 'var(--domain)' }} />}
             </button>
           );
         })}

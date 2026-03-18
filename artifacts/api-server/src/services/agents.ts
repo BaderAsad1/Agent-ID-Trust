@@ -1,4 +1,4 @@
-import { eq, and, ilike, sql } from "drizzle-orm";
+import { eq, and, ilike, sql, or } from "drizzle-orm";
 import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import { agentsTable, usersTable, type Agent } from "@workspace/db/schema";
@@ -239,7 +239,10 @@ export async function getAgentByHandle(handle: string): Promise<Agent | null> {
 
 export async function listAgentsByUser(userId: string): Promise<Agent[]> {
   return db.query.agentsTable.findMany({
-    where: eq(agentsTable.userId, userId),
+    where: or(
+      eq(agentsTable.userId, userId),
+      eq(agentsTable.ownerUserId, userId),
+    ),
     orderBy: (agents, { desc }) => [desc(agents.createdAt)],
   });
 }
