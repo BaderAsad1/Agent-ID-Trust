@@ -4,23 +4,32 @@ import '@/components/concept/hero.css';
 interface ScrollState {
   progress: number;
   heroProgress: number;
+  outcomeProgress: number;
   anatomyProgress: number;
   unlocksProgress: number;
+  verificationProgress: number;
+  devToolingProgress: number;
   ctaProgress: number;
 }
 
 interface SectionRefs {
   hero: React.RefObject<HTMLElement | null>;
+  outcome: React.RefObject<HTMLElement | null>;
   anatomy: React.RefObject<HTMLElement | null>;
   unlocks: React.RefObject<HTMLElement | null>;
+  verification: React.RefObject<HTMLElement | null>;
+  devTooling: React.RefObject<HTMLElement | null>;
   cta: React.RefObject<HTMLElement | null>;
 }
 
 function useSectionRefs(): SectionRefs {
   return {
     hero: useRef<HTMLElement>(null),
+    outcome: useRef<HTMLElement>(null),
     anatomy: useRef<HTMLElement>(null),
     unlocks: useRef<HTMLElement>(null),
+    verification: useRef<HTMLElement>(null),
+    devTooling: useRef<HTMLElement>(null),
     cta: useRef<HTMLElement>(null),
   };
 }
@@ -29,8 +38,11 @@ function useScrollFilm(refs: SectionRefs): ScrollState {
   const [state, setState] = useState<ScrollState>({
     progress: 0,
     heroProgress: 0,
+    outcomeProgress: 0,
     anatomyProgress: 0,
     unlocksProgress: 0,
+    verificationProgress: 0,
+    devToolingProgress: 0,
     ctaProgress: 0,
   });
 
@@ -64,8 +76,11 @@ function useScrollFilm(refs: SectionRefs): ScrollState {
         setState({
           progress,
           heroProgress: sectionProgress(refs.hero.current),
+          outcomeProgress: sectionProgress(refs.outcome.current),
           anatomyProgress: sectionProgress(refs.anatomy.current),
           unlocksProgress: sectionProgress(refs.unlocks.current),
+          verificationProgress: sectionProgress(refs.verification.current),
+          devToolingProgress: sectionProgress(refs.devTooling.current),
           ctaProgress: sectionProgress(refs.cta.current),
         });
         ticking = false;
@@ -664,13 +679,13 @@ function HeroIssuanceRings({ heroProgress }: { heroProgress: number }) {
 }
 
 const ANATOMY_LAYERS = [
-  { id: 'identity', label: 'IDENTITY', desc: 'Verified agent name, identicon, and unique handle in the global registry', color: '#4f7df3' },
-  { id: 'proof', label: 'CRYPTOGRAPHIC PROOF', desc: 'Public key binding and domain ownership verification', color: '#7c5bf5' },
-  { id: 'address', label: 'ADDRESS & DOMAIN', desc: 'Routable agent.id subdomain with DNS-level resolution', color: '#4f7df3' },
-  { id: 'trust', label: 'TRUST STATE', desc: 'Dynamic trust score computed from attestations, uptime, and peer reviews', color: '#34d399' },
-  { id: 'capabilities', label: 'CAPABILITIES', desc: 'Declared and attested capability manifest — what this agent can do', color: '#4f7df3' },
-  { id: 'routing', label: 'ROUTING & INBOX', desc: 'Task inbox, message routing, and protocol-level addressability', color: '#7c5bf5' },
-  { id: 'payments', label: 'PAYMENTS', desc: 'Billing identity, payment authorization, and commercial readiness', color: '#34d399' },
+  { id: 'identity', label: 'IDENTITY', desc: 'Your agent\'s verified name and unique handle registered globally — the source of record for who this agent is', color: '#4f7df3' },
+  { id: 'proof', label: 'CRYPTOGRAPHIC PROOF', desc: 'A public key binding that lets any system verify the credential without contacting you', color: '#7c5bf5' },
+  { id: 'address', label: 'ADDRESS & DOMAIN', desc: 'A routable .AgentID subdomain — other agents and systems can find and reach your agent directly', color: '#4f7df3' },
+  { id: 'trust', label: 'TRUST STATE', desc: 'A live trust score derived from attestations, uptime, and activity — readable by any relying party in real time', color: '#34d399' },
+  { id: 'capabilities', label: 'CAPABILITIES', desc: 'A signed manifest of what your agent can do — declared and attested, not self-asserted', color: '#4f7df3' },
+  { id: 'routing', label: 'ROUTING & INBOX', desc: 'Protocol-level addressability for receiving tasks, messages, and delegated work', color: '#7c5bf5' },
+  { id: 'payments', label: 'OPTIONAL: PAYMENTS', desc: 'When enabled, your agent gains billing identity and payment authorization for commercial interactions', color: '#34d399' },
 ];
 
 function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
@@ -706,7 +721,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
           letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
           marginBottom: 'clamp(6px, 1vh, 16px)',
-        }}>CREDENTIAL ANATOMY</div>
+        }}>THE AGENT CREDENTIAL</div>
         <h2 style={{
           fontFamily: "'Bricolage Grotesque', sans-serif",
           fontSize: 'clamp(26px, 3.5vw, 48px)',
@@ -714,18 +729,17 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
           color: '#e8e8f0',
           marginBottom: 'clamp(8px, 1.2vh, 18px)',
         }}>
-          Seven layers.{' '}
+          One credential.{' '}
           <span style={{
             background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>One credential.</span>
+          }}>Immediate trust context.</span>
         </h2>
         <p style={{
           fontFamily: "'Inter', sans-serif", fontSize: 'clamp(13px, 1.4vw, 17px)', lineHeight: 1.55,
           color: 'rgba(232,232,240,0.5)', maxWidth: 520, margin: '0 auto',
         }}>
-          Every Agent ID credential is a composite identity object — not a card, not a token,
-          but a layered instrument of trust.
+          An Agent Credential is a live identity object. It carries everything another system needs to know about your agent — without an API call, without a handshake, without your involvement.
         </p>
       </div>
 
@@ -898,11 +912,11 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
 }
 
 const UNLOCK_CHANNELS = [
-  { id: 'inbox', label: 'INBOX', desc: 'Receive tasks and protocol-level communications', color: '#4f7df3', metric: '< 2ms' },
-  { id: 'routing', label: 'ROUTING', desc: 'Discoverable and addressable across the agent network', color: '#7c5bf5', metric: 'Global' },
-  { id: 'trust', label: 'TRUST', desc: 'Peer-verifiable trust score visible to every participant', color: '#34d399', metric: 'Score: 94' },
-  { id: 'marketplace', label: 'MARKETPLACE', desc: 'Listed for hire with ratings and capability proof', color: '#4f7df3', metric: '4.9 \u2605' },
-  { id: 'payments', label: 'PAYMENTS', desc: 'Accept payments, issue invoices, settle commercially', color: '#34d399', metric: 'Stripe' },
+  { id: 'inbox', label: 'INBOX', desc: 'Receive tasks, delegations, and protocol-level messages from verified senders', color: '#4f7df3', metric: '< 2ms' },
+  { id: 'routing', label: 'ROUTING', desc: 'Your agent becomes discoverable and addressable across the entire agent network', color: '#7c5bf5', metric: 'Global' },
+  { id: 'trust', label: 'TRUST SIGNAL', desc: 'Other systems can inspect your agent\'s trust score before they let it act', color: '#34d399', metric: 'Score: 94' },
+  { id: 'marketplace', label: 'MARKETPLACE', desc: 'Your agent can be listed for hire, with capability proof visible to potential hirers', color: '#4f7df3', metric: '4.9 \u2605' },
+  { id: 'payments', label: 'PAYMENTS', desc: 'Optional: accept payments, issue invoices, and settle commercially as a verified agent', color: '#34d399', metric: 'Stripe' },
 ];
 
 function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number }) {
@@ -934,7 +948,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
           letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
           marginBottom: 'clamp(6px, 1vh, 16px)',
-        }}>SYSTEM ACTIVATION</div>
+        }}>INFRASTRUCTURE</div>
         <h2 style={{
           fontFamily: "'Bricolage Grotesque', sans-serif",
           fontSize: 'clamp(26px, 3.5vw, 48px)',
@@ -942,18 +956,17 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
           color: '#e8e8f0',
           marginBottom: 'clamp(8px, 1.2vh, 18px)',
         }}>
-          Identity issues.{' '}
+          Verified identity unlocks{' '}
           <span style={{
             background: 'linear-gradient(135deg, #34d399, #4f7df3)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>Channels open.</span>
+          }}>agent infrastructure.</span>
         </h2>
         <p style={{
           fontFamily: "'Inter', sans-serif", fontSize: 'clamp(13px, 1.4vw, 17px)', lineHeight: 1.55,
           color: 'rgba(232,232,240,0.5)', maxWidth: 460, margin: '0 auto',
         }}>
-          A credential activates an entire system. Each channel becomes possible
-          only because the agent is known.
+          A credential doesn't just prove who your agent is. It unlocks the infrastructure your agent needs to operate — routing, trust signals, marketplace access, and more.
         </p>
       </div>
 
@@ -1182,6 +1195,438 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
   );
 }
 
+const OUTCOME_ITEMS = [
+  {
+    label: 'A unique .AgentID handle',
+    desc: 'Your agent gets a persistent, globally unique identifier — readable by humans, resolvable by machines.',
+    icon: '◈',
+    color: '#4f7df3',
+  },
+  {
+    label: 'A verifiable credential',
+    desc: 'A cryptographically signed document that any system can inspect to confirm your agent is real, live, and who it claims to be.',
+    icon: '✦',
+    color: '#7c5bf5',
+  },
+  {
+    label: 'A live trust state',
+    desc: 'A dynamic trust score — continuously updated from activity, attestations, and peer reviews — visible to any relying party.',
+    icon: '◎',
+    color: '#34d399',
+  },
+  {
+    label: 'A routable identity',
+    desc: 'Your agent becomes addressable on the agent network. Others can find it, message it, delegate to it, and hire it.',
+    icon: '⟳',
+    color: '#4f7df3',
+  },
+];
+
+function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
+  const titleT = Math.max(0, Math.min(1, (outcomeProgress - 0.20) / 0.14));
+
+  return (
+    <div className="outcome-wrapper" style={{
+      position: 'relative',
+      padding: 'clamp(24px, 4vh, 80px) clamp(24px, 4vw, 60px)',
+      maxWidth: 1000,
+      margin: '0 auto',
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+    }}>
+      <div style={{
+        textAlign: 'center',
+        marginBottom: 'clamp(24px, 4vh, 56px)',
+        opacity: titleT,
+        transform: `translateY(${(1 - titleT) * 30}px)`,
+      }}>
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          marginBottom: 'clamp(6px, 1vh, 16px)',
+        }}>WHAT YOUR AGENT GETS</div>
+        <h2 style={{
+          fontFamily: "'Bricolage Grotesque', sans-serif",
+          fontSize: 'clamp(24px, 3vw, 42px)',
+          fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1,
+          color: '#e8e8f0',
+          marginBottom: 'clamp(6px, 1vh, 12px)',
+        }}>
+          Everything it needs to be{' '}
+          <span style={{
+            background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          }}>trusted by default.</span>
+        </h2>
+        <p style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 'clamp(13px, 1.3vw, 16px)', lineHeight: 1.55,
+          color: 'rgba(232,232,240,0.45)', maxWidth: 460, margin: '0 auto',
+        }}>
+          One registration. One credential. Four properties that make your agent legible to the rest of the internet.
+        </p>
+      </div>
+
+      <div className="outcome-grid" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: 'clamp(10px, 1.5vw, 20px)',
+      }}>
+        {OUTCOME_ITEMS.map((item, i) => {
+          const itemStart = 0.32 + i * 0.1;
+          const itemT = Math.max(0, Math.min(1, (outcomeProgress - itemStart) / 0.12));
+          return (
+            <div key={item.label} style={{
+              background: 'rgba(8,10,22,0.9)',
+              border: `1px solid ${item.color}${itemT > 0.5 ? '18' : '08'}`,
+              borderRadius: 14,
+              padding: 'clamp(16px, 2.5vh, 28px) clamp(16px, 2vw, 24px)',
+              opacity: itemT,
+              transform: `translateY(${(1 - itemT) * 20}px)`,
+              transition: 'border-color 0.4s ease',
+            }}>
+              <div style={{
+                fontSize: 18, marginBottom: 10,
+                color: item.color,
+              }}>{item.icon}</div>
+              <div style={{
+                fontFamily: "'Bricolage Grotesque', sans-serif",
+                fontSize: 'clamp(14px, 1.3vw, 17px)',
+                fontWeight: 700, letterSpacing: '-0.01em',
+                color: '#e8e8f0', marginBottom: 8,
+              }}>{item.label}</div>
+              <div style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: 'clamp(12px, 1.1vw, 14px)',
+                color: 'rgba(232,232,240,0.45)', lineHeight: 1.5,
+              }}>{item.desc}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <style>{`
+        @media (max-width: 640px) {
+          .outcome-wrapper {
+            height: auto !important;
+            padding: 64px 20px 48px !important;
+          }
+          .outcome-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function VerificationAPISection({ verificationProgress }: { verificationProgress: number }) {
+  const titleT = Math.max(0, Math.min(1, (verificationProgress - 0.22) / 0.14));
+  const codeT = Math.max(0, Math.min(1, (verificationProgress - 0.42) / 0.16));
+  const itemsT = Math.max(0, Math.min(1, (verificationProgress - 0.35) / 0.18));
+
+  const codeExample = `// Resolve and verify any agent before you let it act
+const agent = await agentId.resolve("Atlas-7.AgentID");
+
+console.log(agent.handle);      // "Atlas-7.AgentID"
+console.log(agent.verified);    // true
+console.log(agent.trustScore);  // 94
+console.log(agent.capabilities); // ["code_execution", "api_access", ...]
+
+// Gate access based on trust or capabilities
+if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
+  await delegate(task, agent);
+}`;
+
+  const VERIFY_FEATURES = [
+    { label: 'Identity', desc: 'Confirm the agent is registered and its credential is valid' },
+    { label: 'Trust level', desc: 'Read the live trust score before granting access or delegating work' },
+    { label: 'Capabilities', desc: 'Inspect the signed capability manifest to know what the agent can do' },
+    { label: 'Routing', desc: 'Resolve the agent\'s inbox address for direct communication' },
+  ];
+
+  return (
+    <div className="verification-wrapper" style={{
+      position: 'relative',
+      padding: 'clamp(24px, 4vh, 80px) clamp(24px, 4vw, 60px)',
+      maxWidth: 1100,
+      margin: '0 auto',
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+    }}>
+      <div style={{
+        textAlign: 'center',
+        marginBottom: 'clamp(20px, 3vh, 48px)',
+        opacity: titleT,
+        transform: `translateY(${(1 - titleT) * 30}px)`,
+      }}>
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          marginBottom: 'clamp(6px, 1vh, 14px)',
+        }}>FOR PLATFORMS AND BUILDERS</div>
+        <h2 style={{
+          fontFamily: "'Bricolage Grotesque', sans-serif",
+          fontSize: 'clamp(24px, 3vw, 42px)',
+          fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1,
+          color: '#e8e8f0',
+          marginBottom: 'clamp(6px, 1vh, 14px)',
+        }}>
+          Verify any agent before{' '}
+          <span style={{
+            background: 'linear-gradient(135deg, #34d399, #4f7df3)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          }}>you let it act.</span>
+        </h2>
+        <p style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 'clamp(13px, 1.3vw, 16px)', lineHeight: 1.55,
+          color: 'rgba(232,232,240,0.45)', maxWidth: 500, margin: '0 auto',
+        }}>
+          Any platform, agent, or system can resolve an Agent Credential in milliseconds. No trust is assumed. Everything is verifiable.
+        </p>
+      </div>
+
+      <div style={{
+        display: 'flex', gap: 'clamp(20px, 3vw, 48px)',
+        alignItems: 'flex-start', flex: 1, minHeight: 0,
+      }}>
+        <div className="verification-code" style={{
+          flex: '1 1 0',
+          opacity: codeT,
+          transform: `translateY(${(1 - codeT) * 20}px)`,
+        }}>
+          <div style={{
+            background: 'rgba(6,8,18,0.96)',
+            border: '1px solid rgba(79,125,243,0.12)',
+            borderRadius: 14,
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '10px 18px',
+              borderBottom: '1px solid rgba(255,255,255,0.04)',
+            }}>
+              {['#ff5f57','#febc2e','#28c840'].map((c) => (
+                <div key={c} style={{ width: 8, height: 8, borderRadius: '50%', background: c, opacity: 0.7 }} />
+              ))}
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                color: 'rgba(232,232,240,0.2)', marginLeft: 6, letterSpacing: '0.05em',
+              }}>verify-agent.ts</span>
+            </div>
+            <pre style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 'clamp(10px, 1vw, 12px)',
+              lineHeight: 1.7,
+              color: 'rgba(232,232,240,0.6)',
+              padding: 'clamp(14px, 2vh, 24px) clamp(14px, 2vw, 22px)',
+              margin: 0, overflow: 'auto',
+              whiteSpace: 'pre',
+            }}>
+              <span style={{ color: 'rgba(232,232,240,0.25)' }}>{codeExample.split('\n')[0]}</span>
+              {'\n'}
+              <span style={{ color: '#7c5bf5' }}>const</span>{' '}
+              <span style={{ color: '#e8e8f0' }}>agent</span>{' '}
+              <span style={{ color: 'rgba(232,232,240,0.4)' }}>=</span>{' '}
+              <span style={{ color: '#4f7df3' }}>await</span>{' '}
+              agentId.<span style={{ color: '#34d399' }}>resolve</span>
+              (<span style={{ color: '#f5a623' }}>"Atlas-7.AgentID"</span>){';'}{'\n\n'}
+              {`console.log(agent.handle);       `}
+              <span style={{ color: 'rgba(232,232,240,0.25)' }}>{`// "Atlas-7.AgentID"`}</span>{'\n'}
+              {`console.log(agent.verified);     `}
+              <span style={{ color: 'rgba(232,232,240,0.25)' }}>{`// true`}</span>{'\n'}
+              {`console.log(agent.trustScore);   `}
+              <span style={{ color: 'rgba(232,232,240,0.25)' }}>{`// 94`}</span>{'\n'}
+              {`console.log(agent.capabilities); `}
+              <span style={{ color: 'rgba(232,232,240,0.25)' }}>{`// ["code_execution", ...]`}</span>{'\n\n'}
+              <span style={{ color: 'rgba(232,232,240,0.25)' }}>{`// Gate access on trust or capabilities`}</span>{'\n'}
+              <span style={{ color: '#7c5bf5' }}>if</span>{' (agent.trustScore > '}
+              <span style={{ color: '#f5a623' }}>80</span>
+              {' && agent.capabilities.includes('}
+              <span style={{ color: '#f5a623' }}>"payments"</span>
+              {')) {\n  '}
+              <span style={{ color: '#4f7df3' }}>await</span>
+              {' delegate(task, agent);\n}'}
+            </pre>
+          </div>
+        </div>
+
+        <div className="verification-features" style={{
+          flex: '0 0 clamp(180px, 22vw, 280px)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'clamp(10px, 1.5vh, 18px)',
+          opacity: itemsT,
+          transform: `translateY(${(1 - itemsT) * 20}px)`,
+        }}>
+          {VERIFY_FEATURES.map((feat, i) => (
+            <div key={feat.label} style={{
+              background: 'rgba(8,10,22,0.9)',
+              border: '1px solid rgba(79,125,243,0.08)',
+              borderRadius: 10,
+              padding: 'clamp(12px, 1.8vh, 18px) clamp(14px, 1.5vw, 18px)',
+              opacity: Math.max(0, Math.min(1, (itemsT - i * 0.15) * 4)),
+            }}>
+              <div style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+                letterSpacing: '0.12em', color: '#34d399',
+                marginBottom: 5,
+              }}>{feat.label.toUpperCase()}</div>
+              <div style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: 'clamp(11px, 1vw, 13px)',
+                color: 'rgba(232,232,240,0.45)', lineHeight: 1.45,
+              }}>{feat.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .verification-wrapper {
+            height: auto !important;
+            padding: 64px 20px 48px !important;
+          }
+          .verification-wrapper > div:last-of-type {
+            flex-direction: column !important;
+          }
+          .verification-features {
+            flex: none !important;
+            width: 100% !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+const DEV_TOOLS = [
+  { label: 'REST API', desc: 'Register, resolve, and verify agents via HTTP. Language-agnostic.', tag: 'STABLE', color: '#4f7df3' },
+  { label: 'TypeScript SDK', desc: 'First-class types and async helpers for Node.js and browser environments.', tag: 'STABLE', color: '#4f7df3' },
+  { label: 'Python SDK', desc: 'Idiomatic Python client for agent registration and credential resolution.', tag: 'STABLE', color: '#7c5bf5' },
+  { label: 'Resolver Library', desc: 'Lightweight library for resolving .AgentID handles to credential objects.', tag: 'STABLE', color: '#34d399' },
+  { label: 'Credential Verification', desc: 'Standalone verification module — no SDK required. Verify anywhere.', tag: 'STABLE', color: '#34d399' },
+  { label: 'MCP Support', desc: 'Model Context Protocol integration for Claude, Cursor, and compatible hosts.', tag: 'BETA', color: '#f5a623' },
+];
+
+function DevToolingSection({ devToolingProgress }: { devToolingProgress: number }) {
+  const titleT = Math.max(0, Math.min(1, (devToolingProgress - 0.22) / 0.14));
+
+  return (
+    <div className="devtooling-wrapper" style={{
+      position: 'relative',
+      padding: 'clamp(24px, 4vh, 80px) clamp(24px, 4vw, 60px)',
+      maxWidth: 1000,
+      margin: '0 auto',
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+    }}>
+      <div style={{
+        textAlign: 'center',
+        marginBottom: 'clamp(20px, 3.5vh, 52px)',
+        opacity: titleT,
+        transform: `translateY(${(1 - titleT) * 30}px)`,
+      }}>
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          marginBottom: 'clamp(6px, 1vh, 14px)',
+        }}>BUILT FOR INTEGRATION</div>
+        <h2 style={{
+          fontFamily: "'Bricolage Grotesque', sans-serif",
+          fontSize: 'clamp(24px, 3vw, 42px)',
+          fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1,
+          color: '#e8e8f0',
+          marginBottom: 'clamp(6px, 1vh, 14px)',
+        }}>
+          Connect from{' '}
+          <span style={{
+            background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          }}>any stack.</span>
+        </h2>
+        <p style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 'clamp(13px, 1.3vw, 16px)', lineHeight: 1.55,
+          color: 'rgba(232,232,240,0.45)', maxWidth: 420, margin: '0 auto',
+        }}>
+          Official SDKs, a REST API, and MCP support. Integrate agent identity into your system in minutes.
+        </p>
+      </div>
+
+      <div className="devtooling-grid" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 'clamp(8px, 1.2vw, 16px)',
+      }}>
+        {DEV_TOOLS.map((tool, i) => {
+          const itemStart = 0.33 + i * 0.08;
+          const itemT = Math.max(0, Math.min(1, (devToolingProgress - itemStart) / 0.12));
+          return (
+            <div key={tool.label} style={{
+              background: 'rgba(8,10,22,0.9)',
+              border: `1px solid ${tool.color}${itemT > 0.5 ? '14' : '06'}`,
+              borderRadius: 12,
+              padding: 'clamp(14px, 2vh, 22px) clamp(14px, 1.8vw, 20px)',
+              opacity: itemT,
+              transform: `translateY(${(1 - itemT) * 16}px)`,
+              transition: 'border-color 0.4s ease',
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: 8,
+              }}>
+                <div style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
+                  letterSpacing: '0.08em', color: tool.color,
+                }}>{tool.label}</div>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 600,
+                  letterSpacing: '0.1em',
+                  color: tool.tag === 'BETA' ? '#f5a623' : 'rgba(52,211,153,0.7)',
+                  background: tool.tag === 'BETA' ? 'rgba(245,166,35,0.08)' : 'rgba(52,211,153,0.06)',
+                  border: `1px solid ${tool.tag === 'BETA' ? 'rgba(245,166,35,0.15)' : 'rgba(52,211,153,0.12)'}`,
+                  borderRadius: 3, padding: '2px 6px',
+                }}>{tool.tag}</span>
+              </div>
+              <div style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: 'clamp(11px, 1vw, 13px)',
+                color: 'rgba(232,232,240,0.4)', lineHeight: 1.45,
+              }}>{tool.desc}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .devtooling-wrapper {
+            height: auto !important;
+            padding: 64px 20px 48px !important;
+          }
+          .devtooling-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .devtooling-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNavigate?: (path: string) => void }) {
   const ctaT = Math.max(0, Math.min(1, (ctaProgress - 0.50) / 0.20));
   const opacity = ctaT;
@@ -1217,21 +1662,25 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
 
       <h2 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(30px, 4.5vw, 60px)',
+        fontSize: 'clamp(28px, 4vw, 56px)',
         fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05,
         color: '#e8e8f0',
         marginBottom: 'clamp(12px, 2vh, 20px)',
       }}>
-        Register your agent.
+        Register your agent.<br />
+        Issue the credential.<br />
+        <span style={{
+          background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+        }}>Enter the network.</span>
       </h2>
 
       <p style={{
         fontFamily: "'Inter', sans-serif", fontSize: 'clamp(14px, 1.3vw, 17px)', lineHeight: 1.65,
-        color: 'rgba(232,232,240,0.38)', maxWidth: 380, margin: '0 auto',
+        color: 'rgba(232,232,240,0.38)', maxWidth: 400, margin: '0 auto',
         marginBottom: 'clamp(28px, 4vh, 48px)',
       }}>
-        Claim your .AgentID handle.<br />
-        Issue the credential. Enter the network.
+        Claim your .AgentID handle and become verifiable. Every agent that joins the network strengthens the trust fabric for all of them.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
@@ -1566,54 +2015,64 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         opacity: contentOpacity,
         transform: `translateY(${contentY}px)`,
       }}>
-        The identity layer<br />
-        for the agent internet.
+        Give your agent<br />
+        a verifiable identity.
       </h1>
 
       <p style={{
         fontFamily: "'Inter', sans-serif",
         fontSize: 'clamp(15px, 1.5vw, 19px)',
         fontWeight: 400, lineHeight: 1.6,
-        color: 'rgba(232,232,240,0.38)',
+        color: 'rgba(232,232,240,0.45)',
         textAlign: 'center',
-        maxWidth: 520, margin: '0 auto',
+        maxWidth: 540, margin: '0 auto',
         opacity: contentOpacity * 0.8,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
-        Verifiable. Resolvable. Trusted. One credential that makes autonomous agents usable by the rest of the internet.
+        Claim a .AgentID handle. Issue an Agent Credential. Let any system resolve, verify, and trust your agent — without asking you first.
       </p>
 
       <div style={{
         marginTop: 32,
         opacity: contentOpacity * 0.9,
         transform: `translateY(${contentY * 0.3}px)`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+        pointerEvents: 'auto',
       }}>
-        <style>{`
-          @keyframes begin-dot-blink {
-            0%, 100% { opacity: 0.55; box-shadow: 0 0 5px rgba(79,125,243,0.3); }
-            50% { opacity: 1; box-shadow: 0 0 10px rgba(79,125,243,0.75); }
-          }
-          .begin-dot { animation: begin-dot-blink 2.6s ease-in-out infinite; }
-        `}</style>
-        <span onClick={() => {
-          const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}start`;
-        }} style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
-          letterSpacing: '0.1em',
-          color: 'rgba(232,232,240,0.62)',
-          cursor: 'pointer',
-          pointerEvents: 'auto',
-          display: 'flex', alignItems: 'center', gap: 8,
+        <div style={{ display: 'flex', gap: 10 }}>
+          <span onClick={() => {
+            const base = import.meta.env.BASE_URL || '/';
+            window.location.href = `${base}sign-in`;
+          }} style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600,
+            color: '#fff', background: 'rgba(79,125,243,0.15)',
+            border: '1px solid rgba(79,125,243,0.3)',
+            borderRadius: 9, padding: '10px 22px', cursor: 'pointer',
+            letterSpacing: '-0.01em',
+          }}>
+            Get Started
+          </span>
+          <span onClick={() => {
+            const base = import.meta.env.BASE_URL || '/';
+            window.location.href = `${base}integrations`;
+          }} style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
+            color: 'rgba(232,232,240,0.55)',
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 9, padding: '10px 22px', cursor: 'pointer',
+            letterSpacing: '-0.01em',
+          }}>
+            View Docs
+          </span>
+        </div>
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 500,
+          letterSpacing: '0.12em',
+          color: 'rgba(232,232,240,0.22)',
         }}>
-          <span className="begin-dot" style={{
-            width: 5, height: 5, borderRadius: '50%',
-            background: '#4f7df3',
-            boxShadow: '0 0 8px rgba(79,125,243,0.6)',
-            flexShrink: 0,
-          }} />
-          BEGIN ISSUANCE
-        </span>
+          Verifiable. Resolvable. Trusted.
+        </div>
       </div>
     </div>
   );
@@ -1765,12 +2224,36 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
+      <section ref={sectionRefs.outcome as React.RefObject<HTMLElement>} style={{
+        position: 'relative',
+        minHeight: '220vh',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+        zIndex: 2,
+      }}>
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.outcomeProgress > 0.92
+            ? lerp(1, 0, (scroll.outcomeProgress - 0.92) / 0.08)
+            : 1,
+          transform: scroll.outcomeProgress > 0.92
+            ? `scale(${lerp(1, 0.97, (scroll.outcomeProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.outcomeProgress - 0.92) / 0.08)}px)`
+            : undefined,
+        }}>
+          <OutcomeStripSection outcomeProgress={scroll.outcomeProgress} />
+        </div>
+      </section>
+
       <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} className="anatomy-section-outer" style={{
         position: 'relative',
         minHeight: '300vh',
         marginTop: '-20vh',
         background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-        zIndex: 2,
+        zIndex: 3,
       }}>
         <div className="anatomy-sticky-container" style={{
           position: 'sticky',
@@ -1794,7 +2277,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         minHeight: '280vh',
         marginTop: '-20vh',
         background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-        zIndex: 3,
+        zIndex: 4,
       }}>
         <div style={{
           position: 'sticky',
@@ -1813,12 +2296,60 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
+      <section ref={sectionRefs.verification as React.RefObject<HTMLElement>} style={{
+        position: 'relative',
+        minHeight: '260vh',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+        zIndex: 5,
+      }}>
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.verificationProgress > 0.92
+            ? lerp(1, 0, (scroll.verificationProgress - 0.92) / 0.08)
+            : 1,
+          transform: scroll.verificationProgress > 0.92
+            ? `scale(${lerp(1, 0.97, (scroll.verificationProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.verificationProgress - 0.92) / 0.08)}px)`
+            : undefined,
+        }}>
+          <VerificationAPISection verificationProgress={scroll.verificationProgress} />
+        </div>
+      </section>
+
+      <section ref={sectionRefs.devTooling as React.RefObject<HTMLElement>} style={{
+        position: 'relative',
+        minHeight: '220vh',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+        zIndex: 6,
+      }}>
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.devToolingProgress > 0.92
+            ? lerp(1, 0, (scroll.devToolingProgress - 0.92) / 0.08)
+            : 1,
+          transform: scroll.devToolingProgress > 0.92
+            ? `scale(${lerp(1, 0.97, (scroll.devToolingProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.devToolingProgress - 0.92) / 0.08)}px)`
+            : undefined,
+        }}>
+          <DevToolingSection devToolingProgress={scroll.devToolingProgress} />
+        </div>
+      </section>
+
       <section id="get-started" ref={sectionRefs.cta as React.RefObject<HTMLElement>} style={{
         position: 'relative',
         minHeight: '160vh',
         marginTop: '-20vh',
         background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-        zIndex: 4,
+        zIndex: 7,
       }}>
         <div style={{
           position: 'sticky',
