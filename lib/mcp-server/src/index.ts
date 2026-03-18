@@ -217,7 +217,7 @@ export function createServer(): McpServer {
 
       const bootstrap = (await apiRequest(
         "GET",
-        `/api/v1/agents/${agentId}/runtime/bootstrap`,
+        `/api/v1/agents/${agentId}/bootstrap`,
         base,
         serverApiKey,
       )) as Record<string, unknown>;
