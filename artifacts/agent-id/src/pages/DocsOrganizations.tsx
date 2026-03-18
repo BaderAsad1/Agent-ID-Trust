@@ -389,7 +389,7 @@ export function DocsOrganizations() {
                 { type: 'Individual agent', handle: 'research-bot.agentid', note: 'No org — standalone identity' },
                 { type: 'Org root', handle: 'acmecorp.agentid', note: 'The org entity itself' },
                 { type: 'Org member', handle: 'cto@acmecorp.agentid', note: 'Agent inside org' },
-                { type: 'Canonical DID', handle: 'did:agentid:org:acmecorp:cto', note: 'Underlying DID format' },
+                { type: 'Canonical DID', handle: 'did:agentid:org:acmecorp:cto', note: 'Off-chain DID format (on-chain anchoring coming soon)' },
               ].map((row, i) => (
                 <div key={row.handle} style={{ display: 'grid', gridTemplateColumns: '160px 260px 1fr', padding: '9px 14px', background: i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', gap: 12 }}>
                   <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.38)' }}>{row.type}</span>
@@ -456,7 +456,7 @@ export function DocsOrganizations() {
           <section id="delegation" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Credential delegation</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
-              Authority flows through signed Verifiable Credentials. The CEO issues a VC to the CTO; the CTO can re-delegate a subset to the engineering lead; the lead can further delegate. At every step, the chain is cryptographically verifiable and the scope can only narrow, never expand.
+              Authority flows through signed Verifiable Credentials. The CEO issues a VC to the CTO; the CTO can re-delegate a subset to the engineering lead; the lead can further delegate. At every step, the chain is cryptographically verifiable and the scope can only narrow, never expand. Credential issuance and verification are currently off-chain. On-chain anchoring via ERC-8004 is on the roadmap.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
               {[

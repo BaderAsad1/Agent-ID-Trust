@@ -73,6 +73,10 @@ const envSchema = z.object({
   PLATFORM_TREASURY_ADDRESS: z.string().optional(),
   CDP_WALLET_SECRET: z.string().optional(),
   CDP_NETWORK_ID: z.string().default("base-mainnet"),
+
+  ADMIN_ALLOWED_IPS: z.string().optional(),
+
+  X402_ENABLED: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

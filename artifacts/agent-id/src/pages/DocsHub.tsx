@@ -54,7 +54,7 @@ const CARDS: DocCard[] = [
   {
     icon: CreditCard,
     title: 'Machine Payments',
-    description: 'Stripe MPP fiat payments and x402 USDC. Trust tier discounts up to 50%.',
+    description: 'Stripe MPP fiat payments (active) and x402 USDC (coming soon). Trust tier discounts up to 50%.',
     href: '/docs/payments',
     accent: '#34D399',
   },

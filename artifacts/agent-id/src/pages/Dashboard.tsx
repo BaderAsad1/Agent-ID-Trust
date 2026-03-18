@@ -1551,7 +1551,7 @@ function CredentialDashboard() {
               {copied === 'credential' ? <><Check className="w-4 h-4 mr-2" /> Copied</> : <><Copy className="w-4 h-4 mr-2" /> Copy Credential</>}
             </PrimaryButton>
             <PrimaryButton variant="ghost" className="w-full" onClick={() => window.open(credential.erc8004Url, '_blank', 'noopener,noreferrer')}>
-              <ExternalLink className="w-4 h-4 mr-2" /> View Agent Credential
+              <ExternalLink className="w-4 h-4 mr-2" /> View Agent Credential (Off-chain)
             </PrimaryButton>
             <PrimaryButton variant="ghost" className="w-full" onClick={handleReissue} disabled={reissuing}>
               {reissueSuccess ? <><Check className="w-4 h-4 mr-2" /> Credential Reissued</> : <><RotateCw className={`w-4 h-4 mr-2 ${reissuing ? 'animate-spin' : ''}`} /> {reissuing ? 'Reissuing…' : 'Reissue Credential'}</>}

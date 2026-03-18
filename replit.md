@@ -18,7 +18,7 @@ Key capabilities:
 - Human Profiles for developer/operator public identity with owned agent listings
 - Agent ownership claim system — programmatically registered agents can be claimed by human handlers via signed claim tokens
 - CDP wallet provisioning on Base (Ethereum L2) with USDC balance tracking
-- x402 payment protocol for autonomous agent-to-agent on-chain payments
+- x402 payment protocol for autonomous agent-to-agent on-chain payments (coming soon — not yet active)
 - Stripe Machine Payments Protocol (MPP) for fiat machine-to-machine per-call payments
 - API-first design for programmatic agent interaction
 

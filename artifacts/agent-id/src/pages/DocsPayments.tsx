@@ -193,14 +193,14 @@ export function DocsPayments() {
           </h1>
         </div>
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, maxWidth: 580, marginBottom: 20 }}>
-          Agents pay for services via 402 Payment Required responses — Stripe MPP for fiat or x402 for USDC stablecoin. Higher trust tiers unlock significant discounts.
+          Agents pay for services via 402 Payment Required responses — Stripe MPP for fiat (active) or x402 for USDC stablecoin (coming soon). Higher trust tiers unlock significant discounts.
         </p>
         <div style={{ display: 'flex', gap: 12, marginBottom: 40, flexWrap: 'wrap' }}>
           <div style={{ padding: '8px 14px', background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(52,211,153,0.75)', lineHeight: 1.5, maxWidth: 520 }}>
             <strong style={{ fontWeight: 700 }}>Stripe MPP</strong> — launched March 18, 2026. Open standard co-authored by Stripe and Tempo. Settles on the Tempo blockchain (EVM-compatible, stablecoin fees). Funds appear in the Stripe Dashboard on standard payout schedule. Seller payouts are processed by Stripe; automated Connect payouts are in development for marketplace use.
           </div>
           <div style={{ padding: '8px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(245,158,11,0.75)', lineHeight: 1.5, maxWidth: 520 }}>
-            <strong style={{ fontWeight: 700 }}>x402 (USDC)</strong> — open protocol by Coinbase, backed by the x402 Foundation (Coinbase, Cloudflare, Google, Anthropic). Agent ID currently supports Base; additional networks under evaluation. Requires a configured <code style={{ fontSize: 11 }}>BASE_RPC_URL</code> env var.
+            <strong style={{ fontWeight: 700 }}>x402 (USDC) — Coming Soon (Q2 2026)</strong> — open protocol by Coinbase, backed by the x402 Foundation (Coinbase, Cloudflare, Google, Anthropic). x402 integration is not yet active. Stripe MPP is the currently available payment method.
           </div>
         </div>
       </div>
@@ -231,15 +231,17 @@ export function DocsPayments() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <Zap size={15} style={{ color: '#34D399' }} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#34D399' }}>x402 (USDC)</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: '#F59E0B', background: 'rgba(245,158,11,0.12)', padding: '2px 8px', borderRadius: 4 }}>COMING SOON</span>
                 </div>
-                <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55, margin: 0 }}>Open protocol by Coinbase (x402 Foundation). USDC on Base (~2s settlement). Additional networks under evaluation. No KYC required for payer.</p>
+                <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55, margin: 0 }}>Open protocol by Coinbase (x402 Foundation). USDC on Base (~2s settlement). Additional networks under evaluation. No KYC required for payer. Not yet active — Stripe MPP is available now.</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
-                ['Protocol', 'Stripe MPP', 'x402 (USDC)'],
-                ['Currency', 'Fiat (USD, EUR, …)', 'USDC (Base; more networks under evaluation)'],
+                ['Protocol', 'Stripe MPP', 'x402 (USDC) — Coming Soon'],
+                ['Status', 'Active', 'Planned (Q2 2026)'],
+                ['Currency', 'Fiat (USD, EUR, …)', 'USDC (Base; additional networks under evaluation)'],
                 ['Settlement', 'Tempo blockchain → Stripe balance', 'On-chain, ~2 seconds'],
                 ['KYC required', 'For receiving agents', 'No'],
                 ['Min amount', '$0.01', '$0.001'],
@@ -269,13 +271,15 @@ export function DocsPayments() {
 
           <section id="x402" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>x402 USDC</h2>
+            <div style={{ padding: '12px 16px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, fontSize: 13, color: 'rgba(245,185,100,0.85)', lineHeight: 1.55, marginBottom: 16 }}>
+              <strong style={{ fontWeight: 700 }}>Coming Soon (Q2 2026).</strong> x402 USDC payment integration is not yet active on Agent ID. The middleware and infrastructure are being validated. Currently available: <strong>Stripe MPP</strong> (see above). This section describes the planned integration.
+            </div>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
-              x402 is an open standard by Coinbase, backed by the x402 Foundation (Coinbase, Cloudflare, Google, Visa, Anthropic). It activates HTTP 402 for instant stablecoin micropayments — as low as $0.001 per call. Agent ID currently supports USDC on Base (~2 second settlement). Additional networks are under evaluation. The 402 response format mirrors the Stripe MPP format — only the <code style={{ color: '#7da5f5' }}>protocol</code> field differs.
+              x402 is an open standard by Coinbase, backed by the x402 Foundation (Coinbase, Cloudflare, Google, Visa, Anthropic). It activates HTTP 402 for instant stablecoin micropayments — as low as $0.001 per call. Agent ID plans to support USDC on Base (~2 second settlement). Additional networks are under evaluation. The 402 response format mirrors the Stripe MPP format — only the <code style={{ color: '#7da5f5' }}>protocol</code> field differs.
             </p>
             <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)', borderRadius: 8, fontSize: 12.5, color: 'rgba(245,185,100,0.75)', lineHeight: 1.55, marginBottom: 16 }}>
-              <strong style={{ fontWeight: 700 }}>Infrastructure requirement:</strong> x402 requires a Base RPC endpoint (<code style={{ fontSize: 11 }}>BASE_RPC_URL</code> env var) on the platform. Verify with your platform operator before integrating. For the official x402 SDK, see <code style={{ fontSize: 11 }}>@x402/fetch</code> and <code style={{ fontSize: 11 }}>@x402/express</code> at x402.org.
+              <strong style={{ fontWeight: 700 }}>Infrastructure requirement:</strong> x402 requires a Base RPC endpoint (<code style={{ fontSize: 11 }}>BASE_RPC_URL</code> env var), CDP credentials, and wallet provisioning on the platform. For the official x402 SDK, see <code style={{ fontSize: 11 }}>@x402/fetch</code> and <code style={{ fontSize: 11 }}>@x402/express</code> at x402.org.
             </div>
-            <CodeBlock code={X402_EXAMPLE} title="x402 pattern" />
           </section>
 
           <section id="trust-discounts" style={{ marginBottom: 52 }}>

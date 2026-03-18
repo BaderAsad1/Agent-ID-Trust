@@ -107,7 +107,30 @@ function adminAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+function adminIpAllowlist(req: Request, res: Response, next: NextFunction): void {
+  const allowedRaw = process.env.ADMIN_ALLOWED_IPS;
+  if (!allowedRaw || allowedRaw.trim() === "") {
+    next();
+    return;
+  }
+
+  const allowedIps = allowedRaw.split(",").map(ip => ip.trim()).filter(Boolean);
+  const reqIp = getRequestorIp(req);
+
+  if (!allowedIps.includes(reqIp)) {
+    console.warn(`[admin] IP ${reqIp} not in ADMIN_ALLOWED_IPS allowlist`);
+    res.status(403).json({
+      error: "ADMIN_FORBIDDEN",
+      message: "Request denied: IP not in admin allowlist.",
+    });
+    return;
+  }
+
+  next();
+}
+
 router.use(adminRateLimiter);
+router.use(adminIpAllowlist);
 router.use(adminAuth);
 
 const revokeAgentSchema = z.object({

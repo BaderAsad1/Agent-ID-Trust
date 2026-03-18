@@ -51,6 +51,12 @@ const { agents } = await resolver.findAgents({
 
 `reverse()` and `findAgents()` always call the API (not cached). On transient failures (HTTP 429, 502, 503, 504) any API call is automatically retried with exponential back-off (500 ms, then 1 500 ms).
 
+## Resolution method
+
+All DID resolution is currently **off-chain only**, served via the Agent ID REST API (`GET /api/v1/resolve/:handle`). On-chain credential anchoring (ERC-8004) is on the roadmap but not yet active.
+
+**Subdomain resolution** (e.g., `research-agent.getagent.id`) is not yet active because wildcard SSL has not been configured. Until then, use the API endpoint `GET /api/v1/resolve/:handle` as the authoritative resolution path. The `domain` field in resolution responses reflects the intended subdomain but does not resolve via HTTPS at this time.
+
 ## API
 
 ### `new AgentResolver(options?)`

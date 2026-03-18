@@ -110,6 +110,7 @@ function toResolvedAgent(
       resolverUrl: formatResolverUrl(handle),
       profileUrl: formatProfileUrl(handle),
       erc8004Uri: `${APP_URL}/api/v1/p/${handle}/erc8004`,
+      erc8004Status: "off-chain",
       expiresAt: agent.handleExpiresAt ?? null,
     } : null,
     handle: agent.handle ?? null,
@@ -142,10 +143,13 @@ function toResolvedAgent(
     updatedAt: agent.updatedAt,
     profileUrl: handle ? formatProfileUrl(handle) : `${APP_URL}/id/${agent.id}`,
     erc8004Uri: handle ? `${APP_URL}/api/v1/p/${handle}/erc8004` : null,
+    onchainAnchor: null,
+    onchainStatus: "pending",
     credential: {
       namespace: ".agentid",
       did: handle ? formatDID(handle) : `did:agentid:${agent.id}`,
       domain: handle ? formatDomain(handle) : null,
+      anchoringMethod: "off-chain",
     },
   };
 }

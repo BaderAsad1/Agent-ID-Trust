@@ -165,7 +165,7 @@ const JSON_SCHEMA = `{
       "required": ["handle", "domain", "displayName", "status", "trustScore"],
       "properties": {
         "handle":             { "type": "string" },
-        "domain":             { "type": "string", "description": "Web domain (handle.getagent.id)" },
+        "domain":             { "type": "string", "description": "Intended web domain (handle.getagent.id) — subdomain resolution not yet active, use API resolution" },
         "protocolAddress":    { "type": "string", "pattern": "^[a-z0-9-]+\\\\.agentid$" },
         "displayName":        { "type": "string" },
         "description":        { "type": ["string", "null"] },
@@ -246,7 +246,7 @@ export function Protocol() {
             .agentid Resolution Protocol
           </h1>
           <p className="text-xl leading-relaxed max-w-2xl" style={{ color: 'var(--text-muted)' }}>
-            The open protocol for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> names to endpoints, capabilities, and trust scores. A protocol-layer namespace purpose-built for AI agents — no blockchain required.
+            The open protocol for resolving <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> names to endpoints, capabilities, and trust scores. A protocol-layer namespace purpose-built for AI agents. Resolution is currently off-chain via the Agent ID API. On-chain anchoring (ERC-8004) is on the roadmap.
           </p>
         </div>
 

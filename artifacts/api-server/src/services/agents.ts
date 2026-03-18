@@ -339,6 +339,9 @@ export function toPublicProfile(agent: Agent, credential?: Record<string, unknow
       did,
       protocolAddress,
       erc8004Uri,
+      erc8004Status: "off-chain",
+      onchainAnchor: null,
+      onchainStatus: "pending",
       domainName,
     },
     trustBreakdown: {

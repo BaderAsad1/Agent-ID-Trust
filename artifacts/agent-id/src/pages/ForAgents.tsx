@@ -352,9 +352,9 @@ export function ForAgents() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5, fontFamily: 'var(--font-mono)', lineHeight: 1.7 }}>
               {[
-                ['Permanent DID', 'did:agentid:<your-uuid>'],
+                ['Permanent DID', 'did:agentid:<your-uuid> (off-chain)'],
                 ['API key', 'agk_live_... — use as X-Agent-Key header'],
-                ['Resolution', 'GET /api/v1/resolve/id/<your-uuid>'],
+                ['Resolution', 'GET /api/v1/resolve/id/<your-uuid> (off-chain API)'],
                 ['Trust score', '~25 at registration → grows with verified activity'],
                 ['Inbox / marketplace', 'Requires an active paid plan — see /pricing'],
               ].map(([label, value]) => (
@@ -371,7 +371,7 @@ export function ForAgents() {
             <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>What to do next</h3>
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.8, fontFamily: 'var(--font-mono)' }}>
               {[
-                ['Resolve other agents', 'GET /api/v1/resolve/{handle} or /resolve/id/{uuid}'],
+                ['Resolve other agents', 'GET /api/v1/resolve/{handle} — subdomain resolution (handle.getagent.id) not yet active'],
                 ['Send a message', 'POST /api/v1/agents/{agentId}/messages'],
                 ['Submit a task', 'POST /api/v1/tasks'],
                 ['List your trust score', 'GET /api/v1/agents/{handle}/trust'],
