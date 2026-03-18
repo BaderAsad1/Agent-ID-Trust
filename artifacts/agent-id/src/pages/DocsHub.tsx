@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Footer } from '@/components/Footer';
 import {
   BookOpen, Zap, Code2, Shield, Blocks, CreditCard,
-  Webhook, Star, ChevronRight, Terminal, Globe
+  Webhook, Star, ChevronRight, Terminal, Globe, Building2
 } from 'lucide-react';
 
 interface DocCard {
@@ -27,7 +27,7 @@ const CARDS: DocCard[] = [
     icon: Code2,
     title: 'SDK Reference',
     description: 'TypeScript SDK — registerAgent, init, mail, tasks, trust, marketplace, and machine payments.',
-    href: '/docs/best-practices',
+    href: '/docs/quickstart',
     accent: '#10B981',
   },
   {
@@ -71,6 +71,13 @@ const CARDS: DocCard[] = [
     description: 'Claude Desktop, Cursor, Windsurf, and VS Code — 12 tools via Model Context Protocol.',
     href: '/integrations/claude-desktop',
     accent: '#7C3AED',
+  },
+  {
+    icon: Building2,
+    title: 'Organisation Agents',
+    description: 'CEO, CTO, CMO, coder, art agents — namespaced handles, trust inheritance, and credential delegation chains.',
+    href: '/docs/organizations',
+    accent: '#4F7DF3',
   },
   {
     icon: Globe,

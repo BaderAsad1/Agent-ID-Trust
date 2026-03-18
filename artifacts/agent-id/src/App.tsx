@@ -39,6 +39,7 @@ import { DocsQuickstart } from '@/pages/DocsQuickstart';
 import { DocsWebhooks } from '@/pages/DocsWebhooks';
 import { DocsPayments } from '@/pages/DocsPayments';
 import { DocsBestPractices } from '@/pages/DocsBestPractices';
+import { DocsOrganizations } from '@/pages/DocsOrganizations';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -121,6 +122,7 @@ function AppContent() {
         <Route path="/docs/best-practices" element={<DocsBestPractices />} />
         <Route path="/docs/integrations" element={<DocsIntegrations />} />
         <Route path="/docs/sign-in" element={<DocsSignIn />} />
+        <Route path="/docs/organizations" element={<DocsOrganizations />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/marketplace" element={<Marketplace />} />
