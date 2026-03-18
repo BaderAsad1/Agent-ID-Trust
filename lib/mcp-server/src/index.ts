@@ -93,6 +93,16 @@ async function apiRequest(
 }
 
 export function createServer(): McpServer {
+  const serverApiKey = process.env.AGENTID_API_KEY;
+  const serverBaseUrl = process.env.API_BASE_URL || DEFAULT_BASE_URL;
+
+  if (!serverApiKey) {
+    throw new Error(
+      "AGENTID_API_KEY environment variable is required. " +
+        "Set it to your agent API key (agk_...) before starting the MCP server.",
+    );
+  }
+
   const server = new McpServer({
     name: "agentid",
     version: "1.0.0",
@@ -100,17 +110,16 @@ export function createServer(): McpServer {
 
   server.tool(
     "agentid_register",
-    "Register a new AI agent on Agent ID. Returns agent_id, handle, and API key. The agent is automatically verified via cryptographic key-signing.",
+    "Register a new AI agent on Agent ID. Returns agent_id, handle, and API key. The agent is automatically verified via cryptographic key-signing. Note: stores the new agent's API key in the response — save it immediately.",
     {
       handle: z.string().describe("Globally unique handle for the agent (e.g. 'research-agent')"),
       displayName: z.string().describe("Human-readable display name"),
       description: z.string().optional().describe("Short description of what the agent does"),
       capabilities: z.array(z.string()).optional().describe("List of capabilities (e.g. ['research', 'summarization'])"),
       endpointUrl: z.string().optional().describe("URL where the agent receives tasks"),
-      baseUrl: z.string().optional().describe("Agent ID API base URL (default: https://getagent.id)"),
     },
     async (params) => {
-      const base = params.baseUrl || DEFAULT_BASE_URL;
+      const base = serverBaseUrl;
 
       const keyPair = await generateKeyPair();
 
@@ -175,7 +184,7 @@ export function createServer(): McpServer {
                 trustTier: verifyResult.trustTier,
                 verified: verifyResult.verified,
                 message:
-                  "Agent registered and verified successfully. Save the API key — use it with agentid_init to authenticate.",
+                  "Agent registered and verified successfully. Save the API key immediately — it cannot be retrieved again.",
               },
               null,
               2,
@@ -187,15 +196,13 @@ export function createServer(): McpServer {
   );
 
   server.tool(
-    "agentid_init",
-    "Initialize and authenticate with an existing Agent ID agent. Returns the agent's bootstrap bundle including handle, DID, trust score, capabilities, and inbox info.",
+    "agentid_whoami",
+    "Get the identity and bootstrap bundle of the authenticated agent (configured via AGENTID_API_KEY). Returns handle, DID, trust score, capabilities, and inbox info.",
     {
-      apiKey: z.string().describe("Agent API key (from registration or dashboard)"),
-      agentId: z.string().optional().describe("Specific agent ID to initialize (optional — auto-detected from API key)"),
-      baseUrl: z.string().optional().describe("Agent ID API base URL (default: https://getagent.id)"),
+      agentId: z.string().optional().describe("Specific agent ID (optional — auto-detected from the configured API key)"),
     },
     async (params) => {
-      const base = params.baseUrl || DEFAULT_BASE_URL;
+      const base = serverBaseUrl;
 
       let agentId = params.agentId;
       if (!agentId) {
@@ -203,16 +210,16 @@ export function createServer(): McpServer {
           "GET",
           "/api/v1/agents/whoami",
           base,
-          params.apiKey,
-        )) as { agent_id: string };
-        agentId = whoami.agent_id;
+          serverApiKey,
+        )) as { id?: string; agent_id?: string };
+        agentId = whoami.id || whoami.agent_id || "";
       }
 
       const bootstrap = (await apiRequest(
         "GET",
-        `/api/v1/agents/${agentId}/bootstrap`,
+        `/api/v1/agents/${agentId}/runtime/bootstrap`,
         base,
-        params.apiKey,
+        serverApiKey,
       )) as Record<string, unknown>;
 
       return {
@@ -246,10 +253,9 @@ export function createServer(): McpServer {
     "Resolve a .agentid handle to the full Agent ID Object. Returns identity, capabilities, trust score, endpoint, and more. No authentication required.",
     {
       handle: z.string().describe("Handle to resolve (e.g. 'research-agent' or 'research-agent.agentid')"),
-      baseUrl: z.string().optional().describe("Agent ID API base URL (default: https://getagent.id)"),
     },
     async (params) => {
-      const base = params.baseUrl || DEFAULT_BASE_URL;
+      const base = serverBaseUrl;
       const cleanHandle = params.handle.replace(/\.(agentid|agent)$/i, "").toLowerCase();
 
       const result = (await apiRequest(
@@ -279,10 +285,9 @@ export function createServer(): McpServer {
       verifiedOnly: z.boolean().optional().describe("Only return verified agents"),
       limit: z.number().optional().describe("Max results to return (default: 20)"),
       offset: z.number().optional().describe("Pagination offset"),
-      baseUrl: z.string().optional().describe("Agent ID API base URL (default: https://getagent.id)"),
     },
     async (params) => {
-      const base = params.baseUrl || DEFAULT_BASE_URL;
+      const base = serverBaseUrl;
       const qp = new URLSearchParams();
       if (params.capability) qp.set("capability", params.capability);
       if (params.minTrust !== undefined) qp.set("minTrust", String(params.minTrust));
@@ -311,23 +316,21 @@ export function createServer(): McpServer {
 
   server.tool(
     "agentid_send_task",
-    "Send a task to another agent via Agent ID. Requires authentication. The recipient agent will see the task in their inbox.",
+    "Send a task to another agent via Agent ID. Authenticated using the server-configured AGENTID_API_KEY. The recipient agent will see the task in their inbox.",
     {
-      apiKey: z.string().describe("Your agent's API key"),
       senderAgentId: z.string().describe("Your agent ID (the sender)"),
       recipientAgentId: z.string().describe("Target agent ID to send the task to"),
       taskType: z.string().describe("Type of task (e.g. 'research', 'summarize', 'code-review')"),
       payload: z.record(z.unknown()).optional().describe("Task payload — any structured data for the recipient"),
-      baseUrl: z.string().optional().describe("Agent ID API base URL (default: https://getagent.id)"),
     },
     async (params) => {
-      const base = params.baseUrl || DEFAULT_BASE_URL;
+      const base = serverBaseUrl;
 
       const result = (await apiRequest(
         "POST",
         "/api/v1/tasks",
         base,
-        params.apiKey,
+        serverApiKey,
         {
           senderAgentId: params.senderAgentId,
           recipientAgentId: params.recipientAgentId,
@@ -349,14 +352,14 @@ export function createServer(): McpServer {
 
   server.tool(
     "agentid_check_inbox",
-    "Check an agent's inbox for pending tasks and unread messages. Requires authentication.",
+    "Check the authenticated agent's inbox for pending tasks and unread messages. Authenticated using the server-configured AGENTID_API_KEY.",
     {
-      apiKey: z.string().describe("Agent API key"),
       agentId: z.string().describe("Agent ID to check inbox for"),
-      baseUrl: z.string().optional().describe("Agent ID API base URL (default: https://getagent.id)"),
+      limit: z.number().optional().describe("Max messages/tasks to return (default: 20)"),
     },
     async (params) => {
-      const base = params.baseUrl || DEFAULT_BASE_URL;
+      const base = serverBaseUrl;
+      const limit = params.limit ?? 20;
 
       let tasks: Record<string, unknown>;
       let tasksError: string | null = null;
@@ -366,15 +369,15 @@ export function createServer(): McpServer {
       const [tasksResult, messagesResult] = await Promise.allSettled([
         apiRequest(
           "GET",
-          `/api/v1/tasks?recipientAgentId=${params.agentId}&businessStatus=pending&limit=20`,
+          `/api/v1/tasks?recipientAgentId=${params.agentId}&businessStatus=pending&limit=${limit}`,
           base,
-          params.apiKey,
+          serverApiKey,
         ),
         apiRequest(
           "GET",
-          `/api/v1/mail/agents/${params.agentId}/messages?direction=inbound&isRead=false&limit=20`,
+          `/api/v1/mail/agents/${params.agentId}/messages?direction=inbound&isRead=false&limit=${limit}`,
           base,
-          params.apiKey,
+          serverApiKey,
         ),
       ]);
 
@@ -436,10 +439,9 @@ export function createServer(): McpServer {
         })
         .passthrough()
         .describe("The full Verifiable Credential object to verify"),
-      baseUrl: z.string().optional().describe("Agent ID API base URL (default: https://getagent.id)"),
     },
     async (params) => {
-      const base = params.baseUrl || DEFAULT_BASE_URL;
+      const base = serverBaseUrl;
       const cred = params.credential;
 
       if (!cred.proof?.signatureValue) {

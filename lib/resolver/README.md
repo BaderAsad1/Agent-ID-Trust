@@ -33,6 +33,10 @@ const { agents } = await resolver.findAgents({
 });
 ```
 
+## How resolution works
+
+Each call to `resolve()` makes a direct HTTPS request to the Agent ID resolution API. On transient errors (HTTP 429, 502, 503, 504) the request is automatically retried with exponential back-off (500 ms, then 1 500 ms). There is no built-in local cache — if you need to reduce API calls in a tight loop, cache the returned `ResolvedAgent` object yourself.
+
 ## API
 
 ### `new AgentResolver(options?)`
@@ -41,7 +45,7 @@ const { agents } = await resolver.findAgents({
 |--------|------|---------|-------------|
 | `baseUrl` | `string` | `https://getagent.id/api/v1/resolve` | Base URL for the resolution API |
 | `timeout` | `number` | `10000` | Request timeout in milliseconds |
-| `retries` | `number` | `2` | Number of retries on transient errors |
+| `retries` | `number` | `2` | Number of retries on 429/5xx transient errors |
 
 ### `resolver.resolve(handle)`
 

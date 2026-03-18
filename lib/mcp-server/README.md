@@ -25,7 +25,7 @@ The full set of 12 tools is available when connecting to the **hosted server** a
 
 ### npm package (`npx @agentid/mcp-server`) — 7 tools
 
-`agentid_register`, `agentid_resolve`, `agentid_discover`, `agentid_send_task`, `agentid_check_inbox`, `agentid_verify_credential`, and `agentid_init` (session initialization). For the full 12-tool surface, use the hosted server config below.
+`agentid_register`, `agentid_whoami`, `agentid_resolve`, `agentid_discover`, `agentid_send_task`, `agentid_check_inbox`, and `agentid_verify_credential`. For the full 12-tool surface, use the hosted server config below.
 
 ## Config: Claude Desktop
 
