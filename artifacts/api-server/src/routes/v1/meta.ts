@@ -124,6 +124,27 @@ const AUTH_MATRIX = {
       description: "Initiate agent key rotation",
     },
     {
+      path: "/api/v1/bootstrap/claim",
+      method: "POST",
+      auth: ["none"],
+      plans: ["none", "free", "starter", "pro", "enterprise"],
+      description: "Claim agent identity with token and public key (returns challenge)",
+    },
+    {
+      path: "/api/v1/bootstrap/activate",
+      method: "POST",
+      auth: ["none"],
+      plans: ["none", "free", "starter", "pro", "enterprise"],
+      description: "Activate agent by signing challenge (returns API key and bootstrap bundle)",
+    },
+    {
+      path: "/api/v1/bootstrap/status/:agentId",
+      method: "GET",
+      auth: ["none"],
+      plans: ["none", "free", "starter", "pro", "enterprise"],
+      description: "Check agent activation status (polling endpoint)",
+    },
+    {
       path: "/api/v1/meta/auth-matrix",
       method: "GET",
       auth: ["none"],
