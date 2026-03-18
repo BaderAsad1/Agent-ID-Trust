@@ -100,3 +100,244 @@
   margin: 0;
   padding: 0;
 }
+
+/* ─── MOBILE SCROLL-FILM OVERRIDE ─────────────────────────────────────────── */
+/* On mobile the JS-driven sticky scroll-film doesn't work.                     */
+/* Convert every non-hero section to natural document flow and reveal all       */
+/* content immediately with staggered CSS entrance animations.                  */
+
+@keyframes film-mobile-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+
+  /* ── Shared: collapse all non-hero scroll-film sections ── */
+  .outcome-section-outer,
+  .activation-section-outer,
+  .verification-section-outer,
+  .devtooling-section-outer,
+  .cta-section-outer {
+    min-height: 0 !important;
+    height: auto !important;
+    margin-top: 0 !important;
+  }
+
+  .outcome-sticky-container,
+  .activation-sticky-container,
+  .verification-sticky-container,
+  .devtooling-sticky-container,
+  .cta-sticky-container {
+    position: relative !important;
+    height: auto !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  /* ── Outcome section ── */
+  .outcome-wrapper {
+    height: auto !important;
+    padding: 64px 20px 56px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+  }
+
+  .outcome-wrapper > * {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .outcome-wrapper > div:first-child {
+    animation: film-mobile-in 0.55s ease 0.05s both;
+  }
+
+  .outcome-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+    margin-top: 32px !important;
+  }
+
+  .outcome-grid > div {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .outcome-grid > div:nth-child(1) { animation: film-mobile-in 0.5s ease 0.10s both; }
+  .outcome-grid > div:nth-child(2) { animation: film-mobile-in 0.5s ease 0.18s both; }
+  .outcome-grid > div:nth-child(3) { animation: film-mobile-in 0.5s ease 0.26s both; }
+  .outcome-grid > div:nth-child(4) { animation: film-mobile-in 0.5s ease 0.34s both; }
+
+  /* ── System activation (unlocks) section ── */
+  .activation-wrapper {
+    height: auto !important;
+    padding: 64px 20px 56px !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .activation-wrapper > * {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .activation-wrapper > div:first-child {
+    animation: film-mobile-in 0.55s ease 0.05s both;
+  }
+
+  .activation-channels {
+    flex-direction: column !important;
+    gap: 20px !important;
+    margin-top: 32px !important;
+    align-items: stretch !important;
+  }
+
+  .activation-channel-row {
+    opacity: 1 !important;
+    transform: none !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .activation-channel-row:nth-child(1) { animation: film-mobile-in 0.5s ease 0.10s both; }
+  .activation-channel-row:nth-child(2) { animation: film-mobile-in 0.5s ease 0.16s both; }
+  .activation-channel-row:nth-child(3) { animation: film-mobile-in 0.5s ease 0.22s both; }
+  .activation-channel-row:nth-child(4) { animation: film-mobile-in 0.5s ease 0.28s both; }
+  .activation-channel-row:nth-child(5) { animation: film-mobile-in 0.5s ease 0.34s both; }
+
+  .activation-node {
+    opacity: 1 !important;
+    background-color: rgba(79, 125, 243, 0.25) !important;
+    border-color: rgba(79, 125, 243, 0.5) !important;
+  }
+
+  .activation-card-left,
+  .activation-card-right {
+    opacity: 1 !important;
+    transform: none !important;
+    max-width: 140px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .activation-line {
+    opacity: 1 !important;
+  }
+
+  .activation-spine {
+    display: none !important;
+  }
+
+  /* ── Verification API section ── */
+  .verification-wrapper {
+    height: auto !important;
+    padding: 64px 20px 56px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 32px !important;
+  }
+
+  .verification-wrapper > * {
+    opacity: 1 !important;
+    transform: none !important;
+    flex: none !important;
+    width: 100% !important;
+  }
+
+  .verification-wrapper > div:first-child {
+    animation: film-mobile-in 0.55s ease 0.05s both;
+  }
+
+  .verification-code {
+    opacity: 1 !important;
+    transform: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    animation: film-mobile-in 0.5s ease 0.12s both;
+  }
+
+  .verification-features {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  .verification-features > div {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .verification-features > div:nth-child(1) { animation: film-mobile-in 0.5s ease 0.18s both; }
+  .verification-features > div:nth-child(2) { animation: film-mobile-in 0.5s ease 0.24s both; }
+  .verification-features > div:nth-child(3) { animation: film-mobile-in 0.5s ease 0.30s both; }
+  .verification-features > div:nth-child(4) { animation: film-mobile-in 0.5s ease 0.36s both; }
+
+  /* ── Dev tooling section ── */
+  .devtooling-wrapper {
+    height: auto !important;
+    padding: 64px 20px 56px !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .devtooling-wrapper > * {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .devtooling-wrapper > div:first-child {
+    animation: film-mobile-in 0.55s ease 0.05s both;
+  }
+
+  .devtooling-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    margin-top: 32px !important;
+  }
+
+  .devtooling-grid > div {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .devtooling-grid > div:nth-child(1) { animation: film-mobile-in 0.5s ease 0.10s both; }
+  .devtooling-grid > div:nth-child(2) { animation: film-mobile-in 0.5s ease 0.17s both; }
+  .devtooling-grid > div:nth-child(3) { animation: film-mobile-in 0.5s ease 0.24s both; }
+  .devtooling-grid > div:nth-child(4) { animation: film-mobile-in 0.5s ease 0.31s both; }
+  .devtooling-grid > div:nth-child(5) { animation: film-mobile-in 0.5s ease 0.38s both; }
+  .devtooling-grid > div:nth-child(6) { animation: film-mobile-in 0.5s ease 0.45s both; }
+
+  /* ── CTA section ── */
+  .cta-content {
+    height: auto !important;
+    padding: 80px 24px 80px !important;
+    opacity: 1 !important;
+    transform: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .cta-content > * {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .cta-content > div:nth-child(1) { animation: film-mobile-in 0.55s ease 0.05s both; }
+  .cta-content > div:nth-child(2) { animation: film-mobile-in 0.5s ease 0.15s both; }
+  .cta-content > div:nth-child(3) { animation: film-mobile-in 0.5s ease 0.25s both; }
+  .cta-content > div:nth-child(4) { animation: film-mobile-in 0.5s ease 0.35s both; }
+
+}
