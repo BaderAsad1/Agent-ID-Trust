@@ -184,7 +184,7 @@ export function createServer(): McpServer {
                 trustTier: verifyResult.trustTier,
                 verified: verifyResult.verified,
                 message:
-                  "Agent registered and verified successfully. Save the API key immediately — it cannot be retrieved again.",
+                  "Agent registered and verified successfully. Save the API key immediately — it cannot be retrieved again. Set it as AGENTID_API_KEY in your MCP server environment to authenticate subsequent calls.",
               },
               null,
               2,

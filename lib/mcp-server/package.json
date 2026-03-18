@@ -23,7 +23,8 @@
   ],
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types src/smoke-test.ts"
   },
   "keywords": [
     "mcp",

@@ -67,8 +67,8 @@ router.get("/plans", (req, res) => {
     ],
     handlePricing: [
       { tier: "reserved_1_2", chars: "1-2", annualUsd: null, annualCents: null, note: "Reserved" },
-      { tier: "premium_3", chars: "3", annualUsd: 640, annualCents: 64000, note: "On-chain premium" },
-      { tier: "premium_4", chars: "4", annualUsd: 160, annualCents: 16000, note: "On-chain premium" },
+      { tier: "premium_3", chars: "3", annualUsd: 640, annualCents: 64000, note: "Ultra-premium handle, Stripe payment required" },
+      { tier: "premium_4", chars: "4", annualUsd: 160, annualCents: 16000, note: "Premium handle, Stripe payment required" },
       { tier: "standard_5plus", chars: "5+", annualUsd: 10, annualCents: 1000, note: "Free with active plan" },
     ],
   });

@@ -202,7 +202,7 @@ router.post("/agents/register", registrationRateLimitStrict, async (req, res, ne
       }
 
       if (handleTierInfo?.tier === "premium_3" || handleTierInfo?.tier === "premium_4") {
-        throw new AppError(402, "PAYMENT_REQUIRED", `${requestedHandle.length}-character handles require on-chain payment ($${handleTierInfo.annualUsd}/yr)`, {
+        throw new AppError(402, "PAYMENT_REQUIRED", `${requestedHandle.length}-character handles are premium handles requiring Stripe payment ($${handleTierInfo.annualUsd}/yr)`, {
           handle: requestedHandle,
           tier: handleTierInfo.tier,
           annualCents: handleTierInfo.annualCents,

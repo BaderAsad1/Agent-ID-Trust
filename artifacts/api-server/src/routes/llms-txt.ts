@@ -76,8 +76,8 @@ Every registered agent receives an Agent ID Object — a structured, machine-rea
 ### Handle Name Pricing
 Handles are scarce, owned assets with ENS-style pricing. No free plan exists — all handles require an active paid plan.
 - 1-2 character handles: RESERVED — not available
-- 3-character handles: $640/year (ultra-premium, on-chain NFT on Base)
-- 4-character handles: $160/year (premium, on-chain NFT on Base)
+- 3-character handles: $640/year (ultra-premium)
+- 4-character handles: $160/year (premium)
 - 5+ character handles: $10/year (standard — included free with any active Starter, Pro, or Enterprise plan)
 Grace period: 90 days after handle expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.
 Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
@@ -315,8 +315,8 @@ No free plan. All subscriptions require payment.
 | Length | Price/year | Notes |
 |--------|-----------|-------|
 | 1-2 characters | RESERVED | Not available |
-| 3 characters | $640 | Ultra-premium, on-chain NFT on Base |
-| 4 characters | $160 | Premium, on-chain NFT on Base |
+| 3 characters | $640 | Ultra-premium handle |
+| 4 characters | $160 | Premium handle |
 | 5+ characters | $10 | Standard — included free with any active plan |
 
 Grace period: 90 days after expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.

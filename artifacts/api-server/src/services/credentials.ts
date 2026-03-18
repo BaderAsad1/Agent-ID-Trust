@@ -129,7 +129,7 @@ export async function issueCredential(agentId: string) {
       })),
     },
     proof: {
-      type: "HmacSha256Signature2024",
+      type: "AgentIDHmacCredential2024",
       created: now.toISOString(),
       proofPurpose: "assertionMethod",
       verificationMethod: "did:web:getagent.id#platform-signing-key",

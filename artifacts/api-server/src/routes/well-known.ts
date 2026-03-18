@@ -265,8 +265,8 @@ router.get("/.well-known/agent-registration", async (_req: Request, res: Respons
     pricing: {
       tiers: [
         { characters: "1-2", pricePerYear: "RESERVED", description: "Reserved — not available" },
-        { characters: 3, pricePerYear: "$640", description: "Ultra-premium, on-chain NFT on Base" },
-        { characters: 4, pricePerYear: "$160", description: "Premium, on-chain NFT on Base" },
+        { characters: 3, pricePerYear: "$640", description: "Ultra-premium 3-character handle" },
+        { characters: 4, pricePerYear: "$160", description: "Premium 4-character handle" },
         { characters: "5+", pricePerYear: "$10", description: "Standard handle — included with any active plan" },
       ],
       marketplaceFee: "2.5%",

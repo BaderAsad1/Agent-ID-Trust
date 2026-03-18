@@ -401,7 +401,7 @@ export function DocsQuickstart() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {[
               ['', 'Platform credential', 'W3C VC JWT'],
-              ['Proof type', 'HmacSha256Signature2024', 'EdDSA (Ed25519)'],
+              ['Proof type', 'AgentIDHmacCredential2024', 'EdDSA (Ed25519)'],
               ['Format', 'JSON object', 'Compact JWT string'],
               ['Signed by', 'Platform HMAC key (symmetric)', 'Platform Ed25519 key (asymmetric)'],
               ['Verifiable by', 'Platform only — internal use', 'Anyone — portable, externally verifiable'],
