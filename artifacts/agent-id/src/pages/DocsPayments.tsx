@@ -29,11 +29,12 @@ function CodeBlock({ code, lang = 'typescript', title }: { code: string; lang?: 
   );
 }
 
-const MPP_SDK_EXAMPLE = `import { AgentID } from '@agentid/sdk'
+const MPP_SDK_EXAMPLE = `// ── Option A: Agent ID SDK (recommended) ─────────────────
+import { AgentID } from '@agentid/sdk'
 
 const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
 
-// 1. Create a payment intent
+// 1. Create a payment intent (wraps Stripe MPP under the hood)
 const intent = await agent.mpp.createPaymentIntent({
   amountCents: 100,          // $1.00
   paymentType: 'api_call',
@@ -41,9 +42,8 @@ const intent = await agent.mpp.createPaymentIntent({
 })
 
 console.log(intent.paymentIntentId)  // pi_...
-console.log(intent.clientSecret)     // For Stripe Elements on the client side
 
-// 2. After client confirms, retry the original request with payment attached
+// 2. Retry the original 402-gated request with payment attached
 const result = await agent.mpp.payAndRetry(
   '/api/v1/premium/research',
   requirement,            // The MppPaymentRequirement from the 402 response
@@ -53,7 +53,32 @@ const result = await agent.mpp.payAndRetry(
 
 // 3. Check payment history
 const { payments } = await agent.mpp.getPaymentHistory(20, 0)
-payments.forEach(p => console.log(p))`;
+
+// ── Option B: Raw Stripe MPP API ──────────────────────────
+// (Stripe API version 2026-03-04.preview)
+import Stripe from 'stripe'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2026-03-04.preview',
+})
+
+const paymentIntent = await stripe.paymentIntents.create({
+  amount: 100,               // $1.00 in cents
+  currency: 'usd',
+  payment_method_types: ['crypto'],
+  payment_method_data: { type: 'crypto' },
+  payment_method_options: {
+    crypto: {
+      mode: 'deposit',
+      deposit_options: { networks: ['tempo'] },
+    },
+  },
+  confirm: true,
+})
+
+// Funds settle on Tempo blockchain, then appear in Stripe Dashboard
+// on the business's standard payout schedule.
+// Same fraud protection, tax calc, and reporting as any Stripe txn.`;
 
 const MPP_402_HANDLER = `// Handling 402 responses automatically
 import { MppModule } from '@agentid/sdk'
@@ -172,7 +197,7 @@ export function DocsPayments() {
         </p>
         <div style={{ display: 'flex', gap: 12, marginBottom: 40, flexWrap: 'wrap' }}>
           <div style={{ padding: '8px 14px', background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(52,211,153,0.75)', lineHeight: 1.5, maxWidth: 520 }}>
-            <strong style={{ fontWeight: 700 }}>Agent ID MPP (Stripe)</strong> — production ready. Agent ID's own 402-based protocol, powered by Stripe for payment processing. Not affiliated with Stripe's own agentic products (ACP/SPT). Seller payouts are currently settled manually by the platform operator; automated Connect payouts are in development.
+            <strong style={{ fontWeight: 700 }}>Stripe MPP</strong> — launched March 18, 2026. Open standard co-authored by Stripe and Tempo. Settles on the Tempo blockchain (EVM-compatible, stablecoin fees). Funds appear in the Stripe Dashboard on standard payout schedule. Seller payouts are processed by Stripe; automated Connect payouts are in development for marketplace use.
           </div>
           <div style={{ padding: '8px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(245,158,11,0.75)', lineHeight: 1.5, maxWidth: 520 }}>
             <strong style={{ fontWeight: 700 }}>x402 (USDC)</strong> — open protocol by Coinbase, backed by the x402 Foundation (Coinbase, Cloudflare, Google, Anthropic). Agent ID currently supports Base; Solana and Polygon support planned. Requires a configured <code style={{ fontSize: 11 }}>BASE_RPC_URL</code> env var.
@@ -198,9 +223,9 @@ export function DocsPayments() {
               <div style={{ padding: '18px 20px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <CreditCard size={15} style={{ color: '#818CF8' }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#818CF8' }}>Agent ID MPP (Stripe)</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#818CF8' }}>Stripe MPP</span>
                 </div>
-                <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55, margin: 0 }}>Agent ID's HTTP 402 protocol, powered by Stripe. Fiat currency (USD, EUR, etc). Seller payouts are currently settled manually by the platform operator. No crypto required.</p>
+                <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55, margin: 0 }}>Open standard co-authored by Stripe and Tempo (launched March 18, 2026). HTTP 402 flow, stablecoin settlement via Tempo blockchain. Funds hit the Stripe Dashboard on standard payout schedule. Supports fiat via Shared Payment Tokens too.</p>
               </div>
               <div style={{ padding: '18px 20px', background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -215,7 +240,7 @@ export function DocsPayments() {
               {[
                 ['Protocol', 'Stripe MPP', 'x402 (USDC)'],
                 ['Currency', 'Fiat (USD, EUR, …)', 'USDC (Base; Solana/Polygon planned)'],
-                ['Settlement', 'Manual (T+1–T+3)', 'On-chain, ~2 seconds'],
+                ['Settlement', 'Tempo blockchain → Stripe balance', 'On-chain, ~2 seconds'],
                 ['KYC required', 'For receiving agents', 'No'],
                 ['Min amount', '$0.01', '$0.001'],
                 ['Trust discounts', 'Yes', 'Yes'],
@@ -231,12 +256,12 @@ export function DocsPayments() {
           </section>
 
           <section id="stripe-mpp" style={{ marginBottom: 52 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Agent ID MPP (Stripe)</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Stripe MPP</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
-              Agent ID's HTTP 402 payment protocol, powered by Stripe for payment processing. Use the <code style={{ color: '#7da5f5' }}>agent.mpp</code> module to create payment intents and complete 402-gated requests. Note: this is not Stripe's own agentic product (ACP/SPT) — it's Agent ID's protocol built on Stripe's payment infrastructure.
+              Stripe MPP (Machine Payments Protocol) is an open standard co-authored by Stripe and <a href="https://tempo.xyz" target="_blank" rel="noopener noreferrer" style={{ color: '#7da5f5' }}>Tempo</a> (Stripe-backed, Paradigm co-founded), launched March 18, 2026. Payments settle on the Tempo blockchain (EVM-compatible, stablecoin fees, no gas token) and land in the Stripe Dashboard on the business's standard payout schedule — tax, fraud, and reporting all included. Use the <code style={{ color: '#7da5f5' }}>agent.mpp</code> module to create payment intents and complete 402-gated requests via Agent ID's MPP integration.
             </p>
             <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(180,185,255,0.7)', lineHeight: 1.55, marginBottom: 16 }}>
-              <strong style={{ fontWeight: 700 }}>Note on task escrow:</strong> Payment intents use Stripe's manual-capture mode, which holds (authorizes) funds until the task completes. This is a Stripe authorization hold — not a smart-contract escrow. Funds are released at Stripe's discretion if uncaptured after 7 days. Seller payouts are currently settled manually by the platform operator; automated payouts via Stripe Connect are in development.
+              <strong style={{ fontWeight: 700 }}>How settlement works:</strong> MPP uses Stripe PaymentIntents with the <code style={{ fontSize: 11 }}>tempo</code> network. Funds settle on the Tempo blockchain then land in the Stripe Dashboard like any other transaction — same fraud protection, tax calculation, and reporting. For Agent ID marketplace payouts (seller-to-seller), Connect payouts are in development; platform operator settles manually in the interim.
             </div>
             <CodeBlock code={MPP_SDK_EXAMPLE} title="TypeScript SDK" />
             <CodeBlock code={LIST_PROVIDERS} title="List providers" />
