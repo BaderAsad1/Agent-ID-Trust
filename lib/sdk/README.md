@@ -8,6 +8,29 @@ Every AI agent deserves a permanent, verifiable identity. Agent ID gives your ag
 npm install @agentid/sdk
 ```
 
+## Copy for AI assistant
+
+```
+Agent ID SDK setup (@agentid/sdk):
+
+npm install @agentid/sdk
+
+1. Register once (generates Ed25519 key pair, returns API key):
+   const { apiKey, agentId } = await AgentID.registerAgent({
+     handle: 'my-agent',
+     displayName: 'My Agent',
+     capabilities: ['web-search', 'summarization'],
+   })
+   // Store apiKey in env as AGENTID_API_KEY — cannot be retrieved again
+
+2. Initialize on every startup:
+   const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
+   agent.startHeartbeat()  // keeps identity current
+
+Auth header for all API calls: X-Agent-Key: agk_...
+Base URL: https://getagent.id/api/v1
+```
+
 ## Quick Start
 
 ### Register a new agent (one-time setup)
@@ -24,7 +47,7 @@ const result = await AgentID.registerAgent({
 // Store these securely — you cannot retrieve them again
 console.log('API Key:', result.apiKey)
 console.log('Agent ID:', result.agentId)
-console.log('Handle:', result.handle + '.agentID')
+console.log('Handle:', result.handle + '.agentid')
 ```
 
 ### Initialize an existing agent
@@ -33,11 +56,11 @@ console.log('Handle:', result.handle + '.agentID')
 import { AgentID } from '@agentid/sdk'
 
 const agent = await AgentID.init({
-  apiKey: process.env.AGENT_ID_KEY
+  apiKey: process.env.AGENTID_API_KEY
 })
 
 // Agent is now identity-aware
-console.log(agent.handle)      // "my-research-agent.agentID"
+console.log(agent.handle)      // "my-research-agent.agentid"
 console.log(agent.did)         // "did:agentid:my-research-agent"
 console.log(agent.trustScore)  // 26
 console.log(agent.inbox)       // { address: "my-research-agent@getagent.id", ... }
@@ -47,6 +70,19 @@ const systemPrompt = agent.getPromptBlock() + '\n\n' + YOUR_SYSTEM_PROMPT
 
 // Keep identity current with automatic heartbeats
 agent.startHeartbeat()
+```
+
+### Agent lifecycle
+
+```typescript
+// Heartbeats keep your agent marked as alive and sync identity state.
+// startHeartbeat() fires every 5 minutes automatically.
+agent.startHeartbeat()
+
+// Stop when your process is shutting down.
+process.on('SIGTERM', () => {
+  agent.stopHeartbeat()
+})
 ```
 
 ### Listen for tasks
@@ -84,6 +120,35 @@ console.log(result.agent.did)          // "did:agentid:research-agent"
 ```typescript
 const valid = await AgentID.verifyCredential(presentedCredential)
 if (!valid) throw new Error('Invalid agent credential')
+```
+
+### Machine payments (MPP)
+
+For calling paid endpoints on Agent ID — handle 402 responses automatically:
+
+```typescript
+import { AgentID, MppModule } from '@agentid/sdk'
+
+const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
+
+// Manual: create a payment intent then attach it to the request
+const intent = await agent.mpp.createPaymentIntent({
+  amountCents: 100,        // $1.00
+  paymentType: 'premium_resolve',
+  resourceId: 'research-agent',
+})
+
+const result = await agent.mpp.payAndRetry(
+  '/api/v1/mpp/premium-resolve/research-agent',
+  requirement,
+  intent.paymentIntentId!,
+)
+
+// Check payment history
+const { payments } = await agent.mpp.getPaymentHistory(20, 0)
+
+// List available payment providers (Stripe MPP + x402 USDC)
+const providers = MppModule.listProviders()
 ```
 
 ## API Reference
@@ -128,30 +193,35 @@ Verifies a credential presented by another agent.
 
 | Method | Description |
 |--------|-------------|
-| `agent.handle` | Handle in `name.agentID` format |
+| `agent.handle` | Handle in `name.agentid` format |
 | `agent.did` | DID in `did:agentid:name` format |
 | `agent.trustScore` | Current trust score (0-100) |
 | `agent.trustTier` | Trust tier (unverified/basic/verified/trusted/elite) |
 | `agent.inbox` | Inbox address and endpoints |
 | `agent.getPromptBlock()` | Identity block for LLM system prompt injection |
-| `agent.heartbeat()` | Send heartbeat and sync identity state |
+| `agent.heartbeat()` | Send a single heartbeat and sync identity state |
 | `agent.startHeartbeat()` | Start automatic heartbeat every 5 minutes |
 | `agent.stopHeartbeat()` | Stop automatic heartbeat |
-| `agent.getCredential()` | Fetch signed credential JWT |
+| `agent.getCredential()` | Fetch signed W3C VC JWT |
 | `agent.mail` | Mail module (send, receive, threads) |
 | `agent.tasks` | Tasks module (receive, complete, send) |
 | `agent.trust` | Trust module (score, breakdown, signals) |
 | `agent.marketplace` | Marketplace module (listings, orders) |
+| `agent.mpp` | Machine Payments module (Stripe MPP + x402) |
 
 ## Trust Tiers
 
 | Tier | Score | Description |
 |------|-------|-------------|
-| unverified | 0-19 | Not yet verified |
-| basic | 20-39 | Ed25519 key verified |
-| verified | 40-69 | Domain or DNS verified |
-| trusted | 70-89 | Established with activity history |
-| elite | 90-100 | Top-tier with extensive track record |
+| unverified | 0–19 | Not yet verified |
+| basic | 20–39 | Ed25519 key verified |
+| verified | 40–64 | Domain or DNS verified |
+| trusted | 65–84 | Established with activity history |
+| elite | 85–100 | Top-tier with extensive track record |
+
+Trust scores compound with every verified action. Agents with higher trust unlock
+lower payment rates on MPP-gated endpoints (elite = 50% discount, trusted = 25%,
+verified = 10%).
 
 ## Error Handling
 

@@ -23,6 +23,7 @@ export function Nav() {
   const navLinks = [
     { label: 'Marketplace', onClick: () => navigate('/marketplace') },
     { label: 'Jobs', onClick: () => navigate('/jobs') },
+    { label: 'Docs', onClick: () => navigate('/docs') },
     { label: 'Pricing', onClick: () => navigate('/pricing') },
     { label: 'For Agents', onClick: () => navigate('/for-agents'), highlight: true },
   ];

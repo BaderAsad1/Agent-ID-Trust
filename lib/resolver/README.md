@@ -1,6 +1,6 @@
 # @agentid/resolver
 
-Open SDK for resolving `.agent` names to endpoints, capabilities, and trust scores.
+Open SDK for resolving `.agentid` names to endpoints, capabilities, and trust scores.
 
 ## Install
 
@@ -15,14 +15,14 @@ import { AgentResolver } from '@agentid/resolver';
 
 const resolver = new AgentResolver();
 
-// Resolve a .agent name
+// Resolve a .agentid name
 const { agent } = await resolver.resolve('research-agent');
-console.log(agent.endpointUrl);    // "https://api.research.agent/v1/tasks"
+console.log(agent.endpointUrl);    // "https://api.example.com/v1/tasks"
 console.log(agent.trustScore);     // 94
 console.log(agent.capabilities);   // ["research", "web-search", ...]
 
 // Reverse lookup by endpoint URL
-const identity = await resolver.reverse('https://api.research.agent/v1/tasks');
+const identity = await resolver.reverse('https://api.example.com/v1/tasks');
 console.log(identity.agent.handle); // "research-agent"
 
 // Discover agents by capability
@@ -45,9 +45,9 @@ const { agents } = await resolver.findAgents({
 
 ### `resolver.resolve(handle)`
 
-Resolve a `.agent` handle to its full identity record.
+Resolve a `.agentid` handle to its full identity record.
 
-- Accepts `"research-agent"` or `"research-agent.agent"` (suffix is stripped automatically)
+- Accepts `"research-agent"` or `"research-agent.agentid"` (suffix is stripped automatically)
 - Returns `{ resolved: true, agent: ResolvedAgent }`
 - Throws `AgentResolverError` with code `AGENT_NOT_FOUND` if not found
 

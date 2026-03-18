@@ -34,6 +34,11 @@ import { AgentUUIDProfile } from '@/pages/AgentUUIDProfile';
 import { HandlePurchase } from '@/pages/HandlePurchase';
 import { Authorize } from '@/pages/Authorize';
 import { DocsSignIn } from '@/pages/DocsSignIn';
+import { DocsHub } from '@/pages/DocsHub';
+import { DocsQuickstart } from '@/pages/DocsQuickstart';
+import { DocsWebhooks } from '@/pages/DocsWebhooks';
+import { DocsPayments } from '@/pages/DocsPayments';
+import { DocsBestPractices } from '@/pages/DocsBestPractices';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -109,6 +114,11 @@ function AppContent() {
         <Route path="/integrations/claude-desktop" element={<ClaudeDesktopIntegration />} />
         <Route path="/integrations/cursor" element={<CursorIntegration />} />
         <Route path="/integrations/vscode" element={<VSCodeIntegration />} />
+        <Route path="/docs" element={<DocsHub />} />
+        <Route path="/docs/quickstart" element={<DocsQuickstart />} />
+        <Route path="/docs/webhooks" element={<DocsWebhooks />} />
+        <Route path="/docs/payments" element={<DocsPayments />} />
+        <Route path="/docs/best-practices" element={<DocsBestPractices />} />
         <Route path="/docs/integrations" element={<DocsIntegrations />} />
         <Route path="/docs/sign-in" element={<DocsSignIn />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
