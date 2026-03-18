@@ -42,6 +42,7 @@
     "@stripe/stripe-js": "^8.9.0",
     "@tanstack/react-query": "catalog:",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/shared-pricing": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",

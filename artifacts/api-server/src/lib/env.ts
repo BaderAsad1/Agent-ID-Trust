@@ -73,6 +73,10 @@ const envSchema = z.object({
   PLATFORM_TREASURY_ADDRESS: z.string().optional(),
   CDP_WALLET_SECRET: z.string().optional(),
   CDP_NETWORK_ID: z.string().default("base-mainnet"),
+
+  ADMIN_ALLOWED_IPS: z.string().optional(),
+
+  X402_ENABLED: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -127,6 +131,10 @@ export function validateEnv(): Env {
   }
   if (isProd && !env.VC_PUBLIC_KEY) {
     console.error("[env] FATAL: VC_PUBLIC_KEY is required in production for W3C VC verification.");
+    process.exit(1);
+  }
+  if (isProd && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) {
+    console.error("[env] FATAL: JWT_SECRET is required in production and must be at least 32 characters.");
     process.exit(1);
   }
 

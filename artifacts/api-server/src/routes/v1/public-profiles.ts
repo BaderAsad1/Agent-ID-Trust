@@ -118,6 +118,10 @@ router.get("/:handle", async (req, res, next) => {
         domain: profile.agent.domainName || `${agent.handle}.getagent.id`,
         resolverUrl: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
         erc8004Uri: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
+        erc8004Status: "off-chain",
+        anchoringMethod: "off-chain",
+        onchainAnchor: null,
+        onchainStatus: "pending",
       },
     });
   } catch (err) {

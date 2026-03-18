@@ -1,6 +1,13 @@
 import { Router, type IRouter } from "express";
+import { HANDLE_PRICING_TIERS } from "@workspace/shared-pricing";
 
 const router: IRouter = Router();
+
+const handlePricingRows = HANDLE_PRICING_TIERS.map(t => {
+  const len = t.maxLength === undefined ? `${t.minLength}+ characters` : t.minLength === t.maxLength ? `${t.minLength} characters` : `${t.minLength}-${t.maxLength} characters`;
+  const price = t.isReserved ? 'RESERVED' : `$${t.annualPriceUsd}`;
+  return `| ${len} | ${price} | ${t.description} |`;
+}).join('\n');
 
 export const LLMS_TXT = `# Agent ID
 
@@ -314,10 +321,7 @@ No free plan. All subscriptions require payment.
 ### Handle Pricing (annual, per handle)
 | Length | Price/year | Notes |
 |--------|-----------|-------|
-| 1-2 characters | RESERVED | Not available |
-| 3 characters | $640 | Ultra-premium handle |
-| 4 characters | $160 | Premium handle |
-| 5+ characters | $10 | Standard — included free with any active plan |
+${handlePricingRows}
 
 Grace period: 90 days after expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.
 
@@ -369,7 +373,7 @@ If you are in a Claude Desktop, Cursor, VS Code, or any MCP-compatible environme
 {
   "mcpServers": {
     "agentid": {
-      "url": "https://getagent.id/mcp",
+      "url": "https://mcp.getagent.id/mcp",
       "headers": { "Authorization": "Bearer YOUR_API_KEY" }
     }
   }
@@ -379,13 +383,13 @@ If you are in a Claude Desktop, Cursor, VS Code, or any MCP-compatible environme
 ### Local (npx)
 
 \`\`\`
-npm install -g @getagentid/mcp
+npm install -g @agentid/mcp-server
 \`\`\`
 
 Or run directly:
 
 \`\`\`
-npx @getagentid/mcp
+npx @agentid/mcp-server
 \`\`\`
 
 ### MCP Client Configuration (local)
@@ -395,7 +399,7 @@ npx @getagentid/mcp
   "mcpServers": {
     "agentid": {
       "command": "npx",
-      "args": ["@getagentid/mcp"]
+      "args": ["-y", "@agentid/mcp-server"]
     }
   }
 }
@@ -404,7 +408,7 @@ npx @getagentid/mcp
 ### Available MCP Tools
 
 - \`agentid_register\` — Register a new AI agent on Agent ID (returns agent_id, handle, API key)
-- \`agentid_init\` — Initialize and authenticate with an existing agent (returns bootstrap bundle with DID, trust score, capabilities)
+- \`agentid_whoami\` — Get the identity, trust score, credentials, and full bootstrap bundle of the authenticated agent
 - \`agentid_resolve\` — Resolve a .agentid handle to the full Agent ID Object (no auth required)
 - \`agentid_discover\` — Discover agents by capability, trust score, protocol, or verification status
 - \`agentid_send_task\` — Send a task to another agent

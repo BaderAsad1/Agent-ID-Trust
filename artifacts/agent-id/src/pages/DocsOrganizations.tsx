@@ -104,26 +104,22 @@ const artAgent = await AgentID.orgs.registerMember(org.orgId, {
 //     orgHandle: "acmecorp", teamSlug: "engineering",
 //     effectiveTrustScore: 62, ... }`;
 
-const TRUST_EXAMPLE = `// Trust is computed as:
-// effectiveTrust = round(0.6 * agentTrust + 0.4 * orgTrust)
+const TRUST_EXAMPLE = `// Org trust is currently computed as the average of all member
+// agent trust scores:
+//   orgTrustScore = round(AVG(member agentTrust scores))
 //
-// If the org is verified (orgTrustScore >= 40), all members
-// receive a minimum effectiveTrust of 30 regardless of their
-// individual score.
+// Planned: effectiveTrust = round(0.6 * agentTrust + 0.4 * orgTrust)
+// with a floor for verified orgs (orgTrust >= 40 → effectiveTrust >= 30).
 
 const resolved = await AgentID.resolve('compiler@acmecorp')
 
 console.log(resolved.agentTrustScore)     // 45 — individual history
-console.log(resolved.orgTrustScore)       // 88 — org is elite-tier
-console.log(resolved.effectiveTrustScore) // Math.round(0.6*45 + 0.4*88) = 62
-console.log(resolved.trustTier)           // "trusted"
+console.log(resolved.orgTrustScore)       // 88 — org avg of member scores
 
 // An unproven new hire still benefits from the org's reputation:
 const newHire = await AgentID.resolve('newbot@acmecorp')
 console.log(newHire.agentTrustScore)     // 12 — brand new agent
-console.log(newHire.orgTrustScore)       // 88
-console.log(newHire.effectiveTrustScore) // Math.round(0.6*12 + 0.4*88) = 42
-// → "verified" tier, not "unverified" — org reputation carries them`;
+console.log(newHire.orgTrustScore)       // 88 — org avg unchanged`;
 
 const DELEGATION_EXAMPLE = `// CEO issues a delegation VC to the CTO
 // Scoped to engineering capabilities only
@@ -393,7 +389,7 @@ export function DocsOrganizations() {
                 { type: 'Individual agent', handle: 'research-bot.agentid', note: 'No org — standalone identity' },
                 { type: 'Org root', handle: 'acmecorp.agentid', note: 'The org entity itself' },
                 { type: 'Org member', handle: 'cto@acmecorp.agentid', note: 'Agent inside org' },
-                { type: 'Canonical DID', handle: 'did:agentid:org:acmecorp:cto', note: 'Underlying DID format' },
+                { type: 'Canonical DID', handle: 'did:agentid:org:acmecorp:cto', note: 'Off-chain DID format (on-chain anchoring coming soon)' },
               ].map((row, i) => (
                 <div key={row.handle} style={{ display: 'grid', gridTemplateColumns: '160px 260px 1fr', padding: '9px 14px', background: i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', gap: 12 }}>
                   <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.38)' }}>{row.type}</span>
@@ -407,28 +403,27 @@ export function DocsOrganizations() {
           <section id="trust" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Trust inheritance</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
-              Every org member has two trust signals: their own history and the org's reputation. Agent ID blends them into a single <strong style={{ color: 'rgba(255,255,255,0.65)' }}>effectiveTrustScore</strong> that third parties can query in one call.
+              Every org member has two trust signals: their own history and the org's reputation. The org's <strong style={{ color: 'rgba(255,255,255,0.65)' }}>orgTrustScore</strong> is currently computed as the average of all member agent trust scores. A blended <strong style={{ color: 'rgba(255,255,255,0.65)' }}>effectiveTrustScore</strong> that third parties can query in one call is planned.
             </p>
 
             <div style={{ padding: '14px 18px', background: 'rgba(79,125,243,0.06)', border: '1px solid rgba(79,125,243,0.18)', borderRadius: 10, marginBottom: 20, fontFamily: "'Fira Code',monospace", fontSize: 13, color: '#7da5f5', lineHeight: 2 }}>
-              effectiveTrust = round(<span style={{ color: '#34D399' }}>0.6</span> × agentTrust + <span style={{ color: '#F59E0B' }}>0.4</span> × orgTrust)
+              orgTrustScore = round(AVG(member agentTrust scores))
               <br />
-              <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontFamily: 'var(--font-body)' }}>Floor: if org is verified (orgTrust ≥ 40), all members receive effectiveTrust ≥ 30</span>
+              <span style={{ color: 'rgba(245,158,11,0.7)', fontSize: 11, fontFamily: 'var(--font-body)' }}>Planned: effectiveTrust = round(0.6 × agentTrust + 0.4 × orgTrust) with floor for verified orgs</span>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
               {[
-                ['Agent', 'agentTrust', 'orgTrust', 'effectiveTrust', 'Tier', 'header'],
-                ['CEO (established)', '91', '88', '90', 'elite', ''],
-                ['CTO (experienced)', '72', '88', '78', 'trusted', ''],
-                ['New coder (day 1)', '12', '88', '42', 'verified', ''],
-                ['Solo agent (no org)', '12', '—', '12', 'unverified', ''],
-              ].map(([agent, at, ot, et, tier, header], i) => (
-                <div key={agent} style={{ display: 'grid', gridTemplateColumns: '200px 90px 90px 110px 1fr', padding: '9px 14px', background: i === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                ['Agent', 'agentTrust', 'orgTrust', 'Tier', '', 'header'],
+                ['CEO (established)', '91', '88', 'elite', '', ''],
+                ['CTO (experienced)', '72', '88', 'trusted', '', ''],
+                ['New coder (day 1)', '12', '88', 'basic', '', ''],
+                ['Solo agent (no org)', '12', '—', 'unverified', '', ''],
+              ].map(([agent, at, ot, tier, _unused, header], i) => (
+                <div key={agent} style={{ display: 'grid', gridTemplateColumns: '200px 90px 90px 1fr', padding: '9px 14px', background: i === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
                   <span style={{ fontSize: i === 0 ? 11 : 13, color: i === 0 ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.55)', fontWeight: i === 0 ? 700 : 400, textTransform: i === 0 ? 'uppercase' : 'none', letterSpacing: i === 0 ? '0.05em' : 0 }}>{agent}</span>
                   <span style={{ fontSize: 13, color: i === 0 ? 'rgba(255,255,255,0.25)' : '#34D399', fontWeight: i === 0 ? 700 : 500, textTransform: i === 0 ? 'uppercase' : 'none', letterSpacing: i === 0 ? '0.05em' : 0 }}>{at}</span>
                   <span style={{ fontSize: 13, color: i === 0 ? 'rgba(255,255,255,0.25)' : '#F59E0B', fontWeight: i === 0 ? 700 : 500, textTransform: i === 0 ? 'uppercase' : 'none', letterSpacing: i === 0 ? '0.05em' : 0 }}>{ot}</span>
-                  <span style={{ fontSize: 13, color: i === 0 ? 'rgba(255,255,255,0.25)' : '#7da5f5', fontWeight: i === 0 ? 700 : 700, textTransform: i === 0 ? 'uppercase' : 'none', letterSpacing: i === 0 ? '0.05em' : 0 }}>{et}</span>
                   <span style={{ fontSize: 12, color: i === 0 ? 'rgba(255,255,255,0.25)' : TIER_COLORS[tier] || 'rgba(255,255,255,0.3)', fontWeight: i === 0 ? 700 : 600, textTransform: i === 0 ? 'uppercase' : 'none', letterSpacing: i === 0 ? '0.05em' : 0 }}>{tier}</span>
                 </div>
               ))}
@@ -461,7 +456,7 @@ export function DocsOrganizations() {
           <section id="delegation" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Credential delegation</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
-              Authority flows through signed Verifiable Credentials. The CEO issues a VC to the CTO; the CTO can re-delegate a subset to the engineering lead; the lead can further delegate. At every step, the chain is cryptographically verifiable and the scope can only narrow, never expand.
+              Authority flows through signed Verifiable Credentials. The CEO issues a VC to the CTO; the CTO can re-delegate a subset to the engineering lead; the lead can further delegate. At every step, the chain is cryptographically verifiable and the scope can only narrow, never expand. Credential issuance and verification are currently off-chain. On-chain anchoring via ERC-8004 is on the roadmap.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
               {[

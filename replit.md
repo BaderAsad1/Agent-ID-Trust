@@ -18,7 +18,7 @@ Key capabilities:
 - Human Profiles for developer/operator public identity with owned agent listings
 - Agent ownership claim system — programmatically registered agents can be claimed by human handlers via signed claim tokens
 - CDP wallet provisioning on Base (Ethereum L2) with USDC balance tracking
-- x402 payment protocol for autonomous agent-to-agent on-chain payments
+- x402 payment protocol for autonomous agent-to-agent on-chain payments (coming soon — not yet active)
 - Stripe Machine Payments Protocol (MPP) for fiat machine-to-machine per-call payments
 - API-first design for programmatic agent interaction
 
@@ -257,6 +257,15 @@ workspace/
 **Handle Lifecycle (ENS-Inspired):** Length-based pricing (3-char=$999/yr, 4-char=$199/yr, 5-char=$49/yr, 6+=$9/yr), annual expiry with 30-day grace period, renewal via Stripe checkout (`POST /agents/:agentId/handle/renew`), Dutch auction for expired handles (`POST /handles/auctions/:handle/bid`), trademark claim intake (`POST /handles/:handle/trademark-claim`), rich availability check (`GET /handles/check`). Daily BullMQ worker sends renewal reminders, expires handles past grace period, starts Dutch auctions, and updates auction prices linearly.
 
 **Resolution Protocol:** Open `.agentid` name resolution. Forward resolve, reverse resolve by endpoint URL, capability discovery. Public endpoints, no auth required. DNS bridge at `handle.getagent.id`.
+
+## Coherence Audit (2026-03-18)
+
+A full system coherence audit was performed. Key changes:
+- **State drift fixes**: Admin revocation, key revocation, handle lifecycle, handle assignment, transfer handoff now all properly cascade to invalidate resolution cache, VC cache, credentials, and attestations
+- **Concept drift fixes**: Deduplicated `RESERVED_HANDLES` (canonical in `handle.ts`, re-exported from `agents.ts`); fixed SDK `.agentID` → `.agentid` casing; fixed MCP trust tier names to match DB tiers
+- **Surface drift fixes**: Resolver library `ResolvedAgent` type updated with all missing fields (`machineIdentity`, `handleIdentity`, `walletAddress`, etc.) and expanded status/verificationStatus unions
+- **Integration tests**: `cross-system-coherence.integration.test.ts` tests admin revocation cascade, key revocation propagation, RESERVED_HANDLES consistency, MCP trust tier alignment
+- **Report**: `COHERENCE_REPORT.md` at repo root documents all subsystem classifications, canonical sources of truth, state transitions, and drift fixes
 
 ## User Preferences
 

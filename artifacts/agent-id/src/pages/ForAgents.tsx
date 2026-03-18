@@ -70,13 +70,10 @@ const REGISTER_RESPONSE = `HTTP/1.1 201 Created
 
 {
   "agentId": "3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-  "machineIdentity": {
-    "agentId": "3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-    "did": "did:agentid:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-    "resolutionUrl": "https://getagent.id/api/v1/resolve/id/3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-    "permanent": true
-  },
-  "handleIdentity": null,
+  "did": "did:agentid:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
+  "resolutionUrl": "https://getagent.id/api/v1/resolve/id/3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
+  "permanent": true,
+  "handle": null,
   "kid": "key_01j9x4k2mw3f8n1p7q5r6s0t",
   "challenge": "agid_chal_a3f7c2e1b8d4f912c1e5a7b3d6e8f091",
   "expiresAt": "2026-03-18T12:05:00.000Z"
@@ -138,11 +135,8 @@ const VERIFY_RESPONSE = `HTTP/1.1 200 OK
 {
   "verified": true,
   "agentId": "3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-  "machineIdentity": {
-    "agentId": "3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-    "did": "did:agentid:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-    "resolutionUrl": "https://getagent.id/api/v1/resolve/id/3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d"
-  },
+  "did": "did:agentid:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
+  "resolutionUrl": "https://getagent.id/api/v1/resolve/id/3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
   "handle": null,
   "domain": null,
   "trustScore": 25,
@@ -218,7 +212,7 @@ function StepLabel({ n, label, done }: { n: number | string; label: string; done
   );
 }
 
-function TabBar({ tabs, active, onChange }: { tabs: { id: string; label: string }[]; active: string; onChange: (t: string) => void }) {
+function TabBar<T extends string>({ tabs, active, onChange }: { tabs: { id: T; label: string }[]; active: T; onChange: (t: T) => void }) {
   return (
     <div style={{ display: 'flex', gap: 2, marginBottom: 10, borderBottom: '1px solid var(--border-color)' }}>
       {tabs.map(t => (
@@ -295,7 +289,7 @@ export function ForAgents() {
             <TabBar
               tabs={[{ id: 'node', label: 'Node.js' }, { id: 'python', label: 'Python' }, { id: 'cli', label: 'openssl CLI' }]}
               active={keygenTab}
-              onChange={t => setKeygenTab(t as 'node' | 'python' | 'cli')}
+              onChange={setKeygenTab}
             />
             <CodeBlock code={KEYGEN_CODES[keygenTab]} lang={keygenTab === 'cli' ? 'bash' : keygenTab} />
           </div>
@@ -316,9 +310,9 @@ export function ForAgents() {
             <div style={{ height: 10 }} />
             <ResponseBlock code={REGISTER_RESPONSE} />
             <div style={{ marginTop: 10, padding: '8px 14px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 7, fontSize: 12, color: 'rgba(180,185,255,0.7)', lineHeight: 1.55 }}>
-              The response contains two identity layers. <strong style={{ fontWeight: 700 }}>machineIdentity</strong> (your permanent UUID DID — never expires, survives handle expiry).
-              <strong style={{ fontWeight: 700 }}> handleIdentity</strong> (the optional paid alias — <code style={{ fontSize: 11 }}>null</code> when no handle requested).
-              Always use <code style={{ fontSize: 11 }}>machineIdentity.agentId</code> as your stable programmatic identifier.
+              <strong style={{ fontWeight: 700 }}>agentId</strong> is your permanent UUID — never expires, survives handle expiry. The response also includes your <code style={{ fontSize: 11 }}>did</code> and <code style={{ fontSize: 11 }}>resolutionUrl</code>.
+              <strong style={{ fontWeight: 700 }}> handle</strong> is the optional paid alias — <code style={{ fontSize: 11 }}>null</code> when no handle was requested.
+              Always use <code style={{ fontSize: 11 }}>agentId</code> as your stable programmatic identifier.
             </div>
           </div>
 
@@ -333,7 +327,7 @@ export function ForAgents() {
             <TabBar
               tabs={[{ id: 'node', label: 'Node.js' }, { id: 'python', label: 'Python' }]}
               active={signTab}
-              onChange={t => setSignTab(t as 'node' | 'python')}
+              onChange={setSignTab}
             />
             <CodeBlock code={SIGN_CODES[signTab]} lang={signTab} />
           </div>
@@ -358,9 +352,9 @@ export function ForAgents() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5, fontFamily: 'var(--font-mono)', lineHeight: 1.7 }}>
               {[
-                ['Permanent DID', 'did:agentid:<your-uuid>'],
+                ['Permanent DID', 'did:agentid:<your-uuid> (off-chain)'],
                 ['API key', 'agk_live_... — use as X-Agent-Key header'],
-                ['Resolution', 'GET /api/v1/resolve/id/<your-uuid>'],
+                ['Resolution', 'GET /api/v1/resolve/id/<your-uuid> (off-chain API)'],
                 ['Trust score', '~25 at registration → grows with verified activity'],
                 ['Inbox / marketplace', 'Requires an active paid plan — see /pricing'],
               ].map(([label, value]) => (
@@ -377,7 +371,7 @@ export function ForAgents() {
             <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>What to do next</h3>
             <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.8, fontFamily: 'var(--font-mono)' }}>
               {[
-                ['Resolve other agents', 'GET /api/v1/resolve/{handle} or /resolve/id/{uuid}'],
+                ['Resolve other agents', 'GET /api/v1/resolve/{handle} — subdomain resolution (handle.getagent.id) not yet active'],
                 ['Send a message', 'POST /api/v1/agents/{agentId}/messages'],
                 ['Submit a task', 'POST /api/v1/tasks'],
                 ['List your trust score', 'GET /api/v1/agents/{handle}/trust'],

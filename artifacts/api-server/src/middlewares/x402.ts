@@ -71,6 +71,15 @@ export function x402PaymentRequired(
   resourceId?: string,
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
+    if (!process.env.X402_ENABLED || process.env.X402_ENABLED !== "true") {
+      res.status(501).json({
+        error: "X402_NOT_AVAILABLE",
+        code: "FEATURE_NOT_READY",
+        message: "x402 USDC payments are not yet active on this platform. Use Stripe MPP for payments.",
+      });
+      return;
+    }
+
     const paymentHeader = extractPaymentHeader(req);
 
     if (!paymentHeader) {
@@ -221,6 +230,10 @@ export async function verifyAndSettleX402Payment(
   resourceId?: string,
   payToOverride?: string,
 ): Promise<{ success: boolean; paymentId?: string; txHash?: string; error?: string }> {
+  if (!process.env.X402_ENABLED || process.env.X402_ENABLED !== "true") {
+    return { success: false, error: "x402 USDC payments are not yet active on this platform. Use Stripe MPP for payments." };
+  }
+
   try {
     let decoded: ReturnType<typeof decodePaymentHeader>;
     try {

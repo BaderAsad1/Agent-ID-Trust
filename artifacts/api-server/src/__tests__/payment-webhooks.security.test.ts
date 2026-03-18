@@ -636,3 +636,123 @@ describe("Payment Webhooks — end-to-end Stripe signature: valid signed events 
     expect(res.body.error).toBe("WEBHOOK_VERIFICATION_FAILED");
   });
 });
+
+describe("Marketplace orders — disabled (501)", () => {
+  async function buildMarketplaceApp() {
+    const marketplaceMod = await import("../routes/v1/marketplace");
+    const { errorHandler } = await import("../middlewares/error-handler");
+    const app = express();
+    app.use(express.json());
+    app.use((req: express.Request, _res, next) => {
+      req.userId = "test-user-id";
+      req.user = { id: "test-user-id" } as Express.Request["user"];
+      next();
+    });
+    app.use("/marketplace", marketplaceMod.default);
+    app.use(errorHandler);
+    return app;
+  }
+
+  it("POST /marketplace/orders returns 501 marketplace_payments_unavailable", async () => {
+    const app = await buildMarketplaceApp();
+    const res = await request(app)
+      .post("/marketplace/orders")
+      .send({ listingId: "00000000-0000-0000-0000-000000000001" });
+
+    expect(res.status).toBe(501);
+    expect(res.body.error).toBe("marketplace_payments_unavailable");
+  });
+});
+
+describe("Resend webhooks — signature verification (fail-closed)", () => {
+  async function buildResendWebhookApp() {
+    const resendMod = await import("../routes/v1/resend-webhooks");
+    const app = express();
+    app.use(express.json());
+    app.use((req: express.Request, _res, next) => {
+      req.rawBody = Buffer.from(JSON.stringify(req.body));
+      next();
+    });
+    app.use("/webhooks", resendMod.default);
+    return app;
+  }
+
+  it("POST /webhooks/resend/inbound without svix headers rejects with invalid_signature", async () => {
+    const app = await buildResendWebhookApp();
+    const res = await request(app)
+      .post("/webhooks/resend/inbound")
+      .send({ type: "email.received", data: { from: "a@b.com", to: ["c@d.com"] } });
+
+    expect(res.status).toBe(200);
+    expect(res.body.error).toMatch(/invalid_signature|webhook_secret_not_configured/);
+  });
+
+  it("POST /webhooks/resend/bounce without svix headers rejects with invalid_signature", async () => {
+    const app = await buildResendWebhookApp();
+    const res = await request(app)
+      .post("/webhooks/resend/bounce")
+      .send({ type: "email.bounced", data: { email_id: "test" } });
+
+    expect(res.status).toBe(200);
+    expect(res.body.error).toMatch(/invalid_signature|webhook_secret_not_configured/);
+  });
+});
+
+describe("Well-known endpoint — Content-Type verification", () => {
+  async function buildWellKnownApp() {
+    const wellKnownMod = await import("../routes/well-known");
+    const app = express();
+    app.use(wellKnownMod.default);
+    return app;
+  }
+
+  it("GET /.well-known/agent.json returns Content-Type application/json", async () => {
+    const app = await buildWellKnownApp();
+    const res = await request(app)
+      .get("/.well-known/agent.json")
+      .set("Host", "test.getagent.id");
+
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+  });
+
+  it("GET /.well-known/agentid-configuration returns Content-Type application/json", async () => {
+    const app = await buildWellKnownApp();
+    const res = await request(app).get("/.well-known/agentid-configuration");
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    expect(res.body.protocol).toBe("agentid/v1");
+  });
+});
+
+describe("Well-known endpoint — full app-level routing (SPA catch-all regression guard)", () => {
+  it("GET /.well-known/agent.json via full app returns JSON, not SPA HTML", async () => {
+    const appMod = await import("../app");
+    const res = await request(appMod.default)
+      .get("/.well-known/agent.json")
+      .set("Host", "test.getagent.id");
+
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    expect(res.text).not.toMatch(/<!DOCTYPE html>/i);
+  });
+
+  it("GET /api/.well-known/agent.json via full app returns JSON", async () => {
+    const appMod = await import("../app");
+    const res = await request(appMod.default)
+      .get("/api/.well-known/agent.json")
+      .set("Host", "test.getagent.id");
+
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    expect(res.text).not.toMatch(/<!DOCTYPE html>/i);
+  });
+
+  it("GET /.well-known/agentid-configuration via full app returns JSON with protocol field", async () => {
+    const appMod = await import("../app");
+    const res = await request(appMod.default)
+      .get("/.well-known/agentid-configuration");
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    expect(res.body.protocol).toBe("agentid/v1");
+  });
+});

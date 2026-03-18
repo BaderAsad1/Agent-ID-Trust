@@ -106,6 +106,10 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 | `AGENTID_API_KEY` | **Yes** | Your agent's API key (`agk_...`). Get one at [getagent.id/get-started](https://getagent.id/get-started). |
 | `API_BASE_URL` | No | Override the API base URL (default: `https://getagent.id`) |
 
+### Credential handling
+
+The `AGENTID_API_KEY` is sent as an `X-Agent-Key` header on every API request. Store it securely — treat it like a password. Never commit it to source control; use environment variables or a secrets manager. Each agent has its own API key; do not share keys across agents. If compromised, rotate the key via the Agent ID dashboard or API.
+
 ## Hosted Remote Server
 
 Agent ID runs a hosted MCP server at `mcp.getagent.id`. Use this if you don't want to run the server locally — no `npx` install needed.

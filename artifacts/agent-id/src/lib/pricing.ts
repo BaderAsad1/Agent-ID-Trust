@@ -1,3 +1,6 @@
+import { HANDLE_PRICING_TIERS as SHARED_TIERS, getHandlePricingTier, type HandlePricingTier as SharedTier } from '@workspace/shared-pricing';
+export type { HandlePricingTier } from '@workspace/shared-pricing';
+
 export interface PricingPlan {
   name: string;
   price: string | null;
@@ -73,48 +76,32 @@ export const PRICING_PLANS: PricingPlan[] = [
   },
 ];
 
-export interface HandlePricingTier {
+export interface DisplayHandleTier {
   minLength: number;
   maxLength: number;
   label: string;
-  annualPrice: number | null;
+  annualPrice: number;
   description: string;
 }
 
-export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
-  {
-    minLength: 3,
-    maxLength: 3,
-    label: '3 characters',
-    annualPrice: 640,
-    description: 'Ultra-premium short handle — extremely scarce, priced accordingly',
-  },
-  {
-    minLength: 4,
-    maxLength: 4,
-    label: '4 characters',
-    annualPrice: 160,
-    description: 'Premium short handle — limited supply, high-signal identity',
-  },
-  {
-    minLength: 5,
-    maxLength: 100,
-    label: '5+ characters',
-    annualPrice: 10,
-    description: 'Standard handle — included with any active plan',
-  },
-];
+export const HANDLE_PRICING_TIERS: DisplayHandleTier[] = SHARED_TIERS.filter((t: SharedTier) => !t.isReserved).map((t: SharedTier): DisplayHandleTier => ({
+  minLength: t.minLength,
+  maxLength: t.maxLength ?? 100,
+  label: t.maxLength === undefined ? '5+ characters' : `${t.minLength} characters`,
+  annualPrice: t.annualPriceUsd,
+  description: t.description,
+}));
 
-export function getHandlePrice(handle: string): { annualPrice: number | null; tier: HandlePricingTier } {
+export function getHandlePrice(handle: string): { annualPrice: number; tier: DisplayHandleTier } {
+  const t: SharedTier = getHandlePricingTier(handle);
   const len = handle.replace(/[^a-z0-9]/g, '').length;
-  const tier = HANDLE_PRICING_TIERS.find(t => len >= t.minLength && len <= t.maxLength)
-    ?? HANDLE_PRICING_TIERS[HANDLE_PRICING_TIERS.length - 1];
-  return { annualPrice: tier.annualPrice, tier };
+  const displayTier = HANDLE_PRICING_TIERS.find((dt: DisplayHandleTier) => len >= dt.minLength && len <= dt.maxLength) ?? HANDLE_PRICING_TIERS[HANDLE_PRICING_TIERS.length - 1];
+  return { annualPrice: t.annualPriceUsd, tier: displayTier };
 }
 
 export function formatHandlePrice(handle: string): string {
   const { annualPrice } = getHandlePrice(handle);
-  if (annualPrice === null) return 'Reserved';
+  if (annualPrice === 0) return 'Reserved';
   return `$${annualPrice}/yr`;
 }
 

@@ -111,11 +111,11 @@ async function signChallenge(challenge: string, privateKeyPkcs8Der: Buffer): Pro
 }
 
 const TRUST_TIER_TO_MIN_SCORE: Record<string, number> = {
-  untrusted: 0,
-  low: 10,
-  moderate: 30,
-  high: 60,
-  verified: 80,
+  unverified: 0,
+  basic: 20,
+  verified: 40,
+  trusted: 70,
+  elite: 90,
 };
 
 export function registerAllTools(server: McpServer, apiKey: string, getSessionId: () => string | undefined) {
@@ -235,7 +235,7 @@ export function registerAllTools(server: McpServer, apiKey: string, getSessionId
     {
       query: z.string().optional().describe("Free-text search query"),
       capability: z.string().optional().describe("Filter by specific capability"),
-      trustTier: z.enum(["untrusted", "low", "moderate", "high", "verified"]).optional().describe("Minimum trust tier"),
+      trustTier: z.enum(["unverified", "basic", "verified", "trusted", "elite"]).optional().describe("Minimum trust tier"),
       protocol: z.string().optional().describe("Filter by protocol support"),
       limit: z.number().int().min(1).max(100).optional().describe("Maximum results to return (default 20)"),
       offset: z.number().int().min(0).optional().describe("Pagination offset"),

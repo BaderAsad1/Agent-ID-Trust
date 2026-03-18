@@ -67,7 +67,7 @@ export class AgentID {
   get handle(): string | null {
     if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
     const h = this.resolvedHandle();
-    return h ? `${h}.agentID` : null;
+    return h ? `${h}.agentid` : null;
   }
 
   get did(): string {

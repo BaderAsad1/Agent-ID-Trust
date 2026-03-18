@@ -130,9 +130,14 @@ export function TransferWizardModal({ agent, existingTransfer, onClose, onComple
       <div className="w-full max-w-2xl rounded-2xl p-6 relative max-h-[90vh] overflow-y-auto" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
         <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }} aria-label="Close"><X className="w-5 h-5" /></button>
 
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4">
           <ArrowRightLeft className="w-6 h-6" style={{ color: 'var(--accent)' }} />
-          <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer / Sell @{agent.handle}</h3>
+          <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer @{agent.handle}</h3>
+        </div>
+
+        <div className="flex items-center gap-2 p-3 rounded-lg text-xs mb-6" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: 'rgba(245,158,11,0.85)' }}>
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span><strong>Direct transfer — no escrow protection.</strong> Ownership is transferred directly between parties. Agent ID does not hold funds or provide dispute resolution. Proceed only with trusted counterparties.</span>
         </div>
 
         <div className="flex items-center gap-2 mb-6">
@@ -373,9 +378,6 @@ export function HandoffChecklist({ agentId, transferId }: { agentId: string; tra
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [showDispute, setShowDispute] = useState(false);
-  const [disputeReason, setDisputeReason] = useState('');
-  const [disputeSubmitting, setDisputeSubmitting] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!transferId || !agentId) return;
@@ -431,17 +433,6 @@ export function HandoffChecklist({ agentId, transferId }: { agentId: string; tra
       await fetchData();
     } catch { /* handled by re-fetch */ }
     finally { setActionLoading(null); }
-  };
-
-  const handleDispute = async () => {
-    if (!disputeReason.trim()) return;
-    setDisputeSubmitting(true);
-    try {
-      await api.transferSale.dispute(agentId, transferId, disputeReason.trim());
-      setShowDispute(false);
-      await fetchData();
-    } catch { /* handled by re-fetch */ }
-    finally { setDisputeSubmitting(false); }
   };
 
   if (loading) return <ListSkeleton rows={6} />;
@@ -527,9 +518,9 @@ export function HandoffChecklist({ agentId, transferId }: { agentId: string; tra
 
         <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
           {(transfer.status === 'in_handoff' || transfer.status === 'hold_pending' || transfer.status === 'transfer_pending') && (isSeller || isBuyer) && (
-            <PrimaryButton variant="ghost" onClick={() => setShowDispute(true)}>
-              <Flag className="w-4 h-4 mr-1" /> Raise Dispute
-            </PrimaryButton>
+            <a href="mailto:support@getagent.id" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>
+              <Flag className="w-3.5 h-3.5" /> Issue with this transfer? Contact support
+            </a>
           )}
           {(transfer.status === 'pending_acceptance' || transfer.status === 'hold_pending') && isSeller && (
             <PrimaryButton onClick={handleAdvance} disabled={actionLoading === 'advance'}>
@@ -562,37 +553,12 @@ export function HandoffChecklist({ agentId, transferId }: { agentId: string; tra
           <div className="text-center py-6 rounded-xl" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
             <AlertTriangle className="w-10 h-10 mx-auto mb-2" style={{ color: 'var(--danger)' }} />
             <p className="text-sm font-semibold" style={{ color: 'var(--danger)' }}>Transfer Disputed</p>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>This transfer is under review. Contact support for assistance.</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>A dispute has been flagged on this transfer. Agent ID does not provide automated dispute resolution — parties should resolve the issue directly or contact support for manual assistance.</p>
           </div>
         )}
       </div>
 
-      {showDispute && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-          <div className="w-full max-w-md rounded-2xl p-6 relative" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
-            <button onClick={() => setShowDispute(false)} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }} aria-label="Close"><X className="w-5 h-5" /></button>
-            <div className="flex items-center gap-3 mb-4">
-              <Flag className="w-5 h-5" style={{ color: 'var(--danger)' }} />
-              <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Raise Dispute</h3>
-            </div>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Describe the issue with this transfer. Both parties and support will be notified.</p>
-            <textarea
-              value={disputeReason}
-              onChange={e => setDisputeReason(e.target.value)}
-              placeholder="Explain the reason for the dispute..."
-              rows={4}
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none mb-4"
-              style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
-            />
-            <div className="flex gap-3">
-              <PrimaryButton variant="danger" onClick={handleDispute} disabled={disputeSubmitting || !disputeReason.trim()}>
-                {disputeSubmitting ? 'Submitting...' : 'Submit Dispute'}
-              </PrimaryButton>
-              <PrimaryButton variant="ghost" onClick={() => setShowDispute(false)}>Cancel</PrimaryButton>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 }

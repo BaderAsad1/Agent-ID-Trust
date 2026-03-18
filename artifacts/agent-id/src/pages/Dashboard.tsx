@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield, Key } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -478,7 +478,7 @@ function Overview() {
       {agents.length > 0 && <McpQuickstartCard />}
       <h2 className="text-lg font-semibold mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Recent Activity</h2>
       {recentActivity.length === 0 ? (
-        <EmptyState icon={<Activity className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No activity yet" description="Activity will appear here as your agents work." />
+        <EmptyState icon={<Activity className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No activity yet" description="Activity will appear here as your agents work." action={<PrimaryButton variant="ghost" onClick={() => navigate('/for-agents')}>Learn how to get started</PrimaryButton>} />
       ) : (
         <GlassCard>
           <div className="space-y-3">
@@ -584,6 +584,7 @@ function TaskInbox() {
 
 function ActivityLogPage() {
   const { agents } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -619,7 +620,7 @@ function ActivityLogPage() {
       ) : error ? (
         <ErrorState message={error} onRetry={fetchActivity} />
       ) : activities.length === 0 ? (
-        <EmptyState icon={<Activity className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No activity yet" description="Activity events will appear here as your agents receive tasks and complete work." />
+        <EmptyState icon={<Activity className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No activity yet" description="Activity events will appear here as your agents receive tasks and complete work." action={<PrimaryButton variant="ghost" onClick={() => navigate('/for-agents')}>Learn how to get started</PrimaryButton>} />
       ) : (
         <GlassCard>
           <div className="space-y-2">
@@ -791,7 +792,7 @@ function MarketplaceDashboard() {
           </div>
           {showCreateForm && <CreateListingForm agents={agents} onCreated={() => { setShowCreateForm(false); fetchData(); }} onCancel={() => setShowCreateForm(false)} />}
           {myListings.length === 0 ? (
-            <EmptyState icon={<DollarSign className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No listings yet" description="Create a marketplace listing to start earning." />
+            <EmptyState icon={<DollarSign className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No listings yet" description="Create a marketplace listing to start earning." action={<PrimaryButton variant="ghost" onClick={() => navigate('/marketplace')}>Go to Marketplace</PrimaryButton>} />
           ) : (
             <GlassCard>
               <div className="overflow-x-auto">
@@ -1158,6 +1159,7 @@ function FleetManagement() {
 
 function DomainDashboard() {
   const { agents } = useAuth();
+  const navigate = useNavigate();
   const [registryStatuses, setRegistryStatuses] = useState<Record<string, { registered: boolean; domain: string; resolveUrl: string; dnsbridge: string; status: string; registeredAt: string | null }>>({});
   const [transferAgent, setTransferAgent] = useState<Agent | null>(null);
   const { refreshAgents } = useAuth();
@@ -1175,7 +1177,7 @@ function DomainDashboard() {
     <div>
       <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Your .agentid Domains</h1>
       {agents.length === 0 ? (
-        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agentid address." />
+        <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agentid address." action={<PrimaryButton onClick={() => navigate('/get-started')}>Register an agent</PrimaryButton>} />
       ) : (
         <div className="space-y-6">
           {agents.map(agent => {
@@ -1331,10 +1333,11 @@ function SettingsPage() {
           {loading ? (
             <ListSkeleton rows={2} />
           ) : apiKeys.length === 0 ? (
-            <div className="text-center py-6">
-              <CreditCard className="w-6 h-6 mx-auto mb-2" style={{ color: 'var(--text-dim)' }} />
-              <p className="text-sm" style={{ color: 'var(--text-dim)' }}>No API keys created yet.</p>
-            </div>
+            <EmptyState
+              icon={<Key className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />}
+              title="No API keys yet"
+              description="Create an API key to authenticate your agents programmatically."
+            />
           ) : (
             apiKeys.map(k => (
               <div key={k.id} className="flex items-center justify-between py-2">
@@ -1367,6 +1370,7 @@ function SettingsPage() {
 
 function CredentialDashboard() {
   const { agents } = useAuth();
+  const navigate = useNavigate();
   const [selectedAgentId, setSelectedAgentId] = useState(agents[0]?.id || '');
   const [credential, setCredential] = useState<AgentCredential | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1427,7 +1431,7 @@ function CredentialDashboard() {
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Agent Credential</h2>
+        <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Agent Credential <span title="W3C Verifiable Credential encoded as a JSON Web Token (JWT). Interoperable with any VC-compatible verifier." style={{ fontSize: 11, fontWeight: 600, color: 'rgba(52,211,153,0.7)', background: 'rgba(52,211,153,0.08)', padding: '2px 8px', borderRadius: 5, verticalAlign: 'middle', marginLeft: 6, cursor: 'help' }}>W3C VC (JWT)</span></h2>
         {agents.length > 1 && (
           <select
             value={selectedAgentId}
@@ -1441,7 +1445,7 @@ function CredentialDashboard() {
       </div>
 
       {agents.length === 0 ? (
-        <EmptyState icon={<ShieldCheck className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents yet" description="Register an agent to view its verifiable credential." />
+        <EmptyState icon={<ShieldCheck className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents yet" description="Register an agent to view its verifiable credential." action={<PrimaryButton onClick={() => navigate('/get-started')}>Register an agent</PrimaryButton>} />
       ) : loading ? (
         <CardSkeleton />
       ) : error ? (
@@ -1547,7 +1551,7 @@ function CredentialDashboard() {
               {copied === 'credential' ? <><Check className="w-4 h-4 mr-2" /> Copied</> : <><Copy className="w-4 h-4 mr-2" /> Copy Credential</>}
             </PrimaryButton>
             <PrimaryButton variant="ghost" className="w-full" onClick={() => window.open(credential.erc8004Url, '_blank', 'noopener,noreferrer')}>
-              <ExternalLink className="w-4 h-4 mr-2" /> View Agent Credential
+              <ExternalLink className="w-4 h-4 mr-2" /> View Agent Credential (Off-chain)
             </PrimaryButton>
             <PrimaryButton variant="ghost" className="w-full" onClick={handleReissue} disabled={reissuing}>
               {reissueSuccess ? <><Check className="w-4 h-4 mr-2" /> Credential Reissued</> : <><RotateCw className={`w-4 h-4 mr-2 ${reissuing ? 'animate-spin' : ''}`} /> {reissuing ? 'Reissuing…' : 'Reissue Credential'}</>}
@@ -1558,7 +1562,7 @@ function CredentialDashboard() {
           </div>
         </div>
       ) : (
-        <EmptyState icon={<ShieldCheck className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No credential found" description="This agent doesn't have a credential yet. Complete verification to receive one." />
+        <EmptyState icon={<ShieldCheck className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No credential found" description="This agent doesn't have a credential yet. Complete verification to receive one." action={<PrimaryButton variant="ghost" onClick={() => navigate('/for-agents')}>Learn about verification</PrimaryButton>} />
       )}
     </div>
   );
@@ -1566,6 +1570,7 @@ function CredentialDashboard() {
 
 function WalletDashboard() {
   const { agents } = useAuth();
+  const navigate = useNavigate();
   const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [walletInfo, setWalletInfo] = useState<import('@/lib/api').WalletInfo | null>(null);
   const [balance, setBalance] = useState<import('@/lib/api').WalletBalance | null>(null);
@@ -1669,7 +1674,7 @@ function WalletDashboard() {
     return (
       <div>
         <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Wallet</h1>
-        <EmptyState icon={<Wallet className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents found" description="Register an agent to access wallet features." />
+        <EmptyState icon={<Wallet className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents found" description="Register an agent to access wallet features." action={<PrimaryButton onClick={() => navigate('/get-started')}>Register an agent</PrimaryButton>} />
       </div>
     );
   }

@@ -107,7 +107,30 @@ function adminAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+function adminIpAllowlist(req: Request, res: Response, next: NextFunction): void {
+  const allowedRaw = process.env.ADMIN_ALLOWED_IPS;
+  if (!allowedRaw || allowedRaw.trim() === "") {
+    next();
+    return;
+  }
+
+  const allowedIps = allowedRaw.split(",").map(ip => ip.trim()).filter(Boolean);
+  const reqIp = getRequestorIp(req);
+
+  if (!allowedIps.includes(reqIp)) {
+    console.warn(`[admin] IP ${reqIp} not in ADMIN_ALLOWED_IPS allowlist`);
+    res.status(403).json({
+      error: "ADMIN_FORBIDDEN",
+      message: "Request denied: IP not in admin allowlist.",
+    });
+    return;
+  }
+
+  next();
+}
+
 router.use(adminRateLimiter);
+router.use(adminIpAllowlist);
 router.use(adminAuth);
 
 const revokeAgentSchema = z.object({
@@ -135,6 +158,68 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
       revocationStatement: statement,
       updatedAt: new Date(),
     }).where(eq(agentsTable.id, agentId));
+
+    try {
+      const { agentKeysTable } = await import("@workspace/db/schema");
+      await db.update(agentKeysTable)
+        .set({ status: "revoked", revokedAt: new Date() })
+        .where(and(
+          eq(agentKeysTable.agentId, agentId),
+          eq(agentKeysTable.status, "active"),
+        ));
+    } catch {}
+
+    try {
+      const { agentCredentialsTable } = await import("@workspace/db/schema");
+      await db.update(agentCredentialsTable)
+        .set({ isActive: false, revokedAt: new Date(), updatedAt: new Date() })
+        .where(and(
+          eq(agentCredentialsTable.agentId, agentId),
+          eq(agentCredentialsTable.isActive, true),
+        ));
+    } catch {}
+
+    try {
+      const { clearVcCache } = await import("../../services/verifiable-credential");
+      clearVcCache(agentId);
+    } catch {}
+
+    try {
+      if (agent.handle) {
+        const { deleteResolutionCache } = await import("./resolve");
+        const { normalizeHandle } = await import("../../utils/handle");
+        await deleteResolutionCache(normalizeHandle(agent.handle));
+      }
+    } catch {}
+
+    setImmediate(async () => {
+      try {
+        const { agentAttestationsTable } = await import("@workspace/db/schema");
+        const { recomputeAndStore } = await import("../../services/trust-score");
+        const { isNull: isNullOp } = await import("drizzle-orm");
+
+        const attestedAgents = await db
+          .select({ subjectId: agentAttestationsTable.subjectId })
+          .from(agentAttestationsTable)
+          .where(and(
+            eq(agentAttestationsTable.attesterId, agentId),
+            isNullOp(agentAttestationsTable.revokedAt),
+          ));
+
+        if (attestedAgents.length > 0) {
+          await db.update(agentAttestationsTable)
+            .set({ revokedAt: new Date() })
+            .where(and(
+              eq(agentAttestationsTable.attesterId, agentId),
+              isNullOp(agentAttestationsTable.revokedAt),
+            ));
+        }
+
+        for (const { subjectId } of attestedAgents) {
+          try { await recomputeAndStore(subjectId); } catch {}
+        }
+      } catch {}
+    });
 
     await writeAuditEvent("admin", "system", "admin.agent.revoked", "agent", agentId,
       adminAuditMeta(req, { reason, statement, signal: "admin_revocation" }),

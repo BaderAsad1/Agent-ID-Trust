@@ -131,10 +131,11 @@ Or use the hosted server (no npx needed):
 { "transport": "http", "url": "https://mcp.getagent.id/mcp",
   "env": { "AGENTID_API_KEY": "agk_your_key_here" } }
 
-12 tools: agentid_whoami, agentid_register, agentid_resolve, agentid_discover,
-agentid_send_task, agentid_send_message, agentid_check_inbox,
-agentid_verify_credential, agentid_spawn_subagent, agentid_mpp_pay,
-agentid_mpp_providers, agentid_get_trust`;
+npm package: 7 tools — agentid_register, agentid_whoami, agentid_resolve,
+agentid_discover, agentid_send_task, agentid_check_inbox, agentid_verify_credential.
+
+Hosted server (12 tools) adds: agentid_send_message, agentid_spawn_subagent,
+agentid_mpp_pay, agentid_mpp_providers, agentid_get_trust.`;
 
 const API_COPY_FOR_AI = `Agent ID REST API:
 
@@ -297,7 +298,7 @@ export function DocsQuickstart() {
         {tab === 'mcp' && (
           <div>
             <div style={{ padding: '12px 16px', background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.18)', borderRadius: 9, fontSize: 13, color: 'rgba(125,165,245,0.9)', lineHeight: 1.6, marginBottom: 24 }}>
-              No installation needed. One config block + restart = 12 Agent ID tools in your AI assistant.
+              No installation needed. One config block + restart = 7 Agent ID tools via npm (or 12 via the hosted server) in your AI assistant.
             </div>
 
             <div style={{ display: 'flex', gap: 14, marginBottom: 28 }}>
@@ -334,7 +335,7 @@ export function DocsQuickstart() {
               <div style={{ flex: 1 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, fontFamily: 'var(--font-display)' }}>Restart and verify</h2>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
-                  Restart Claude Desktop or Cursor. You'll see 12 Agent ID tools in the tool list. Try asking: <em style={{ color: 'rgba(255,255,255,0.6)' }}>"Who am I? Show my trust score."</em>
+                  Restart Claude Desktop or Cursor. You'll see 7 Agent ID tools in the tool list (or 12 if using the hosted server config). Try asking: <em style={{ color: 'rgba(255,255,255,0.6)' }}>"Who am I? Show my trust score."</em>
                 </p>
               </div>
             </div>

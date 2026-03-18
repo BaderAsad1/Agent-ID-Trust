@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, CheckCircle, XCircle, Clock, AlertTriangle, AtSign, Loader2, Gavel } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { api } from '@/lib/api';
+import { HANDLE_PRICING_TIERS } from '@/lib/pricing';
 
 type HandleStatus = 'idle' | 'loading' | 'available' | 'taken' | 'reserved' | 'in-auction' | 'invalid';
 
@@ -306,24 +307,14 @@ export function HandlesClaim() {
           Handle pricing tiers
         </h3>
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <div>
-              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>3 characters</span>
-              <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>Ultra-scarce</span>
+          {HANDLE_PRICING_TIERS.map(tier => (
+            <div key={tier.label} className="flex items-center justify-between text-sm">
+              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{tier.label}</span>
+              <span className="font-semibold" style={{ color: tier.annualPrice && tier.annualPrice > 10 ? 'var(--text-primary)' : 'var(--success)' }}>
+                {tier.annualPrice === null ? 'Reserved' : tier.annualPrice <= 10 ? 'Included with plan' : `$${tier.annualPrice}/yr`}
+              </span>
             </div>
-            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>$640/yr</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <div>
-              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>4 characters</span>
-              <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>Premium</span>
-            </div>
-            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>$160/yr</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>5+ characters</span>
-            <span className="font-semibold" style={{ color: 'var(--success)' }}>Included with plan</span>
-          </div>
+          ))}
         </div>
         <p className="text-xs mt-3 pt-3 border-t" style={{ color: 'var(--text-dim)', borderColor: 'var(--border-color)' }}>
           Grace period: 90 days after expiry · Handle loss never affects your UUID machine identity.
