@@ -222,6 +222,13 @@ export async function processAgentUpgrade(
   }
 
   if (paymentMethod === "usdc") {
+    if (!process.env.BASE_RPC_URL) {
+      return {
+        success: false,
+        error: "FEATURE_NOT_CONFIGURED",
+      };
+    }
+
     if (!usdcTxHash) {
       return { success: false, error: "USDC transaction hash required" };
     }

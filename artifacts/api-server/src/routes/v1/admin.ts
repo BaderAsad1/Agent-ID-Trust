@@ -14,6 +14,7 @@
  */
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { timingSafeEqual } from "crypto";
+import rateLimit from "express-rate-limit";
 import { z } from "zod/v4";
 import { eq, and, gte, lte, desc, like, or } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -30,6 +31,33 @@ import { writeAuditEvent } from "../../services/auth-session";
 
 const router = Router();
 
+const adminRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "ADMIN_RATE_LIMITED",
+    message: "Too many admin requests. Limit is 30 per minute per IP.",
+  },
+});
+
+// Use req.ip which respects Express trust proxy settings (canonical, de-spoofable when
+// proxy trust is configured). x-forwarded-for is included as supplemental context only.
+function getRequestorIp(req: Request): string {
+  return req.ip ?? req.socket?.remoteAddress ?? "unknown";
+}
+
+function adminAuditMeta(req: Request, extra: Record<string, unknown> = {}): Record<string, unknown> {
+  const forwarded = req.headers["x-forwarded-for"];
+  return {
+    ...extra,
+    requestorIp: getRequestorIp(req),
+    requestorIpForwarded: typeof forwarded === "string" ? forwarded : undefined,
+    adminIdentity: (req.headers["x-admin-identity"] as string | undefined) ?? null,
+  };
+}
+
 function adminAuth(req: Request, res: Response, next: NextFunction): void {
   // Security: always return the same generic error regardless of which check
   // fails so callers cannot distinguish missing key vs wrong key (timing oracle).
@@ -44,7 +72,13 @@ function adminAuth(req: Request, res: Response, next: NextFunction): void {
   const expectedKey = process.env.ADMIN_SECRET_KEY;
 
   // Fail closed: if env var is not set, no key can ever be valid.
-  if (!adminKey || !expectedKey) {
+  // Log a warning when the secret is absent so operators are alerted.
+  if (!expectedKey) {
+    console.warn("[admin] ADMIN_SECRET_KEY is not set; all admin requests will be denied.");
+    deny();
+    return;
+  }
+  if (!adminKey) {
     deny();
     return;
   }
@@ -73,6 +107,7 @@ function adminAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+router.use(adminRateLimiter);
 router.use(adminAuth);
 
 const revokeAgentSchema = z.object({
@@ -101,11 +136,10 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
       updatedAt: new Date(),
     }).where(eq(agentsTable.id, agentId));
 
-    await writeAuditEvent("admin", "system", "admin.agent.revoked", "agent", agentId, {
-      reason,
-      statement,
-      signal: "admin_revocation",
-    });
+    await writeAuditEvent("admin", "system", "admin.agent.revoked", "agent", agentId,
+      adminAuditMeta(req, { reason, statement, signal: "admin_revocation" }),
+      getRequestorIp(req),
+    );
 
     res.json({ success: true, agentId, status: "revoked", revokedAt: new Date().toISOString() });
   } catch (err) {
@@ -127,11 +161,10 @@ router.post("/tokens/revoke", async (req: Request, res: Response, next: NextFunc
       .set({ revokedAt: new Date(), revokedReason: reason || "admin_revocation" })
       .where(eq(oauthTokensTable.id, token.id));
 
-    await writeAuditEvent("admin", "system", "admin.token.revoked", "token", tokenId, {
-      tokenId,
-      reason: reason || "admin_revocation",
-      signal: "admin_revocation",
-    });
+    await writeAuditEvent("admin", "system", "admin.token.revoked", "token", tokenId,
+      adminAuditMeta(req, { tokenId, reason: reason || "admin_revocation", signal: "admin_revocation" }),
+      getRequestorIp(req),
+    );
 
     res.json({ success: true, tokenId, revokedAt: new Date().toISOString() });
   } catch (err) {
@@ -153,12 +186,10 @@ router.post("/sessions/revoke", async (req: Request, res: Response, next: NextFu
       .set({ revoked: true, revokedAt: new Date(), revokedReason: reason || "admin_revocation" })
       .where(eq(agentidSessionsTable.id, session.id));
 
-    await writeAuditEvent("admin", "system", "admin.session.revoked", "session", sessionId, {
-      sessionId,
-      agentId: session.agentId,
-      reason: reason || "admin_revocation",
-      signal: "admin_revocation",
-    });
+    await writeAuditEvent("admin", "system", "admin.session.revoked", "session", sessionId,
+      adminAuditMeta(req, { sessionId, agentId: session.agentId, reason: reason || "admin_revocation", signal: "admin_revocation" }),
+      getRequestorIp(req),
+    );
 
     res.json({ success: true, sessionId, revokedAt: new Date().toISOString() });
   } catch (err) {
@@ -180,11 +211,10 @@ router.post("/clients/:clientId/revoke", async (req: Request, res: Response, nex
       .set({ revokedAt: new Date() })
       .where(eq(oauthClientsTable.id, client.id));
 
-    await writeAuditEvent("admin", "system", "admin.client.revoked", "oauth_client", client.id, {
-      clientId,
-      reason: reason || "admin_revocation",
-      signal: "admin_revocation",
-    });
+    await writeAuditEvent("admin", "system", "admin.client.revoked", "oauth_client", client.id,
+      adminAuditMeta(req, { clientId, reason: reason || "admin_revocation", signal: "admin_revocation" }),
+      getRequestorIp(req),
+    );
 
     res.json({ success: true, clientId, revokedAt: new Date().toISOString() });
   } catch (err) {
@@ -293,12 +323,10 @@ router.post("/claims/resolve", async (req: Request, res: Response, next: NextFun
       resolutionNotes: notes,
     }).where(eq(agentClaimHistoryTable.id, historyId));
 
-    await writeAuditEvent("admin", "system", "admin.claim.resolved", "agent", record.agentId, {
-      historyId,
-      resolution,
-      notes,
-      signal: "admin_claim_resolution",
-    });
+    await writeAuditEvent("admin", "system", "admin.claim.resolved", "agent", record.agentId,
+      adminAuditMeta(req, { historyId, resolution, notes, signal: "admin_claim_resolution" }),
+      getRequestorIp(req),
+    );
 
     res.json({ success: true, historyId, resolution, resolvedAt: new Date().toISOString() });
   } catch (err) {

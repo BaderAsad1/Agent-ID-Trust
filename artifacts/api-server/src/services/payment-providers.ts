@@ -162,47 +162,67 @@ class StripeProvider implements PaymentProvider {
   }
 }
 
+// Coinbase Agentic (USDC on Base) — gated pending BASE_RPC_URL infrastructure.
+// Returns a structured PROVIDER_UNAVAILABLE response; do not promote as available.
 class CoinbaseAgenticProvider implements PaymentProvider {
   name = "coinbase_agentic";
   displayName = "Coinbase Agentic (USDC)";
   supported = false;
 
+  private unavailable(): { success: false; error: string; message: string } {
+    return {
+      success: false,
+      error: "PROVIDER_UNAVAILABLE",
+      message: "Coinbase Agentic (USDC on Base) is not currently supported. Integration is pending BASE_RPC_URL infrastructure.",
+    };
+  }
+
   async createIntent(_params: CreateIntentParams): Promise<ProviderIntentResult> {
-    return { success: false, error: "PROVIDER_NOT_AVAILABLE" };
+    return this.unavailable();
   }
 
   async authorizePayment(_params: AuthorizeParams): Promise<ProviderAuthResult> {
-    return { success: false, error: "PROVIDER_NOT_AVAILABLE" };
+    return this.unavailable();
   }
 
   async capturePayment(_intentId: string): Promise<ProviderCaptureResult> {
-    return { success: false, error: "PROVIDER_NOT_AVAILABLE" };
+    return this.unavailable();
   }
 
   async refundPayment(_intentId: string): Promise<ProviderRefundResult> {
-    return { success: false, error: "PROVIDER_NOT_AVAILABLE" };
+    return this.unavailable();
   }
 }
 
+// Visa Agentic Commerce — gated pending Visa partner integration.
+// Returns a structured PROVIDER_UNAVAILABLE response; do not promote as available.
 class VisaAgenticProvider implements PaymentProvider {
   name = "visa_agentic";
   displayName = "Visa Agentic Commerce";
   supported = false;
 
+  private unavailable(): { success: false; error: string; message: string } {
+    return {
+      success: false,
+      error: "PROVIDER_UNAVAILABLE",
+      message: "Visa Agentic Commerce is not currently supported. Integration is pending Visa partner onboarding.",
+    };
+  }
+
   async createIntent(_params: CreateIntentParams): Promise<ProviderIntentResult> {
-    return { success: false, error: "PROVIDER_NOT_AVAILABLE" };
+    return this.unavailable();
   }
 
   async authorizePayment(_params: AuthorizeParams): Promise<ProviderAuthResult> {
-    return { success: false, error: "PROVIDER_NOT_AVAILABLE" };
+    return this.unavailable();
   }
 
   async capturePayment(_intentId: string): Promise<ProviderCaptureResult> {
-    return { success: false, error: "PROVIDER_NOT_AVAILABLE" };
+    return this.unavailable();
   }
 
   async refundPayment(_intentId: string): Promise<ProviderRefundResult> {
-    return { success: false, error: "PROVIDER_NOT_AVAILABLE" };
+    return this.unavailable();
   }
 }
 
@@ -228,14 +248,15 @@ export function listProviders(): Array<{ name: string; displayName: string; supp
 export async function createPaymentIntent(
   providerName: string,
   params: CreateIntentParams,
-): Promise<{ success: boolean; intent?: PaymentIntent; clientSecret?: string; error?: string }> {
+): Promise<{ success: boolean; intent?: PaymentIntent; clientSecret?: string; error?: string; message?: string }> {
   const provider = getProvider(providerName);
   if (!provider) return { success: false, error: "PROVIDER_NOT_FOUND" };
-  if (!provider.supported) return { success: false, error: "PROVIDER_NOT_AVAILABLE" };
 
+  // For unsupported providers, delegate to the provider to get the structured error
+  // with error code and human-readable message rather than a generic short-circuit.
   const result = await provider.createIntent(params);
   if (!result.success) {
-    return { success: false, error: result.error };
+    return { success: false, error: result.error, message: (result as { message?: string }).message };
   }
 
   const [intent] = await db

@@ -1,3 +1,16 @@
+/**
+ * Stripe Connect service — agent onboarding and task payment escrow.
+ *
+ * PAYOUT LIMITATIONS (marketplace orders):
+ * Marketplace order seller payouts (createOrder / completeOrder flow) do NOT use
+ * Stripe Connect automated transfers. They are recorded as `pending_manual_payout`
+ * in the payout ledger and require manual disbursement by the platform operator.
+ * Stripe Connect automated payouts for marketplace orders are not yet implemented.
+ *
+ * Task-payment flow (createTaskPaymentIntent / captureTaskPayment):
+ * This flow DOES support automated Stripe Connect transfer to the seller's connected
+ * account on capture, but only when the recipient has an active Connect account.
+ */
 import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -104,6 +117,19 @@ export async function handleConnectAccountUpdated(accountId: string) {
     .where(eq(agentsTable.stripeConnectAccountId, accountId));
 }
 
+/**
+ * Creates a Stripe PaymentIntent with capture_method="manual" for task payment.
+ *
+ * IMPORTANT — Escrow semantics:
+ * This places a Stripe-authorized hold on the buyer's payment method.
+ * It is NOT a guaranteed escrow — the hold is a pre-authorization that Stripe may
+ * expire (typically after 7 days). Capture must be called before expiry.
+ * On completion, funds are transferred to the recipient's Stripe Connect account
+ * when captureTaskPayment() is called. Cancellation releases the hold via cancelTaskPayment().
+ *
+ * Automated payouts to sellers via Stripe Connect are supported only when the
+ * recipient agent has an active Connect account (chargesEnabled + payoutsEnabled).
+ */
 export async function createTaskPaymentIntent(
   amountCents: number,
   recipientAgentId: string,
@@ -154,6 +180,10 @@ export async function createTaskPaymentIntent(
   };
 }
 
+/**
+ * Captures the Stripe-authorized hold for a task payment, transferring funds to
+ * the seller's connected account. Must be called before the hold expires (~7 days).
+ */
 export async function captureTaskPayment(taskId: string) {
   const task = await db.query.tasksTable.findFirst({
     where: eq(tasksTable.id, taskId),
@@ -171,6 +201,10 @@ export async function captureTaskPayment(taskId: string) {
     .where(eq(tasksTable.id, taskId));
 }
 
+/**
+ * Cancels (releases) the Stripe-authorized hold for a task payment.
+ * No funds are moved; the pre-authorization is voided on Stripe's side.
+ */
 export async function cancelTaskPayment(taskId: string) {
   const task = await db.query.tasksTable.findFirst({
     where: eq(tasksTable.id, taskId),

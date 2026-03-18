@@ -29,6 +29,16 @@ import { env } from "../../lib/env";
 
 const router = Router();
 
+const PAYOUT_NOTE = "Seller payout requires manual settlement. Stripe Connect automated payouts are not yet implemented. Funds are held and will be disbursed manually by the platform operator.";
+
+function withPayoutDisclosure<T extends object>(order: T): T & { payoutStatus: string; payoutNote: string } {
+  return {
+    ...order,
+    payoutStatus: "pending_manual",
+    payoutNote: PAYOUT_NOTE,
+  };
+}
+
 const createListingSchema = z.object({
   agentId: z.string().uuid(),
   title: z.string().min(1).max(255),
@@ -189,7 +199,7 @@ router.post("/orders", requireAuth, async (req, res, next) => {
       throw new AppError(code, result.error!, result.error!);
     }
     res.status(201).json({
-      ...result.order,
+      ...withPayoutDisclosure(result.order!),
       clientSecret: result.clientSecret,
     });
   } catch (err) {
@@ -203,7 +213,10 @@ router.get("/orders", requireAuth, async (req, res, next) => {
     const limit = req.query.limit ? Number(req.query.limit) : 20;
     const offset = req.query.offset ? Number(req.query.offset) : 0;
     const result = await listOrders(req.userId!, role, limit, offset);
-    res.json(result);
+    res.json({
+      orders: result.orders.map(withPayoutDisclosure),
+      total: result.total,
+    });
   } catch (err) {
     next(err);
   }
@@ -214,7 +227,7 @@ router.get("/orders/:orderId", requireAuth, validateUuidParam("orderId"), async 
     const orderId = req.params.orderId as string;
     const order = await getOrderById(orderId, req.userId!);
     if (!order) throw new AppError(404, "NOT_FOUND", "Order not found");
-    res.json(order);
+    res.json(withPayoutDisclosure(order));
   } catch (err) {
     next(err);
   }
@@ -228,7 +241,7 @@ router.post("/orders/:orderId/confirm-payment", requireAuth, validateUuidParam("
       const code = result.error === "ORDER_NOT_FOUND" ? 404 : 409;
       throw new AppError(code, result.error!, result.error!);
     }
-    res.json(result.order);
+    res.json(withPayoutDisclosure(result.order!));
   } catch (err) {
     next(err);
   }
@@ -242,7 +255,7 @@ router.post("/orders/:orderId/confirm", requireAuth, validateUuidParam("orderId"
       const code = result.error === "ORDER_NOT_FOUND" ? 404 : 409;
       throw new AppError(code, result.error!, result.error!);
     }
-    res.json(result.order);
+    res.json(withPayoutDisclosure(result.order!));
   } catch (err) {
     next(err);
   }
@@ -256,7 +269,11 @@ router.post("/orders/:orderId/complete", requireAuth, validateUuidParam("orderId
       const code = result.error === "ORDER_NOT_FOUND" ? 404 : 409;
       throw new AppError(code, result.error!, result.error!);
     }
-    res.json(result.order);
+    res.json({
+      ...result.order,
+      payoutStatus: result.payoutStatus,
+      payoutNote: result.payoutNote,
+    });
   } catch (err) {
     next(err);
   }
@@ -270,7 +287,7 @@ router.post("/orders/:orderId/cancel", requireAuth, validateUuidParam("orderId")
       const code = result.error === "ORDER_NOT_FOUND" ? 404 : 409;
       throw new AppError(code, result.error!, result.error!);
     }
-    res.json(result.order);
+    res.json(withPayoutDisclosure(result.order!));
   } catch (err) {
     next(err);
   }

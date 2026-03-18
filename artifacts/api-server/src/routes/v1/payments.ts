@@ -48,8 +48,12 @@ router.post("/intents", requireAuth, async (req, res, next) => {
       metadata: parsed.metadata,
     });
     if (!result.success) {
-      const code = result.error === "PROVIDER_NOT_FOUND" ? 404
-        : result.error === "PROVIDER_NOT_AVAILABLE" ? 503 : 400;
+      const isUnavailable = result.error === "PROVIDER_NOT_AVAILABLE" || result.error === "PROVIDER_UNAVAILABLE";
+      const code = result.error === "PROVIDER_NOT_FOUND" ? 404 : isUnavailable ? 503 : 400;
+      if (isUnavailable && result.message) {
+        res.status(code).json({ error: result.error, message: result.message });
+        return;
+      }
       throw new AppError(code, result.error!, result.error!);
     }
     res.status(201).json(result.intent);

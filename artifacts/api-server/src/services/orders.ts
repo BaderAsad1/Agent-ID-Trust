@@ -225,7 +225,13 @@ export async function confirmOrder(
 export async function completeOrder(
   orderId: string,
   sellerUserId: string,
-): Promise<{ success: boolean; order?: MarketplaceOrder; error?: string }> {
+): Promise<{
+  success: boolean;
+  order?: MarketplaceOrder;
+  error?: string;
+  payoutStatus?: string;
+  payoutNote?: string;
+}> {
   const order = await db.query.marketplaceOrdersTable.findFirst({
     where: and(
       eq(marketplaceOrdersTable.id, orderId),
@@ -358,7 +364,12 @@ export async function completeOrder(
     logger.error({ err: err instanceof Error ? err.message : err }, "[orders] Failed to send order completed email");
   }
 
-  return { success: true, order: updated };
+  return {
+    success: true,
+    order: updated,
+    payoutStatus: "pending_manual",
+    payoutNote: "Seller payout requires manual settlement. Stripe Connect automated payouts are not yet implemented. Funds are held and will be disbursed manually by the platform operator.",
+  };
 }
 
 export async function cancelOrder(
