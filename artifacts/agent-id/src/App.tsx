@@ -56,11 +56,22 @@ function LandingPage() {
   return <IssuanceFilm onNavigate={(path) => navigate(path)} />;
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    const el = document.getElementById('agent-id-scroll-container');
+    if (el) el.scrollTop = 0;
+  }, [pathname]);
+  return null;
+}
+
 function AppContent() {
   const location = useLocation();
   const isLanding = location.pathname === '/' || location.pathname === '';
 
-  if (isLanding) return <LandingPage />;
+  if (isLanding) return <><ScrollToTop /><LandingPage /></>;
+
 
   return (
     <div
@@ -72,6 +83,7 @@ function AppContent() {
         fontFamily: 'var(--font-body)',
       }}
     >
+      <ScrollToTop />
       <Nav />
       <Routes>
         <Route path="/start" element={<Start />} />

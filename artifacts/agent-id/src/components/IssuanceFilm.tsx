@@ -1611,6 +1611,7 @@ function NavBar({ opacity, onNavigate }: NavProps) {
   const nav = (path: string) => onNavigate?.(path);
   const bgAlpha = (0.7 * opacity).toFixed(2);
   const borderAlpha = (0.04 * opacity).toFixed(3);
+  const hidden = opacity <= 0;
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
@@ -1619,7 +1620,10 @@ function NavBar({ opacity, onNavigate }: NavProps) {
       background: `rgba(5,7,17,${bgAlpha})`,
       backdropFilter: 'blur(20px) saturate(1.8)',
       borderBottom: `1px solid rgba(255,255,255,${borderAlpha})`,
-      transition: 'background 0.3s ease, border-color 0.3s ease',
+      transition: 'opacity 0.3s ease, transform 0.3s ease, background 0.3s ease, border-color 0.3s ease',
+      opacity,
+      transform: hidden ? 'translateY(-100%)' : 'translateY(0)',
+      pointerEvents: hidden ? 'none' : 'auto',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => nav('/')}>
         <img
@@ -2050,7 +2054,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
   const heroScale = lerp(1, 1.06, scroll.heroProgress);
   const heroOpacity = scroll.heroProgress > 0.85 ? lerp(1, 0, (scroll.heroProgress - 0.85) / 0.15) : 1;
   const ceremonyState = getIssuanceCeremonyState(scroll.heroProgress);
-  const navOpacity = scroll.heroProgress > 0.06 ? 1 : lerp(0.4, 1, scroll.heroProgress / 0.06);
+  const navOpacity = scroll.heroProgress < 0.01 ? 1 : Math.max(0, 1 - scroll.heroProgress / 0.04);
 
   const credentialScale = scroll.heroProgress < 0.12
     ? lerp(0.6, 1, easeOutCubic(scroll.heroProgress / 0.12))

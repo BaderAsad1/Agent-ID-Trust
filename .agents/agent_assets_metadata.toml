@@ -18,3 +18,9 @@ id = "s-RHe7PRdbImr2AieC1Tn"
 uri = "file://Agent_ID_Strategic_Analysis.md"
 type = "text"
 title = "Agent ID — Strategic Product Analysis"
+
+[[outputs]]
+id = "xMWmmWDUpWlD6lbH3P1yj"
+uri = "file://.local/tasks/agent-id-testing-audit-findings.md"
+type = "text"
+title = "Agent ID — Testing & Validation Audit Findings"
