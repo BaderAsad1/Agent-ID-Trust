@@ -62,3 +62,4 @@ export * from "./oauth-tokens";
 export * from "./agent-claim-history";
 export * from "./org-policies";
 export * from "./mpp-payments";
+export * from "./waitlist";

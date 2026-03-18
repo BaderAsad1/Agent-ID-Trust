@@ -30,6 +30,7 @@ import { ClaudeDesktopIntegration } from '@/pages/integrations/ClaudeDesktop';
 import { CursorIntegration } from '@/pages/integrations/Cursor';
 import { VSCodeIntegration } from '@/pages/integrations/VSCode';
 import IssuanceFilm from '@/components/IssuanceFilm';
+import { WaitlistGate } from '@/components/WaitlistGate';
 import { AgentUUIDProfile } from '@/pages/AgentUUIDProfile';
 import { HandlePurchase } from '@/pages/HandlePurchase';
 import { Authorize } from '@/pages/Authorize';
@@ -143,14 +144,16 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-        <Routes>
-          <Route path="/*" element={<AppContent />} />
-        </Routes>
-      </BrowserRouter>
-      <Toaster theme="dark" position="bottom-center" />
-    </AuthProvider>
+    <WaitlistGate>
+      <AuthProvider>
+        <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+          <Routes>
+            <Route path="/*" element={<AppContent />} />
+          </Routes>
+        </BrowserRouter>
+        <Toaster theme="dark" position="bottom-center" />
+      </AuthProvider>
+    </WaitlistGate>
   );
 }
 

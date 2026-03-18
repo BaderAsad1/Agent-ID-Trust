@@ -63,3 +63,4 @@ CLAIM_TOKEN_SECRET = "644909b572b06385603daa1c04cfeb760816208ebacd0afc653ef628d3
 LAUNCH_MODE = "false"
 STRIPE_MODE = "live"
 APP_URL = "https://getagent.id"
+VITE_WAITLIST_ENABLED = "true"

@@ -48,6 +48,7 @@ import adminRouter from "./admin";
 import claimHistoryRouter from "./claim-history";
 import orgPoliciesRouter from "./org-policies";
 import mppRouter from "./mpp";
+import waitlistRouter from "./waitlist";
 
 const router = Router();
 
@@ -112,5 +113,6 @@ router.use("/agents", claimHistoryRouter);
 router.use("/orgs/:orgId/policies", orgPoliciesRouter);
 router.use("/bootstrap", bootstrapRouter);
 router.use("/mpp", mppRouter);
+router.use("/waitlist", waitlistRouter);
 
 export default router;
