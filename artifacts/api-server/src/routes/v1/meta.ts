@@ -149,7 +149,7 @@ router.get("/auth-matrix", (_req, res) => {
   res.json(AUTH_MATRIX);
 });
 
-router.get("/admin/cdp-status", (req, res) => {
+router.get("/debug-cdp", (req, res) => {
   const secret = process.env.ACTIVITY_HMAC_SECRET;
   if (!secret || req.headers["x-admin-token"] !== secret) {
     res.status(403).json({ error: "forbidden" });
