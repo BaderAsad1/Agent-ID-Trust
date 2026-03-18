@@ -40,7 +40,7 @@ const CARDS: DocCard[] = [
   {
     icon: Blocks,
     title: 'Framework Integrations',
-    description: 'LangChain, CrewAI, OpenAI Assistants, Vercel AI SDK, and AutoGen — drop-in examples.',
+    description: 'OpenClaw, LangChain, CrewAI, OpenAI Assistants, Vercel AI SDK, AutoGen — drop-in examples.',
     href: '/docs/integrations',
     accent: '#F59E0B',
   },

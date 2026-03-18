@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Check, Code2, Blocks, Bot, Zap, Sparkles, ArrowRight } from 'lucide-react';
+import { Copy, Check, Code2, Blocks, Bot, Zap, Sparkles, ArrowRight, Cpu } from 'lucide-react';
 import { GlassCard } from '@/components/shared';
 import { Footer } from '@/components/Footer';
 
@@ -43,6 +43,14 @@ const FRAMEWORK_CARDS = [
     description: 'Build multi-agent conversations with AutoGen using Agent ID for identity and trust verification.',
     language: 'Python',
     color: '#EF4444',
+  },
+  {
+    slug: 'openclaw',
+    name: 'OpenClaw',
+    icon: Cpu,
+    description: 'Connect your OpenClaw personal agent to the Agent ID network via MCP — resolve identities, check trust, and delegate to verified agents.',
+    language: 'YAML / TypeScript',
+    color: '#F97316',
   },
 ];
 
@@ -407,9 +415,81 @@ print(f"Found {data['total']} agents")
 for a in data["agents"]:
     print(f"  {a['handle']}.agentid (trust: {a['trustScore']})")`;
 
-type Tab = 'langchain' | 'crewai' | 'openai_assistants' | 'vercel_ai' | 'autogen' | 'fetch' | 'python';
+const OPENCLAW_EXAMPLE = `# ~/.openclaw/config.yaml
+# Step 1 — Add the Agent ID MCP server to your OpenClaw config
+
+mcpServers:
+  agentid:
+    command: npx
+    args: ["-y", "@agentid/mcp-server"]
+    env:
+      AGENTID_API_KEY: "agk_your_agent_api_key_here"
+
+# That's it. Restart OpenClaw — the following tools become available:
+# agentid_whoami, agentid_resolve, agentid_discover,
+# agentid_send_task, agentid_check_inbox, agentid_verify_credential,
+# agentid_register
+
+---
+# Step 2 — Use Agent ID tools in an OpenClaw skill definition
+# ~/.openclaw/skills/delegate-research.yaml
+
+name: delegate-research
+description: Delegate research tasks to a trusted .agentid agent
+trigger: "research *"
+steps:
+  - tool: agentid_discover
+    params:
+      capability: research
+      minTrust: 80
+      verifiedOnly: true
+      limit: 1
+    output: bestAgent
+
+  - tool: agentid_send_task
+    params:
+      senderAgentId: "{{env.MY_AGENT_ID}}"
+      recipientAgentId: "{{bestAgent.agents[0].id}}"
+      taskType: research
+      payload:
+        query: "{{trigger.args[0]}}"
+    output: taskResult
+
+  - respond: "Task delegated to {{bestAgent.agents[0].handle}}.agentid (trust: {{bestAgent.agents[0].trustScore}}/100). Task ID: {{taskResult.taskId}}"
+
+---
+// Step 3 — (Optional) Resolve and trust-gate inside a custom OpenClaw script
+// ~/.openclaw/scripts/verify-agent.ts
+
+import { AgentResolver } from '@agentid/resolver';
+
+const resolver = new AgentResolver();
+
+export async function verifyBeforeDelegate(handle: string, minTrust = 70) {
+  const { agent } = await resolver.resolve(handle);
+
+  if (agent.trustScore < minTrust) {
+    throw new Error(
+      \`Agent \${handle}.agentid has trust \${agent.trustScore} — minimum required: \${minTrust}\`
+    );
+  }
+
+  if (agent.verificationStatus !== 'verified') {
+    console.warn(\`Warning: \${handle}.agentid is not yet verified\`);
+  }
+
+  console.log(\`✓ \${agent.displayName} (\${agent.trustScore}/100) — \${agent.endpointUrl}\`);
+  return agent;
+}
+
+// Usage in any OpenClaw workflow
+const agent = await verifyBeforeDelegate('data-analyst', 75);
+// safe to delegate`;
+
+type Tab = 'langchain' | 'crewai' | 'openai_assistants' | 'vercel_ai' | 'autogen' | 'openclaw' | 'fetch' | 'python';
 
 const TABS: { id: Tab; label: string; icon: typeof Code2; lang: string }[] = [
+  { id: 'openclaw', label: 'OpenClaw', icon: Cpu, lang: 'yaml' },
   { id: 'langchain', label: 'LangChain', icon: Blocks, lang: 'typescript' },
   { id: 'crewai', label: 'CrewAI', icon: Bot, lang: 'python' },
   { id: 'openai_assistants', label: 'OpenAI Assistants', icon: Sparkles, lang: 'typescript' },
@@ -420,6 +500,7 @@ const TABS: { id: Tab; label: string; icon: typeof Code2; lang: string }[] = [
 ];
 
 const CODE_MAP: Record<Tab, string> = {
+  openclaw: OPENCLAW_EXAMPLE,
   langchain: LANGCHAIN_EXAMPLE,
   crewai: CREWAI_EXAMPLE,
   openai_assistants: OPENAI_ASSISTANTS_EXAMPLE,
@@ -430,7 +511,7 @@ const CODE_MAP: Record<Tab, string> = {
 };
 
 export function DocsIntegrations() {
-  const [activeTab, setActiveTab] = useState<Tab>('langchain');
+  const [activeTab, setActiveTab] = useState<Tab>('openclaw');
 
   return (
     <div className="pt-16" style={{ background: 'var(--bg-base)' }}>
