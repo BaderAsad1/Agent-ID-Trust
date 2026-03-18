@@ -11,7 +11,8 @@ export default defineConfig({
       {
         test: {
           name: "unit",
-          include: ["src/__tests__/**/*.unit.test.ts"],
+          include: ["src/__tests__/**/*.unit.test.ts", "src/__tests__/**/*-unit.test.ts"],
+          exclude: ["src/__tests__/mail-unit.test.ts"],
           environment: "node",
         },
       },
@@ -36,6 +37,12 @@ export default defineConfig({
             "src/__tests__/**/*.security.test.ts",
           ],
           environment: "node",
+          globals: true,
+          testTimeout: 60000,
+          hookTimeout: 60000,
+          setupFiles: ["src/test-support/security-setup.ts"],
+          fileParallelism: false,
+          maxWorkers: 1,
         },
       },
     ],

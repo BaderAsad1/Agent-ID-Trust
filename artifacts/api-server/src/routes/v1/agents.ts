@@ -268,6 +268,13 @@ router.put("/:agentId", requireAuth, validateUuidParam("agentId"), async (req, r
 
     const existingAgent = await getAgentById(agentId);
     if (existingAgent) {
+      if (existingAgent.status === "revoked") {
+        throw new AppError(409, "AGENT_REVOKED", "Revoked agents cannot be modified. Revocation is permanent and can only be appealed via admin.");
+      }
+      if (parsed.data.status === "active" && existingAgent.status === "draft") {
+        throw new AppError(422, "INVALID_TRANSITION",
+          "Draft agents cannot be directly activated. Complete the verification flow: draft → pending_verification → active.");
+      }
       const meta = (existingAgent.metadata || {}) as Record<string, unknown>;
       const hp = meta.handlePricing as Record<string, unknown> | undefined;
       if (hp?.paymentStatus === "pending") {

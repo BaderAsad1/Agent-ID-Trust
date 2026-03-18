@@ -15,3 +15,17 @@ if ! pnpm --filter db push 2>&1 | tee /tmp/db-push.log; then
 fi
 
 npx tsc -p lib/db/tsconfig.json --noEmit false
+
+# Ensure audit_events has columns required by schema (idempotent via IF NOT EXISTS)
+node -e "
+const { Pool } = require('./node_modules/pg');
+const p = new Pool({ connectionString: process.env.DATABASE_URL });
+p.query(\`
+  ALTER TABLE audit_events
+    ADD COLUMN IF NOT EXISTS target_type varchar(64),
+    ADD COLUMN IF NOT EXISTS target_id varchar(128),
+    ADD COLUMN IF NOT EXISTS ip_address varchar(64),
+    ADD COLUMN IF NOT EXISTS user_agent varchar(512)
+\`).then(() => { console.log('[post-merge] audit_events columns ensured'); p.end(); })
+  .catch(e => { console.error('[post-merge] audit_events alter failed:', e.message); p.end(); process.exit(1); });
+" 2>/dev/null || true

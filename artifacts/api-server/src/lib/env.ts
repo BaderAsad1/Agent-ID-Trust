@@ -161,3 +161,7 @@ export function env(): Env {
   }
   return _env;
 }
+
+export function _resetEnvCacheForTests(): void {
+  _env = null;
+}
