@@ -13,7 +13,6 @@ import {
   incrementListingViews,
 } from "../../services/marketplace";
 import {
-  createOrder,
   confirmPayment,
   confirmOrder,
   completeOrder,
@@ -185,26 +184,11 @@ router.get("/stripe-config", (_req, res) => {
   res.json({ publishableKey });
 });
 
-router.post("/orders", requireAuth, async (req, res, next) => {
-  try {
-    const parsed = createOrderSchema.parse(req.body);
-    const result = await createOrder({
-      ...parsed,
-      buyerUserId: req.userId!,
-    });
-    if (!result.success) {
-      const code = result.error === "LISTING_NOT_FOUND" ? 404
-        : result.error === "CANNOT_ORDER_OWN_LISTING" ? 403
-        : result.error === "PAYMENT_INTENT_FAILED" ? 502 : 400;
-      throw new AppError(code, result.error!, result.error!);
-    }
-    res.status(201).json({
-      ...withPayoutDisclosure(result.order!),
-      clientSecret: result.clientSecret,
-    });
-  } catch (err) {
-    next(err);
-  }
+router.post("/orders", requireAuth, async (_req, res) => {
+  res.status(501).json({
+    error: "marketplace_payments_unavailable",
+    message: "Marketplace payments are not yet available. Automated seller payouts via Stripe Connect are coming soon.",
+  });
 });
 
 router.get("/orders", requireAuth, async (req, res, next) => {

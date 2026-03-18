@@ -129,6 +129,10 @@ export function validateEnv(): Env {
     console.error("[env] FATAL: VC_PUBLIC_KEY is required in production for W3C VC verification.");
     process.exit(1);
   }
+  if (isProd && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) {
+    console.error("[env] FATAL: JWT_SECRET is required in production and must be at least 32 characters.");
+    process.exit(1);
+  }
 
   if (!env.REDIS_URL) {
     console.warn("[env] REDIS_URL not set — rate limiting will use in-memory store, BullMQ workers disabled.");
