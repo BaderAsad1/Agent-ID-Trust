@@ -198,6 +198,70 @@ router.post("/handle/claim", requireAgentAuth, async (req, res, next) => {
   }
 });
 
+router.post("/execute-upgrade", requireAgentAuth, async (req, res, next) => {
+  try {
+    const agent = req.authenticatedAgent!;
+
+    if (!agent.walletAddress) {
+      return res.status(400).json({
+        error: "NO_WALLET",
+        message: "Agent has no wallet configured. Register a wallet first.",
+        docs: `${APP_URL()}/docs/wallet`,
+      });
+    }
+
+    if (agent.walletIsSelfCustodial) {
+      return res.status(400).json({
+        error: "SELF_CUSTODIAL_WALLET",
+        message: "Self-custodial wallets cannot sign x402 payments server-side. Use the x402 client SDK directly.",
+        sdkDocs: `${APP_URL()}/docs/x402-client`,
+      });
+    }
+
+    const accountName = `aid-${agent.id.replace(/-/g, "").substring(0, 28)}`;
+    const { plan = "starter", billingInterval = "monthly" } = req.body;
+
+    if (!["starter", "pro"].includes(plan)) {
+      return res.status(400).json({
+        error: "INVALID_PLAN",
+        message: "Plan must be 'starter' or 'pro'",
+      });
+    }
+
+    const { executeX402Payment } = await import("../../services/x402-client");
+
+    const APP = APP_URL();
+    const result = await executeX402Payment({
+      agentId: agent.id,
+      agentAccountName: accountName,
+      targetUrl: `${APP}/api/v1/pay/upgrade/x402`,
+      method: "POST",
+      body: { plan, billingInterval },
+    });
+
+    if (!result.success) {
+      return res.status(402).json({
+        error: "PAYMENT_FAILED",
+        message: result.error,
+        hint: "Check wallet balance and spending rules",
+      });
+    }
+
+    return res.json({
+      upgraded: true,
+      plan,
+      txHash: result.txHash,
+      agentId: agent.id,
+      message: `Plan upgraded to ${plan} via x402 autonomous payment`,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      error: "EXECUTION_FAILED",
+      message: err.message,
+    });
+  }
+});
+
 router.post("/upgrade/x402", requireAgentAuth, async (req, res, next) => {
   try {
     const { verifyAndSettleX402Payment } = await import("../../middlewares/x402");

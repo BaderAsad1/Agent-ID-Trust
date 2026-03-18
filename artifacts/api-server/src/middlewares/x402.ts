@@ -255,7 +255,14 @@ export async function verifyAndSettleX402Payment(
     }).returning();
 
     try {
-      const { verify, settle } = await import("x402/verify");
+      const { HTTPFacilitatorClient } = await import("@x402/core/http");
+      const { IS_TESTNET: isTestnet } = await import("../lib/cdp");
+
+      const facilitatorUrl = isTestnet
+        ? "https://x402.org/facilitator"
+        : "https://api.cdp.coinbase.com/platform/v2/x402";
+
+      const facilitator = new HTTPFacilitatorClient({ url: facilitatorUrl });
 
       const canonicalReqs = {
         ...canonical,
@@ -266,9 +273,9 @@ export async function verifyAndSettleX402Payment(
         network: canonical.network,
       };
 
-      const verifyResult = await verify(
-        parsed.paymentPayload as Parameters<typeof verify>[0],
-        canonicalReqs as Parameters<typeof verify>[1],
+      const verifyResult = await facilitator.verify(
+        parsed.paymentPayload as any,
+        canonicalReqs as any,
       );
 
       if (!verifyResult.isValid) {
@@ -285,9 +292,9 @@ export async function verifyAndSettleX402Payment(
         return { success: false, error: `Payment verification failed: ${verifyResult.invalidReason || "invalid payment"}` };
       }
 
-      const settleResult = await settle(
-        parsed.paymentPayload as Parameters<typeof settle>[0],
-        canonicalReqs as Parameters<typeof settle>[1],
+      const settleResult = await facilitator.settle(
+        parsed.paymentPayload as any,
+        canonicalReqs as any,
       );
 
       if (!settleResult.success) {
