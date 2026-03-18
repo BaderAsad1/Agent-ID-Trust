@@ -1,7 +1,5 @@
 import { CdpClient } from "@coinbase/cdp-sdk";
 
-let _client: CdpClient | null = null;
-
 export const NETWORK_ID = process.env.CDP_NETWORK_ID || "base-mainnet";
 export const IS_TESTNET = NETWORK_ID.includes("testnet") || NETWORK_ID.includes("sepolia");
 
@@ -19,15 +17,13 @@ export const BASE_EXPLORER_URL = IS_TESTNET
   : "https://basescan.org";
 
 export function getCdpClient(): CdpClient {
-  if (_client) return _client;
-
-  _client = new CdpClient({
+  // Always create a fresh client — never cache, so env var changes (deploys)
+  // are picked up immediately and stale credentials can't get stuck.
+  return new CdpClient({
     apiKeyId: process.env.CDP_API_KEY_ID,
     apiKeySecret: process.env.CDP_API_KEY_SECRET,
     walletSecret: process.env.CDP_WALLET_SECRET || undefined,
   });
-
-  return _client;
 }
 
 export function isCdpConfigured(): boolean {

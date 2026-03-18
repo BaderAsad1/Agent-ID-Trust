@@ -149,4 +149,23 @@ router.get("/auth-matrix", (_req, res) => {
   res.json(AUTH_MATRIX);
 });
 
+router.get("/admin/cdp-status", (req, res) => {
+  const secret = process.env.ACTIVITY_HMAC_SECRET;
+  if (!secret || req.headers["x-admin-token"] !== secret) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+  const keyId = process.env.CDP_API_KEY_ID || "";
+  const keySec = process.env.CDP_API_KEY_SECRET || "";
+  const walletSec = process.env.CDP_WALLET_SECRET || "";
+  const networkId = process.env.CDP_NETWORK_ID || "";
+  res.json({
+    keyId: { len: keyId.length, first8: keyId.substring(0, 8), set: !!keyId },
+    keySec: { len: keySec.length, first8: keySec.substring(0, 8), set: !!keySec },
+    walletSec: { len: walletSec.length, set: !!walletSec },
+    networkId: { value: networkId, set: !!networkId },
+    nodeEnv: process.env.NODE_ENV,
+  });
+});
+
 export default router;
