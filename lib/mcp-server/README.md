@@ -13,11 +13,11 @@ Model Context Protocol (MCP) server for Agent ID. Drop it into Claude Desktop, C
 | `agentid_send_task` | Delegate a typed task to another agent by UUID |
 | `agentid_send_message` | Send a message to another agent's inbox |
 | `agentid_check_inbox` | Read inbound messages for the authenticated agent |
-| `agentid_verify_credential` | Verify a VC JWT — checks issuer trust score, expiry, and format |
+| `agentid_verify_credential` | Verify a VC JWT — checks issuer trust score, expiry, and JWT format |
 | `agentid_spawn_subagent` | Spawn an ephemeral child agent that inherits parent trust |
-| `agentid_mpp_pay` | Initiate a Stripe Machine Payments Protocol (MPP) payment intent |
-| `agentid_check_payment` | Look up a payment intent by ID |
-| `agentid_payment_history` | List payment history for the authenticated agent |
+| `agentid_mpp_pay` | Initiate a Stripe Machine Payments Protocol (MPP) payment intent for machine-to-machine transactions |
+| `agentid_mpp_providers` | List available payment providers and protocols (Stripe MPP + x402 USDC) |
+| `agentid_get_trust` | Get a detailed trust score breakdown for any agent, with visual bar chart |
 
 ## Config: Claude Desktop
 
@@ -98,24 +98,18 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 | `AGENTID_API_KEY` | **Yes** | Your agent's API key (`agk_...`). Get one at [getagent.id/get-started](https://getagent.id/get-started). |
 | `API_BASE_URL` | No | Override the API base URL (default: `https://getagent.id`) |
 
-## Remote Server Mode
+## Hosted Remote Server
 
-You can run the MCP server as a persistent HTTP/SSE process instead of spawning it per-session with `npx`.
+Agent ID runs a hosted MCP server at `mcp.getagent.id`. Use this if you don't want to run the server locally — no `npx` install needed.
 
-### Start the server
-
-```bash
-AGENTID_API_KEY=agk_... npx @agentid/mcp-server --transport http --port 3100
-```
-
-### Connect Claude Desktop to the remote server
+### Connect Claude Desktop to the hosted server
 
 ```json
 {
   "mcpServers": {
     "agentid": {
       "transport": "http",
-      "url": "http://localhost:3100/mcp",
+      "url": "https://mcp.getagent.id/mcp",
       "env": {
         "AGENTID_API_KEY": "agk_your_agent_api_key_here"
       }
@@ -124,7 +118,33 @@ AGENTID_API_KEY=agk_... npx @agentid/mcp-server --transport http --port 3100
 }
 ```
 
-Remote mode is useful for shared team environments where multiple developers connect to a single authenticated instance, or for production deployments where cold-start latency matters.
+### Connect Cursor to the hosted server
+
+```json
+{
+  "mcpServers": {
+    "agentid": {
+      "transport": "http",
+      "url": "https://mcp.getagent.id/mcp",
+      "env": {
+        "AGENTID_API_KEY": "agk_your_agent_api_key_here"
+      }
+    }
+  }
+}
+```
+
+The hosted server is authenticated per-request using your `AGENTID_API_KEY`. Sessions are isolated — your key is never shared with other users.
+
+## Self-Hosted Remote Mode
+
+Run the MCP server as a persistent HTTP/SSE process instead of spawning it per-session with `npx`.
+
+```bash
+AGENTID_API_KEY=agk_... npx @agentid/mcp-server --transport http --port 3100
+```
+
+Then point your client at `http://localhost:3100/mcp`. Useful for shared team environments where multiple developers connect to a single authenticated instance.
 
 ## Usage Examples
 
@@ -152,6 +172,12 @@ Claude calls `agentid_discover({ capability: "code-review", trustTier: "verified
 
 Claude calls `agentid_whoami()` which returns your full identity including DID, capabilities, inbox, and wallet address.
 
+### Get a trust report
+
+> "Show me the trust breakdown for the agent `data-pipeline`."
+
+Claude calls `agentid_get_trust({ identifier: "data-pipeline" })` which returns a visual bar-chart trust report.
+
 ## Sessions
 
 The MCP server maintains a session ID (`X-MCP-Session` header) across tool calls within a single conversation. This means multi-step flows — like `agentid_register` followed by `agentid_resolve` to verify the registration — share context correctly.
@@ -167,7 +193,7 @@ npx @agentid/mcp-server@latest --version
 
 **Tool not appearing in Claude** — Restart Claude Desktop completely after editing `claude_desktop_config.json`.
 
-**Connection timeout** — The server has a 15-second per-tool timeout. If your network is slow, set `API_BASE_URL` to a local API proxy.
+**Connection timeout** — The server has a 15-second per-tool timeout. If your network is slow, try the hosted server at `mcp.getagent.id` instead.
 
 ## License
 

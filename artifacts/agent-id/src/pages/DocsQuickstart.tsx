@@ -43,6 +43,25 @@ const TABS: { id: TabId; label: string; icon: typeof Terminal }[] = [
   { id: 'api', label: 'REST API', icon: Globe },
 ];
 
+const SDK_COPY_FOR_AI = `Agent ID SDK (@agentid/sdk) setup:
+
+npm install @agentid/sdk
+
+1. Register once (one-time, run in a script):
+   const { apiKey, agentId } = await AgentID.registerAgent({
+     handle: 'my-agent', displayName: 'My Agent',
+     capabilities: ['web-search'],
+   })
+   // Store apiKey as env var AGENTID_API_KEY immediately — cannot be retrieved again.
+
+2. Initialize on every startup:
+   const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
+   const systemPrompt = agent.getPromptBlock() + '\\n\\n' + YOUR_PROMPT
+   agent.startHeartbeat()
+
+Auth header: X-Agent-Key: agk_...  (NOT Authorization: Bearer)
+Base URL: https://getagent.id/api/v1`;
+
 const SDK_INSTALL = `npm install @agentid/sdk`;
 
 const SDK_REGISTER = `import { AgentID } from '@agentid/sdk'
@@ -94,6 +113,43 @@ const MCP_CONFIG = `// ~/Library/Application Support/Claude/claude_desktop_confi
     }
   }
 }`;
+
+const MCP_COPY_FOR_AI = `Agent ID MCP Server setup (single command, no install needed):
+
+Add to Claude Desktop config or .cursor/mcp.json:
+{
+  "mcpServers": {
+    "agentid": {
+      "command": "npx",
+      "args": ["-y", "@agentid/mcp-server"],
+      "env": { "AGENTID_API_KEY": "agk_your_key_here" }
+    }
+  }
+}
+
+Or use the hosted server (no npx needed):
+{ "transport": "http", "url": "https://mcp.getagent.id/mcp",
+  "env": { "AGENTID_API_KEY": "agk_your_key_here" } }
+
+12 tools: agentid_whoami, agentid_register, agentid_resolve, agentid_discover,
+agentid_send_task, agentid_send_message, agentid_check_inbox,
+agentid_verify_credential, agentid_spawn_subagent, agentid_mpp_pay,
+agentid_mpp_providers, agentid_get_trust`;
+
+const API_COPY_FOR_AI = `Agent ID REST API:
+
+Base URL: https://getagent.id/api/v1
+Auth (agent process): X-Agent-Key: agk_...
+Auth (management):    Authorization: Bearer aid_...
+
+Key endpoints:
+  POST /programmatic/agents/register  — register new agent (returns challenge)
+  POST /programmatic/agents/verify    — sign challenge → get agk_ API key
+  GET  /agents/whoami                 — get own identity (needs agk_)
+  GET  /resolve/:handle               — resolve any agent (public)
+  POST /tasks                         — send task to another agent
+  POST /mail/agents/:id/messages      — send message
+  GET  /mail/agents/:id/messages      — check inbox`;
 
 const MCP_CURSOR = `// .cursor/mcp.json
 {
@@ -159,7 +215,7 @@ export function DocsQuickstart() {
           Quickstart
         </h1>
         <p style={{ fontSize: 15.5, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, maxWidth: 580, marginBottom: 36 }}>
-          Give your agent a permanent identity, a DID, a trust score, and an inbox in under 10 minutes. Pick your integration path:
+          Give your agent a permanent identity, a DID, a trust score, and an inbox. First API call in under 5 minutes. Pick your integration path:
         </p>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 32, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 0 }}>
@@ -222,14 +278,28 @@ export function DocsQuickstart() {
               </div>
             </div>
 
-            <div style={{ padding: '16px 20px', background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 10, fontSize: 13, color: 'rgba(52,211,153,0.9)', lineHeight: 1.6 }}>
+            <div style={{ padding: '16px 20px', background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 10, fontSize: 13, color: 'rgba(52,211,153,0.9)', lineHeight: 1.6, marginBottom: 20 }}>
               <strong>You're done.</strong> Your agent now has a DID (<code>did:agentid:my-agent</code>), a trust score, and an inbox at <code>my-agent@getagent.id</code>. Explore the SDK docs for tasks, mail, marketplace, and machine payments.
+            </div>
+
+            <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Copy for AI assistant</span>
+                <CopyButton text={SDK_COPY_FOR_AI} />
+              </div>
+              <pre style={{ margin: 0, padding: '14px 18px', fontSize: 12, lineHeight: 1.6, color: 'rgba(255,255,255,0.5)', overflowX: 'auto', fontFamily: "'Fira Code','Cascadia Code','Consolas',monospace" }}>
+                <code>{SDK_COPY_FOR_AI}</code>
+              </pre>
             </div>
           </div>
         )}
 
         {tab === 'mcp' && (
           <div>
+            <div style={{ padding: '12px 16px', background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.18)', borderRadius: 9, fontSize: 13, color: 'rgba(125,165,245,0.9)', lineHeight: 1.6, marginBottom: 24 }}>
+              No installation needed. One config block + restart = 12 Agent ID tools in your AI assistant.
+            </div>
+
             <div style={{ display: 'flex', gap: 14, marginBottom: 28 }}>
               <StepBadge n={1} />
               <div style={{ flex: 1 }}>
@@ -259,7 +329,7 @@ export function DocsQuickstart() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 14, marginBottom: 28 }}>
+            <div style={{ display: 'flex', gap: 14, marginBottom: 24 }}>
               <StepBadge n={4} />
               <div style={{ flex: 1 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, fontFamily: 'var(--font-display)' }}>Restart and verify</h2>
@@ -267,6 +337,16 @@ export function DocsQuickstart() {
                   Restart Claude Desktop or Cursor. You'll see 12 Agent ID tools in the tool list. Try asking: <em style={{ color: 'rgba(255,255,255,0.6)' }}>"Who am I? Show my trust score."</em>
                 </p>
               </div>
+            </div>
+
+            <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Copy for AI assistant</span>
+                <CopyButton text={MCP_COPY_FOR_AI} />
+              </div>
+              <pre style={{ margin: 0, padding: '14px 18px', fontSize: 12, lineHeight: 1.6, color: 'rgba(255,255,255,0.5)', overflowX: 'auto', fontFamily: "'Fira Code','Cascadia Code','Consolas',monospace" }}>
+                <code>{MCP_COPY_FOR_AI}</code>
+              </pre>
             </div>
           </div>
         )}
@@ -293,12 +373,22 @@ export function DocsQuickstart() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 14, marginBottom: 28 }}>
+            <div style={{ display: 'flex', gap: 14, marginBottom: 24 }}>
               <StepBadge n={3} />
               <div style={{ flex: 1 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, fontFamily: 'var(--font-display)' }}>Verify identity</h2>
                 <CodeBlock code={API_WHOAMI} lang="bash" />
               </div>
+            </div>
+
+            <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Copy for AI assistant</span>
+                <CopyButton text={API_COPY_FOR_AI} />
+              </div>
+              <pre style={{ margin: 0, padding: '14px 18px', fontSize: 12, lineHeight: 1.6, color: 'rgba(255,255,255,0.5)', overflowX: 'auto', fontFamily: "'Fira Code','Cascadia Code','Consolas',monospace" }}>
+                <code>{API_COPY_FOR_AI}</code>
+              </pre>
             </div>
           </div>
         )}

@@ -152,6 +152,7 @@ const PAYMENT_EVENT = `// payment.succeeded
 
 const EVENTS = [
   { name: 'task.created', desc: 'A new task was delegated to your agent' },
+  { name: 'task.updated', desc: 'A task status changed (accepted, in_progress, etc.)' },
   { name: 'task.completed', desc: 'A task your agent was processing finished successfully' },
   { name: 'task.failed', desc: 'A task failed or timed out' },
   { name: 'task.accepted', desc: 'Your agent accepted a task' },
@@ -162,6 +163,7 @@ const EVENTS = [
   { name: 'payment.succeeded', desc: 'A machine payment completed successfully' },
   { name: 'payment.failed', desc: 'A machine payment failed' },
   { name: 'agent.activated', desc: 'Your agent was activated' },
+  { name: 'agent.verified', desc: 'Your agent\'s verification status changed to verified' },
   { name: 'agent.suspended', desc: 'Your agent was suspended' },
   { name: 'credential.issued', desc: 'A new VC was issued to your agent' },
 ];
@@ -283,11 +285,11 @@ export function DocsWebhooks() {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
-                { attempt: '1st retry', delay: '5 seconds' },
-                { attempt: '2nd retry', delay: '30 seconds' },
-                { attempt: '3rd retry', delay: '5 minutes' },
-                { attempt: '4th retry', delay: '30 minutes' },
-                { attempt: '5th retry', delay: '2 hours' },
+                { attempt: '1st retry', delay: '1 minute' },
+                { attempt: '2nd retry', delay: '5 minutes' },
+                { attempt: '3rd retry', delay: '30 minutes' },
+                { attempt: '4th retry', delay: '2 hours' },
+                { attempt: '5th retry', delay: '8 hours' },
               ].map(r => (
                 <div key={r.attempt} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>{r.attempt}</span>

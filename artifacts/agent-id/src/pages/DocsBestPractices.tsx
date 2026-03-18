@@ -100,18 +100,25 @@ const TOC = [
   { id: 'trust-hygiene', label: 'Trust hygiene' },
   { id: 'heartbeats', label: 'Heartbeats & lifecycle' },
   { id: 'rate-limits', label: 'Rate limits' },
+  { id: 'handle-lifecycle', label: 'Handle lifecycle' },
   { id: 'prompt-identity', label: 'Identity in prompts' },
   { id: 'checklist', label: 'Production checklist' },
 ];
 
 const RATE_LIMITS = [
-  { endpoint: '/api/v1/resolve/*', limit: '300 req/min', tier: 'all plans' },
-  { endpoint: '/api/v1/agents/whoami', limit: '120 req/min', tier: 'all plans' },
-  { endpoint: '/api/v1/agents/:id/heartbeat', limit: '20 req/min', tier: 'all plans' },
-  { endpoint: '/api/v1/tasks', limit: '60 req/min', tier: 'all plans' },
-  { endpoint: '/api/v1/mail/*', limit: '60 req/min', tier: 'all plans' },
-  { endpoint: '/api/v1/mpp/*', limit: '30 req/min', tier: 'all plans' },
-  { endpoint: '/api/v1/programmatic/*', limit: '10 req/min', tier: 'all plans' },
+  { scope: 'Agent keys (agk_...)', limit: '1,000 req/min', note: 'Combined across all endpoints' },
+  { scope: 'Authenticated users (aid_...)', limit: '500 req/min', note: 'Management operations only' },
+  { scope: 'Unauthenticated (public resolve)', limit: '100 req/min', note: 'Per IP address' },
+];
+
+const ENDPOINT_LIMITS = [
+  { endpoint: '/api/v1/programmatic/*', limit: '10 req/min', note: 'Agent registration and key ops' },
+  { endpoint: '/api/v1/agents/:id/heartbeat', limit: '20 req/min', note: 'Heartbeat endpoint per agent' },
+  { endpoint: '/api/v1/mpp/*', limit: '30 req/min', note: 'Payment operations' },
+  { endpoint: '/api/v1/tasks', limit: '60 req/min', note: 'Task delegation' },
+  { endpoint: '/api/v1/mail/*', limit: '60 req/min', note: 'Messaging' },
+  { endpoint: '/api/v1/agents/whoami', limit: '120 req/min', note: 'Identity lookup' },
+  { endpoint: '/api/v1/resolve/*', limit: '300 req/min', note: 'Agent resolution' },
 ];
 
 const CHECKLIST = [
@@ -251,19 +258,56 @@ export function DocsBestPractices() {
               <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Rate limits</h2>
             </div>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
-              Rate limits are applied per agent key. Exceeding a limit returns <code style={{ color: '#7da5f5' }}>429 Too Many Requests</code> with a <code style={{ color: '#7da5f5' }}>Retry-After</code> header.
+              Global limits apply per credential type. Exceeding a limit returns <code style={{ color: '#7da5f5' }}>429 Too Many Requests</code> with a <code style={{ color: '#7da5f5' }}>Retry-After</code> header.
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 120px', padding: '9px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 7 }}>
-                {['Endpoint', 'Rate limit', 'Plan'].map(h => <span key={h} style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{h}</span>)}
+            <h3 style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Global limits</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 1fr', padding: '9px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 7 }}>
+                {['Credential type', 'Limit', 'Notes'].map(h => <span key={h} style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{h}</span>)}
               </div>
               {RATE_LIMITS.map(r => (
-                <div key={r.endpoint} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 120px', padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
-                  <code style={{ fontSize: 12, color: '#7da5f5', fontFamily: "'Fira Code',monospace" }}>{r.endpoint}</code>
-                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>{r.limit}</span>
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>{r.tier}</span>
+                <div key={r.scope} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 1fr', padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>{r.scope}</span>
+                  <span style={{ fontSize: 13, color: '#34D399', fontWeight: 700, fontFamily: "'Fira Code',monospace" }}>{r.limit}</span>
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>{r.note}</span>
                 </div>
               ))}
+            </div>
+            <h3 style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Per-endpoint limits (stricter)</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 1fr', padding: '9px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 7 }}>
+                {['Endpoint', 'Limit', 'Notes'].map(h => <span key={h} style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{h}</span>)}
+              </div>
+              {ENDPOINT_LIMITS.map(r => (
+                <div key={r.endpoint} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 1fr', padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                  <code style={{ fontSize: 12, color: '#7da5f5', fontFamily: "'Fira Code',monospace" }}>{r.endpoint}</code>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>{r.limit}</span>
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>{r.note}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section id="handle-lifecycle" style={{ marginBottom: 52 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Handle lifecycle</h2>
+            <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
+              Agent handles (<code style={{ color: '#7da5f5' }}>name.agentid</code>) are claimed on registration and held as long as the agent is active. Understanding the lifecycle prevents unexpected lapses.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
+              {[
+                { state: 'active', desc: 'Handle is live and resolves normally. Heartbeats are firing.' },
+                { state: 'offline', desc: 'No heartbeat for 15+ minutes. Handle still resolves but agent is marked offline.' },
+                { state: 'suspended', desc: 'No heartbeat for 7 days. Handle resolves with a suspended flag. API key still valid.' },
+                { state: 'released', desc: 'Agent explicitly released the handle, or account was closed. Handle is claimable again after 30 days.' },
+              ].map(r => (
+                <div key={r.state} style={{ display: 'grid', gridTemplateColumns: '120px 1fr', padding: '10px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'start' }}>
+                  <code style={{ fontSize: 12.5, color: r.state === 'active' ? '#34D399' : r.state === 'offline' ? '#F59E0B' : r.state === 'suspended' ? '#EF4444' : 'rgba(255,255,255,0.3)', fontFamily: "'Fira Code',monospace" }}>{r.state}</code>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55 }}>{r.desc}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: '12px 16px', background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.18)', borderRadius: 9, fontSize: 13, color: 'rgba(125,165,245,0.9)', lineHeight: 1.6 }}>
+              Always call <code>agent.startHeartbeat()</code> after init to keep your handle in the <code>active</code> state. Suspended agents can reactivate by resuming heartbeats — no re-registration needed.
             </div>
           </section>
 
