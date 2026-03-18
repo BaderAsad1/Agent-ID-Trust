@@ -31,7 +31,7 @@ import { buildBootstrapBundle } from "./agent-runtime";
 import { verifyClaimToken, generateClaimToken } from "../../utils/claim-token";
 import { desc, eq, and, gte, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable } from "@workspace/db/schema";
+import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable, agentClaimHistoryTable } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -1063,6 +1063,116 @@ router.get("/:agentId/revenue", requireAgentAuth, async (req, res, next) => {
       totalPending: Number(earned.totalPending),
       taskCount: Number(earned.taskCount),
       avgTaskValue: Math.round(Number(earned.avgTaskValue)),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/:agentId/claim", requireAuth, validateUuidParam("agentId"), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const userId = req.user!.id;
+    const { orgId, proof, notes } = req.body as { orgId?: string; proof?: string; notes?: string };
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+    });
+
+    if (!agent) throw new AppError(404, "NOT_FOUND", "Agent not found");
+    if (agent.isClaimed) throw new AppError(409, "ALREADY_CLAIMED", "Agent has already been claimed");
+
+    if (agent.userId !== userId) {
+      throw new AppError(403, "FORBIDDEN", "Only the agent's creator may claim it. Provide a signed proof from the agent's registered key pair to assert possession.");
+    }
+
+    const now = new Date();
+    const [updated] = await db.update(agentsTable)
+      .set({
+        ownerUserId: userId,
+        isClaimed: true,
+        claimedAt: now,
+        orgId: orgId || null,
+        updatedAt: now,
+      })
+      .where(and(eq(agentsTable.id, agentId), eq(agentsTable.isClaimed, false)))
+      .returning();
+
+    if (!updated) throw new AppError(409, "ALREADY_CLAIMED", "Agent was claimed concurrently");
+
+    const [historyRecord] = await db.insert(agentClaimHistoryTable).values({
+      agentId,
+      action: "claimed",
+      toOwner: userId,
+      performedByUserId: userId,
+      evidenceHash: proof ? (await import("crypto")).createHash("sha256").update(proof).digest("hex") : undefined,
+      notes,
+    }).returning();
+
+    await logActivity({
+      agentId,
+      eventType: "agent.claimed",
+      payload: { claimedByUserId: userId, orgId, method: "api_claim" },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    res.json({
+      success: true,
+      agentId,
+      claimedAt: now.toISOString(),
+      historyId: historyRecord?.id,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/:agentId/transfer", requireAuth, validateUuidParam("agentId"), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const userId = req.user!.id;
+    const { targetOrgId, notes } = req.body as { targetOrgId: string; notes?: string };
+
+    if (!targetOrgId) throw new AppError(400, "VALIDATION_ERROR", "targetOrgId is required");
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+    });
+
+    if (!agent) throw new AppError(404, "NOT_FOUND", "Agent not found");
+    if (agent.ownerUserId !== userId) throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+
+    const now = new Date();
+    const fromOrgId = agent.orgId as string | null | undefined;
+
+    await db.update(agentsTable)
+      .set({ orgId: targetOrgId, updatedAt: now })
+      .where(eq(agentsTable.id, agentId));
+
+    const [historyRecord] = await db.insert(agentClaimHistoryTable).values({
+      agentId,
+      action: "transferred",
+      fromOwner: fromOrgId || undefined,
+      toOwner: targetOrgId,
+      performedByUserId: userId,
+      notes,
+    }).returning();
+
+    await logActivity({
+      agentId,
+      eventType: "agent.claimed",
+      payload: { action: "transferred", fromOrgId, targetOrgId, transferredByUserId: userId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    res.json({
+      success: true,
+      agentId,
+      targetOrgId,
+      transferredAt: now.toISOString(),
+      historyId: historyRecord?.id,
     });
   } catch (err) {
     next(err);

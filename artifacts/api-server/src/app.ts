@@ -5,6 +5,7 @@ import http from "http";
 import router from "./routes";
 import wellKnownRouter from "./routes/well-known";
 import authOidcRouter from "./routes/auth-oidc";
+import oauthRouter from "./routes/oauth";
 import { securityHeaders } from "./middlewares/security-headers";
 import { sandboxMiddleware } from "./middlewares/sandbox";
 import { requestIdMiddleware } from "./middlewares/request-id";
@@ -184,6 +185,8 @@ app.get("/api/agent", (_req, res) => {
 app.use(wellKnownRouter);
 app.use("/api", wellKnownRouter);
 app.use("/api", authOidcRouter);
+app.use("/oauth", oauthRouter);
+app.use("/api/oauth", oauthRouter);
 app.use("/api", router);
 
 const MCP_PORT = Number(process.env.MCP_PORT || 3001);

@@ -7,7 +7,7 @@ import {
   agentsTable,
   agentKeysTable,
 } from "@workspace/db/schema";
-import { requireAgentAuth } from "../../middlewares/agent-auth";
+import { requireAgentAuth, requireScope } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { validateUuidParam } from "../../middlewares/validation";
 import { getAgentByHandle } from "../../services/agents";
@@ -26,7 +26,7 @@ const attestSchema = z.object({
   signature: z.string().min(1),
 });
 
-router.post("/:agentId/attest/:subjectHandle", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+router.post("/:agentId/attest/:subjectHandle", requireAgentAuth, requireScope("agents:attest"), validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const subjectHandle = req.params.subjectHandle as string;

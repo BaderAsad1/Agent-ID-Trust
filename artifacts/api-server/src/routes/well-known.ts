@@ -184,6 +184,45 @@ router.get("/.well-known/jwks.json", async (_req: Request, res: Response, next: 
   }
 });
 
+router.get("/.well-known/openid-configuration", async (_req: Request, res: Response) => {
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.json({
+    issuer: APP_URL || "https://getagent.id",
+    authorization_endpoint: `${APP_URL}/oauth/authorize`,
+    token_endpoint: `${APP_URL}/oauth/token`,
+    revocation_endpoint: `${APP_URL}/oauth/revoke`,
+    introspection_endpoint: `${APP_URL}/api/v1/auth/introspect`,
+    jwks_uri: `${APP_URL}/.well-known/jwks.json`,
+    registration_endpoint: `${APP_URL}/api/v1/clients`,
+    scopes_supported: ["read", "write", "agents:read", "agents:write", "tasks:read", "tasks:write", "mail:read", "mail:write"],
+    response_types_supported: ["code"],
+    grant_types_supported: [
+      "authorization_code",
+      "urn:agentid:grant-type:signed-assertion",
+    ],
+    token_endpoint_auth_methods_supported: ["client_secret_post", "none"],
+    code_challenge_methods_supported: ["S256", "plain"],
+    subject_types_supported: ["public"],
+    id_token_signing_alg_values_supported: ["EdDSA"],
+    claims_supported: [
+      "sub",
+      "iss",
+      "aud",
+      "exp",
+      "iat",
+      "jti",
+      "agent_id",
+      "trust_tier",
+      "verification_status",
+      "owner_type",
+      "scope",
+      "trust_context",
+    ],
+  });
+});
+
 router.get("/.well-known/agent-registration", async (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=3600");

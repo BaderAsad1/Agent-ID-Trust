@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod/v4";
 import { randomBytes, createHash } from "crypto";
-import { requireAgentAuth } from "../../middlewares/agent-auth";
+import { requireAgentAuth, requireScope } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { validateUuidParam } from "../../middlewares/validation";
 import {
@@ -47,7 +47,7 @@ function generateApiKey(): { raw: string; prefix: string; hashed: string } {
   return { raw, prefix, hashed };
 }
 
-router.post("/:agentId/subagents", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+router.post("/:agentId/subagents", requireAgentAuth, requireScope("agents:spawn"), validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const parentAgent = req.authenticatedAgent!;
     const requestedParentId = req.params.agentId as string;
@@ -265,7 +265,7 @@ router.post("/:agentId/subagents", requireAgentAuth, validateUuidParam("agentId"
   }
 });
 
-router.get("/:agentId/subagents", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+router.get("/:agentId/subagents", requireAgentAuth, requireScope("agents:read"), validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const parentAgent = req.authenticatedAgent!;
     const requestedParentId = req.params.agentId as string;
@@ -336,7 +336,7 @@ router.get("/:agentId/subagents", requireAgentAuth, validateUuidParam("agentId")
 
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-router.delete("/:agentId/subagents/:subagentId", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+router.delete("/:agentId/subagents/:subagentId", requireAgentAuth, requireScope("agents:spawn"), validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const parentAgent = req.authenticatedAgent!;
     const requestedParentId = req.params.agentId as string;

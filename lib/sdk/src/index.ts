@@ -8,6 +8,25 @@ export { TrustModule } from "./modules/trust.js";
 export { ResolveModule } from "./modules/resolve.js";
 export { MarketplaceModule } from "./modules/marketplace.js";
 export { verifyControlPlaneInstruction } from "./modules/control-plane.js";
+export {
+  parseAgentClaims,
+  verifyAgentToken,
+  createRelayingPartyClient,
+} from "./modules/auth.js";
+export { OrgModule } from "./modules/org.js";
+
+export type {
+  AgentTokenClaims,
+  TokenIntrospectionResult,
+  RelayingPartyConfig,
+} from "./modules/auth.js";
+
+export type {
+  ClaimHistoryRecord,
+  ClaimHistoryResult,
+  AgentClaimOptions,
+  AgentTransferOptions,
+} from "./modules/org.js";
 
 export type {
   AgentIDConfig,

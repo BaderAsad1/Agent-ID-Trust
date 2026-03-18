@@ -172,6 +172,13 @@ export function registrationRateLimitStrict(req: Request, res: Response, next: N
   })().catch(next);
 }
 
+export function authChallengeRateLimit(req: Request, res: Response, next: NextFunction): void {
+  const agentId = (req.body as { agentId?: string })?.agentId;
+  const ip = req.ip || req.socket?.remoteAddress || "unknown";
+  const key = agentId ? `${agentId}:${ip}` : ip;
+  void applyLimiter(5, `rl:auth-challenge:${key}:`, 60_000, req, res, next);
+}
+
 export function recoveryRateLimit(req: Request, res: Response, next: NextFunction): void {
   void applyLimiter(5, "rl:rec:", 600_000, req, res, next);
 }

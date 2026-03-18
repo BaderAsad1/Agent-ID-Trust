@@ -41,6 +41,11 @@ import walletRouter from "./wallet";
 import { ownerTokenRouter, agentLinkOwnerRouter } from "./owner-tokens";
 import { requireInboxAccess, requireAgentPlan, requirePlan, checkAgentLimit } from "../../middlewares/feature-gate";
 import { tryAgentAuth } from "../../middlewares/agent-auth";
+import agentAuthRouter from "./agent-auth";
+import oauthClientsRouter from "./oauth-clients";
+import adminRouter from "./admin";
+import claimHistoryRouter from "./claim-history";
+import orgPoliciesRouter from "./org-policies";
 
 const router = Router();
 
@@ -98,5 +103,10 @@ router.use("/", controlPlaneVerifyRouter);
 router.use("/meta", metaRouter);
 router.use("/owner-tokens", ownerTokenRouter);
 router.use("/agents", agentLinkOwnerRouter);
+router.use("/auth", agentAuthRouter);
+router.use("/clients", oauthClientsRouter);
+router.use("/admin", adminRouter);
+router.use("/agents", claimHistoryRouter);
+router.use("/orgs/:orgId/policies", orgPoliciesRouter);
 
 export default router;

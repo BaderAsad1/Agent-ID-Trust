@@ -16,7 +16,11 @@ export const auditEventsTable = pgTable(
     actorType: varchar("actor_type", { length: 50 }).notNull(),
     actorId: uuid("actor_id").notNull(),
     eventType: varchar("event_type", { length: 100 }).notNull(),
+    targetType: varchar("target_type", { length: 50 }),
+    targetId: varchar("target_id", { length: 255 }),
     payload: jsonb("payload"),
+    ipAddress: varchar("ip_address", { length: 64 }),
+    userAgent: varchar("user_agent", { length: 512 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -29,6 +33,7 @@ export const auditEventsTable = pgTable(
     index("audit_events_actor_idx").on(table.actorType, table.actorId),
     index("audit_events_event_type_idx").on(table.eventType),
     index("audit_events_created_at_idx").on(table.createdAt),
+    index("audit_events_target_idx").on(table.targetType, table.targetId),
   ],
 );
 

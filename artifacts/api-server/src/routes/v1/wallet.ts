@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { requireAgentAuth } from "../../middlewares/agent-auth";
+import { requireAgentAuth, requireScope } from "../../middlewares/agent-auth";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import {
@@ -126,7 +126,7 @@ const spendingRulesSchema = z.object({
   allowedAddresses: z.array(z.string()).max(100).optional(),
 });
 
-router.put("/:agentId/wallet/spending-rules", requireAgentAuth, async (req, res, next) => {
+router.put("/:agentId/wallet/spending-rules", requireAgentAuth, requireScope("wallet:write"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const authedAgent = req.authenticatedAgent!;
@@ -148,7 +148,7 @@ router.put("/:agentId/wallet/spending-rules", requireAgentAuth, async (req, res,
   }
 });
 
-router.post("/:agentId/wallet/custody-transfer", requireAgentAuth, async (req, res, next) => {
+router.post("/:agentId/wallet/custody-transfer", requireAgentAuth, requireScope("wallet:write"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const authedAgent = req.authenticatedAgent!;

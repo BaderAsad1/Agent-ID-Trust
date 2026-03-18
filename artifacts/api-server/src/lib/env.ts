@@ -65,6 +65,9 @@ const envSchema = z.object({
 
   LOG_LEVEL: z.string().default("info"),
 
+  JWT_SECRET: z.string().optional(),
+  OAUTH_INTROSPECTION_SECRET: z.string().optional(),
+
   CDP_API_KEY_ID: z.string().optional(),
   CDP_API_KEY_SECRET: z.string().optional(),
   PLATFORM_TREASURY_ADDRESS: z.string().optional(),
