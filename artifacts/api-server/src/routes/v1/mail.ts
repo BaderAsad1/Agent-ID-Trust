@@ -46,7 +46,7 @@ router.get("/agents/:agentId/inbox", requireHumanOrAgentAuth, async (req, res, n
     const agentPlan = await getAgentPlan(agentId);
     const agentLimits = getPlanLimits(agentPlan);
     if (!agentLimits.canReceiveMail) {
-      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /billing/upgrade to unlock inbox and messaging.");
+      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /pricing to unlock inbox and messaging.");
     }
 
     const inbox = await mailService.getOrCreateInbox(agentId);
@@ -403,7 +403,7 @@ router.post("/agents/:agentId/messages", requireHumanOrAgentAuth, async (req, re
     const plan = await getAgentPlan(agentId);
     const limits = getPlanLimits(plan);
     if (!limits.canReceiveMail) {
-      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /billing/upgrade to unlock inbox and messaging.");
+      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /pricing to unlock inbox and messaging.");
     }
 
     const schema = z.object({
@@ -671,7 +671,7 @@ router.post("/agents/:agentId/webhooks", requireAuth, async (req, res, next) => 
     const whPlan = await getAgentPlan(agentId);
     const whLimits = getPlanLimits(whPlan);
     if (!whLimits.canReceiveMail) {
-      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /billing/upgrade to unlock inbox and messaging.");
+      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /pricing to unlock inbox and messaging.");
     }
 
     const inbox = await mailService.getOrCreateInbox(agentId);
@@ -747,7 +747,7 @@ router.post("/agents/:agentId/threads/:threadId/reply", requireHumanOrAgentAuth,
     const replyPlan = await getAgentPlan(agentId);
     const replyLimits = getPlanLimits(replyPlan);
     if (!replyLimits.canReceiveMail) {
-      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /billing/upgrade to unlock inbox and messaging.");
+      throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /pricing to unlock inbox and messaging.");
     }
 
     const rateCheck = await checkOutboundRateLimit(agentId, replyPlan);

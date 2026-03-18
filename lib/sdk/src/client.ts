@@ -56,14 +56,21 @@ export class AgentID {
     return this._agentId;
   }
 
-  get handle(): string {
+  private resolvedHandle(): string | null {
+    if (!this.bootstrap) return null;
+    return this.bootstrap.handle || this.bootstrap.agent?.handle || null;
+  }
+
+  get handle(): string | null {
     if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
-    return `${this.bootstrap.handle}.agentID`;
+    const h = this.resolvedHandle();
+    return h ? `${h}.agentID` : null;
   }
 
   get did(): string {
     if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
-    return `did:agentid:${this.bootstrap.handle}`;
+    const h = this.resolvedHandle();
+    return h ? `did:agentid:${h}` : `did:agentid:${this._agentId}`;
   }
 
   get trustScore(): number {
@@ -88,7 +95,10 @@ export class AgentID {
 
   get resolverUrl(): string {
     if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
-    return `${this._baseUrl}/api/v1/resolve/${this.bootstrap.handle}`;
+    const h = this.resolvedHandle();
+    return h
+      ? `${this._baseUrl}/api/v1/resolve/${h}`
+      : `${this._baseUrl}/api/v1/resolve/id/${this._agentId}`;
   }
 
   get capabilities(): string[] {
@@ -115,7 +125,18 @@ export class AgentID {
       agentId = config.agentId;
     } else {
       const whoami = await http.get<BootstrapBundle>("/api/v1/agents/whoami");
-      agentId = whoami.agent_id;
+      const resolvedId =
+        whoami.agent_id ||
+        whoami.machine_identity?.agent_id ||
+        whoami.machineIdentity?.agentId ||
+        whoami.id;
+      if (!resolvedId) {
+        throw new Error(
+          "AgentID.init(): could not resolve agent_id from whoami response. " +
+          "Expected field: agent_id, machine_identity.agent_id, or machineIdentity.agentId.",
+        );
+      }
+      agentId = resolvedId;
     }
 
     const instance = new AgentID(config, agentId);
@@ -131,8 +152,9 @@ export class AgentID {
 
   getCredential(): Promise<AgentIDCredential> {
     if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
+    const h = this.resolvedHandle() || this._agentId;
     return this.http.get<AgentIDCredential>(
-      `/api/v1/p/${encodeURIComponent(this.bootstrap.handle)}/credential`,
+      `/api/v1/p/${encodeURIComponent(h)}/credential`,
     );
   }
 

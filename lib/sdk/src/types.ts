@@ -39,8 +39,12 @@ export interface TrustData {
 export interface BootstrapBundle {
   spec_version: string;
   agent_id: string;
-  handle: string;
+  handle: string | null;
   display_name: string;
+  agent?: { handle?: string | null };
+  machine_identity?: { agent_id?: string };
+  machineIdentity?: { agentId?: string };
+  id?: string;
   did: string;
   protocol_address: string;
   erc8004_uri: string;

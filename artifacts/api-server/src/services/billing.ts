@@ -67,7 +67,7 @@ export function getPlanLimits(plan: string) {
     maxPrivateAgents: LAUNCH_MODE ? 999 : limits.maxPrivateAgents,
     maxSubagents: LAUNCH_MODE ? 999 : limits.maxSubagents,
     publicResolution: LAUNCH_MODE || isPaid,
-    canReceiveMail: true,
+    canReceiveMail: LAUNCH_MODE || plan === 'starter' || plan === 'pro' || plan === 'enterprise',
     canBePublic: LAUNCH_MODE || isPaid,
     canListOnMarketplace: LAUNCH_MODE || isPaid,
     marketplaceListing: LAUNCH_MODE || isPaid,

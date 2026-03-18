@@ -2,17 +2,16 @@ import { Router, type Request } from "express";
 import { z } from "zod/v4";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, agentMessagesTable, agentClaimTokensTable, apiKeysTable, type Agent, type AgentInbox } from "@workspace/db/schema";
+import { agentsTable, agentMessagesTable, apiKeysTable, type Agent, type AgentInbox } from "@workspace/db/schema";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
-import { computeTrustScore, getTrustImprovementTips, type TrustSignal } from "../../services/trust-score";
+import { computeTrustScore, type TrustSignal } from "../../services/trust-score";
 import { getInboxByAgent, getInboxStats } from "../../services/mail";
-import { listAgentKeys } from "../../services/agent-keys";
 import { logActivity } from "../../services/activity-logger";
 import { getAgentById } from "../../services/agents";
 import { getUserPlan, getPlanLimits } from "../../services/billing";
+import { buildBootstrapBundle } from "../../services/identity";
 
-const SPEC_VERSION = "1.2.0";
 const HEARTBEAT_INTERVAL_SECONDS = 300;
 
 const router = Router();
@@ -34,111 +33,6 @@ function ensureAgentOwnership(req: Request, agentId: string): Agent {
 
 function inboxPollEndpoint(agentId: string): string {
   return `/api/v1/mail/agents/${agentId}/messages`;
-}
-
-async function buildBootstrapBundle(agent: Agent) {
-  const [trust, inbox, keys, plan] = await Promise.all([
-    computeTrustScore(agent.id),
-    getInboxByAgent(agent.id),
-    listAgentKeys(agent.id),
-    getUserPlan(agent.userId),
-  ]);
-
-  const limits = getPlanLimits(plan);
-
-  const capabilities = (agent.capabilities as string[]) || [];
-  const authMethods = [...((agent.authMethods as string[] | null) || [])];
-  if (!authMethods.includes("agent-key")) {
-    authMethods.unshift("agent-key");
-  }
-
-  const APP_URL = process.env.APP_URL || "https://getagent.id";
-  const effectiveInbox = limits.canReceiveMail ? inbox : null;
-
-  const apiKeyRecord = await db.query.apiKeysTable.findFirst({
-    where: and(
-      eq(apiKeysTable.ownerId, agent.id),
-      eq(apiKeysTable.ownerType, "agent"),
-      isNull(apiKeysTable.revokedAt),
-    ),
-    columns: { keyPrefix: true },
-  });
-  const promptBlock = buildPromptBlockText(agent, trust, effectiveInbox, capabilities, limits, APP_URL, plan, apiKeyRecord?.keyPrefix);
-
-  let claimUrl: string | null = null;
-  if (!agent.isClaimed) {
-    const activeClaimToken = await db.query.agentClaimTokensTable.findFirst({
-      where: and(
-        eq(agentClaimTokensTable.agentId, agent.id),
-        eq(agentClaimTokensTable.isActive, true),
-        eq(agentClaimTokensTable.isUsed, false),
-      ),
-    });
-    if (activeClaimToken) {
-      claimUrl = `${APP_URL}/claim?token=${encodeURIComponent(activeClaimToken.token)}`;
-    }
-  }
-
-  const trustImprovementTips = getTrustImprovementTips(trust.trustBreakdown ?? {}, agent);
-
-  const hasHandle = agent.handlePaid && agent.handle;
-  const handleIdentity = hasHandle
-    ? {
-        handle: agent.handle,
-        protocol_address: `${agent.handle}.agentid`,
-        erc8004_uri: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
-        public_profile_url: `${APP_URL}/${agent.handle}`,
-        handle_expires_at: agent.handleExpiresAt ?? null,
-        handle_tier: agent.handleTier ?? null,
-      }
-    : null;
-
-  const bundle: Record<string, unknown> = {
-    spec_version: SPEC_VERSION,
-    machine_identity: {
-      agent_id: agent.id,
-      did: `did:agentid:${agent.id}`,
-      uuid_resolution_url: `${APP_URL}/api/v1/resolve/id/${agent.id}`,
-    },
-    handle_identity: handleIdentity,
-    display_name: agent.displayName,
-    inbox_id: effectiveInbox?.id || null,
-    inbox_address: effectiveInbox?.address || null,
-    inbox_poll_endpoint: effectiveInbox ? inboxPollEndpoint(agent.id) : null,
-    trust: {
-      score: trust.trustScore,
-      tier: trust.trustTier,
-      signals: trust.signals,
-    },
-    trustImprovementTips,
-    capabilities,
-    auth_methods: authMethods,
-    key_ids: keys.map(k => ({
-      id: k.id,
-      kid: k.kid,
-      key_type: k.keyType,
-      status: k.status,
-      purpose: k.purpose,
-      expires_at: k.expiresAt,
-      auto_rotate_days: k.autoRotateDays,
-      created_at: k.createdAt,
-    })),
-    status: agent.status,
-    prompt_block: promptBlock,
-    claim_url: claimUrl,
-    is_owned: !!agent.isClaimed,
-  };
-
-  if (!limits.canReceiveMail) {
-    bundle.inbox = null;
-    bundle.inboxUnavailable = {
-      reason: "Inbox requires a paid plan.",
-      currentPlan: plan,
-      upgradePath: `${APP_URL}/billing/upgrade`,
-    };
-  }
-
-  return bundle;
 }
 
 function buildPromptBlockText(

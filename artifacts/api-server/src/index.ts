@@ -54,6 +54,20 @@ if (!config.REDIS_URL) {
   logger.warn("[startup] Redis is not configured — BullMQ webhook delivery queue and domain provisioning worker are disabled.");
 }
 
+const STRIPE_PRICE_VARS = [
+  "STRIPE_PRICE_STARTER_MONTHLY",
+  "STRIPE_PRICE_STARTER_YEARLY",
+  "STRIPE_PRICE_PRO_MONTHLY",
+  "STRIPE_PRICE_PRO_YEARLY",
+];
+const missingPriceIds = STRIPE_PRICE_VARS.filter((v) => !process.env[v]);
+if (missingPriceIds.length > 0) {
+  logger.warn(
+    { missingVars: missingPriceIds },
+    "[startup] Stripe price ID env vars not set — billing plans will return null priceIds. Set these from your Stripe dashboard: " + missingPriceIds.join(", "),
+  );
+}
+
 import { startTrustWorker, stopTrustWorker } from "./workers/trust-recalculation";
 import { startWebhookRetryWorker, stopWebhookRetryWorker } from "./workers/webhook-retry";
 import { startHandleLifecycleWorker, stopHandleLifecycleWorker } from "./workers/handle-lifecycle";

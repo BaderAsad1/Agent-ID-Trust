@@ -411,7 +411,7 @@ router.post("/agents/verify", async (req, res, next) => {
           premiumRouting: limits.canUsePremiumRouting,
         },
         uuidResolutionUrl: `${APP_URL}/api/v1/resolve/id/${agentId}`,
-        upgradePath: limits.canReceiveMail ? null : `${APP_URL}/billing/upgrade`,
+        upgradePath: limits.canReceiveMail ? null : `${APP_URL}/pricing`,
         note: limits.canReceiveMail
           ? "All features are enabled on your current plan."
           : "UUID identity, Ed25519 key, signed credential, and bootstrap bundle are available without a plan. Upgrade to a Starter plan or above to unlock inbox, public resolution, and marketplace listing.",

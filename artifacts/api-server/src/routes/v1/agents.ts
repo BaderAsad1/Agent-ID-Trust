@@ -51,7 +51,7 @@ router.get("/whoami", requireAgentAuth, async (req, res, next) => {
       marketplace: limits.canListOnMarketplace,
       trustScore: true,
       currentPlan: plan,
-      upgradeUrl: `${APP_URL}/billing/upgrade`,
+      upgradeUrl: `${APP_URL}/pricing`,
     };
     res.json({ ...bundle, entitlements });
   } catch (err) {

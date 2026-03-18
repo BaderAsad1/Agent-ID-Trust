@@ -1,6 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import http from "http";
 import router from "./routes";
 import wellKnownRouter from "./routes/well-known";
 import authOidcRouter from "./routes/auth-oidc";
@@ -160,6 +161,51 @@ app.use(wellKnownRouter);
 app.use("/api", wellKnownRouter);
 app.use("/api", authOidcRouter);
 app.use("/api", router);
+
+const MCP_PORT = Number(process.env.MCP_PORT || 3001);
+
+app.all("/mcp", (req: Request, res: Response) => {
+  const bodyStr = req.body && typeof req.body === "object"
+    ? JSON.stringify(req.body)
+    : typeof req.body === "string"
+      ? req.body
+      : undefined;
+
+  const headers: Record<string, string | string[] | undefined> = { ...req.headers };
+  headers.host = `127.0.0.1:${MCP_PORT}`;
+  if (bodyStr) {
+    headers["content-length"] = Buffer.byteLength(bodyStr).toString();
+    headers["content-type"] = headers["content-type"] ?? "application/json";
+  } else {
+    headers["content-length"] = "0";
+  }
+
+  const options: http.RequestOptions = {
+    hostname: "127.0.0.1",
+    port: MCP_PORT,
+    path: "/mcp",
+    method: req.method,
+    headers: headers as http.OutgoingHttpHeaders,
+  };
+  const proxy = http.request(options, (proxyRes) => {
+    const resHeaders: Record<string, string | string[] | undefined> = {};
+    for (const [k, v] of Object.entries(proxyRes.headers)) {
+      resHeaders[k] = v as string | string[] | undefined;
+    }
+    res.writeHead(proxyRes.statusCode ?? 502, resHeaders);
+    proxyRes.pipe(res, { end: true });
+  });
+  proxy.on("error", (_err) => {
+    if (!res.headersSent) {
+      res.status(502).json({ error: "MCP server unavailable", code: "MCP_UNAVAILABLE" });
+    }
+  });
+  if (bodyStr) {
+    proxy.end(bodyStr);
+  } else {
+    proxy.end();
+  }
+});
 
 app.use(errorHandler);
 

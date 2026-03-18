@@ -113,6 +113,29 @@ const VERIFICATION_EXEMPT_PATHS = [
   /\/verify\/complete$/,
 ];
 
+export function tryAgentAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  if (!req.headers["x-agent-key"]) {
+    return next();
+  }
+  (async () => {
+    for (const strategy of strategyRegistry) {
+      const agent = await strategy.authenticate(req);
+      if (agent) {
+        if (agent.status !== "inactive" && agent.status !== "suspended" && agent.verificationStatus === "verified") {
+          req.authenticatedAgent = agent;
+          req.agentAuthStrategy = strategy.name;
+        }
+        break;
+      }
+    }
+    next();
+  })().catch(next);
+}
+
 export function requireAgentAuth(
   req: Request,
   res: Response,

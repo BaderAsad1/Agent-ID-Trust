@@ -20,6 +20,10 @@ router.get("/:handle", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
 
+    if (agent && agent.status === "active" && !agent.isPublic) {
+      throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
+    }
+
     if (!agent || agent.status !== "active") {
       const handle = (req.params.handle as string).toLowerCase();
       const humanProfile = await db.query.humanProfilesTable.findFirst({
@@ -127,6 +131,9 @@ router.get("/:handle/credential", async (req, res, next) => {
     if (!agent || agent.status !== "active") {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
+    if (!agent.isPublic) {
+      throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
+    }
 
     const formatQuery = (req.query.format as string | undefined)?.toLowerCase();
 
@@ -166,6 +173,9 @@ router.get("/:handle/credential/jwt", async (req, res, next) => {
     if (!agent || agent.status !== "active") {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
+    if (!agent.isPublic) {
+      throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
+    }
 
     const { issueVerifiableCredential } = await import("../../services/verifiable-credential");
     const jwt = await issueVerifiableCredential(agent.id);
@@ -182,6 +192,9 @@ router.get("/:handle/activity", async (req, res, next) => {
     const agent = await getAgentByHandle(req.params.handle as string);
     if (!agent || agent.status !== "active") {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (!agent.isPublic) {
+      throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
     const { getPublicSignedActivityLog } = await import("../../services/activity-log");
@@ -200,6 +213,9 @@ router.get("/:handle/credential/verify", async (req, res, next) => {
     const agent = await getAgentByHandle(req.params.handle as string);
     if (!agent || agent.status !== "active") {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (!agent.isPublic) {
+      throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
     const credentialBody = req.body;
@@ -236,6 +252,9 @@ router.post("/:handle/credential/verify", async (req, res, next) => {
     const agent = await getAgentByHandle(req.params.handle as string);
     if (!agent || agent.status !== "active") {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (!agent.isPublic) {
+      throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
     const credentialBody = req.body;

@@ -110,7 +110,7 @@ The following features require a paid plan (Starter or above):
 | Public Handle Resolution | \`GET ${APP_URL}/api/v1/resolve/:handle\` — Resolve by handle |
 | Marketplace Listing | List your agent on the public marketplace |
 
-Upgrade at \`${APP_URL}/billing/upgrade\` to unlock these features.
+Upgrade at \`${APP_URL}/pricing\` to unlock these features.
 
 ### Available Endpoints
 

@@ -39,6 +39,7 @@ import agenticPayRouter from "./agentic-pay";
 import metaRouter from "./meta";
 import walletRouter from "./wallet";
 import { requireInboxAccess, requireAgentPlan, requirePlan, checkAgentLimit } from "../../middlewares/feature-gate";
+import { tryAgentAuth } from "../../middlewares/agent-auth";
 
 const router = Router();
 
@@ -71,7 +72,7 @@ router.use("/analytics", requirePlan("pro"), dashboardRouter);
 router.use("/p", publicProfilesRouter);
 router.use("/public/agents", agentIdentityRouter);
 router.use("/programmatic", registrationRateLimit, programmaticRouter);
-router.use("/tasks", requireAgentPlan("starter"), tasksRouter);
+router.use("/tasks", tryAgentAuth, requireAgentPlan("starter"), tasksRouter);
 router.use("/dashboard", requirePlan("pro"), dashboardRouter);
 router.use("/billing", billingRouter);
 router.use("/webhooks", webhooksRouter);
@@ -79,7 +80,7 @@ router.use("/domains", resolutionRateLimit, domainResolveRouter);
 router.use("/marketplace", marketplaceRouter);
 router.use("/payments", paymentsRouter);
 router.use("/jobs", jobsRouter);
-router.use("/mail", requireInboxAccess(), mailRouter);
+router.use("/mail", tryAgentAuth, requireInboxAccess(), mailRouter);
 router.use("/webhooks", resendWebhooksRouter);
 router.use("/integrations", integrationsRouter);
 router.use("/orgs", requirePlan("pro"), organizationsRouter);
