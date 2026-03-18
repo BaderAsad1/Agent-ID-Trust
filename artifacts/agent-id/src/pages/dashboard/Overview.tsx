@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, ExternalLink, Wallet, Star, MessageSquare, ClipboardList, Zap, User, Globe, ArrowUpRight, Shield } from 'lucide-react';
+import { Copy, Check, ExternalLink, Wallet, Star, MessageSquare, ClipboardList, Zap, User, Globe, ArrowUpRight, Shield, CheckCircle2, Circle, Github, Key, Plug } from 'lucide-react';
 import { GlassCard, Identicon, PrimaryButton } from '@/components/shared';
 import { useAuth } from '@/lib/AuthContext';
 import type { Agent } from '@/lib/api';
@@ -170,6 +170,97 @@ function UpgradeBanner() {
   );
 }
 
+function SetupChecklist({ agent }: { agent: Agent }) {
+  const navigate = useNavigate();
+
+  const hasEndpoint = !!agent.endpointUrl;
+  const isVerified = agent.verificationStatus === 'verified';
+  const hasWallet = !!agent.walletAddress;
+  const hasHandle = !!agent.handle;
+
+  const items = [
+    {
+      done: hasHandle,
+      label: 'Claim a handle',
+      description: hasHandle ? `${agent.handle}.agentid` : 'Get a memorable address for your agent',
+      action: () => navigate('/dashboard/handles'),
+    },
+    {
+      done: hasEndpoint,
+      label: 'Set endpoint URL',
+      description: hasEndpoint ? 'Endpoint configured' : 'Where other agents send requests',
+      action: () => navigate('/dashboard/settings'),
+    },
+    {
+      done: isVerified,
+      label: 'Verify identity',
+      description: isVerified ? 'Identity verified' : 'Prove ownership via GitHub or key challenge',
+      action: () => navigate('/dashboard/settings'),
+    },
+    {
+      done: hasWallet,
+      label: 'Wallet provisioned',
+      description: hasWallet ? `${agent.walletAddress!.slice(0, 6)}...${agent.walletAddress!.slice(-4)}` : 'Wallet is being provisioned',
+      action: () => navigate('/dashboard/wallet'),
+    },
+  ];
+
+  const completedCount = items.filter(i => i.done).length;
+  const allDone = completedCount === items.length;
+
+  if (allDone) return null;
+
+  return (
+    <GlassCard className="!p-5 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+          What's next
+        </h2>
+        <span className="text-xs px-2 py-0.5 rounded-full" style={{
+          background: 'rgba(79,125,243,0.1)', color: 'var(--accent)',
+          border: '1px solid rgba(79,125,243,0.2)',
+        }}>
+          {completedCount}/{items.length}
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {items.map(item => (
+          <div
+            key={item.label}
+            onClick={item.done ? undefined : item.action}
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors"
+            style={{
+              cursor: item.done ? 'default' : 'pointer',
+              background: item.done ? 'transparent' : 'rgba(255,255,255,0.02)',
+            }}
+          >
+            {item.done ? (
+              <CheckCircle2 className="w-4.5 h-4.5 flex-shrink-0" style={{ color: 'var(--success)', width: 18, height: 18 }} />
+            ) : (
+              <Circle className="w-4.5 h-4.5 flex-shrink-0" style={{ color: 'var(--text-dim)', width: 18, height: 18 }} />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-sm" style={{
+                color: item.done ? 'var(--text-dim)' : 'var(--text-primary)',
+                textDecoration: item.done ? 'line-through' : 'none',
+                fontWeight: item.done ? 400 : 500,
+              }}>
+                {item.label}
+              </div>
+              <div className="text-xs" style={{ color: 'var(--text-dim)' }}>
+                {item.description}
+              </div>
+            </div>
+            {!item.done && (
+              <ArrowUpRight className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-dim)' }} />
+            )}
+          </div>
+        ))}
+      </div>
+    </GlassCard>
+  );
+}
+
 interface QuickActionsProps {
   agent: Agent;
 }
@@ -266,6 +357,7 @@ export function DashboardOverview({ agent, plan }: DashboardOverviewProps) {
       <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Overview</h1>
       <IdentityCard agent={agent} />
       <StatGrid agent={agent} />
+      <SetupChecklist agent={agent} />
       {showUpgradeBanner && <UpgradeBanner />}
       <QuickActions agent={agent} />
     </div>

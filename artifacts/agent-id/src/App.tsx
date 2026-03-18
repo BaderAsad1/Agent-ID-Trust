@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { Toaster } from 'sonner';
 import { Nav } from '@/components/Nav';
 import { Start } from '@/pages/Start';
+import { GetStarted } from '@/pages/GetStarted';
 import { SignIn } from '@/pages/SignIn';
 import { Dashboard } from '@/pages/Dashboard';
 import { AgentProfile } from '@/pages/AgentProfile';
@@ -90,6 +91,7 @@ function AppContent() {
       <ScrollToTop />
       <Nav />
       <Routes>
+        <Route path="/get-started" element={<GetStarted />} />
         <Route path="/start" element={<Start />} />
         <Route path="/claim" element={<ClaimPage />} />
         <Route path="/sign-in" element={<SignIn />} />

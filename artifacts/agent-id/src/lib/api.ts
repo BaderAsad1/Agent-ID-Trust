@@ -287,6 +287,11 @@ export const api = {
       request<{ token: string; expiresAt: string; validForHours: number }>("/owner-tokens/generate", { method: "POST" }),
   },
 
+  bootstrap: {
+    status: (agentId: string) =>
+      request<{ found: boolean; activated: boolean; isClaimed: boolean; status: string; verificationStatus: string }>(`/bootstrap/status/${agentId}`),
+  },
+
   billing: {
     subscription: () =>
       request<{ plan: string; limits: Record<string, unknown>; subscription: unknown | null }>("/billing/subscription"),

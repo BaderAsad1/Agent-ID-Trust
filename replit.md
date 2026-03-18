@@ -122,6 +122,22 @@ Minimum local startup requires `DATABASE_URL` and `PORT`. Each artifact binds to
 - **DNS Setup:** See `DNS_SETUP.md` in project root for Cloudflare MX/SPF/DKIM/DMARC configuration
 - **Email Templates:** 6 transactional templates (registration, verification, new message with 5-min batching, marketplace order/complete, plan upgrade)
 
+### Agent Bootstrap Protocol
+
+Secure two-phase bootstrap flow for new agents:
+
+1. **Human registers agent** on `/get-started` → draft agent created → claim token returned
+2. **Agent claims identity**: `POST /api/v1/bootstrap/claim` with `{token, publicKey}` → returns identity block + challenge
+3. **Agent activates**: `POST /api/v1/bootstrap/activate` with `{agentId, kid, challenge, signature, claimToken}` → returns API key + wallet + full bootstrap bundle
+4. **Web UI polls** `GET /api/v1/bootstrap/status/:agentId` until agent activates
+
+Security: Claim tokens are single-use (atomic `isUsed = false` WHERE guard), Ed25519 challenge/response, rate-limited. Response separates `identity` (public, safe for system prompt) from `secrets` (API key, env vars only).
+
+**Frontend flows:**
+- `/get-started` — Unified onboarding: intent selection (new vs link existing) → auth → wizard → token display → polling
+- `/start` — Legacy wizard (kept for backward compatibility)
+- Dashboard overview — Progressive "What's next" checklist replaces blocking onboarding
+
 ## API Documentation
 
 - **Swagger UI:** `GET /api/docs`

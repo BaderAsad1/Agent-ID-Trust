@@ -39,6 +39,7 @@ import agenticPayRouter from "./agentic-pay";
 import metaRouter from "./meta";
 import walletRouter from "./wallet";
 import { ownerTokenRouter, agentLinkOwnerRouter } from "./owner-tokens";
+import bootstrapRouter from "./bootstrap";
 import { requireInboxAccess, requireAgentPlan, requirePlan, checkAgentLimit } from "../../middlewares/feature-gate";
 import { tryAgentAuth } from "../../middlewares/agent-auth";
 import agentAuthRouter from "./agent-auth";
@@ -108,5 +109,6 @@ router.use("/clients", oauthClientsRouter);
 router.use("/admin", adminRouter);
 router.use("/agents", claimHistoryRouter);
 router.use("/orgs/:orgId/policies", orgPoliciesRouter);
+router.use("/bootstrap", bootstrapRouter);
 
 export default router;

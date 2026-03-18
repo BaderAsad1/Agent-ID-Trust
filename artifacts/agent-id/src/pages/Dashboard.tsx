@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
@@ -1951,7 +1951,7 @@ export function Dashboard() {
   const isOnboardingPath = path === '/dashboard' || path === '/dashboard/agents';
 
   if (isOnboardingPath && !hasAgents && !agentLinked) {
-    return <OnboardingScreen onAgentLinked={handleAgentLinked} />;
+    return <Navigate to="/get-started" replace />;
   }
 
   if (isOnboardingPath && hasAgents) {

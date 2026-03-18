@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
+import { randomBytes } from "crypto";
 import { z } from "zod/v4";
 import { logger } from "../../middlewares/request-logger";
 import { requireAuth } from "../../middlewares/replit-auth";
@@ -175,8 +176,15 @@ router.post("/", requireAuth, async (req, res, next) => {
 
     await recomputeAndStore(agent.id);
 
+    const claimTokenValue = `aid_claim_${randomBytes(24).toString("hex")}`;
+    await db.insert(agentClaimTokensTable).values({
+      agentId: agent.id,
+      token: claimTokenValue,
+    });
+
     res.status(201).json({
       ...agent,
+      claimToken: claimTokenValue,
       isSandbox,
       ...(isSandbox ? { sandboxRef: `sandbox_${agent.id}` } : {
         handlePricing: {

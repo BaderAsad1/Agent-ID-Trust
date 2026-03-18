@@ -108,7 +108,7 @@ export function Nav() {
             ) : (
               <>
                 <button
-                  onClick={() => navigate('/sign-in')}
+                  onClick={() => navigate('/get-started')}
                   className="px-5 py-1.5 text-sm font-semibold rounded-lg transition-all cursor-pointer hover:scale-[1.02]"
                   style={{
                     background: 'rgba(79,125,243,0.15)',
@@ -157,7 +157,7 @@ export function Nav() {
                 </>
               ) : (
                 <>
-                  <button onClick={() => { navigate('/sign-in'); setMobileOpen(false); }} className="py-3 text-center rounded-lg font-medium cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }} aria-label="Get Started">Get Started</button>
+                  <button onClick={() => { navigate('/get-started'); setMobileOpen(false); }} className="py-3 text-center rounded-lg font-medium cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontFamily: 'var(--font-body)' }} aria-label="Get Started">Get Started</button>
                 </>
               )}
             </div>
