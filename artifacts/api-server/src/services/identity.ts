@@ -83,15 +83,24 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
 
   const promptBlock = buildPromptBlock(agent, trust, effectiveInbox, capabilities, limits, baseUrl, plan, apiKeyRecord?.keyPrefix);
 
+  const walletNetwork = agent.walletNetwork || "base-sepolia";
+  const isTestnet = walletNetwork.includes("sepolia") || walletNetwork.includes("testnet");
+  const explorerBase = isTestnet ? "https://sepolia.basescan.org" : "https://basescan.org";
+  const usdcContract = isTestnet
+    ? "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+    : "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+
   const walletInfo = agent.walletAddress ? {
     status: "provisioned" as const,
     address: agent.walletAddress,
-    network: agent.walletNetwork || "base-mainnet",
+    network: walletNetwork,
     provisionedAt: agent.walletProvisionedAt,
     isSelfCustodial: agent.walletIsSelfCustodial || false,
     usdcBalance: agent.walletUsdcBalance || "0",
-    basescanUrl: `https://basescan.org/address/${agent.walletAddress}`,
-    fundingInstructions: `Send USDC on Base to ${agent.walletAddress}`,
+    explorerUrl: `${explorerBase}/address/${agent.walletAddress}`,
+    basescanUrl: `${explorerBase}/address/${agent.walletAddress}`,
+    fundingInstructions: `Send USDC on ${walletNetwork} to ${agent.walletAddress}`,
+    x402PaymentEndpoint: `${baseUrl}/api/v1/pay/upgrade/x402`,
     x402Endpoint: `${baseUrl}/api/v1/pay/upgrade/x402`,
   } : {
     status: "not_provisioned" as const,
@@ -240,13 +249,19 @@ Required headers for every request:
   X-Agent-Key:  ${apiKeyPrefix ? apiKeyPrefix + "..." : "<your-api-key>"}
 
 === AGENT WALLET ===
-${agent.walletAddress ? `Wallet Address: ${agent.walletAddress}
-Network:        Base (Ethereum L2)
+${agent.walletAddress ? (() => {
+  const net = agent.walletNetwork || "base-sepolia";
+  const testnet = net.includes("sepolia") || net.includes("testnet");
+  const explorer = testnet ? "https://sepolia.basescan.org" : "https://basescan.org";
+  const usdc = testnet ? "0x036CbD53842c5426634e7929541eC2318f3dCF7e" : "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+  return `Wallet Address: ${agent.walletAddress}
+Network:        ${net}
 USDC Balance:   ${agent.walletUsdcBalance || "0"}
-Fund wallet:    Send USDC on Base to ${agent.walletAddress}
-USDC Contract:  0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
-Basescan:       https://basescan.org/address/${agent.walletAddress}
-x402 Payment:   POST ${baseUrl}/api/v1/pay/upgrade/x402 (include x-payment header)` : `Wallet: not provisioned
+Fund wallet:    Send USDC on ${net} to ${agent.walletAddress}
+USDC Contract:  ${usdc}
+Explorer:       ${explorer}/address/${agent.walletAddress}
+x402 Payment:   POST ${baseUrl}/api/v1/pay/upgrade/x402 (include x-payment header)`;
+})() : `Wallet: not provisioned
 Provision:   POST ${baseUrl}/api/v1/agents/${agentId}/wallet/provision`}
 
 === IDENTITY MODEL ===
