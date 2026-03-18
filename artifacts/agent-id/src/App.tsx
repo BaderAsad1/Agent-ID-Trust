@@ -31,6 +31,7 @@ import { VSCodeIntegration } from '@/pages/integrations/VSCode';
 import IssuanceFilm from '@/components/IssuanceFilm';
 import { AgentUUIDProfile } from '@/pages/AgentUUIDProfile';
 import { HandlePurchase } from '@/pages/HandlePurchase';
+import { Authorize } from '@/pages/Authorize';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -114,6 +115,7 @@ function AppContent() {
         <Route path="/u/:handle" element={<HumanProfile />} />
         <Route path="/id/:agentId" element={<AgentUUIDProfile />} />
         <Route path="/handle/purchase" element={<HandlePurchase />} />
+        <Route path="/authorize" element={<Authorize />} />
         <Route path="/v2" element={<Navigate to="/" replace />} />
         <Route path="/:handle" element={<AgentProfile />} />
         <Route path="*" element={<NotFound />} />
