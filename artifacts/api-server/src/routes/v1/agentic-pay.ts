@@ -201,15 +201,14 @@ router.post("/handle/claim", requireAgentAuth, async (req, res, next) => {
 router.post("/upgrade/x402", requireAgentAuth, async (req, res, next) => {
   try {
     const { verifyAndSettleX402Payment } = await import("../../middlewares/x402");
-    const { getPlatformTreasuryAddress } = await import("../../lib/cdp");
+    const { getPlatformTreasuryAddress, IS_TESTNET } = await import("../../lib/cdp");
     const agentId = req.authenticatedAgent!.id;
     const plan = req.body?.plan || "starter";
 
-    const planPrices: Record<string, string> = {
-      starter: "29.00",
-      pro: "79.00",
-    };
-    const amountUsdc = planPrices[plan] || "29.00";
+    const planPrices: Record<string, string> = IS_TESTNET
+      ? { starter: "1.00", pro: "1.00" }
+      : { starter: "29.00", pro: "79.00" };
+    const amountUsdc = planPrices[plan] || (IS_TESTNET ? "1.00" : "29.00");
 
     const treasuryAddress = getPlatformTreasuryAddress();
     if (!treasuryAddress) {
