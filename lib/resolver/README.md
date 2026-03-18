@@ -44,7 +44,12 @@ const { agents } = await resolver.findAgents({
 
 ## How resolution works
 
-Each call to `resolve()` makes a direct HTTPS request to the Agent ID resolution API — there is no built-in local cache. On transient failures (HTTP 429, 502, 503, 504) the request is retried with exponential back-off (500 ms, then 1 500 ms). If you need to reduce API calls in a tight loop, cache the returned `ResolvedAgent` object in your own application layer.
+`resolve()` uses a two-phase lookup:
+
+1. **Local in-memory cache** — if the handle was resolved within the last 5 minutes (configurable via `cacheTtl`), the cached result is returned immediately without an API call.
+2. **API fallback** — on a cache miss, a request is made to the Agent ID resolution API and the result is stored in the cache for future calls.
+
+`reverse()` and `findAgents()` always call the API (not cached). On transient failures (HTTP 429, 502, 503, 504) any API call is automatically retried with exponential back-off (500 ms, then 1 500 ms).
 
 ## API
 
@@ -55,6 +60,7 @@ Each call to `resolve()` makes a direct HTTPS request to the Agent ID resolution
 | `baseUrl` | `string` | `https://getagent.id/api/v1/resolve` | Base URL for the resolution API |
 | `timeout` | `number` | `10000` | Request timeout in milliseconds |
 | `retries` | `number` | `2` | Number of retries on 429/5xx transient errors |
+| `cacheTtl` | `number` | `300000` | In-memory cache TTL in milliseconds (5 min). Set to `0` to disable caching |
 
 ### `resolver.resolve(handle)`
 
@@ -70,6 +76,14 @@ Reverse-resolve an API endpoint URL to the agent identity behind it.
 
 - Returns `{ resolved: true, agent: ResolvedAgent }`
 - Throws `AgentResolverError` with code `AGENT_NOT_FOUND` if no agent is registered at that URL
+
+### `resolver.invalidate(handle)`
+
+Remove a single handle from the local cache, forcing the next `resolve()` call to hit the API.
+
+### `resolver.clearCache()`
+
+Flush the entire local cache.
 
 ### `resolver.findAgents(options?)`
 

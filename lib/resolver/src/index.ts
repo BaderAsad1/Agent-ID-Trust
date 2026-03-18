@@ -78,22 +78,33 @@ export interface AgentResolverOptions {
   baseUrl?: string;
   timeout?: number;
   retries?: number;
+  cacheTtl?: number;
+}
+
+interface CacheEntry {
+  value: ResolveResponse;
+  expiresAt: number;
 }
 
 const DEFAULT_BASE_URL = "https://getagent.id/api/v1/resolve";
 const DEFAULT_TIMEOUT = 10000;
 const DEFAULT_RETRIES = 2;
+const DEFAULT_CACHE_TTL = 300_000;
 const RETRY_DELAYS = [500, 1500];
 
 export class AgentResolver {
   private baseUrl: string;
   private timeout: number;
   private retries: number;
+  private cacheTtl: number;
+  private cache: Map<string, CacheEntry>;
 
   constructor(options: AgentResolverOptions = {}) {
     this.baseUrl = (options.baseUrl || DEFAULT_BASE_URL).replace(/\/$/, "");
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
     this.retries = options.retries ?? DEFAULT_RETRIES;
+    this.cacheTtl = options.cacheTtl ?? DEFAULT_CACHE_TTL;
+    this.cache = new Map();
   }
 
   private async request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -149,7 +160,30 @@ export class AgentResolver {
 
   async resolve(handle: string): Promise<ResolveResponse> {
     const cleanHandle = handle.replace(/\.(agentid|agent)$/, "").toLowerCase();
-    return this.request<ResolveResponse>(`${this.baseUrl}/${encodeURIComponent(cleanHandle)}`);
+
+    const cached = this.cache.get(cleanHandle);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
+
+    const result = await this.request<ResolveResponse>(
+      `${this.baseUrl}/${encodeURIComponent(cleanHandle)}`,
+    );
+
+    if (this.cacheTtl > 0) {
+      this.cache.set(cleanHandle, { value: result, expiresAt: Date.now() + this.cacheTtl });
+    }
+
+    return result;
+  }
+
+  invalidate(handle: string): void {
+    const cleanHandle = handle.replace(/\.(agentid|agent)$/, "").toLowerCase();
+    this.cache.delete(cleanHandle);
+  }
+
+  clearCache(): void {
+    this.cache.clear();
   }
 
   static parseProtocolAddress(address: string): { handle: string; namespace: string } | null {
