@@ -12,7 +12,7 @@ import { logActivity } from "../../services/activity-logger";
 import { getAgentById } from "../../services/agents";
 import { getUserPlan, getPlanLimits } from "../../services/billing";
 
-const SPEC_VERSION = "1.1.0";
+const SPEC_VERSION = "1.2.0";
 const HEARTBEAT_INTERVAL_SECONDS = 300;
 
 const router = Router();

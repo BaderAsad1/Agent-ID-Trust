@@ -10,7 +10,7 @@ import { AppError } from "../../middlewares/error-handler";
 import { computeTrustScore } from "../../services/trust-score";
 import { getOperatorCount, getCurrentOperator } from "../../services/operator-history";
 
-const SPEC_VERSION = "1.1.0";
+const SPEC_VERSION = "1.2.0";
 
 const router = Router();
 
