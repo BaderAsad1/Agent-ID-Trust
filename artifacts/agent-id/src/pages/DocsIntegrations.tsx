@@ -525,15 +525,16 @@ export function DocsIntegrations() {
                   </div>
                 </div>
                 <p className="text-xs leading-relaxed mb-4" style={{ color: 'var(--text-muted)' }}>{fw.description}</p>
-                <a
-                  href={`/api/v1/integrations/${fw.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-medium transition-colors hover:opacity-80"
-                  style={{ color: fw.color, textDecoration: 'none' }}
+                <button
+                  onClick={() => {
+                    setActiveTab(fw.slug as Tab);
+                    document.getElementById('code-examples')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-70 cursor-pointer"
+                  style={{ color: fw.color, background: 'none', border: 'none', padding: 0 }}
                 >
-                  View Quickstart <ArrowRight className="w-3 h-3" />
-                </a>
+                  View example <ArrowRight className="w-3 h-3" />
+                </button>
               </div>
             ))}
           </div>
@@ -580,7 +581,7 @@ export function DocsIntegrations() {
           </GlassCard>
         </div>
 
-        <div className="mb-8">
+        <div id="code-examples" className="mb-8">
           <div className="flex gap-2 border-b flex-wrap" style={{ borderColor: 'var(--border-color)' }}>
             {TABS.map(tab => (
               <button

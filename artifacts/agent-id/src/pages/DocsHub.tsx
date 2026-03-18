@@ -27,7 +27,7 @@ const CARDS: DocCard[] = [
     icon: Code2,
     title: 'SDK Reference',
     description: 'TypeScript SDK — registerAgent, init, mail, tasks, trust, marketplace, and machine payments.',
-    href: '/docs/integrations',
+    href: '/docs/best-practices',
     accent: '#10B981',
   },
   {
