@@ -59,6 +59,11 @@ function buildPaymentRequirements(
   };
 }
 
+function extractPaymentHeader(req: Request): string | undefined {
+  return (req.headers["payment-signature"] as string | undefined)
+    || (req.headers["x-payment"] as string | undefined);
+}
+
 export function x402PaymentRequired(
   amountUsdc: string,
   description: string,
@@ -66,7 +71,7 @@ export function x402PaymentRequired(
   resourceId?: string,
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const paymentHeader = req.headers["x-payment"] as string | undefined;
+    const paymentHeader = extractPaymentHeader(req);
 
     if (!paymentHeader) {
       const agentId = req.authenticatedAgent?.id;
@@ -87,6 +92,12 @@ export function x402PaymentRequired(
       const requirement = buildPaymentRequirements(
         amountUsdc, description, type, payTo, idempotencyKey, agentId, resourceId,
       );
+
+      const {
+        encodePaymentRequiredHeader,
+      } = require("@x402/core/http") as typeof import("@x402/core/http");
+      const v2Header = encodePaymentRequiredHeader(requirement as any);
+      res.setHeader("PAYMENT-REQUIRED", v2Header);
 
       res.setHeader("X-Payment-Requirements", JSON.stringify(requirement));
       res.status(402).json({
@@ -167,6 +178,41 @@ function validateClientRequirements(
   return { valid: true };
 }
 
+function decodePaymentHeader(paymentHeader: string): {
+  paymentPayload: Record<string, unknown>;
+  payerAddress?: string;
+  idempotencyKey?: string;
+} {
+  const { decodePaymentSignatureHeader } = require("@x402/core/http") as typeof import("@x402/core/http");
+
+  try {
+    const decoded = decodePaymentSignatureHeader(paymentHeader) as Record<string, unknown>;
+    return {
+      paymentPayload: decoded,
+      payerAddress: (decoded.payload as any)?.authorization?.from as string | undefined,
+    };
+  } catch {
+  }
+
+  try {
+    const parsed = JSON.parse(paymentHeader);
+    if (parsed.paymentPayload) {
+      return {
+        paymentPayload: parsed.paymentPayload,
+        payerAddress: parsed.payerAddress,
+        idempotencyKey: parsed.idempotencyKey,
+      };
+    }
+    return {
+      paymentPayload: parsed,
+      payerAddress: (parsed.payload as any)?.authorization?.from as string | undefined,
+    };
+  } catch {
+  }
+
+  throw new Error("Invalid payment header: could not decode as base64 or JSON");
+}
+
 export async function verifyAndSettleX402Payment(
   agentId: string,
   paymentHeader: string,
@@ -176,19 +222,17 @@ export async function verifyAndSettleX402Payment(
   payToOverride?: string,
 ): Promise<{ success: boolean; paymentId?: string; txHash?: string; error?: string }> {
   try {
-    let parsed: {
-      idempotencyKey?: string;
-      paymentPayload?: unknown;
-      paymentRequirements?: Record<string, unknown>;
-      payerAddress?: string;
-    };
+    let decoded: ReturnType<typeof decodePaymentHeader>;
     try {
-      parsed = JSON.parse(paymentHeader);
-    } catch {
-      return { success: false, error: "Invalid x-payment header: must be JSON with paymentPayload and paymentRequirements" };
+      decoded = decodePaymentHeader(paymentHeader);
+    } catch (decodeErr) {
+      const msg = decodeErr instanceof Error ? decodeErr.message : String(decodeErr);
+      logger.warn({ agentId, error: msg }, "[x402] Failed to decode payment header");
+      return { success: false, error: msg };
     }
 
-    const idempotencyKey = parsed.idempotencyKey || randomBytes(16).toString("hex");
+    const { paymentPayload, payerAddress, idempotencyKey: parsedIdempotencyKey } = decoded;
+    const idempotencyKey = parsedIdempotencyKey || randomBytes(16).toString("hex");
 
     const existing = await db.query.x402PaymentsTable.findFirst({
       where: eq(x402PaymentsTable.idempotencyKey, idempotencyKey),
@@ -199,10 +243,6 @@ export async function verifyAndSettleX402Payment(
         return { success: true, paymentId: existing.id, txHash: existing.txHash || undefined };
       }
       return { success: false, error: "Payment already attempted with this idempotency key" };
-    }
-
-    if (!parsed.paymentPayload || !parsed.paymentRequirements) {
-      return { success: false, error: "Missing paymentPayload or paymentRequirements in x-payment header" };
     }
 
     let payTo: string | null;
@@ -233,14 +273,6 @@ export async function verifyAndSettleX402Payment(
     }
 
     const canonical = buildCanonicalRequirements(amountUsdc, paymentType, payTo, resourceId);
-    const validation = validateClientRequirements(parsed.paymentRequirements, canonical);
-    if (!validation.valid) {
-      logger.warn(
-        { agentId, reason: validation.reason },
-        "[x402] Client requirements failed server-side validation",
-      );
-      return { success: false, error: `Payment requirements validation failed: ${validation.reason}` };
-    }
 
     const [payment] = await db.insert(x402PaymentsTable).values({
       agentId,
@@ -248,7 +280,7 @@ export async function verifyAndSettleX402Payment(
       amountUsdc,
       paymentType,
       resourceId,
-      payerAddress: parsed.payerAddress || null,
+      payerAddress: payerAddress || null,
       payeeAddress: payTo,
       txHash: null,
       status: "pending",
@@ -264,18 +296,9 @@ export async function verifyAndSettleX402Payment(
 
       const facilitator = new HTTPFacilitatorClient({ url: facilitatorUrl });
 
-      const canonicalReqs = {
-        ...canonical,
-        ...parsed.paymentRequirements,
-        payTo: canonical.payTo,
-        maxAmountRequired: canonical.maxAmountRequired,
-        asset: canonical.asset,
-        network: canonical.network,
-      };
-
       const verifyResult = await facilitator.verify(
-        parsed.paymentPayload as any,
-        canonicalReqs as any,
+        paymentPayload as any,
+        canonical as any,
       );
 
       if (!verifyResult.isValid) {
@@ -293,8 +316,8 @@ export async function verifyAndSettleX402Payment(
       }
 
       const settleResult = await facilitator.settle(
-        parsed.paymentPayload as any,
-        canonicalReqs as any,
+        paymentPayload as any,
+        canonical as any,
       );
 
       if (!settleResult.success) {
@@ -312,7 +335,7 @@ export async function verifyAndSettleX402Payment(
       }
 
       const txHash = settleResult.transaction || null;
-      const payerAddr = settleResult.payer || parsed.payerAddress || null;
+      const payerAddr = settleResult.payer || payerAddress || null;
 
       await db.update(x402PaymentsTable).set({
         status: "completed",

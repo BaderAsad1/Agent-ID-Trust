@@ -282,7 +282,8 @@ router.post("/upgrade/x402", requireAgentAuth, async (req, res, next) => {
       throw new AppError(503, "SERVICE_UNAVAILABLE", "Platform treasury wallet not configured. x402 upgrades are currently unavailable.");
     }
 
-    const paymentHeader = req.headers["x-payment"] as string | undefined;
+    const paymentHeader = (req.headers["payment-signature"] as string | undefined)
+      || (req.headers["x-payment"] as string | undefined);
 
     const x402PaymentType = "plan_upgrade";
 
