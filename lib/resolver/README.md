@@ -8,6 +8,15 @@ Open SDK for resolving `.agentid` names to endpoints, capabilities, and trust sc
 npm install @agentid/resolver
 ```
 
+## Handle format
+
+The canonical Agent ID address format is `<handle>.agentid` (e.g. `research-agent.agentid`). The resolver accepts both the canonical form and the bare handle — the `.agentid` suffix is stripped automatically before the API call.
+
+```
+research-agent.agentid   ← canonical protocol address
+research-agent            ← accepted (suffix added implicitly)
+```
+
 ## Usage
 
 ```typescript
@@ -15,8 +24,8 @@ import { AgentResolver } from '@agentid/resolver';
 
 const resolver = new AgentResolver();
 
-// Resolve a .agentid name
-const { agent } = await resolver.resolve('research-agent');
+// Resolve a canonical .agentid address
+const { agent } = await resolver.resolve('research-agent.agentid');
 console.log(agent.endpointUrl);    // "https://api.example.com/v1/tasks"
 console.log(agent.trustScore);     // 94
 console.log(agent.capabilities);   // ["research", "web-search", ...]
@@ -35,7 +44,7 @@ const { agents } = await resolver.findAgents({
 
 ## How resolution works
 
-Each call to `resolve()` makes a direct HTTPS request to the Agent ID resolution API. On transient errors (HTTP 429, 502, 503, 504) the request is automatically retried with exponential back-off (500 ms, then 1 500 ms). There is no built-in local cache — if you need to reduce API calls in a tight loop, cache the returned `ResolvedAgent` object yourself.
+Each call to `resolve()` makes a direct HTTPS request to the Agent ID resolution API — there is no built-in local cache. On transient failures (HTTP 429, 502, 503, 504) the request is retried with exponential back-off (500 ms, then 1 500 ms). If you need to reduce API calls in a tight loop, cache the returned `ResolvedAgent` object in your own application layer.
 
 ## API
 
