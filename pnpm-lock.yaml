@@ -266,6 +266,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/shared-pricing':
+        specifier: workspace:*
+        version: link:../../lib/shared-pricing
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -390,6 +393,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/shared-pricing':
+        specifier: workspace:*
+        version: link:../../lib/shared-pricing
       '@x402/core':
         specifier: 2.7.0
         version: 2.7.0
@@ -922,6 +928,8 @@ importers:
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
+
+  lib/shared-pricing: {}
 
   scripts:
     dependencies:

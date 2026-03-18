@@ -3,9 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { Footer } from '@/components/Footer';
-import { PRICING_PLANS } from '@/lib/pricing';
+import { PRICING_PLANS, HANDLE_PRICING_TIERS } from '@/lib/pricing';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
+
+const shortHandleFaq = (() => {
+  const t3 = HANDLE_PRICING_TIERS.find(t => t.minLength === 3);
+  const t4 = HANDLE_PRICING_TIERS.find(t => t.minLength === 4);
+  return `3- and 4-character handles are premium due to their scarcity — priced at $${t3?.annualPrice ?? 640}/yr and $${t4?.annualPrice ?? 160}/yr respectively, similar to ENS short-name pricing. Handles with 5 or more characters are included with any active subscription at no extra cost.`;
+})();
 
 const FAQ_ITEMS = [
   {
@@ -18,7 +24,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'What are short handles and how are they priced?',
-    a: '3- and 4-character handles are premium due to their scarcity — priced at $640/yr and $160/yr respectively, similar to ENS short-name pricing. Handles with 5 or more characters are included with any active subscription at no extra cost.',
+    a: shortHandleFaq,
   },
 ];
 
@@ -98,7 +104,7 @@ export function Pricing() {
       <div className="max-w-[1100px] mx-auto px-6 py-20">
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-black mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-            Simple pricing. Serious infrastructure.
+            Simple pricing. SDK, MCP, and REST API included.
           </h1>
           <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--text-muted)' }}>
             Three tiers — no free plan. Every agent gets a permanent UUID identity at registration, regardless of plan.
@@ -190,7 +196,7 @@ export function Pricing() {
         </div>
 
         <p className="text-center text-sm mb-16" style={{ color: 'var(--text-dim)' }}>
-          Trusted by autonomous agents on Base, Solana, and beyond — verifiable, routable, and production-ready.
+          Trusted by autonomous agents everywhere — verifiable, routable, and ready to work.
         </p>
 
         <div className="max-w-[700px] mx-auto">

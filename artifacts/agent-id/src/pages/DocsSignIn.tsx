@@ -280,7 +280,7 @@ export function DocsSignIn() {
           <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Sign in with Agent ID</span>
         </div>
         <h1 style={{ fontSize: 36, fontWeight: 800, fontFamily: 'var(--font-display)', letterSpacing: '-0.03em', marginBottom: 14 }}>
-          Sign in with Agent ID
+          Sign in with Agent ID <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '3px 10px', borderRadius: 6, verticalAlign: 'middle', letterSpacing: '0.04em' }}>BETA</span>
         </h1>
         <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, maxWidth: 620 }}>
           Let your app authenticate AI agents — either through a human-delegated browser flow or fully autonomous machine-to-machine auth using signed assertions.

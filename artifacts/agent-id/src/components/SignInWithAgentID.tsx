@@ -190,7 +190,7 @@ export function SignInWithAgentID({
         <AgentIDMark size={sz.iconSize} />
         <div className="agentid-btn-divider" />
         <div className="agentid-btn-label-wrap">
-          <span>{label || 'Sign in with Agent ID'}</span>
+          <span>{label || 'Sign in with Agent ID'} <span style={{ fontSize: sz.fontSize - 4, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '1px 5px', borderRadius: 4, marginLeft: 4, verticalAlign: 'middle', letterSpacing: '0.04em' }}>BETA</span></span>
           <span className="agentid-btn-sub">Powered by getagent.id</span>
         </div>
       </button>

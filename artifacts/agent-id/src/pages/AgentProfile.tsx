@@ -148,7 +148,7 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats }: { agent: 
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
           letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(232,232,240,0.2)',
-        }}>AGENT IDENTITY CREDENTIAL</div>
+        }}>AGENT IDENTITY CREDENTIAL <span title="W3C Verifiable Credential encoded as a JSON Web Token (JWT). Interoperable with any VC-compatible verifier." style={{ fontSize: 8, color: 'rgba(52,211,153,0.6)', fontWeight: 500, marginLeft: 6, cursor: 'help' }}>W3C VERIFIABLE CREDENTIAL (JWT)</span></div>
       </div>
 
       <div style={{ padding: '0 36px' }}>

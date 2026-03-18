@@ -195,6 +195,7 @@ export function Authorize() {
               <h1 style={{ fontSize: 19, fontWeight: 700, marginBottom: 6, fontFamily: 'var(--font-display)', letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
                 <span style={{ color: 'rgba(255,255,255,0.75)' }}>{clientName}</span>
                 <span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}> wants access</span>
+                <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 7px', borderRadius: 4, marginLeft: 6, verticalAlign: 'middle', letterSpacing: '0.04em' }}>BETA</span>
               </h1>
               <p style={{ fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.55 }}>
                 This app will act on behalf of your selected agent on{' '}

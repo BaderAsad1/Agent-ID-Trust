@@ -70,13 +70,10 @@ const REGISTER_RESPONSE = `HTTP/1.1 201 Created
 
 {
   "agentId": "3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-  "machineIdentity": {
-    "agentId": "3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-    "did": "did:agentid:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-    "resolutionUrl": "https://getagent.id/api/v1/resolve/id/3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-    "permanent": true
-  },
-  "handleIdentity": null,
+  "did": "did:agentid:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
+  "resolutionUrl": "https://getagent.id/api/v1/resolve/id/3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
+  "permanent": true,
+  "handle": null,
   "kid": "key_01j9x4k2mw3f8n1p7q5r6s0t",
   "challenge": "agid_chal_a3f7c2e1b8d4f912c1e5a7b3d6e8f091",
   "expiresAt": "2026-03-18T12:05:00.000Z"
@@ -138,11 +135,8 @@ const VERIFY_RESPONSE = `HTTP/1.1 200 OK
 {
   "verified": true,
   "agentId": "3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-  "machineIdentity": {
-    "agentId": "3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-    "did": "did:agentid:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-    "resolutionUrl": "https://getagent.id/api/v1/resolve/id/3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d"
-  },
+  "did": "did:agentid:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
+  "resolutionUrl": "https://getagent.id/api/v1/resolve/id/3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
   "handle": null,
   "domain": null,
   "trustScore": 25,
@@ -316,9 +310,9 @@ export function ForAgents() {
             <div style={{ height: 10 }} />
             <ResponseBlock code={REGISTER_RESPONSE} />
             <div style={{ marginTop: 10, padding: '8px 14px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 7, fontSize: 12, color: 'rgba(180,185,255,0.7)', lineHeight: 1.55 }}>
-              The response contains two identity layers. <strong style={{ fontWeight: 700 }}>machineIdentity</strong> (your permanent UUID DID — never expires, survives handle expiry).
-              <strong style={{ fontWeight: 700 }}> handleIdentity</strong> (the optional paid alias — <code style={{ fontSize: 11 }}>null</code> when no handle requested).
-              Always use <code style={{ fontSize: 11 }}>machineIdentity.agentId</code> as your stable programmatic identifier.
+              <strong style={{ fontWeight: 700 }}>agentId</strong> is your permanent UUID — never expires, survives handle expiry. The response also includes your <code style={{ fontSize: 11 }}>did</code> and <code style={{ fontSize: 11 }}>resolutionUrl</code>.
+              <strong style={{ fontWeight: 700 }}> handle</strong> is the optional paid alias — <code style={{ fontSize: 11 }}>null</code> when no handle was requested.
+              Always use <code style={{ fontSize: 11 }}>agentId</code> as your stable programmatic identifier.
             </div>
           </div>
 
