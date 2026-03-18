@@ -230,6 +230,8 @@ router.post("/execute-upgrade", requireAgentAuth, async (req, res, next) => {
 
     const { executeX402Payment } = await import("../../services/x402-client");
 
+    const agentKey = req.headers["x-agent-key"] as string | undefined;
+
     const APP = APP_URL();
     const result = await executeX402Payment({
       agentId: agent.id,
@@ -237,6 +239,7 @@ router.post("/execute-upgrade", requireAgentAuth, async (req, res, next) => {
       targetUrl: `${APP}/api/v1/pay/upgrade/x402`,
       method: "POST",
       body: { plan, billingInterval },
+      agentKey,
     });
 
     if (!result.success) {
@@ -303,25 +306,36 @@ router.post("/upgrade/x402", requireAgentAuth, async (req, res, next) => {
       throw new AppError(402, "PAYMENT_FAILED", result.error || "Payment verification failed");
     }
 
-    try {
-      const { activatePlanForAgent, activatePlanForUser } = await import("../../services/billing");
-      const agent = await db.query.agentsTable.findFirst({
-        where: eq(agentsTable.id, agentId),
-        columns: { userId: true },
+    const { activatePlanForAgent, activatePlanForUser } = await import("../../services/billing");
+    const agentRecord = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+      columns: { userId: true },
+    });
+    if (!agentRecord) {
+      throw new AppError(500, "ACTIVATION_FAILED", "Agent not found after payment — contact support", {
+        paymentId: result.paymentId,
+        txHash: result.txHash,
       });
-      if (agent) {
-        await activatePlanForAgent(agentId, plan as "starter" | "pro", "monthly");
-        await activatePlanForUser(agent.userId, plan as "starter" | "pro", undefined, "monthly");
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[x402] Plan activation failed:", msg);
+    }
+
+    try {
+      await activatePlanForAgent(agentId, plan as "starter" | "pro", "monthly");
+      await activatePlanForUser(agentRecord.userId, plan as "starter" | "pro", undefined, "monthly");
+    } catch (activationErr) {
+      const msg = activationErr instanceof Error ? activationErr.message : String(activationErr);
+      console.error("[x402] Plan activation failed after settlement:", msg);
+      throw new AppError(500, "ACTIVATION_FAILED", `Payment settled but plan activation failed: ${msg}. Contact support with your payment ID.`, {
+        paymentId: result.paymentId,
+        txHash: result.txHash,
+        status: "settled_unapplied",
+      });
     }
 
     res.json({
       success: true,
       plan,
       paymentId: result.paymentId,
+      txHash: result.txHash,
       message: `Successfully upgraded to ${plan} plan via x402 payment`,
     });
   } catch (err) {

@@ -1,4 +1,4 @@
-import { getCdpClient, IS_TESTNET, getCdpNetworkId } from "../lib/cdp";
+import { getCdpClient, IS_TESTNET } from "../lib/cdp";
 import { logger } from "../middlewares/request-logger";
 
 export async function executeX402Payment(params: {
@@ -7,22 +7,19 @@ export async function executeX402Payment(params: {
   targetUrl: string;
   method?: string;
   body?: object;
+  agentKey?: string;
 }): Promise<{
   success: boolean;
   response?: unknown;
   txHash?: string;
   error?: string;
 }> {
-  const { agentId, agentAccountName, targetUrl, method = "POST", body } = params;
+  const { agentId, agentAccountName, targetUrl, method = "POST", body, agentKey } = params;
 
   try {
     const cdp = getCdpClient();
 
     const account = await cdp.evm.getOrCreateAccount({ name: agentAccountName });
-
-    const networkId = getCdpNetworkId();
-    const chainId = IS_TESTNET ? 84532 : 8453;
-    const caip2Network = `eip155:${chainId}`;
 
     const { createPublicClient, http } = await import("viem");
     const { baseSepolia, base } = await import("viem/chains");
@@ -68,13 +65,21 @@ export async function executeX402Payment(params: {
     const x402Fetch = wrapFetchWithPayment(fetch, client);
 
     logger.info(
-      { agentId, targetUrl, method, network: networkId },
+      { agentId, targetUrl, method },
       "[x402-client] Executing server-side x402 payment",
     );
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "User-Agent": "AgentID-Client/1.0 x402-internal/1.0",
+    };
+    if (agentKey) {
+      headers["X-Agent-Key"] = agentKey;
+    }
+
     const response = await x402Fetch(targetUrl, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
 
