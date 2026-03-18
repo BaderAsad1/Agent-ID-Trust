@@ -1147,22 +1147,42 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
 
       <style>{`
         @media (max-width: 768px) {
+          .activation-section-outer {
+            min-height: auto !important;
+          }
+          .activation-sticky-container {
+            position: relative !important;
+            height: auto !important;
+            overflow: visible !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
           .activation-wrapper {
             height: auto !important;
-            min-height: 100vh;
-            padding-top: clamp(32px, 6vh, 60px) !important;
-            padding-bottom: clamp(32px, 6vh, 60px) !important;
+            min-height: 0 !important;
+            padding-top: clamp(48px, 8vh, 80px) !important;
+            padding-bottom: clamp(48px, 8vh, 80px) !important;
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+          }
+          .activation-wrapper > div {
+            opacity: 1 !important;
+            transform: none !important;
           }
           .activation-spine {
             left: 16px !important;
             transform: none !important;
+            background: linear-gradient(180deg, transparent, rgba(79,125,243,0.15) 15%, rgba(79,125,243,0.15) 85%, transparent) !important;
           }
           .activation-origin {
             left: 16px !important;
             transform: translate(-50%, -50%) !important;
+            background: #4f7df3 !important;
           }
           .activation-node {
             left: 16px !important;
+            background: #4f7df3 !important;
+            box-shadow: 0 0 12px rgba(79,125,243,0.4) !important;
           }
           .activation-line {
             display: none !important;
@@ -1180,6 +1200,8 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
             justify-content: flex-start !important;
             padding-left: 40px !important;
             padding-right: 0 !important;
+            opacity: 1 !important;
+            transform: none !important;
           }
           .activation-card-left > div,
           .activation-card-right > div {
@@ -1305,13 +1327,31 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
       </div>
 
       <style>{`
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
+          .outcome-section-outer {
+            min-height: auto !important;
+          }
+          .outcome-sticky-container {
+            position: relative !important;
+            height: auto !important;
+            overflow: visible !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
           .outcome-wrapper {
             height: auto !important;
             padding: 64px 20px 48px !important;
           }
+          .outcome-wrapper > div {
+            opacity: 1 !important;
+            transform: none !important;
+          }
           .outcome-grid {
             grid-template-columns: 1fr !important;
+          }
+          .outcome-grid > div {
+            opacity: 1 !important;
+            transform: none !important;
           }
         }
       `}</style>
@@ -1486,16 +1526,39 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
 
       <style>{`
         @media (max-width: 768px) {
+          .verification-section-outer {
+            min-height: auto !important;
+          }
+          .verification-sticky-container {
+            position: relative !important;
+            height: auto !important;
+            overflow: visible !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
           .verification-wrapper {
             height: auto !important;
             padding: 64px 20px 48px !important;
           }
+          .verification-wrapper > div {
+            opacity: 1 !important;
+            transform: none !important;
+          }
           .verification-wrapper > div:last-of-type {
             flex-direction: column !important;
+          }
+          .verification-code {
+            opacity: 1 !important;
+            transform: none !important;
           }
           .verification-features {
             flex: none !important;
             width: 100% !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+          .verification-features > div {
+            opacity: 1 !important;
           }
         }
       `}</style>
@@ -1606,12 +1669,30 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
 
       <style>{`
         @media (max-width: 768px) {
+          .devtooling-section-outer {
+            min-height: auto !important;
+          }
+          .devtooling-sticky-container {
+            position: relative !important;
+            height: auto !important;
+            overflow: visible !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
           .devtooling-wrapper {
             height: auto !important;
             padding: 64px 20px 48px !important;
           }
+          .devtooling-wrapper > div {
+            opacity: 1 !important;
+            transform: none !important;
+          }
           .devtooling-grid {
             grid-template-columns: 1fr 1fr !important;
+          }
+          .devtooling-grid > div {
+            opacity: 1 !important;
+            transform: none !important;
           }
         }
         @media (max-width: 480px) {
@@ -1630,7 +1711,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
   const translateY = lerp(60, 0, Math.max(0, Math.min(1, (ctaProgress - 0.20) / 0.30)));
 
   return (
-    <div style={{
+    <div className="cta-content" style={{
       position: 'relative',
       padding: 'clamp(40px, 8vh, 200px) clamp(24px, 4vw, 80px)',
       textAlign: 'center',
@@ -1643,6 +1724,27 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
       alignItems: 'center',
       boxSizing: 'border-box',
     }}>
+      <style>{`
+        @media (max-width: 768px) {
+          .cta-section-outer {
+            min-height: auto !important;
+          }
+          .cta-sticky-container {
+            position: relative !important;
+            height: auto !important;
+            overflow: visible !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+          .cta-content {
+            height: auto !important;
+            padding: 80px 24px 80px !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+        }
+      `}</style>
+
       <div style={{
         position: 'absolute', top: '50%', left: '50%',
         transform: 'translate(-50%, -50%)',
@@ -2221,14 +2323,14 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <section ref={sectionRefs.outcome as React.RefObject<HTMLElement>} style={{
+      <section ref={sectionRefs.outcome as React.RefObject<HTMLElement>} className="outcome-section-outer" style={{
         position: 'relative',
         minHeight: '220vh',
         marginTop: '-20vh',
         background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
         zIndex: 2,
       }}>
-        <div style={{
+        <div className="outcome-sticky-container" style={{
           position: 'sticky',
           top: 0,
           height: '100vh',
@@ -2269,14 +2371,14 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <section ref={sectionRefs.unlocks as React.RefObject<HTMLElement>} style={{
+      <section ref={sectionRefs.unlocks as React.RefObject<HTMLElement>} className="activation-section-outer" style={{
         position: 'relative',
         minHeight: '280vh',
         marginTop: '-20vh',
         background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
         zIndex: 4,
       }}>
-        <div style={{
+        <div className="activation-sticky-container" style={{
           position: 'sticky',
           top: 0,
           height: '100vh',
@@ -2293,14 +2395,14 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <section ref={sectionRefs.verification as React.RefObject<HTMLElement>} style={{
+      <section ref={sectionRefs.verification as React.RefObject<HTMLElement>} className="verification-section-outer" style={{
         position: 'relative',
         minHeight: '260vh',
         marginTop: '-20vh',
         background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
         zIndex: 5,
       }}>
-        <div style={{
+        <div className="verification-sticky-container" style={{
           position: 'sticky',
           top: 0,
           height: '100vh',
@@ -2317,14 +2419,14 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <section ref={sectionRefs.devTooling as React.RefObject<HTMLElement>} style={{
+      <section ref={sectionRefs.devTooling as React.RefObject<HTMLElement>} className="devtooling-section-outer" style={{
         position: 'relative',
         minHeight: '220vh',
         marginTop: '-20vh',
         background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
         zIndex: 6,
       }}>
-        <div style={{
+        <div className="devtooling-sticky-container" style={{
           position: 'sticky',
           top: 0,
           height: '100vh',
@@ -2341,14 +2443,14 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <section id="get-started" ref={sectionRefs.cta as React.RefObject<HTMLElement>} style={{
+      <section id="get-started" ref={sectionRefs.cta as React.RefObject<HTMLElement>} className="cta-section-outer" style={{
         position: 'relative',
         minHeight: '160vh',
         marginTop: '-20vh',
         background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
         zIndex: 7,
       }}>
-        <div style={{
+        <div className="cta-sticky-container" style={{
           position: 'sticky',
           top: 0,
           height: '100vh',
