@@ -9,6 +9,7 @@ import {
   type PaymentLedgerEntry,
 } from "@workspace/db/schema";
 import { getStripe } from "./stripe-client";
+import { StripeMppProvider } from "./mpp-provider";
 
 export interface PaymentProvider {
   name: string;
@@ -207,6 +208,7 @@ class VisaAgenticProvider implements PaymentProvider {
 
 const providers: Record<string, PaymentProvider> = {
   stripe: new StripeProvider(),
+  stripe_mpp: new StripeMppProvider(),
   coinbase_agentic: new CoinbaseAgenticProvider(),
   visa_agentic: new VisaAgenticProvider(),
 };

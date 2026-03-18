@@ -134,6 +134,13 @@
       "when": 1773797182765,
       "tag": "0018_owner_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1773850357910,
+      "tag": "0019_mpp_payments",
+      "breakpoints": true
     }
   ]
 }

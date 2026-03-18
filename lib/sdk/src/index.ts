@@ -14,6 +14,7 @@ export {
   createRelayingPartyClient,
 } from "./modules/auth.js";
 export { OrgModule } from "./modules/org.js";
+export { MppModule } from "./modules/mpp.js";
 
 export type {
   AgentTokenClaims,
@@ -80,3 +81,9 @@ export type {
   SignedControlPlaneInstruction,
   VerifyControlPlaneOptions,
 } from "./modules/control-plane.js";
+
+export type {
+  MppPaymentRequirement,
+  MppPaymentResult,
+  MppCreateIntentOptions,
+} from "./modules/mpp.js";

@@ -47,6 +47,7 @@ import oauthClientsRouter from "./oauth-clients";
 import adminRouter from "./admin";
 import claimHistoryRouter from "./claim-history";
 import orgPoliciesRouter from "./org-policies";
+import mppRouter from "./mpp";
 
 const router = Router();
 
@@ -110,5 +111,6 @@ router.use("/admin", adminRouter);
 router.use("/agents", claimHistoryRouter);
 router.use("/orgs/:orgId/policies", orgPoliciesRouter);
 router.use("/bootstrap", bootstrapRouter);
+router.use("/mpp", mppRouter);
 
 export default router;

@@ -6,6 +6,7 @@ import { TaskModule } from "./modules/tasks.js";
 import { TrustModule } from "./modules/trust.js";
 import { ResolveModule } from "./modules/resolve.js";
 import { MarketplaceModule } from "./modules/marketplace.js";
+import { MppModule } from "./modules/mpp.js";
 import type {
   AgentIDConfig,
   BootstrapBundle,
@@ -38,6 +39,7 @@ export class AgentID {
   public tasks: TaskModule;
   public trust: TrustModule;
   public marketplace: MarketplaceModule;
+  public mpp: MppModule;
 
   private constructor(config: AgentIDConfig, agentId: string) {
     this._baseUrl = config.baseUrl || DEFAULT_BASE_URL;
@@ -50,6 +52,7 @@ export class AgentID {
     this.tasks = new TaskModule(this.http, this._agentId);
     this.trust = new TrustModule(this.http, this._agentId);
     this.marketplace = new MarketplaceModule(this.http);
+    this.mpp = new MppModule(this.http, this._agentId);
   }
 
   get agentId(): string {

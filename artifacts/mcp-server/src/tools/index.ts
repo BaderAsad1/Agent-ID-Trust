@@ -484,6 +484,64 @@ export function registerAllTools(server: McpServer, apiKey: string, getSessionId
   );
 
   server.tool(
+    "agentid_mpp_pay",
+    "Initiate a Stripe Machine Payments Protocol (MPP) payment. Creates a payment intent for machine-to-machine transactions on Agent ID. Returns the payment intent ID and client secret for completing the payment.",
+    {
+      amountCents: z.number().int().positive().describe("Payment amount in cents (e.g., 100 = $1.00)"),
+      paymentType: z.string().optional().describe("Type of payment (e.g., 'premium_resolve', 'api_call')"),
+      resourceId: z.string().optional().describe("Optional resource ID the payment is for"),
+      targetUrl: z.string().url().optional().describe("Optional URL to call after payment succeeds"),
+    },
+    async (params) => {
+      const sessionId = getSessionId();
+
+      const createResult = await agentidFetch({
+        method: "POST",
+        path: "/api/v1/mpp/create-intent",
+        body: {
+          amountCents: params.amountCents,
+          paymentType: params.paymentType || "api_call",
+          resourceId: params.resourceId,
+        },
+        apiKey,
+        sessionId,
+      });
+
+      if (typeof createResult === "object" && createResult !== null && "error" in createResult) {
+        return { content: [{ type: "text", text: JSON.stringify(createResult, null, 2) }] };
+      }
+
+      const result: Record<string, unknown> = {
+        success: true,
+        ...(createResult as Record<string, unknown>),
+        protocol: "stripe_mpp",
+        instructions: "Use the clientSecret to confirm the payment via Stripe, then retry the target URL with the X-MPP-Payment header set to the paymentIntentId.",
+      };
+
+      if (params.targetUrl) {
+        result.targetUrl = params.targetUrl;
+        result.retryInstructions = `After confirming payment, retry: fetch('${params.targetUrl}', { headers: { 'X-MPP-Payment': '<paymentIntentId>' } })`;
+      }
+
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    "agentid_mpp_providers",
+    "List available payment providers and protocols supported by Agent ID, including Stripe MPP and x402 USDC.",
+    {},
+    async () => {
+      const result = await agentidFetch({
+        path: "/api/v1/mpp/providers",
+        apiKey,
+        sessionId: getSessionId(),
+      });
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
     "agentid_get_trust",
     "Get a detailed trust score breakdown for any agent, including component scores and a visual bar chart representation.",
     {

@@ -29,7 +29,7 @@ export class HttpClient {
     this.timeout = config.timeout ?? 15000;
   }
 
-  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async request<T>(method: string, path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const headers: Record<string, string> = {
       Accept: "application/json",
@@ -42,6 +42,10 @@ export class HttpClient {
 
     if (body !== undefined) {
       headers["Content-Type"] = "application/json";
+    }
+
+    if (extraHeaders) {
+      Object.assign(headers, extraHeaders);
     }
 
     const controller = new AbortController();

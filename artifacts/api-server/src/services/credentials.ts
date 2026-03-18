@@ -13,6 +13,21 @@ import { logger } from "../middlewares/request-logger";
 
 const CREDENTIAL_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
+function buildPaymentMethodsList(agent: {
+  paymentMethods?: string[] | null;
+  walletAddress?: string | null;
+  paymentAuthorized?: boolean | null;
+}): string[] {
+  const methods = new Set<string>(agent.paymentMethods || []);
+  if (agent.walletAddress) {
+    methods.add("x402_usdc");
+  }
+  if (agent.paymentAuthorized) {
+    methods.add("stripe_mpp");
+  }
+  return Array.from(methods);
+}
+
 let signingSecret: string | null = null;
 
 export function getCredentialSigningSecret(): string {
@@ -99,7 +114,7 @@ export async function issueCredential(agentId: string) {
       capabilities: agent.capabilities || [],
       protocols: agent.protocols || [],
       authMethods: agent.authMethods || [],
-      paymentMethods: agent.paymentMethods || [],
+      paymentMethods: buildPaymentMethodsList(agent),
       verificationStatus: agent.verificationStatus,
       verificationMethod: agent.verificationMethod || null,
       verifiedAt: agent.verifiedAt?.toISOString() || null,
@@ -305,6 +320,14 @@ export async function buildErc8004(handle: string) {
       id: `did:web:getagent.id:agents:${agent.handle}#x402`,
       type: "X402PaymentEndpoint",
       serviceEndpoint: `${baseUrl}/pay/upgrade/x402`,
+    });
+  }
+
+  if (agent.paymentAuthorized) {
+    services.push({
+      id: `did:web:getagent.id:agents:${agent.handle}#mpp`,
+      type: "StripeMppPaymentEndpoint",
+      serviceEndpoint: `${baseUrl}/mpp/premium-resolve/${agent.handle}`,
     });
   }
 

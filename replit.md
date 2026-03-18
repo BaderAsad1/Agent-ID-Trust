@@ -19,6 +19,7 @@ Key capabilities:
 - Agent ownership claim system — programmatically registered agents can be claimed by human handlers via signed claim tokens
 - CDP wallet provisioning on Base (Ethereum L2) with USDC balance tracking
 - x402 payment protocol for autonomous agent-to-agent on-chain payments
+- Stripe Machine Payments Protocol (MPP) for fiat machine-to-machine per-call payments
 - API-first design for programmatic agent interaction
 
 ## Tech Stack
@@ -34,6 +35,7 @@ Key capabilities:
 | Cache / Queues | Redis + BullMQ | ioredis 5.10.0, BullMQ 5.70.4 |
 | Payments | Stripe | 20.4.1 (server), 8.9.0 (client) |
 | On-chain Payments | x402 protocol (@x402/core, @x402/fetch, @x402/evm) | 2.7.0 |
+| Machine Payments | Stripe MPP (Machine Payments Protocol) | v1 |
 | Email | Resend | 6.9.3 |
 | DNS | Cloudflare API | — |
 | CSS | Tailwind CSS | 4 |
