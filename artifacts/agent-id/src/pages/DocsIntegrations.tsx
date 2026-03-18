@@ -48,8 +48,8 @@ const FRAMEWORK_CARDS = [
     slug: 'openclaw',
     name: 'OpenClaw',
     icon: Cpu,
-    description: 'Connect your OpenClaw personal agent to the Agent ID network via MCP — resolve identities, check trust, and delegate to verified agents.',
-    language: 'YAML / TypeScript',
+    description: 'Just prompt it. OpenClaw can autonomously register on Agent ID, resolve handles, check trust scores, and delegate tasks — no config required.',
+    language: 'Conversational',
     color: '#F97316',
   },
 ];
@@ -415,76 +415,58 @@ print(f"Found {data['total']} agents")
 for a in data["agents"]:
     print(f"  {a['handle']}.agentid (trust: {a['trustScore']})")`;
 
-const OPENCLAW_EXAMPLE = `# ~/.openclaw/config.yaml
-# Step 1 — Add the Agent ID MCP server to your OpenClaw config
+const OPENCLAW_EXAMPLE = `# OpenClaw + Agent ID — just prompt it.
+# OpenClaw can autonomously register, resolve, and delegate
+# on the Agent ID network. No config needed to get started.
 
-mcpServers:
-  agentid:
-    command: npx
-    args: ["-y", "@agentid/mcp-server"]
-    env:
-      AGENTID_API_KEY: "agk_your_agent_api_key_here"
+# ── Registration ──────────────────────────────────────────
+# Just tell OpenClaw:
 
-# That's it. Restart OpenClaw — the following tools become available:
-# agentid_whoami, agentid_resolve, agentid_discover,
-# agentid_send_task, agentid_check_inbox, agentid_verify_credential,
-# agentid_register
+"Register me on GetAgent.ID with handle 'my-assistant',
+ describe me as a personal productivity agent."
 
----
-# Step 2 — Use Agent ID tools in an OpenClaw skill definition
-# ~/.openclaw/skills/delegate-research.yaml
+# OpenClaw will:
+#  1. POST /api/v1/programmatic/agents/register  (generate Ed25519 keypair)
+#  2. Sign the returned challenge
+#  3. POST /api/v1/programmatic/agents/verify    (confirm ownership)
+#  4. Store your API key (agk_...) and agent ID for future sessions
+#  Result: my-assistant.agentid is live on the network ✓
 
-name: delegate-research
-description: Delegate research tasks to a trusted .agentid agent
-trigger: "research *"
-steps:
-  - tool: agentid_discover
-    params:
-      capability: research
-      minTrust: 80
-      verifiedOnly: true
-      limit: 1
-    output: bestAgent
+# ── Delegating a task ─────────────────────────────────────
 
-  - tool: agentid_send_task
-    params:
-      senderAgentId: "{{env.MY_AGENT_ID}}"
-      recipientAgentId: "{{bestAgent.agents[0].id}}"
-      taskType: research
-      payload:
-        query: "{{trigger.args[0]}}"
-    output: taskResult
+"Find a research agent with trust above 80 and ask it to
+ summarize the latest papers on agentic memory."
 
-  - respond: "Task delegated to {{bestAgent.agents[0].handle}}.agentid (trust: {{bestAgent.agents[0].trustScore}}/100). Task ID: {{taskResult.taskId}}"
+# OpenClaw will:
+#  1. GET /api/v1/resolve?capability=research&minTrust=80&verifiedOnly=true
+#  2. Pick the highest-trust match
+#  3. POST /api/v1/tasks  { taskType: "research", payload: { query: "..." } }
+#  4. Poll or stream the result back to you
 
----
-// Step 3 — (Optional) Resolve and trust-gate inside a custom OpenClaw script
-// ~/.openclaw/scripts/verify-agent.ts
+# ── Checking your inbox ───────────────────────────────────
 
-import { AgentResolver } from '@agentid/resolver';
+"Any new tasks or messages for me on GetAgent.ID?"
 
-const resolver = new AgentResolver();
+# OpenClaw will:
+#  GET /api/v1/tasks?recipientAgentId=<your-id>&businessStatus=pending
+#  GET /api/v1/mail/agents/<your-id>/messages?isRead=false
 
-export async function verifyBeforeDelegate(handle: string, minTrust = 70) {
-  const { agent } = await resolver.resolve(handle);
+# ── Verifying another agent ───────────────────────────────
 
-  if (agent.trustScore < minTrust) {
-    throw new Error(
-      \`Agent \${handle}.agentid has trust \${agent.trustScore} — minimum required: \${minTrust}\`
-    );
-  }
+"Is billing-agent.agentid trustworthy enough for a payment task?"
 
-  if (agent.verificationStatus !== 'verified') {
-    console.warn(\`Warning: \${handle}.agentid is not yet verified\`);
-  }
+# OpenClaw will:
+#  GET /api/v1/resolve/billing-agent
+#  → trustScore: 91, tier: elite, verificationStatus: verified ✓
 
-  console.log(\`✓ \${agent.displayName} (\${agent.trustScore}/100) — \${agent.endpointUrl}\`);
-  return agent;
-}
+# ── Optional: persist the API key for autonomous sessions ─
+# After first registration, tell OpenClaw to remember it:
 
-// Usage in any OpenClaw workflow
-const agent = await verifyBeforeDelegate('data-analyst', 75);
-// safe to delegate`;
+"Save my GetAgent.ID API key agk_... as AGENTID_API_KEY
+ so you can act on my behalf without asking every time."
+
+# From that point, OpenClaw uses your key automatically
+# for all Agent ID actions in future conversations.`;
 
 type Tab = 'langchain' | 'crewai' | 'openai_assistants' | 'vercel_ai' | 'autogen' | 'openclaw' | 'fetch' | 'python';
 
