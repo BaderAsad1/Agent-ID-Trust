@@ -2,6 +2,8 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import http from "http";
+import path from "path";
+import fs from "fs";
 import router from "./routes";
 import wellKnownRouter from "./routes/well-known";
 import authOidcRouter from "./routes/auth-oidc";
@@ -237,6 +239,20 @@ app.all("/mcp", (req: Request, res: Response) => {
     proxy.end();
   }
 });
+
+// Serve the built frontend SPA in production
+const frontendDist = path.join(process.cwd(), "artifacts/agent-id/dist/public");
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist, {
+    index: false,
+    maxAge: "1d",
+    immutable: true,
+  }));
+  // SPA fallback — serve index.html for any non-API route
+  app.get(/^(?!\/api|\/mcp|\/well-known|\/.well-known|\/sitemap\.xml|\/agent|\/oauth|\/auth).*/, (_req, res) => {
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 app.use(errorHandler);
 

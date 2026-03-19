@@ -64,3 +64,14 @@ LAUNCH_MODE = "false"
 STRIPE_MODE = "live"
 APP_URL = "https://getagent.id"
 VITE_WAITLIST_ENABLED = "true"
+JWT_SECRET = "dba989da8eb2df24de1bbc099d68fe10acaf05e8a6d1f1e9e2d6bb96d3deed42bf62f4ce94526a9452626bb8c7ade90a"
+VC_SIGNING_KEY = """
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIAt8UJ4FyW7gdUmJvgxiYsQgyzzg/mAjLtthMxqm1i8h
+-----END PRIVATE KEY-----
+"""
+VC_PUBLIC_KEY = """
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAQrqYRlTNmFpxRANUD2sB8PXbQKMx0NY1ywXTZdokwck=
+-----END PUBLIC KEY-----
+"""
