@@ -22,13 +22,20 @@ function isRetryable(method: string | undefined, status: number): boolean {
   return m === 'GET' || m === 'HEAD';
 }
 
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)csrf=([^;]+)/);
+  return match ? match[1] : null;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const csrfToken = getCsrfToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "User-Agent": "AgentID-Client/1.0 AgentID-Web/1.0",
+    ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
     ...(options.headers as Record<string, string> || {}),
   };
 

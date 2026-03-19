@@ -21,6 +21,8 @@ Key capabilities:
 - x402 payment protocol for autonomous agent-to-agent on-chain payments (coming soon — not yet active)
 - Stripe Machine Payments Protocol (MPP) for fiat machine-to-machine per-call payments
 - API-first design for programmatic agent interaction
+- CSRF protection (double-submit cookie) for session-authenticated browser requests
+- React ErrorBoundary at app root for graceful crash recovery
 
 ## Tech Stack
 

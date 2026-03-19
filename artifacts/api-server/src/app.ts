@@ -16,6 +16,7 @@ import { errorHandler } from "./middlewares/error-handler";
 import { cliDetect, cliMarkdownRoot } from "./middlewares/cli-markdown";
 import { apiRateLimiter } from "./middlewares/rate-limit";
 import { agentUserAgentMiddleware } from "./middlewares/agent-ua";
+import { csrfProtection } from "./middlewares/csrf";
 import { generateAgentRegistrationMarkdown } from "./services/agent-markdown";
 import { env } from "./lib/env";
 
@@ -64,13 +65,14 @@ const corsOrigins: cors.CorsOptions["origin"] = (() => {
 
 app.use(cors({
   origin: corsOrigins,
-  credentials: false,
+  credentials: true,
   allowedHeaders: [
     "Content-Type",
     "Authorization",
     "X-Agent-Key",
     "X-Request-ID",
     "X-Api-Key",
+    "X-CSRF-Token",
     "Accept",
   ],
   exposedHeaders: [
@@ -124,6 +126,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(replitAuth);
 app.use(apiKeyAuth);
+app.use("/api", csrfProtection);
 app.use("/api", apiRateLimiter);
 app.use("/api/v1", agentUserAgentMiddleware);
 

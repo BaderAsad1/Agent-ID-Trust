@@ -31,6 +31,7 @@ import { CursorIntegration } from '@/pages/integrations/Cursor';
 import { VSCodeIntegration } from '@/pages/integrations/VSCode';
 import IssuanceFilm from '@/components/IssuanceFilm';
 import { WaitlistGate } from '@/components/WaitlistGate';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AgentUUIDProfile } from '@/pages/AgentUUIDProfile';
 import { HandlePurchase } from '@/pages/HandlePurchase';
 import { Authorize } from '@/pages/Authorize';
@@ -144,16 +145,18 @@ function AppContent() {
 
 function App() {
   return (
-    <WaitlistGate>
-      <AuthProvider>
-        <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Routes>
-            <Route path="/*" element={<AppContent />} />
-          </Routes>
-        </BrowserRouter>
-        <Toaster theme="dark" position="bottom-center" />
-      </AuthProvider>
-    </WaitlistGate>
+    <ErrorBoundary>
+      <WaitlistGate>
+        <AuthProvider>
+          <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <Routes>
+              <Route path="/*" element={<AppContent />} />
+            </Routes>
+          </BrowserRouter>
+          <Toaster theme="dark" position="bottom-center" />
+        </AuthProvider>
+      </WaitlistGate>
+    </ErrorBoundary>
   );
 }
 
