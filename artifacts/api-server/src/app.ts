@@ -240,7 +240,7 @@ app.all("/mcp", (req: Request, res: Response) => {
   }
 });
 
-// Serve the built frontend SPA in production
+// Serve the built frontend SPA (works in both dev/tsx and production/CJS)
 const frontendDist = path.join(process.cwd(), "artifacts/agent-id/dist/public");
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist, {
@@ -248,8 +248,12 @@ if (fs.existsSync(frontendDist)) {
     maxAge: "1d",
     immutable: true,
   }));
-  // SPA fallback — serve index.html for any non-API route
-  app.get(/^(?!\/api|\/mcp|\/well-known|\/.well-known|\/sitemap\.xml|\/agent|\/oauth|\/auth).*/, (_req, res) => {
+  // SPA fallback — serve index.html for any non-API, non-asset route (Express 5 compatible)
+  app.get("/{*path}", (req, res, next) => {
+    const p = req.path;
+    if (/^\/(api|mcp|well-known|sitemap\.xml|agent|oauth|auth)(\/|$)/.test(p)) {
+      return next();
+    }
     res.sendFile(path.join(frontendDist, "index.html"));
   });
 }
