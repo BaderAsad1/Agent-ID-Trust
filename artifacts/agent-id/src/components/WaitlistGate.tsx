@@ -88,18 +88,12 @@ function WaitlistScreen({ onBypass }: { onBypass: () => void }) {
         textAlign: 'center',
       }}>
         {/* Logo mark */}
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 56, height: 56, borderRadius: 16,
-          background: 'linear-gradient(135deg, rgba(79,125,243,0.15), rgba(99,102,241,0.08))',
-          border: '1px solid rgba(79,125,243,0.2)',
-          marginBottom: 32,
-        }}>
-          <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-            <path d="M16 4L28 10V22L16 28L4 22V10L16 4Z" stroke="#4f7df3" strokeWidth="1.5" fill="none" />
-            <circle cx="16" cy="16" r="4" fill="#4f7df3" opacity="0.9" />
-            <path d="M16 12V8M16 24V20M20 16H24M8 16H12" stroke="#4f7df3" strokeWidth="1" opacity="0.4" />
-          </svg>
+        <div style={{ marginBottom: 32 }}>
+          <img
+            src={`${import.meta.env.BASE_URL}app-icon.png`}
+            alt="Agent ID"
+            style={{ width: 72, height: 72, objectFit: 'contain' }}
+          />
         </div>
 
         {/* Agent ID wordmark */}
