@@ -88,11 +88,11 @@ function WaitlistScreen({ onBypass }: { onBypass: () => void }) {
         textAlign: 'center',
       }}>
         {/* Logo mark */}
-        <div style={{ marginBottom: 32 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
           <img
             src={`${import.meta.env.BASE_URL}app-icon.png`}
             alt="Agent ID"
-            style={{ width: 72, height: 72, objectFit: 'contain' }}
+            style={{ width: 140, height: 140, objectFit: 'contain' }}
           />
         </div>
 
