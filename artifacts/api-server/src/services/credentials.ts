@@ -7,6 +7,7 @@ import {
   agentKeysTable,
   agentDomainsTable,
   agentInboxesTable,
+  agentOwsWalletsTable,
 } from "@workspace/db/schema";
 import { env } from "../lib/env";
 import { logger } from "../middlewares/request-logger";
@@ -255,25 +256,58 @@ export function isCredentialExpired(
   return new Date(expirationDate) < new Date();
 }
 
+function buildCaip10Address(network: string, address: string): string {
+  const chainIdMap: Record<string, string> = {
+    "base": "eip155:8453",
+    "base-mainnet": "eip155:8453",
+    "base-sepolia": "eip155:84532",
+    "ethereum": "eip155:1",
+    "mainnet": "eip155:1",
+    "polygon": "eip155:137",
+    "arbitrum": "eip155:42161",
+    "tron": "tron:mainnet",
+  };
+  const chainId = chainIdMap[network.toLowerCase()] || `eip155:1`;
+  return `${chainId}:${address}`;
+}
+
+function parseChainRegistrations(chainMints: Record<string, unknown> | null | undefined): Array<Record<string, unknown>> {
+  if (!chainMints || typeof chainMints !== "object") return [];
+  return Object.entries(chainMints)
+    .filter(([, v]) => v && typeof v === "object")
+    .map(([chain, v]) => ({
+      chain,
+      ...((v as Record<string, unknown>)),
+    }));
+}
+
 export async function buildErc8004(handle: string) {
   const agent = await db.query.agentsTable.findFirst({
     where: eq(agentsTable.handle, handle.toLowerCase()),
   });
   if (!agent || !agent.isPublic || agent.status !== "active") return null;
 
-  const keys = await db.query.agentKeysTable.findMany({
-    where: and(
-      eq(agentKeysTable.agentId, agent.id),
-      eq(agentKeysTable.status, "active"),
-    ),
-  });
-
-  const domains = await db.query.agentDomainsTable.findMany({
-    where: eq(agentDomainsTable.agentId, agent.id),
-  });
+  const [keys, domains, owsWallets] = await Promise.all([
+    db.query.agentKeysTable.findMany({
+      where: and(
+        eq(agentKeysTable.agentId, agent.id),
+        eq(agentKeysTable.status, "active"),
+      ),
+    }),
+    db.query.agentDomainsTable.findMany({
+      where: eq(agentDomainsTable.agentId, agent.id),
+    }),
+    db.query.agentOwsWalletsTable.findMany({
+      where: and(
+        eq(agentOwsWalletsTable.agentId, agent.id),
+        eq(agentOwsWalletsTable.status, "active"),
+      ),
+    }),
+  ]);
 
   const activeDomain = domains.find((d) => d.status === "active");
   const baseUrl = env().API_BASE_URL;
+  const appUrl = env().APP_URL;
 
   const services: Array<{
     id: string;
@@ -298,7 +332,7 @@ export async function buildErc8004(handle: string) {
   services.push({
     id: `did:web:getagent.id:agents:${agent.handle}#profile`,
     type: "AgentProfile",
-    serviceEndpoint: `${baseUrl}/p/${agent.handle}`,
+    serviceEndpoint: `${appUrl}/p/${agent.handle}`,
   });
 
   if (activeDomain) {
@@ -339,17 +373,54 @@ export async function buildErc8004(handle: string) {
     publicKeyJwk: k.jwk || undefined,
   }));
 
+  const chainRegistrations = parseChainRegistrations(agent.chainMints as Record<string, unknown> | null);
+
+  const owsEvmWallets = owsWallets
+    .filter(w => w.network.toLowerCase() !== "tron")
+    .map(w => buildCaip10Address(w.network, w.address));
+
+  const owsTronWallets = owsWallets
+    .filter(w => w.network.toLowerCase() === "tron")
+    .map(w => buildCaip10Address(w.network, w.address));
+
+  const allOwsWalletAddresses = owsWallets.map(w => buildCaip10Address(w.network, w.address));
+
+  const x402Support = !!(agent.walletAddress || owsEvmWallets.length > 0);
+
   return {
     "@context": [
       "https://www.w3.org/ns/did/v1",
       "https://w3id.org/security/suites/ed25519-2020/v1",
       "https://eips.ethereum.org/EIPS/eip-8004",
     ],
+    spec: "registration-v1",
     id: `did:web:getagent.id:agents:${agent.handle}`,
     controller: "did:web:getagent.id",
+    active: agent.status === "active",
+    x402Support,
+    supportedTrust: ["unverified", "basic", "verified", "trusted", "elite"],
+    registrations: chainRegistrations,
     verificationMethod,
     authentication: verificationMethod.map((vm) => vm.id),
     service: services,
+    agentid: {
+      handle: agent.handle,
+      did: `did:web:getagent.id:agents:${agent.handle}`,
+      trustScore: agent.trustScore,
+      trustTier: agent.trustTier,
+      owsWallets: {
+        evm: owsEvmWallets,
+        tron: owsTronWallets,
+        all: allOwsWalletAddresses,
+      },
+      profile: {
+        displayName: agent.displayName,
+        description: agent.description,
+        avatarUrl: agent.avatarUrl,
+        capabilities: agent.capabilities || [],
+        protocols: agent.protocols || [],
+      },
+    },
     metadata: {
       handle: agent.handle,
       displayName: agent.displayName,

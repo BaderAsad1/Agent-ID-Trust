@@ -13,6 +13,7 @@ import {
 import { getActivityLog } from "../../services/activity-logger";
 import { listListings } from "../../services/marketplace";
 import { getReviewsByAgent } from "../../services/reviews";
+import { publicRateLimit } from "../../middlewares/rate-limit";
 
 const router = Router();
 
@@ -290,7 +291,7 @@ router.post("/:handle/credential/verify", async (req, res, next) => {
   }
 });
 
-router.get("/:handle/erc8004", async (req, res, next) => {
+async function handleErc8004(req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) {
   try {
     const erc8004 = await buildErc8004(req.params.handle as string);
     if (!erc8004) {
@@ -303,6 +304,10 @@ router.get("/:handle/erc8004", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
+}
+
+router.get("/:handle/erc8004", publicRateLimit, handleErc8004);
 
 export default router;
+
+export { handleErc8004 };

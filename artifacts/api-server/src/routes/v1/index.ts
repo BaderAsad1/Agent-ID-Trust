@@ -50,6 +50,8 @@ import orgPoliciesRouter from "./org-policies";
 import mppRouter from "./mpp";
 import waitlistRouter from "./waitlist";
 import nftRouter from "./nft";
+import agentCardRouter from "./agent-card";
+import reputationFeedbackRouter from "./reputation-feedback";
 
 const router = Router();
 
@@ -115,6 +117,8 @@ router.use("/orgs/:orgId/policies", orgPoliciesRouter);
 router.use("/bootstrap", bootstrapRouter);
 router.use("/mpp", mppRouter);
 router.use("/waitlist", waitlistRouter);
+router.use("/agent-card", agentCardRouter);
+router.use("/agents", reputationFeedbackRouter);
 router.use("/", nftRouter);
 
 export default router;

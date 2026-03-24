@@ -80,6 +80,8 @@ const envSchema = z.object({
 
   MULTI_CHAIN_ENABLED: z.string().optional(),
 
+  ONCHAIN_MINTING_ENABLED: z.string().optional(),
+
   BASE_RPC_URL: z.string().optional(),
   BASE_MINTER_PRIVATE_KEY: z.string().optional(),
   BASE_HANDLE_CONTRACT: z.string().optional(),

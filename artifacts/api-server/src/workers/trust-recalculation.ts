@@ -1,7 +1,8 @@
-import { eq, or, and, lt, isNull, isNotNull } from "drizzle-orm";
+import { eq, or, and, lt, isNull, isNotNull, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, agentKeysTable } from "@workspace/db/schema";
+import { agentsTable, agentKeysTable, agentReputationEventsTable } from "@workspace/db/schema";
 import { recomputeAndStore, determineTier } from "../services/trust-score";
+import { aggregateTrustScore } from "../services/reputation";
 import { logger } from "../middlewares/request-logger";
 
 const RECALCULATION_INTERVAL_MS = 60 * 60 * 1000;
@@ -118,6 +119,41 @@ async function applyInactivityDecay() {
   }
 }
 
+async function syncOnchainReputation(agentId: string): Promise<void> {
+  try {
+    const reputation = await aggregateTrustScore(agentId);
+
+    if (reputation.chains.length === 0) return;
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 60 * 60 * 1000 + 5 * 60 * 1000);
+
+    await db
+      .delete(agentReputationEventsTable)
+      .where(
+        and(
+          eq(agentReputationEventsTable.agentId, agentId),
+          eq(agentReputationEventsTable.eventType, "onchainReputation"),
+        ),
+      );
+
+    await db.insert(agentReputationEventsTable).values({
+      agentId,
+      eventType: "onchainReputation",
+      delta: reputation.score,
+      reason: `On-chain reputation from ${reputation.chains.join(", ")}`,
+      source: "onchain_reputation_registry",
+      attestationType: "onchain_summary",
+      confidenceLevel: 1,
+      issuedAt: now,
+      expiresAt,
+      revocable: true,
+    });
+  } catch (err) {
+    logger.warn({ err, agentId }, "[trust-worker] Failed to sync on-chain reputation — skipping");
+  }
+}
+
 async function recalculateAllTrust() {
   await expireOverdueKeys();
 
@@ -137,6 +173,7 @@ async function recalculateAllTrust() {
 
     for (const agent of agents) {
       try {
+        await syncOnchainReputation(agent.id);
         await recomputeAndStore(agent.id);
         success++;
       } catch (err) {

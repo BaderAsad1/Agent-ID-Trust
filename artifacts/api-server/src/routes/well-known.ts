@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, agentKeysTable, agentDomainsTable } from "@workspace/db/schema";
 import { normalizeHandle, formatHandle, formatDomain, formatDID, formatProfileUrl, formatResolverUrl } from "../utils/handle";
+import { handleDomainVerification } from "./v1/agent-card";
 
 const router = Router();
 
@@ -232,6 +233,8 @@ router.get("/.well-known/openid-configuration", async (_req: Request, res: Respo
     "agentid:documentation": "https://getagent.id/docs/sign-in",
   });
 });
+
+router.get("/.well-known/agent-registration.json", handleDomainVerification);
 
 router.get("/.well-known/agent-registration", async (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
