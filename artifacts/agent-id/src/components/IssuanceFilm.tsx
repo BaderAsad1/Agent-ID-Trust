@@ -2215,14 +2215,23 @@ function MobileScrollSection({ children }: { children: (progress: number) => Rea
     update();
     return () => window.removeEventListener('scroll', update);
   }, []);
+
+  const entryFade = Math.min(1, progress / 0.05);
+  const exitFade = progress > 0.88 ? Math.max(0, 1 - (progress - 0.88) / 0.12) : 1;
+  const wrapperOpacity = entryFade * exitFade;
+
   return (
-    <div ref={outerRef} style={{ minHeight: '220vh' }}>
+    <div ref={outerRef} style={{ minHeight: '180vh' }}>
       <div style={{
         position: 'sticky', top: 0,
         minHeight: '100vh',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        opacity: wrapperOpacity,
+        width: '100%',
       }}>
-        {children(progress)}
+        <div style={{ width: '100%' }}>
+          {children(progress)}
+        </div>
       </div>
     </div>
   );
