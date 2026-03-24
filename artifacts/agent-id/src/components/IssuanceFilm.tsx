@@ -2377,9 +2377,8 @@ function MobileScrollSection({ children }: { children: (progress: number) => Rea
     const update = () => {
       const rect = el.getBoundingClientRect();
       const vh = window.innerHeight;
-      const entryPoint = vh * 0.65;
-      const p = Math.max(0, Math.min(1, (entryPoint - rect.top) / entryPoint));
-      setProgress(p);
+      const raw = Math.max(0, Math.min(1, (vh - rect.top) / (vh * 0.7)));
+      setProgress(easeOutCubic(raw));
       ticking = false;
     };
     const onScroll = () => {
