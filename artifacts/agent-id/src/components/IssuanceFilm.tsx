@@ -2369,29 +2369,25 @@ function IssuanceMomentFlash({ active }: { active: boolean }) {
 function MobileScrollSection({ children }: { children: (progress: number) => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
-  const firedRef = useRef(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !firedRef.current) {
-          firedRef.current = true;
-          const startTime = performance.now();
-          const duration = 1200;
-          const tick = (now: number) => {
-            const t = Math.min(1, (now - startTime) / duration);
-            setProgress(t);
-            if (t < 1) requestAnimationFrame(tick);
-          };
-          requestAnimationFrame(tick);
-        }
-      },
-      { threshold: 0, rootMargin: '0px 0px -85% 0px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    let ticking = false;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const entryPoint = vh * 0.65;
+      const p = Math.max(0, Math.min(1, (entryPoint - rect.top) / entryPoint));
+      setProgress(p);
+      ticking = false;
+    };
+    const onScroll = () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(update); }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    update();
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   return (
