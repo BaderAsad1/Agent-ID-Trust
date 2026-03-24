@@ -687,6 +687,8 @@ const ANATOMY_LAYERS = [
 ];
 
 function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
+  const isMobile = useIsMobile();
+
   const stagger = useCallback((index: number) => {
     const layerStart = 0.36 + index * 0.07;
     const layerEnd = layerStart + 0.14;
@@ -696,6 +698,41 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
   const titleT = Math.max(0, Math.min(1, (anatomyProgress - 0.22) / 0.14));
   const titleOpacity = titleT;
   const titleTranslateY = lerp(40, 0, titleT);
+
+  if (isMobile) {
+    return (
+      <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
+        <div style={{ textAlign: 'center', marginBottom: 28, opacity: titleOpacity, transform: `translateY(${titleTranslateY}px)` }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>THE AGENT CREDENTIAL</div>
+          <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
+            One credential.{' '}
+            <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Immediate trust.</span>
+          </h2>
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6, color: 'rgba(232,232,240,0.45)' }}>
+            Everything another system needs to know about your agent — readable in milliseconds.
+          </p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {ANATOMY_LAYERS.map((layer, i) => {
+            const p = stagger(i);
+            return (
+              <div key={layer.id} style={{
+                padding: '12px 14px 12px 16px',
+                borderLeft: `2px solid ${layer.color}${p > 0.5 ? '50' : '15'}`,
+                background: 'rgba(8,10,22,0.85)',
+                borderRadius: '0 8px 8px 0',
+                opacity: p,
+                transform: `translateY(${lerp(14, 0, p)}px)`,
+              }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: layer.color, marginBottom: 3 }}>{layer.label}</div>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(232,232,240,0.5)', lineHeight: 1.45 }}>{layer.desc}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="anatomy-wrapper" style={{
@@ -1229,7 +1266,43 @@ const OUTCOME_ITEMS = [
 ];
 
 function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
+  const isMobile = useIsMobile();
   const titleT = Math.max(0, Math.min(1, (outcomeProgress - 0.20) / 0.14));
+
+  if (isMobile) {
+    return (
+      <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
+        <div style={{ textAlign: 'center', marginBottom: 24, opacity: titleT, transform: `translateY(${(1 - titleT) * 30}px)` }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>WHAT YOUR AGENT GETS</div>
+          <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
+            Everything it needs to be{' '}
+            <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>trusted by default.</span>
+          </h2>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {OUTCOME_ITEMS.map((item, i) => {
+            const itemStart = 0.32 + i * 0.10;
+            const itemT = Math.max(0, Math.min(1, (outcomeProgress - itemStart) / 0.12));
+            return (
+              <div key={item.label} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 14,
+                background: 'rgba(8,10,22,0.9)',
+                border: `1px solid ${item.color}18`,
+                borderRadius: 12, padding: '14px 16px',
+                opacity: itemT, transform: `translateY(${lerp(16, 0, itemT)}px)`,
+              }}>
+                <div style={{ fontSize: 20, color: item.color, flexShrink: 0, lineHeight: 1.3 }}>{item.icon}</div>
+                <div>
+                  <div style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 15, fontWeight: 700, color: '#e8e8f0', marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>{item.desc}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="outcome-wrapper" style={{
@@ -1590,7 +1663,53 @@ const DEV_TOOLS = [
 ];
 
 function DevToolingSection({ devToolingProgress }: { devToolingProgress: number }) {
+  const isMobile = useIsMobile();
   const titleT = Math.max(0, Math.min(1, (devToolingProgress - 0.22) / 0.14));
+
+  if (isMobile) {
+    return (
+      <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
+        <div style={{ textAlign: 'center', marginBottom: 24, opacity: titleT, transform: `translateY(${(1 - titleT) * 30}px)` }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>BUILT FOR INTEGRATION</div>
+          <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
+            Connect from{' '}
+            <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>any stack.</span>
+          </h2>
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6, color: 'rgba(232,232,240,0.45)' }}>
+            SDKs, REST API, and MCP support. Integrate agent identity in minutes.
+          </p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {DEV_TOOLS.map((tool, i) => {
+            const itemStart = 0.33 + i * 0.08;
+            const itemT = Math.max(0, Math.min(1, (devToolingProgress - itemStart) / 0.12));
+            return (
+              <div key={tool.label} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'rgba(8,10,22,0.9)',
+                border: `1px solid ${tool.color}${itemT > 0.5 ? '18' : '08'}`,
+                borderRadius: 10, padding: '12px 14px',
+                opacity: itemT, transform: `translateY(${lerp(14, 0, itemT)}px)`,
+              }}>
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: tool.color, marginBottom: 3 }}>{tool.label}</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.4 }}>{tool.desc}</div>
+                </div>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 600,
+                  letterSpacing: '0.1em', flexShrink: 0,
+                  color: tool.tag === 'BETA' ? '#f5a623' : 'rgba(52,211,153,0.7)',
+                  background: tool.tag === 'BETA' ? 'rgba(245,166,35,0.08)' : 'rgba(52,211,153,0.06)',
+                  border: `1px solid ${tool.tag === 'BETA' ? 'rgba(245,166,35,0.15)' : 'rgba(52,211,153,0.12)'}`,
+                  borderRadius: 3, padding: '2px 6px',
+                }}>{tool.tag}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="devtooling-wrapper" style={{
@@ -1686,9 +1805,58 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
 }
 
 function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNavigate?: (path: string) => void }) {
+  const isMobile = useIsMobile();
   const ctaT = Math.max(0, Math.min(1, (ctaProgress - 0.20) / 0.25));
   const opacity = ctaT;
   const translateY = lerp(60, 0, Math.max(0, Math.min(1, (ctaProgress - 0.20) / 0.30)));
+
+  const mobileLabel = Math.max(0, Math.min(1, ctaProgress / 0.12));
+  const mobileTitle = Math.max(0, Math.min(1, (ctaProgress - 0.15) / 0.18));
+  const mobileBody = Math.max(0, Math.min(1, (ctaProgress - 0.30) / 0.18));
+  const mobileBtns = Math.max(0, Math.min(1, (ctaProgress - 0.45) / 0.18));
+
+  if (isMobile) {
+    return (
+      <div style={{ padding: '56px 20px 72px', textAlign: 'center', boxSizing: 'border-box', width: '100%' }}>
+        <div style={{ opacity: mobileLabel, transform: `translateY(${lerp(20, 0, mobileLabel)}px)`, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 16 }}>
+          AGENT ID PROTOCOL
+        </div>
+        <h2 style={{
+          opacity: mobileTitle, transform: `translateY(${lerp(30, 0, mobileTitle)}px)`,
+          fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(26px, 8vw, 40px)',
+          fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.1, color: '#e8e8f0', marginBottom: 16,
+        }}>
+          Register your agent.<br />Issue the credential.<br />
+          <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Enter the network.</span>
+        </h2>
+        <p style={{
+          opacity: mobileBody, transform: `translateY(${lerp(20, 0, mobileBody)}px)`,
+          fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.65,
+          color: 'rgba(232,232,240,0.38)', marginBottom: 32,
+        }}>
+          Claim your .AgentID handle and become verifiable. Every agent that joins strengthens the trust fabric for all of them.
+        </p>
+        <div style={{ opacity: mobileBtns, transform: `translateY(${lerp(16, 0, mobileBtns)}px)`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+          <button onClick={() => {
+            const base = import.meta.env.BASE_URL || '/';
+            window.location.href = `${base}sign-in`;
+          }} style={{
+            fontSize: 15, fontWeight: 600, fontFamily: "'Inter', sans-serif",
+            color: 'rgba(232,232,240,0.90)',
+            background: 'rgba(79,125,243,0.06)',
+            border: '1px solid rgba(79,125,243,0.38)',
+            borderRadius: 10, padding: '14px 30px',
+            cursor: 'pointer', letterSpacing: '-0.01em',
+          }}>Get started →</button>
+          <button onClick={() => onNavigate?.('/for-agents')} style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+            letterSpacing: '0.10em', color: 'rgba(232,232,240,0.20)',
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+          }}>Autonomous registration via API →</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="cta-content" style={{
@@ -2199,40 +2367,36 @@ function IssuanceMomentFlash({ active }: { active: boolean }) {
 }
 
 function MobileScrollSection({ children }: { children: (progress: number) => React.ReactNode }) {
-  const outerRef = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
+  const firedRef = useRef(false);
+
   useEffect(() => {
-    const outer = outerRef.current;
-    if (!outer) return;
-    const update = () => {
-      const scrollY = window.scrollY;
-      const offsetTop = outer.offsetTop;
-      const range = outer.offsetHeight - window.innerHeight;
-      if (range <= 0) { setProgress(1); return; }
-      setProgress(Math.max(0, Math.min(1, (scrollY - offsetTop) / range)));
-    };
-    window.addEventListener('scroll', update, { passive: true });
-    update();
-    return () => window.removeEventListener('scroll', update);
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !firedRef.current) {
+          firedRef.current = true;
+          const startTime = performance.now();
+          const duration = 1200;
+          const tick = (now: number) => {
+            const t = Math.min(1, (now - startTime) / duration);
+            setProgress(t);
+            if (t < 1) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }
+      },
+      { threshold: 0.12 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
-  const entryFade = Math.min(1, progress / 0.05);
-  const exitFade = progress > 0.88 ? Math.max(0, 1 - (progress - 0.88) / 0.12) : 1;
-  const wrapperOpacity = entryFade * exitFade;
-
   return (
-    <div ref={outerRef} style={{ minHeight: '180vh' }}>
-      <div style={{
-        position: 'sticky', top: 0,
-        minHeight: '100vh',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        opacity: wrapperOpacity,
-        width: '100%',
-      }}>
-        <div style={{ width: '100%' }}>
-          {children(progress)}
-        </div>
-      </div>
+    <div ref={ref} style={{ width: '100%' }}>
+      {children(progress)}
     </div>
   );
 }
