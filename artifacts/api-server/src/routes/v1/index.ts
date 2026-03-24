@@ -49,6 +49,7 @@ import claimHistoryRouter from "./claim-history";
 import orgPoliciesRouter from "./org-policies";
 import mppRouter from "./mpp";
 import waitlistRouter from "./waitlist";
+import nftRouter from "./nft";
 
 const router = Router();
 
@@ -114,5 +115,6 @@ router.use("/orgs/:orgId/policies", orgPoliciesRouter);
 router.use("/bootstrap", bootstrapRouter);
 router.use("/mpp", mppRouter);
 router.use("/waitlist", waitlistRouter);
+router.use("/", nftRouter);
 
 export default router;

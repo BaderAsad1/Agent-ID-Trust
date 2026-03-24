@@ -78,6 +78,13 @@ const envSchema = z.object({
 
   X402_ENABLED: z.string().optional(),
 
+  MULTI_CHAIN_ENABLED: z.string().optional(),
+
+  BASE_RPC_URL: z.string().optional(),
+  BASE_MINTER_PRIVATE_KEY: z.string().optional(),
+  BASE_HANDLE_CONTRACT: z.string().optional(),
+  BASE_PLATFORM_WALLET: z.string().optional(),
+
   // CORS: comma-separated list of allowed origins in production.
   // Example: "https://getagent.id,https://app.getagent.id"
   // REQUIRED in production for cross-origin requests to succeed.

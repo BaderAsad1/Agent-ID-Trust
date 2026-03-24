@@ -71,6 +71,8 @@ if (missingPriceIds.length > 0) {
 import { startTrustWorker, stopTrustWorker } from "./workers/trust-recalculation";
 import { startWebhookRetryWorker, stopWebhookRetryWorker } from "./workers/webhook-retry";
 import { startHandleLifecycleWorker, stopHandleLifecycleWorker } from "./workers/handle-lifecycle";
+import { startNftMintWorker, stopNftMintWorker } from "./workers/nft-mint";
+import { startNftTransferDetector, stopNftTransferDetector } from "./workers/nft-transfer-detector";
 
 startDomainWorker();
 initWebhookDeliveryWorker();
@@ -81,6 +83,8 @@ startAgentExpiryWorker();
 startTrustWorker();
 startWebhookRetryWorker();
 startHandleLifecycleWorker();
+startNftMintWorker();
+startNftTransferDetector();
 
 const JOB_EXPIRY_INTERVAL_MS = 60 * 1000;
 let jobExpiryTimer: ReturnType<typeof setInterval> | null = null;
@@ -109,6 +113,8 @@ async function gracefulShutdown(signal: string) {
   if (jobExpiryTimer) clearInterval(jobExpiryTimer);
   stopTrustWorker();
   stopWebhookRetryWorker();
+  stopNftMintWorker();
+  stopNftTransferDetector();
   await stopAgentExpiryWorker();
   await stopHandleLifecycleWorker();
   server.close();

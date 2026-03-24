@@ -166,6 +166,11 @@ export const api = {
       request<{ available: boolean; handle: string; pricing?: { annualPrice: number; tierLabel: string; description: string } }>(`/handles/check?handle=${encodeURIComponent(handle)}`),
     pricing: () =>
       request<{ tiers: Array<{ minLength: number; maxLength: number; label: string; annualPrice: number; description: string }> }>("/handles/pricing"),
+    transferNft: (handle: string, destinationAddress: string) =>
+      request<{ txHash: string; status: string; handle: string; destinationAddress: string; message: string }>(`/handles/${encodeURIComponent(handle)}/transfer`, {
+        method: "POST",
+        body: JSON.stringify({ destinationAddress }),
+      }),
   },
 
   transfer: {
@@ -461,6 +466,10 @@ export interface Agent {
   tasksCompleted?: number;
   isClaimed?: boolean;
   ownerUserId?: string;
+  nftStatus?: string;
+  onChainTokenId?: string;
+  onChainOwner?: string;
+  chainMints?: Record<string, unknown>;
 }
 
 export interface WalletInfo {

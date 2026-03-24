@@ -956,9 +956,9 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       if (agentRecord) {
         const expiresAt = new Date();
         expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-        const tier = getHandleTier(handle);
-        const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
-        const isPremiumShort = handleLen === 3 || handleLen === 4;
+        const tier = getHandleTier(normalizedHandle);
+        const handleLen = normalizedHandle.replace(/[^a-z0-9]/g, "").length;
+        const isNftEligible = handleLen <= 4;
         const subscriptionId = typeof session.subscription === "string"
           ? session.subscription
           : (session.subscription as { id?: string } | null)?.id ?? null;
@@ -979,16 +979,20 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
               handleExpiresAt: expiresAt,
               handleRegisteredAt: new Date(),
               handleStripeSubscriptionId: subscriptionId,
+              nftStatus: isNftEligible ? "pending_mint" : "none",
               metadata: {
                 ...existingMeta,
-                ...(isPremiumShort ? { nftStatus: "pending_mint", nftQueuedAt: new Date().toISOString() } : {}),
+                ...(isNftEligible ? { nftQueuedAt: new Date().toISOString() } : {}),
               },
               updatedAt: new Date(),
             })
             .where(eq(agentsTable.id, agentRecord.id)),
         ]);
 
-        logger.info({ agentId: agentRecord.id, handle, tier: tier.tier, isPremiumShort }, "[billing] Handle activated from checkout");
+        logger.info({ agentId: agentRecord.id, handle: normalizedHandle, tier: tier.tier, isNftEligible }, "[billing] Handle activated from checkout");
+        if (isNftEligible) {
+          logger.info({ agentId: agentRecord.id, handle: normalizedHandle, handleLen }, "[billing] Handle is NFT-eligible (<=4 char), set nft_status=pending_mint");
+        }
       }
     }
     return;

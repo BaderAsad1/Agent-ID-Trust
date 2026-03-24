@@ -226,6 +226,109 @@ function McpQuickstartCard() {
   );
 }
 
+function NftStatusSection({ agent, onTransferred }: { agent: Agent; onTransferred?: () => void }) {
+  const [transferring, setTransferring] = useState(false);
+  const [destAddress, setDestAddress] = useState('');
+  const [showTransferInput, setShowTransferInput] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLen = agent.handle?.replace(/[^a-z0-9]/gi, '').length || 99;
+  const isNftEligible = handleLen <= 4;
+
+  if (!isNftEligible || !agent.nftStatus || agent.nftStatus === 'none') return null;
+
+  const chainMints = agent.chainMints || {};
+  const baseData = (chainMints.base as Record<string, unknown>) || {};
+  const custodian = baseData.custodian as string | undefined;
+  const ownerWallet = baseData.ownerWallet as string | undefined;
+
+  const handleTransfer = async () => {
+    if (!destAddress.trim() || !/^0x[0-9a-fA-F]{40}$/.test(destAddress.trim())) {
+      setError('Please enter a valid EVM address (0x...)');
+      return;
+    }
+    setTransferring(true);
+    setError(null);
+    try {
+      const result = await api.handles.transferNft(agent.handle, destAddress.trim());
+      setTxHash(result.txHash);
+      setShowTransferInput(false);
+      if (onTransferred) onTransferred();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Transfer failed');
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 p-3 rounded-lg" style={{ background: 'rgba(52,211,153,0.05)', border: '1px solid rgba(52,211,153,0.15)' }}>
+      <div className="flex items-center gap-2 mb-1">
+        <Wallet className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#34d399' }} />
+        <span className="text-xs font-semibold" style={{ color: '#34d399', fontFamily: 'var(--font-mono)' }}>BASE NFT</span>
+        {agent.nftStatus === 'pending_mint' && (
+          <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Minting in progress...</span>
+        )}
+        {agent.nftStatus === 'minted' && custodian === 'platform' && (
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Minted on Base — held by Agent ID</span>
+        )}
+        {agent.nftStatus === 'minted' && custodian === 'user' && ownerWallet && (
+          <span className="text-xs truncate" style={{ color: 'var(--text-muted)', maxWidth: 180 }}>
+            Transferred to {ownerWallet.slice(0, 6)}…{ownerWallet.slice(-4)}
+          </span>
+        )}
+        {agent.nftStatus === 'pending_claim' && (
+          <span className="text-xs" style={{ color: 'var(--warning, #f59e0b)' }}>Pending claim (7-day dispute window)</span>
+        )}
+        {agent.nftStatus === 'mint_failed' && (
+          <span className="text-xs" style={{ color: 'var(--danger)' }}>Mint failed — contact support</span>
+        )}
+        {txHash && (
+          <a
+            href={`https://basescan.org/tx/${txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs ml-auto flex items-center gap-1"
+            style={{ color: '#34d399' }}
+          >
+            <ExternalLink className="w-3 h-3" /> View tx
+          </a>
+        )}
+      </div>
+      {agent.nftStatus === 'minted' && custodian === 'platform' && !showTransferInput && (
+        <button
+          onClick={() => setShowTransferInput(true)}
+          className="text-xs mt-1 cursor-pointer"
+          style={{ background: 'none', border: 'none', color: 'var(--accent)', padding: 0 }}
+        >
+          Transfer to your wallet →
+        </button>
+      )}
+      {showTransferInput && (
+        <div className="mt-2 flex flex-col gap-2">
+          <input
+            value={destAddress}
+            onChange={e => { setDestAddress(e.target.value); setError(null); }}
+            placeholder="0x... destination EVM address"
+            className="w-full rounded-lg border px-3 py-1.5 text-xs outline-none"
+            style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}
+          />
+          {error && <div className="text-xs" style={{ color: 'var(--danger)' }}>{error}</div>}
+          <div className="flex gap-2">
+            <PrimaryButton onClick={handleTransfer} disabled={transferring} className="!py-1 !px-3 !text-xs">
+              {transferring ? 'Transferring…' : 'Transfer NFT'}
+            </PrimaryButton>
+            <PrimaryButton variant="ghost" onClick={() => { setShowTransferInput(false); setError(null); }} className="!py-1 !px-3 !text-xs">
+              Cancel
+            </PrimaryButton>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Overview() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -427,6 +530,7 @@ function Overview() {
                   </PrimaryButton>
                 </div>
               )}
+              <NftStatusSection agent={agent} onTransferred={refreshAgents} />
               <div className="flex gap-2 mt-4 pt-4 border-t flex-wrap" style={{ borderColor: 'var(--border-color)' }}>
                 <PrimaryButton variant="ghost" onClick={() => navigate(`/${agent.handle}`)}>View Profile</PrimaryButton>
                 {agent.verificationStatus !== 'verified' && (

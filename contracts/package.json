@@ -1,0 +1,18 @@
+{
+  "name": "@agentid/contracts",
+  "version": "1.0.0",
+  "description": "AgentIDHandle ERC-721 smart contracts for Base deployment",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:base": "hardhat run script/deploy.ts --network base",
+    "deploy:base-sepolia": "hardhat run script/deploy.ts --network base-sepolia",
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  }
+}
