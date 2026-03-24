@@ -89,7 +89,7 @@ function AppContent() {
   return (
     <div
       id="agent-id-scroll-container"
-      className="min-h-screen overflow-y-auto"
+      className="min-h-screen"
       style={{
         background: 'var(--bg-base)',
         color: 'var(--text-primary)',

@@ -118,47 +118,65 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-function ScrollRevealItem({ children, delay = 0, translateY = 24, duration = 0.7 }: {
-  children: React.ReactNode;
-  delay?: number;
-  translateY?: number;
-  duration?: number;
+function MobileStickySection({ children, minHeight = '200vh', fadeOut = true }: {
+  children: (progress: number) => React.ReactNode;
+  minHeight?: string;
+  fadeOut?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  const outerRef = useRef<HTMLDivElement>(null);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const el = ref.current;
+    const el = outerRef.current;
     if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          if (delay > 0) {
-            setTimeout(() => setVisible(true), delay);
-          } else {
-            setVisible(true);
-          }
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.08, rootMargin: '0px 0px -12% 0px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [delay]);
+    let ticking = false;
+    const update = () => {
+      const vh = window.innerHeight;
+      const top = el.offsetTop;
+      const height = el.offsetHeight;
+      const scrollY = window.scrollY;
+      const adjustedStart = top - vh;
+      const range = Math.max(1, height);
+      setProgress(Math.max(0, Math.min(1, (scrollY - adjustedStart) / range)));
+      ticking = false;
+    };
+    const onScroll = () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(update); }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    update();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const fadeT = fadeOut && progress > 0.90 ? (progress - 0.90) / 0.10 : 0;
 
   return (
-    <div
-      ref={ref}
+    <section
+      ref={outerRef}
       style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : `translateY(${translateY}px)`,
-        transition: `opacity ${duration}s cubic-bezier(0.16, 1, 0.3, 1), transform ${duration}s cubic-bezier(0.16, 1, 0.3, 1)`,
-        transitionDelay: visible ? '0s' : undefined,
+        position: 'relative',
+        minHeight,
+        marginTop: '-15vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 12vh)',
+        zIndex: 2,
       }}
     >
-      {children}
-    </div>
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: 1 - fadeT,
+        transform: fadeT > 0
+          ? `scale(${lerp(1, 0.97, fadeT)}) translateY(${lerp(0, -20, fadeT)}px)`
+          : undefined,
+      }}>
+        {children(progress)}
+      </div>
+    </section>
   );
 }
 
@@ -744,34 +762,40 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
   const titleTranslateY = lerp(40, 0, titleT);
 
   if (isMobile) {
+    const mt = Math.max(0, Math.min(1, (anatomyProgress - 0.06) / 0.12));
+    const ms = (index: number) => {
+      const s = 0.14 + index * 0.06;
+      return Math.max(0, Math.min(1, (anatomyProgress - s) / 0.12));
+    };
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
-        <ScrollRevealItem translateY={30}>
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>THE AGENT CREDENTIAL</div>
-            <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
-              One credential.{' '}
-              <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Immediate trust.</span>
-            </h2>
-            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6, color: 'rgba(232,232,240,0.45)' }}>
-              Everything another system needs to know about your agent — readable in milliseconds.
-            </p>
-          </div>
-        </ScrollRevealItem>
+        <div style={{ textAlign: 'center', marginBottom: 28, opacity: mt, transform: `translateY(${lerp(30, 0, mt)}px)` }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>THE AGENT CREDENTIAL</div>
+          <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
+            One credential.{' '}
+            <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Immediate trust.</span>
+          </h2>
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6, color: 'rgba(232,232,240,0.45)' }}>
+            Everything another system needs to know about your agent — readable in milliseconds.
+          </p>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {ANATOMY_LAYERS.map((layer, i) => (
-            <ScrollRevealItem key={layer.id} delay={i * 80} translateY={14}>
-              <div style={{
+          {ANATOMY_LAYERS.map((layer, i) => {
+            const p = ms(i);
+            return (
+              <div key={layer.id} style={{
                 padding: '12px 14px 12px 16px',
                 borderLeft: `2px solid ${layer.color}50`,
                 background: 'rgba(8,10,22,0.85)',
                 borderRadius: '0 8px 8px 0',
+                opacity: p,
+                transform: `translateY(${lerp(14, 0, p)}px)`,
               }}>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: layer.color, marginBottom: 3 }}>{layer.label}</div>
                 <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(232,232,240,0.5)', lineHeight: 1.45 }}>{layer.desc}</div>
               </div>
-            </ScrollRevealItem>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -981,43 +1005,49 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
   const spineOpacity = Math.max(0, Math.min(1, (unlocksProgress - 0.25) / 0.15));
 
   if (isMobile) {
+    const mt = Math.max(0, Math.min(1, (unlocksProgress - 0.06) / 0.12));
+    const mc = (index: number) => {
+      const s = 0.16 + index * 0.08;
+      return Math.max(0, Math.min(1, (unlocksProgress - s) / 0.12));
+    };
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
-        <ScrollRevealItem translateY={30}>
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-              letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
-            }}>INFRASTRUCTURE</div>
-            <h2 style={{
-              fontFamily: "'Bricolage Grotesque', sans-serif",
-              fontSize: 'clamp(24px, 7vw, 36px)',
-              fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15,
-              color: '#e8e8f0', marginBottom: 12,
-            }}>
-              Verified identity unlocks{' '}
-              <span style={{
-                background: 'linear-gradient(135deg, #34d399, #4f7df3)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-              }}>agent infrastructure.</span>
-            </h2>
-            <p style={{
-              fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6,
-              color: 'rgba(232,232,240,0.5)',
-            }}>
-              A credential doesn't just prove who your agent is. It unlocks the infrastructure your agent needs to operate.
-            </p>
-          </div>
-        </ScrollRevealItem>
+        <div style={{ textAlign: 'center', marginBottom: 28, opacity: mt, transform: `translateY(${lerp(30, 0, mt)}px)` }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+            letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
+          }}>INFRASTRUCTURE</div>
+          <h2 style={{
+            fontFamily: "'Bricolage Grotesque', sans-serif",
+            fontSize: 'clamp(24px, 7vw, 36px)',
+            fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15,
+            color: '#e8e8f0', marginBottom: 12,
+          }}>
+            Verified identity unlocks{' '}
+            <span style={{
+              background: 'linear-gradient(135deg, #34d399, #4f7df3)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            }}>agent infrastructure.</span>
+          </h2>
+          <p style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6,
+            color: 'rgba(232,232,240,0.5)',
+          }}>
+            A credential doesn't just prove who your agent is. It unlocks the infrastructure your agent needs to operate.
+          </p>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {UNLOCK_CHANNELS.map((ch, i) => (
-            <ScrollRevealItem key={ch.id} delay={i * 90} translateY={16}>
-              <div style={{
+          {UNLOCK_CHANNELS.map((ch, i) => {
+            const p = mc(i);
+            return (
+              <div key={ch.id} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 background: 'rgba(8,10,22,0.9)',
                 border: `1px solid ${ch.color}20`,
                 borderRadius: 10,
                 padding: '12px 16px',
+                opacity: p,
+                transform: `translateY(${lerp(16, 0, p)}px)`,
               }}>
                 <div style={{
                   width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
@@ -1038,8 +1068,8 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
                   color: ch.color, opacity: 0.7, flexShrink: 0,
                 }}>{ch.metric}</div>
               </div>
-            </ScrollRevealItem>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -1303,25 +1333,31 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
   const titleT = Math.max(0, Math.min(1, (outcomeProgress - 0.20) / 0.14));
 
   if (isMobile) {
+    const mt = Math.max(0, Math.min(1, (outcomeProgress - 0.06) / 0.12));
+    const mi = (index: number) => {
+      const s = 0.16 + index * 0.10;
+      return Math.max(0, Math.min(1, (outcomeProgress - s) / 0.12));
+    };
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
-        <ScrollRevealItem translateY={30}>
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>WHAT YOUR AGENT GETS</div>
-            <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
-              Everything it needs to be{' '}
-              <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>trusted by default.</span>
-            </h2>
-          </div>
-        </ScrollRevealItem>
+        <div style={{ textAlign: 'center', marginBottom: 24, opacity: mt, transform: `translateY(${lerp(30, 0, mt)}px)` }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>WHAT YOUR AGENT GETS</div>
+          <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
+            Everything it needs to be{' '}
+            <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>trusted by default.</span>
+          </h2>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {OUTCOME_ITEMS.map((item, i) => (
-            <ScrollRevealItem key={item.label} delay={i * 100} translateY={16}>
-              <div style={{
+          {OUTCOME_ITEMS.map((item, i) => {
+            const p = mi(i);
+            return (
+              <div key={item.label} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 14,
                 background: 'rgba(8,10,22,0.9)',
                 border: `1px solid ${item.color}18`,
                 borderRadius: 12, padding: '14px 16px',
+                opacity: p,
+                transform: `translateY(${lerp(16, 0, p)}px)`,
               }}>
                 <div style={{ fontSize: 20, color: item.color, flexShrink: 0, lineHeight: 1.3 }}>{item.icon}</div>
                 <div>
@@ -1329,8 +1365,8 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
                   <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>{item.desc}</div>
                 </div>
               </div>
-            </ScrollRevealItem>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -1450,75 +1486,82 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
   ];
 
   if (isMobile) {
+    const mt = Math.max(0, Math.min(1, (verificationProgress - 0.06) / 0.12));
+    const mCode = Math.max(0, Math.min(1, (verificationProgress - 0.18) / 0.14));
+    const mf = (index: number) => {
+      const s = 0.34 + index * 0.08;
+      return Math.max(0, Math.min(1, (verificationProgress - s) / 0.12));
+    };
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
-        <ScrollRevealItem translateY={30}>
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <div style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-              letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
-            }}>FOR PLATFORMS AND BUILDERS</div>
-            <h2 style={{
-              fontFamily: "'Bricolage Grotesque', sans-serif",
-              fontSize: 'clamp(24px, 7vw, 36px)',
-              fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15,
-              color: '#e8e8f0', marginBottom: 12,
-            }}>
-              Verify any agent before{' '}
-              <span style={{
-                background: 'linear-gradient(135deg, #34d399, #4f7df3)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-              }}>you let it act.</span>
-            </h2>
-            <p style={{
-              fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6,
-              color: 'rgba(232,232,240,0.45)',
-            }}>
-              Any platform, agent, or system can resolve an Agent Credential in milliseconds. No trust is assumed.
-            </p>
-          </div>
-        </ScrollRevealItem>
-        <ScrollRevealItem delay={100} translateY={20}>
+        <div style={{ textAlign: 'center', marginBottom: 24, opacity: mt, transform: `translateY(${lerp(30, 0, mt)}px)` }}>
           <div style={{
-            background: 'rgba(6,8,18,0.96)',
-            border: '1px solid rgba(79,125,243,0.12)',
-            borderRadius: 14,
-            overflow: 'hidden',
-            marginBottom: 16,
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+            letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
+          }}>FOR PLATFORMS AND BUILDERS</div>
+          <h2 style={{
+            fontFamily: "'Bricolage Grotesque', sans-serif",
+            fontSize: 'clamp(24px, 7vw, 36px)',
+            fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15,
+            color: '#e8e8f0', marginBottom: 12,
           }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '10px 18px',
-              borderBottom: '1px solid rgba(255,255,255,0.04)',
-            }}>
-              {['#ff5f57','#febc2e','#28c840'].map((c) => (
-                <div key={c} style={{ width: 8, height: 8, borderRadius: '50%', background: c, opacity: 0.7 }} />
-              ))}
-              <span style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
-                color: 'rgba(232,232,240,0.2)', marginLeft: 6,
-              }}>verify-agent.ts</span>
-            </div>
-            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as CSSProperties}>
-              <pre style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-                color: 'rgba(232,232,240,0.7)', lineHeight: 1.7,
-                padding: '16px 18px', margin: 0,
-                whiteSpace: 'pre',
-                display: 'inline-block',
-                minWidth: '100%',
-              }}>{codeExample}</pre>
-            </div>
+            Verify any agent before{' '}
+            <span style={{
+              background: 'linear-gradient(135deg, #34d399, #4f7df3)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            }}>you let it act.</span>
+          </h2>
+          <p style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6,
+            color: 'rgba(232,232,240,0.45)',
+          }}>
+            Any platform, agent, or system can resolve an Agent Credential in milliseconds. No trust is assumed.
+          </p>
+        </div>
+        <div style={{
+          background: 'rgba(6,8,18,0.96)',
+          border: '1px solid rgba(79,125,243,0.12)',
+          borderRadius: 14,
+          overflow: 'hidden',
+          marginBottom: 16,
+          opacity: mCode,
+          transform: `translateY(${lerp(20, 0, mCode)}px)`,
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '10px 18px',
+            borderBottom: '1px solid rgba(255,255,255,0.04)',
+          }}>
+            {['#ff5f57','#febc2e','#28c840'].map((c) => (
+              <div key={c} style={{ width: 8, height: 8, borderRadius: '50%', background: c, opacity: 0.7 }} />
+            ))}
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+              color: 'rgba(232,232,240,0.2)', marginLeft: 6,
+            }}>verify-agent.ts</span>
           </div>
-        </ScrollRevealItem>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as CSSProperties}>
+            <pre style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+              color: 'rgba(232,232,240,0.7)', lineHeight: 1.7,
+              padding: '16px 18px', margin: 0,
+              whiteSpace: 'pre',
+              display: 'inline-block',
+              minWidth: '100%',
+            }}>{codeExample}</pre>
+          </div>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {VERIFY_FEATURES.map((feat, i) => (
-            <ScrollRevealItem key={feat.label} delay={200 + i * 80} translateY={16}>
-              <div style={{
+          {VERIFY_FEATURES.map((feat, i) => {
+            const p = mf(i);
+            return (
+              <div key={feat.label} style={{
                 background: 'rgba(8,10,22,0.9)',
                 border: '1px solid rgba(79,125,243,0.1)',
                 borderRadius: 10,
                 padding: '12px 16px',
+                opacity: p,
+                transform: `translateY(${lerp(16, 0, p)}px)`,
               }}>
                 <div style={{
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
@@ -1529,8 +1572,8 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
                   color: 'rgba(232,232,240,0.45)', lineHeight: 1.45,
                 }}>{feat.desc}</div>
               </div>
-            </ScrollRevealItem>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -1694,28 +1737,34 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
   const titleT = Math.max(0, Math.min(1, (devToolingProgress - 0.22) / 0.14));
 
   if (isMobile) {
+    const mt = Math.max(0, Math.min(1, (devToolingProgress - 0.06) / 0.12));
+    const mTool = (index: number) => {
+      const s = 0.16 + index * 0.07;
+      return Math.max(0, Math.min(1, (devToolingProgress - s) / 0.12));
+    };
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
-        <ScrollRevealItem translateY={30}>
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>BUILT FOR INTEGRATION</div>
-            <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
-              Connect from{' '}
-              <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>any stack.</span>
-            </h2>
-            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6, color: 'rgba(232,232,240,0.45)' }}>
-              SDKs, REST API, and MCP support. Integrate agent identity in minutes.
-            </p>
-          </div>
-        </ScrollRevealItem>
+        <div style={{ textAlign: 'center', marginBottom: 24, opacity: mt, transform: `translateY(${lerp(30, 0, mt)}px)` }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>BUILT FOR INTEGRATION</div>
+          <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
+            Connect from{' '}
+            <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>any stack.</span>
+          </h2>
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6, color: 'rgba(232,232,240,0.45)' }}>
+            SDKs, REST API, and MCP support. Integrate agent identity in minutes.
+          </p>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {DEV_TOOLS.map((tool, i) => (
-            <ScrollRevealItem key={tool.label} delay={i * 80} translateY={14}>
-              <div style={{
+          {DEV_TOOLS.map((tool, i) => {
+            const p = mTool(i);
+            return (
+              <div key={tool.label} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 background: 'rgba(8,10,22,0.9)',
                 border: `1px solid ${tool.color}18`,
                 borderRadius: 10, padding: '12px 14px',
+                opacity: p,
+                transform: `translateY(${lerp(14, 0, p)}px)`,
               }}>
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: tool.color, marginBottom: 3 }}>{tool.label}</div>
@@ -1730,8 +1779,8 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
                   borderRadius: 3, padding: '2px 6px',
                 }}>{tool.tag}</span>
               </div>
-            </ScrollRevealItem>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -1842,14 +1891,18 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
   const mobileBtns = Math.max(0, Math.min(1, (ctaProgress - 0.45) / 0.18));
 
   if (isMobile) {
+    const mLabel = Math.max(0, Math.min(1, ctaProgress / 0.10));
+    const mTitle = Math.max(0, Math.min(1, (ctaProgress - 0.08) / 0.14));
+    const mBody = Math.max(0, Math.min(1, (ctaProgress - 0.20) / 0.14));
+    const mBtn = Math.max(0, Math.min(1, (ctaProgress - 0.32) / 0.14));
     return (
       <div style={{ padding: '56px 20px 72px', textAlign: 'center', boxSizing: 'border-box', width: '100%' }}>
-        <ScrollRevealItem translateY={20}>
+        <div style={{ opacity: mLabel, transform: `translateY(${lerp(20, 0, mLabel)}px)` }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 16 }}>
             AGENT ID PROTOCOL
           </div>
-        </ScrollRevealItem>
-        <ScrollRevealItem delay={80} translateY={30}>
+        </div>
+        <div style={{ opacity: mTitle, transform: `translateY(${lerp(30, 0, mTitle)}px)` }}>
           <h2 style={{
             fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(26px, 8vw, 40px)',
             fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.1, color: '#e8e8f0', marginBottom: 16,
@@ -1857,16 +1910,16 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
             Register your agent.<br />Issue the credential.<br />
             <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Enter the network.</span>
           </h2>
-        </ScrollRevealItem>
-        <ScrollRevealItem delay={160} translateY={20}>
+        </div>
+        <div style={{ opacity: mBody, transform: `translateY(${lerp(20, 0, mBody)}px)` }}>
           <p style={{
             fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.65,
             color: 'rgba(232,232,240,0.38)', marginBottom: 32,
           }}>
             Claim your .AgentID handle and become verifiable. Every agent that joins strengthens the trust fabric for all of them.
           </p>
-        </ScrollRevealItem>
-        <ScrollRevealItem delay={240} translateY={16}>
+        </div>
+        <div style={{ opacity: mBtn, transform: `translateY(${lerp(16, 0, mBtn)}px)` }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
             <button onClick={() => {
               const base = import.meta.env.BASE_URL || '/';
@@ -1885,7 +1938,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
               background: 'none', border: 'none', cursor: 'pointer', padding: 0,
             }}>Autonomous registration via API →</button>
           </div>
-        </ScrollRevealItem>
+        </div>
       </div>
     );
   }
@@ -2489,14 +2542,26 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       </section>
 
       {isMobile ? (
-        <div className="mobile-film-sections">
-          <AnatomySection anatomyProgress={0} />
-          <OutcomeStripSection outcomeProgress={0} />
-          <SystemActivationSection unlocksProgress={0} />
-          <VerificationAPISection verificationProgress={0} />
-          <DevToolingSection devToolingProgress={0} />
-          <CTASection ctaProgress={0} onNavigate={onNavigate} />
-        </div>
+        <>
+          <MobileStickySection minHeight="200vh">
+            {(p) => <AnatomySection anatomyProgress={p} />}
+          </MobileStickySection>
+          <MobileStickySection minHeight="180vh">
+            {(p) => <OutcomeStripSection outcomeProgress={p} />}
+          </MobileStickySection>
+          <MobileStickySection minHeight="190vh">
+            {(p) => <SystemActivationSection unlocksProgress={p} />}
+          </MobileStickySection>
+          <MobileStickySection minHeight="200vh">
+            {(p) => <VerificationAPISection verificationProgress={p} />}
+          </MobileStickySection>
+          <MobileStickySection minHeight="180vh">
+            {(p) => <DevToolingSection devToolingProgress={p} />}
+          </MobileStickySection>
+          <MobileStickySection minHeight="140vh" fadeOut={false}>
+            {(p) => <CTASection ctaProgress={p} onNavigate={onNavigate} />}
+          </MobileStickySection>
+        </>
       ) : (
         /* ── Desktop: sticky scroll-film ── */
         <>
