@@ -5,6 +5,7 @@ import { agentsTable, handleAuctionsTable } from "@workspace/db/schema";
 import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
 import { logger } from "../middlewares/request-logger";
 import { getHandlePricing } from "../services/handle-pricing";
+import { processSuspendedHandles } from "../services/handle";
 
 const QUEUE_NAME = "handle-lifecycle";
 const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -189,6 +190,11 @@ async function runLifecycleTasks(): Promise<{ reminders: number; expired: number
   const reminders = await sendRenewalReminders();
   const expired = await expireHandles();
   const auctionsUpdated = await updateAuctionPrices();
+  try {
+    await processSuspendedHandles();
+  } catch (err) {
+    logger.error({ err }, "[handle-lifecycle] Error processing suspended handles");
+  }
   return { reminders, expired, auctionsUpdated };
 }
 

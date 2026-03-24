@@ -88,7 +88,27 @@ export function getPlanLimits(plan: string) {
 
 export async function getUserPlanLimits(userId: string) {
   const plan = await getUserPlan(userId);
-  return getPlanLimits(plan);
+  const limits = getPlanLimits(plan);
+  const sub = await getActiveUserSubscription(userId);
+
+  const agentCountResult = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(agentsTable)
+    .where(and(eq(agentsTable.userId, userId), eq(agentsTable.status, "active")));
+  const currentAgentCount = agentCountResult[0]?.count ?? 0;
+
+  const canCreateAgent = LAUNCH_MODE || (limits.agentLimit > 0 && currentAgentCount < limits.agentLimit);
+  const premiumHandleDiscount = plan === "pro" || plan === "enterprise" ? 10 : 0;
+
+  return {
+    ...limits,
+    currentAgentCount,
+    canCreateAgent,
+    premiumHandleDiscount,
+    subscriptionStatus: sub?.status ?? null,
+    providerSubscriptionId: sub?.providerSubscriptionId ?? null,
+    currentPeriodEnd: sub?.currentPeriodEnd ?? null,
+  };
 }
 
 export function getPlanFromPriceId(priceId: string): string {
@@ -936,6 +956,19 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       if (agentRecord) {
         const expiresAt = new Date();
         expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        const tier = getHandleTier(handle);
+        const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
+        const isPremiumShort = handleLen === 3 || handleLen === 4;
+        const subscriptionId = typeof session.subscription === "string"
+          ? session.subscription
+          : (session.subscription as { id?: string } | null)?.id ?? null;
+
+        const fullAgent = await db.query.agentsTable.findFirst({
+          where: eq(agentsTable.id, agentRecord.id),
+          columns: { id: true, metadata: true },
+        });
+        const existingMeta = (fullAgent?.metadata as Record<string, unknown>) ?? {};
+
         await Promise.all([
           markHandlePaymentComplete(agentRecord.id),
           db.update(agentsTable)
@@ -945,10 +978,17 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
               handlePaid: true,
               handleExpiresAt: expiresAt,
               handleRegisteredAt: new Date(),
+              handleStripeSubscriptionId: subscriptionId,
+              metadata: {
+                ...existingMeta,
+                ...(isPremiumShort ? { nftStatus: "pending_mint", nftQueuedAt: new Date().toISOString() } : {}),
+              },
               updatedAt: new Date(),
             })
             .where(eq(agentsTable.id, agentRecord.id)),
         ]);
+
+        logger.info({ agentId: agentRecord.id, handle, tier: tier.tier, isPremiumShort }, "[billing] Handle activated from checkout");
       }
     }
     return;
@@ -1139,6 +1179,18 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const subscriptionId = extractSubscriptionId(invoice);
   if (!subscriptionId) return;
 
+  const agentWithHandleSub = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.handleStripeSubscriptionId, subscriptionId),
+    columns: { id: true, handle: true, handleTier: true },
+  });
+
+  if (agentWithHandleSub) {
+    const { startHandleGracePeriod } = await import("./handle");
+    await startHandleGracePeriod(agentWithHandleSub.id);
+    logger.info({ agentId: agentWithHandleSub.id, handle: agentWithHandleSub.handle, subscriptionId }, "[billing] Handle grace period started on payment failure");
+    return;
+  }
+
   const [sub] = await db
     .update(subscriptionsTable)
     .set({ status: "past_due", updatedAt: new Date() })
@@ -1157,6 +1209,18 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
 
 export async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const subscriptionId = subscription.id;
+
+  const agentWithHandleSub = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.handleStripeSubscriptionId, subscriptionId),
+    columns: { id: true, handle: true, handleTier: true },
+  });
+
+  if (agentWithHandleSub) {
+    const { startHandleGracePeriod } = await import("./handle");
+    await startHandleGracePeriod(agentWithHandleSub.id);
+    logger.info({ agentId: agentWithHandleSub.id, handle: agentWithHandleSub.handle, subscriptionId }, "[billing] Handle grace period started on subscription deletion");
+    return;
+  }
 
   const [sub] = await db
     .update(subscriptionsTable)

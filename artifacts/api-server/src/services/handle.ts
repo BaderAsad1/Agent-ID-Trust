@@ -208,24 +208,86 @@ export async function assignHandleToAgent(
   logger.info({ agentId, handle, tier: options.tier }, "[handle] Handle assigned to agent");
 }
 
+export async function getGracePeriodDays(handleTier: string | null): Promise<number> {
+  const tier = handleTier as HandleTier | null;
+  if (tier === "premium_3" || tier === "premium_4") return 90;
+  return 30;
+}
+
+export async function startHandleGracePeriod(agentId: string): Promise<void> {
+  const agent = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.id, agentId),
+    columns: { id: true, handle: true, handleTier: true, handleExpiresAt: true, status: true },
+  });
+
+  if (!agent || !agent.handle) return;
+
+  const graceDays = await getGracePeriodDays(agent.handleTier);
+  const gracePeriodEnd = new Date();
+  gracePeriodEnd.setDate(gracePeriodEnd.getDate() + graceDays);
+
+  await db.update(agentsTable).set({
+    metadata: sql`jsonb_set(COALESCE(metadata, '{}'), '{handleGracePeriod}', ${JSON.stringify({
+      startedAt: new Date().toISOString(),
+      endsAt: gracePeriodEnd.toISOString(),
+      graceDays,
+      tier: agent.handleTier,
+    })}::jsonb)`,
+    updatedAt: new Date(),
+  }).where(eq(agentsTable.id, agentId));
+
+  logger.info({ agentId, handle: agent.handle, graceDays, gracePeriodEnd }, "[handle] Handle grace period started");
+}
+
 export async function processHandleExpiry(agentId: string): Promise<void> {
   const agent = await db.query.agentsTable.findFirst({
     where: eq(agentsTable.id, agentId),
-    columns: { id: true, handle: true, handleTier: true, handleExpiresAt: true },
+    columns: { id: true, handle: true, handleTier: true, handleExpiresAt: true, metadata: true, status: true },
   });
 
   if (!agent || !agent.handleExpiresAt) return;
 
+  await startHandleGracePeriod(agentId);
+}
+
+export async function processSuspendedHandles(): Promise<void> {
   const now = new Date();
-  const gracePeriodEnd = new Date(agent.handleExpiresAt);
-  gracePeriodEnd.setDate(gracePeriodEnd.getDate() + 90);
 
-  if (now < gracePeriodEnd) {
-    logger.info({ agentId, handle: agent.handle }, "[handle] Handle in grace period, not releasing yet");
-    return;
+  const allAgentsWithHandles = await db.select({
+    id: agentsTable.id,
+    handle: agentsTable.handle,
+    handleTier: agentsTable.handleTier,
+    handleExpiresAt: agentsTable.handleExpiresAt,
+    metadata: agentsTable.metadata,
+    status: agentsTable.status,
+  }).from(agentsTable).where(
+    sql`handle IS NOT NULL AND status NOT IN ('revoked', 'suspended') AND metadata->'handleGracePeriod' IS NOT NULL`,
+  );
+
+  for (const agent of allAgentsWithHandles) {
+    try {
+      const meta = (agent.metadata as Record<string, unknown>) ?? {};
+      const gracePeriod = meta.handleGracePeriod as { endsAt?: string } | undefined;
+      if (!gracePeriod?.endsAt) continue;
+
+      const gracePeriodEnd = new Date(gracePeriod.endsAt);
+      if (now >= gracePeriodEnd) {
+        await db.update(agentsTable).set({
+          status: "suspended",
+          updatedAt: new Date(),
+        }).where(eq(agentsTable.id, agent.id));
+
+        try {
+          const { deleteResolutionCache } = await import("../lib/resolution-cache");
+          await deleteResolutionCache(agent.handle!.toLowerCase());
+        } catch {}
+
+        logger.info({ agentId: agent.id, handle: agent.handle }, "[handle] Handle suspended after grace period");
+      }
+    } catch (err) {
+      logger.error({ agentId: agent.id, error: err instanceof Error ? err.message : String(err) }, "[handle] Error processing handle suspension");
+    }
   }
-
-  await releaseHandleToAuction(agentId);
 }
 
 export async function releaseHandleToAuction(agentId: string): Promise<void> {
