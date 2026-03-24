@@ -904,11 +904,14 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
     return (
       <div className="activation-wrapper" style={{
         padding: '56px 20px 48px',
-        maxWidth: 900,
-        margin: '0 auto',
         boxSizing: 'border-box',
+        width: '100%',
       }}>
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <div style={{
+          textAlign: 'center', marginBottom: 28,
+          opacity: titleOpacity,
+          transform: `translateY(${titleTranslateY}px)`,
+        }}>
           <div style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
             letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
@@ -933,35 +936,43 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
           </p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {UNLOCK_CHANNELS.map((ch) => (
-            <div key={ch.id} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              background: 'rgba(8,10,22,0.9)',
-              border: `1px solid ${ch.color}20`,
-              borderRadius: 10,
-              padding: '12px 16px',
-            }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                background: ch.color, boxShadow: `0 0 8px ${ch.color}50`,
-              }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
+          {UNLOCK_CHANNELS.map((ch, i) => {
+            const channelStart = 0.38 + i * 0.09;
+            const channelEnd = channelStart + 0.14;
+            const chProgress = Math.max(0, Math.min(1, (unlocksProgress - channelStart) / (channelEnd - channelStart)));
+            return (
+              <div key={ch.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                background: 'rgba(8,10,22,0.9)',
+                border: `1px solid ${ch.color}${chProgress > 0.5 ? '20' : '08'}`,
+                borderRadius: 10,
+                padding: '12px 16px',
+                opacity: chProgress,
+                transform: `translateY(${lerp(16, 0, chProgress)}px)`,
+                transition: 'border-color 0.4s ease',
+              }}>
                 <div style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-                  letterSpacing: '0.1em', color: ch.color, marginBottom: 3,
-                }}>{ch.label}</div>
+                  width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                  background: ch.color, boxShadow: `0 0 8px ${ch.color}50`,
+                }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                    letterSpacing: '0.1em', color: ch.color, marginBottom: 3,
+                  }}>{ch.label}</div>
+                  <div style={{
+                    fontFamily: "'Inter', sans-serif", fontSize: 12,
+                    color: 'rgba(232,232,240,0.45)', lineHeight: 1.45,
+                  }}>{ch.desc}</div>
+                </div>
                 <div style={{
-                  fontFamily: "'Inter', sans-serif", fontSize: 12,
-                  color: 'rgba(232,232,240,0.45)', lineHeight: 1.45,
-                }}>{ch.desc}</div>
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                  color: 'rgba(232,232,240,0.25)', whiteSpace: 'nowrap', flexShrink: 0,
+                  borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: 12,
+                }}>{ch.metric}</div>
               </div>
-              <div style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
-                color: 'rgba(232,232,240,0.25)', whiteSpace: 'nowrap', flexShrink: 0,
-                borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: 12,
-              }}>{ch.metric}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -1339,11 +1350,14 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
     return (
       <div className="verification-wrapper" style={{
         padding: '56px 20px 48px',
-        maxWidth: 1100,
-        margin: '0 auto',
         boxSizing: 'border-box',
+        width: '100%',
       }}>
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <div style={{
+          textAlign: 'center', marginBottom: 28,
+          opacity: titleT,
+          transform: `translateY(${(1 - titleT) * 30}px)`,
+        }}>
           <div style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
             letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
@@ -1367,11 +1381,19 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
             Any platform, agent, or system can resolve an Agent Credential in milliseconds. No trust is assumed. Everything is verifiable.
           </p>
         </div>
-        <div className="verification-code" style={{ marginBottom: 16 }}>
+        <div className="verification-code" style={{
+          marginBottom: 16,
+          opacity: codeT,
+          transform: `translateY(${(1 - codeT) * 20}px)`,
+          width: '100%',
+          minWidth: 0,
+        }}>
           <div style={{
             background: 'rgba(6,8,18,0.96)',
             border: '1px solid rgba(79,125,243,0.12)',
-            borderRadius: 14, overflow: 'hidden',
+            borderRadius: 14,
+            overflow: 'hidden',
+            width: '100%',
           }}>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
@@ -1386,21 +1408,30 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
                 color: 'rgba(232,232,240,0.25)', marginLeft: 8,
               }}>verify-agent.ts</span>
             </div>
-            <pre style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-              color: 'rgba(232,232,240,0.7)', lineHeight: 1.7,
-              padding: '16px 18px', margin: 0,
-              overflowX: 'auto', whiteSpace: 'pre',
-            }}>{codeExample}</pre>
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' as never }}>
+              <pre style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                color: 'rgba(232,232,240,0.7)', lineHeight: 1.7,
+                padding: '16px 18px', margin: 0,
+                whiteSpace: 'pre',
+                display: 'inline-block',
+                minWidth: '100%',
+              }}>{codeExample}</pre>
+            </div>
           </div>
         </div>
-        <div className="verification-features" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {VERIFY_FEATURES.map((feat) => (
+        <div className="verification-features" style={{
+          display: 'flex', flexDirection: 'column', gap: 10,
+          opacity: itemsT,
+          transform: `translateY(${(1 - itemsT) * 20}px)`,
+        }}>
+          {VERIFY_FEATURES.map((feat, i) => (
             <div key={feat.label} style={{
               background: 'rgba(8,10,22,0.9)',
               border: '1px solid rgba(79,125,243,0.1)',
               borderRadius: 10,
               padding: '12px 16px',
+              opacity: Math.max(0, Math.min(1, (itemsT - i * 0.15) * 4)),
             }}>
               <div style={{
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
@@ -2221,6 +2252,8 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       color: '#e8e8f0',
       fontFamily: "'Inter', sans-serif",
       WebkitFontSmoothing: 'antialiased',
+      overflowX: 'hidden',
+      maxWidth: '100vw',
     } as CSSProperties}>
       <GrainOverlay />
       <NavBar opacity={navOpacity} onNavigate={onNavigate} />
