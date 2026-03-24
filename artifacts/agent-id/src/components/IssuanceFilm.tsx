@@ -902,7 +902,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
 
   if (isMobile) {
     return (
-      <div className="activation-wrapper" style={{
+      <div style={{
         padding: '56px 20px 48px',
         boxSizing: 'border-box',
         width: '100%',
@@ -932,14 +932,13 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
             fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6,
             color: 'rgba(232,232,240,0.5)',
           }}>
-            A credential doesn't just prove who your agent is. It unlocks the infrastructure your agent needs to operate — routing, trust signals, marketplace access, and more.
+            A credential doesn't just prove who your agent is. It unlocks the infrastructure your agent needs to operate.
           </p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {UNLOCK_CHANNELS.map((ch, i) => {
             const channelStart = 0.38 + i * 0.09;
-            const channelEnd = channelStart + 0.14;
-            const chProgress = Math.max(0, Math.min(1, (unlocksProgress - channelStart) / (channelEnd - channelStart)));
+            const chProgress = Math.max(0, Math.min(1, (unlocksProgress - channelStart) / 0.12));
             return (
               <div key={ch.id} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
@@ -949,7 +948,6 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
                 padding: '12px 16px',
                 opacity: chProgress,
                 transform: `translateY(${lerp(16, 0, chProgress)}px)`,
-                transition: 'border-color 0.4s ease',
               }}>
                 <div style={{
                   width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
@@ -967,8 +965,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
                 </div>
                 <div style={{
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
-                  color: 'rgba(232,232,240,0.25)', whiteSpace: 'nowrap', flexShrink: 0,
-                  borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: 12,
+                  color: ch.color, opacity: 0.7, flexShrink: 0,
                 }}>{ch.metric}</div>
               </div>
             );
@@ -1322,6 +1319,7 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
 
 function VerificationAPISection({ verificationProgress }: { verificationProgress: number }) {
   const isMobile = useIsMobile();
+
   const titleT = Math.max(0, Math.min(1, (verificationProgress - 0.22) / 0.14));
   const codeT = Math.max(0, Math.min(1, (verificationProgress - 0.42) / 0.16));
   const itemsT = Math.max(0, Math.min(1, (verificationProgress - 0.35) / 0.18));
@@ -1348,13 +1346,9 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
 
   if (isMobile) {
     return (
-      <div className="verification-wrapper" style={{
-        padding: '56px 20px 48px',
-        boxSizing: 'border-box',
-        width: '100%',
-      }}>
+      <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
         <div style={{
-          textAlign: 'center', marginBottom: 28,
+          textAlign: 'center', marginBottom: 24,
           opacity: titleT,
           transform: `translateY(${(1 - titleT) * 30}px)`,
         }}>
@@ -1378,49 +1372,43 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
             fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6,
             color: 'rgba(232,232,240,0.45)',
           }}>
-            Any platform, agent, or system can resolve an Agent Credential in milliseconds. No trust is assumed. Everything is verifiable.
+            Any platform, agent, or system can resolve an Agent Credential in milliseconds. No trust is assumed.
           </p>
         </div>
-        <div className="verification-code" style={{
+        <div style={{
+          background: 'rgba(6,8,18,0.96)',
+          border: '1px solid rgba(79,125,243,0.12)',
+          borderRadius: 14,
+          overflow: 'hidden',
           marginBottom: 16,
           opacity: codeT,
           transform: `translateY(${(1 - codeT) * 20}px)`,
-          width: '100%',
-          minWidth: 0,
         }}>
           <div style={{
-            background: 'rgba(6,8,18,0.96)',
-            border: '1px solid rgba(79,125,243,0.12)',
-            borderRadius: 14,
-            overflow: 'hidden',
-            width: '100%',
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '10px 18px',
+            borderBottom: '1px solid rgba(255,255,255,0.04)',
           }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '10px 18px',
-              borderBottom: '1px solid rgba(255,255,255,0.04)',
-            }}>
-              {['#ff5f57','#febc2e','#28c840'].map((c) => (
-                <div key={c} style={{ width: 8, height: 8, borderRadius: '50%', background: c, opacity: 0.7 }} />
-              ))}
-              <span style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
-                color: 'rgba(232,232,240,0.25)', marginLeft: 8,
-              }}>verify-agent.ts</span>
-            </div>
-            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' as never }}>
-              <pre style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-                color: 'rgba(232,232,240,0.7)', lineHeight: 1.7,
-                padding: '16px 18px', margin: 0,
-                whiteSpace: 'pre',
-                display: 'inline-block',
-                minWidth: '100%',
-              }}>{codeExample}</pre>
-            </div>
+            {['#ff5f57','#febc2e','#28c840'].map((c) => (
+              <div key={c} style={{ width: 8, height: 8, borderRadius: '50%', background: c, opacity: 0.7 }} />
+            ))}
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+              color: 'rgba(232,232,240,0.2)', marginLeft: 6,
+            }}>verify-agent.ts</span>
+          </div>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as CSSProperties}>
+            <pre style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+              color: 'rgba(232,232,240,0.7)', lineHeight: 1.7,
+              padding: '16px 18px', margin: 0,
+              whiteSpace: 'pre',
+              display: 'inline-block',
+              minWidth: '100%',
+            }}>{codeExample}</pre>
           </div>
         </div>
-        <div className="verification-features" style={{
+        <div style={{
           display: 'flex', flexDirection: 'column', gap: 10,
           opacity: itemsT,
           transform: `translateY(${(1 - itemsT) * 20}px)`,
@@ -2252,8 +2240,6 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       color: '#e8e8f0',
       fontFamily: "'Inter', sans-serif",
       WebkitFontSmoothing: 'antialiased',
-      overflowX: 'hidden',
-      maxWidth: '100vw',
     } as CSSProperties}>
       <GrainOverlay />
       <NavBar opacity={navOpacity} onNavigate={onNavigate} />
