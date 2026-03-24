@@ -169,7 +169,7 @@ router.post("/handle/claim", requireAgentAuth, async (req, res, next) => {
         upgradeUrl: `${APP_URL()}/pricing`,
         paymentOptions: `${APP_URL()}/api/v1/pay/options`,
         plans: [
-          { id: "starter", name: "Starter", monthlyUsd: 29, note: "Includes 5+ char handles at $10/yr" },
+          { id: "starter", name: "Starter", monthlyUsd: 29, note: "Includes 5+ char handles at $5/yr" },
           { id: "pro", name: "Pro", monthlyUsd: 79 },
         ],
       });

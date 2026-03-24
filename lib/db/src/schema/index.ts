@@ -63,3 +63,5 @@ export * from "./agent-claim-history";
 export * from "./org-policies";
 export * from "./mpp-payments";
 export * from "./waitlist";
+export * from "./handle-registration-log";
+export * from "./agent-ows-wallets";

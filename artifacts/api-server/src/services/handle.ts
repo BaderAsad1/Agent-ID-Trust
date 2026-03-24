@@ -1,6 +1,6 @@
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, sql, gte, count, lt } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, handleAuctionsTable, handlePaymentsTable } from "@workspace/db/schema";
+import { agentsTable, handleAuctionsTable, handlePaymentsTable, usersTable, handleRegistrationLogTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 
 export type HandleTier = "reserved_1_2" | "premium_3" | "premium_4" | "standard_5plus";
@@ -41,8 +41,8 @@ export const HANDLE_TIERS: Record<HandleTier, HandleTierInfo> = {
   },
   standard_5plus: {
     tier: "standard_5plus",
-    annualCents: 1000,
-    annualUsd: 10,
+    annualCents: 500,
+    annualUsd: 5,
     label: "5+ character standard",
     requiresPayment: false,
     freeWithPlan: true,
@@ -174,6 +174,13 @@ export async function assignHandleToAgent(
     expiresAt?: Date;
   },
 ): Promise<void> {
+  const { validateHandle } = await import("./agents");
+  const normalizedHandle = handle.toLowerCase();
+  const validationError = validateHandle(normalizedHandle);
+  if (validationError) {
+    throw new Error(`INVALID_HANDLE: ${validationError}`);
+  }
+
   const tierInfo = HANDLE_TIERS[options.tier];
   const expiresAt = options.expiresAt ?? (() => {
     const d = new Date();
@@ -267,4 +274,95 @@ export function calculateAuctionPrice(handle: string, daysLeft: number): number 
 
   const depreciationFactor = Math.max(0.1, daysLeft / 21);
   return Math.round(basePriceCents * depreciationFactor);
+}
+
+export async function checkRateLimit(
+  userId: string,
+): Promise<{ allowed: boolean; status: number; message: string } | null> {
+  const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const recentCount = await db
+    .select({ count: count() })
+    .from(handleRegistrationLogTable)
+    .where(
+      and(
+        eq(handleRegistrationLogTable.userId, userId),
+        gte(handleRegistrationLogTable.createdAt, windowStart),
+      ),
+    );
+  const recent = recentCount[0]?.count ?? 0;
+  if (recent >= 5) {
+    return {
+      allowed: false,
+      status: 429,
+      message: "Maximum 5 handle registrations per 24-hour window. Please try again later.",
+    };
+  }
+  return null;
+}
+
+export async function checkHandleRegistrationLimits(
+  userId: string,
+  handle: string,
+): Promise<{ allowed: boolean; status: number; message: string } | null> {
+  const normalized = handle.toLowerCase();
+  const tier = getHandleTier(normalized);
+
+  const user = await db.query.usersTable.findFirst({
+    where: eq(usersTable.id, userId),
+    columns: { id: true, createdAt: true },
+  });
+
+  if (!user) return { allowed: false, status: 404, message: "User not found" };
+
+  const accountAgeMs = Date.now() - new Date(user.createdAt).getTime();
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+  if (tier.tier === "premium_3" && accountAgeMs < sevenDaysMs) {
+    return {
+      allowed: false,
+      status: 403,
+      message: "Account must be at least 7 days old to register premium handles",
+    };
+  }
+
+  if (tier.tier === "premium_3" || tier.tier === "premium_4") {
+    const tierLimit = tier.tier === "premium_3" ? 1 : 2;
+    const handleLen = tier.tier === "premium_3" ? 3 : 4;
+    const existingHandles = await db
+      .select({ handle: agentsTable.handle })
+      .from(agentsTable)
+      .where(
+        and(
+          eq(agentsTable.userId, userId),
+          isNull(agentsTable.revokedAt),
+          sql`${agentsTable.handle} IS NOT NULL`,
+        ),
+      );
+    const activeCount = existingHandles.filter((a) => {
+      if (!a.handle) return false;
+      const len = a.handle.replace(/[^a-z0-9]/g, "").length;
+      return len === handleLen;
+    }).length;
+    if (activeCount >= tierLimit) {
+      return {
+        allowed: false,
+        status: 409,
+        message: `Maximum ${tierLimit} handles of this tier per account`,
+      };
+    }
+  }
+
+  return null;
+}
+
+export async function recordHandleRegistration(userId: string, handle: string): Promise<void> {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  await db.delete(handleRegistrationLogTable).where(
+    lt(handleRegistrationLogTable.createdAt, cutoff),
+  );
+  await db.insert(handleRegistrationLogTable).values({
+    userId,
+    handle,
+  });
+  logger.info({ userId, handle }, "[handle] Registration logged");
 }

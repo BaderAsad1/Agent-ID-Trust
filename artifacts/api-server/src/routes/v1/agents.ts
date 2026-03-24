@@ -16,11 +16,11 @@ import {
   validateHandle,
   isHandleAvailable,
   getHandleReservation,
-  isHandleReserved,
   type RevokeAgentInput,
 } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
+import { checkRateLimit, checkHandleRegistrationLimits, recordHandleRegistration, isHandleReserved } from "../../services/handle";
 import { requirePlanFeature, getHandlePriceCents, getUserPlan, getPlanLimits } from "../../services/billing";
 import {
   getActiveCredential,
@@ -99,20 +99,39 @@ router.post("/", requireAuth, async (req, res, next) => {
     }
 
     const { handle } = parsed.data;
-    const handleError = validateHandle(handle);
+    const normalizedHandle = handle.toLowerCase();
+    const isSandbox = req.isSandbox === true;
+
+    if (!isSandbox) {
+      const rateLimitCheck = await checkRateLimit(req.userId!);
+      if (rateLimitCheck) {
+        throw new AppError(rateLimitCheck.status, "RATE_LIMIT_EXCEEDED", rateLimitCheck.message);
+      }
+
+      try {
+        await recordHandleRegistration(req.userId!, normalizedHandle);
+      } catch (err) {
+        logger.warn({ err, handle: normalizedHandle }, "[agents] Failed to record handle registration attempt");
+      }
+    }
+
+    const handleError = validateHandle(normalizedHandle);
     if (handleError) {
       throw new AppError(400, "INVALID_HANDLE", handleError);
     }
 
-    const normalizedHandle = handle.toLowerCase();
-
     if (isHandleReserved(normalizedHandle)) {
-      throw new AppError(409, "HANDLE_RESERVED", "This handle is reserved for brand protection. If you are the legitimate brand owner, please contact support@getagent.id to claim it.");
+      throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
     }
 
     const reservation = await getHandleReservation(normalizedHandle);
     if (reservation.isReserved) {
-      throw new AppError(409, "HANDLE_RESERVED", "This handle is reserved. If you are the legitimate brand owner, please contact support@getagent.id to claim it.");
+      throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
+    }
+
+    const limitCheck = await checkHandleRegistrationLimits(req.userId!, normalizedHandle);
+    if (limitCheck) {
+      throw new AppError(limitCheck.status, "HANDLE_LIMIT_EXCEEDED", limitCheck.message);
     }
 
     const available = await isHandleAvailable(normalizedHandle);
@@ -124,7 +143,6 @@ router.post("/", requireAuth, async (req, res, next) => {
     const handleLen = normalizedHandle.replace(/[^a-z0-9]/g, "").length;
     const pricingTier = handleLen <= 3 ? "ultra_premium" : handleLen === 4 ? "premium" : "standard";
 
-    const isSandbox = req.isSandbox === true;
     const sandboxHandle = isSandbox ? `sandbox-${normalizedHandle}` : normalizedHandle;
 
     let agent;
@@ -133,6 +151,7 @@ router.post("/", requireAuth, async (req, res, next) => {
         userId: req.userId!,
         ...parsed.data,
         handle: sandboxHandle,
+        _skipHandleValidation: isSandbox,
         metadata: {
           ...(parsed.data.metadata || {}),
           ...(isSandbox ? { isSandbox: true, sandboxCreatedAt: new Date().toISOString() } : {}),

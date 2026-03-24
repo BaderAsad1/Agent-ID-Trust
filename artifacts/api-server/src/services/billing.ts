@@ -35,7 +35,7 @@ const PLAN_PRICES: Record<string, Record<string, number>> = {
 export const ENS_HANDLE_PRICING = [
   { minLength: 3, maxLength: 3, tier: "premium_3", annualCents: 64000, annualUsd: 640 },
   { minLength: 4, maxLength: 4, tier: "premium_4", annualCents: 16000, annualUsd: 160 },
-  { minLength: 5, maxLength: Infinity, tier: "standard_5plus", annualCents: 1000, annualUsd: 10 },
+  { minLength: 5, maxLength: Infinity, tier: "standard_5plus", annualCents: 500, annualUsd: 5 },
 ];
 
 export function getHandlePriceCents(handle: string): number {
@@ -900,6 +900,26 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
     const userId = session.metadata?.userId;
     const agentIdMeta = session.metadata?.agentId;
     if (handle && userId) {
+      const normalizedHandle = handle.toLowerCase();
+      const { validateHandle: validateHandleFn } = await import("./agents");
+      const validationError = validateHandleFn(normalizedHandle);
+      if (validationError) {
+        logger.warn({ handle, userId, validationError }, "[billing] Skipping handle assignment — handle failed validation in checkout completion");
+        return;
+      }
+
+      const { isHandleReserved: isReservedFn, checkHandleRegistrationLimits: checkLimitsFn } = await import("./handle");
+      if (isReservedFn(normalizedHandle)) {
+        logger.warn({ handle, userId }, "[billing] Skipping handle assignment — handle is reserved");
+        return;
+      }
+
+      const limitResult = await checkLimitsFn(userId, normalizedHandle);
+      if (limitResult) {
+        logger.warn({ handle, userId, reason: limitResult.message }, "[billing] Skipping handle assignment — limit check failed at checkout completion");
+        return;
+      }
+
       let agentRecord: { id: string } | undefined;
       if (agentIdMeta) {
         agentRecord = await db.query.agentsTable.findFirst({
@@ -909,7 +929,7 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       }
       if (!agentRecord) {
         agentRecord = await db.query.agentsTable.findFirst({
-          where: and(eq(agentsTable.handle, handle), eq(agentsTable.userId, userId)),
+          where: and(eq(agentsTable.handle, normalizedHandle), eq(agentsTable.userId, userId)),
           columns: { id: true },
         });
       }
@@ -920,8 +940,8 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
           markHandlePaymentComplete(agentRecord.id),
           db.update(agentsTable)
             .set({
-              handle: handle.toLowerCase(),
-              handleTier: getHandleTier(handle).tier,
+              handle: normalizedHandle,
+              handleTier: getHandleTier(normalizedHandle).tier,
               handlePaid: true,
               handleExpiresAt: expiresAt,
               handleRegisteredAt: new Date(),

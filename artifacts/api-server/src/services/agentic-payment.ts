@@ -83,7 +83,7 @@ export async function getAgentPaymentOptions(agentId: string): Promise<AgentPaym
     handlePricing: [
       { tier: "premium_3", annualUsd: 640, annualCents: 64000, description: "3-character ultra-premium handle" },
       { tier: "premium_4", annualUsd: 160, annualCents: 16000, description: "4-character premium handle" },
-      { tier: "standard_5plus", annualUsd: 10, annualCents: 1000, description: "5+ character standard handle (free with active plan)" },
+      { tier: "standard_5plus", annualUsd: 5, annualCents: 500, description: "5+ character standard handle (free with active plan)" },
     ],
     upgradeUrl: `${APP_URL}/api/v1/pay/upgrade`,
   };

@@ -204,7 +204,7 @@ export function buildPromptBlock(
   Expires:   ${agent.handleExpiresAt.toISOString()}
   Note:      Handle is a paid alias (like ENS). Renew before expiry to keep it.`
     : `Handle Identity: none — agent resolves by UUID only
-  Register a handle at: ${baseUrl}/api/v1/pay/handle/claim (5+ chars, $10/yr with active plan)`;
+  Register a handle at: ${baseUrl}/api/v1/pay/handle/claim (5+ chars, $5/yr with active plan)`;
 
   const inboxSection = inbox?.address
     ? `Your inbox address: ${inbox.address}

@@ -267,7 +267,7 @@ router.get("/.well-known/agent-registration", async (_req: Request, res: Respons
         { characters: "1-2", pricePerYear: "RESERVED", description: "Reserved — not available" },
         { characters: 3, pricePerYear: "$640", description: "Ultra-premium 3-character handle" },
         { characters: 4, pricePerYear: "$160", description: "Premium 4-character handle" },
-        { characters: "5+", pricePerYear: "$10", description: "Standard handle — included with any active plan" },
+        { characters: "5+", pricePerYear: "$5", description: "Standard handle — included with any active plan" },
       ],
       marketplaceFee: "2.5%",
       gracePeriodDays: 90,

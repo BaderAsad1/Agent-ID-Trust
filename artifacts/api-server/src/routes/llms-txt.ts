@@ -85,7 +85,7 @@ Handles are scarce, owned assets with ENS-style pricing. No free plan exists —
 - 1-2 character handles: RESERVED — not available
 - 3-character handles: $640/year (ultra-premium)
 - 4-character handles: $160/year (premium)
-- 5+ character handles: $10/year (standard — included free with any active Starter, Pro, or Enterprise plan)
+- 5+ character handles: $5/year (standard — included free with any active Starter, Pro, or Enterprise plan)
 Grace period: 90 days after handle expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.
 Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
 Handles can be transferred to another account from the dashboard.

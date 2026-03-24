@@ -34,11 +34,17 @@ export interface UpdateAgentInput {
   metadata?: unknown;
 }
 
-const HANDLE_RE = /^[a-z0-9][a-z0-9\-]{1,98}[a-z0-9]$/;
+const HANDLE_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
 export function validateHandle(handle: string): string | null {
+  if (handle.length < 3) {
+    return "Handle must be at least 3 characters";
+  }
+  if (handle.length > 32) {
+    return "Handle must be 32 characters or fewer";
+  }
   if (!HANDLE_RE.test(handle)) {
-    return "Handle must be 3-100 lowercase alphanumeric characters or hyphens, starting and ending with alphanumeric";
+    return "Handle must contain only lowercase letters, numbers, and hyphens, and must start and end with a letter or number";
   }
   return null;
 }
@@ -89,7 +95,15 @@ export async function getHandleReservation(handle: string): Promise<{ isReserved
   return { isReserved: false, reservedReason: null };
 }
 
-export async function createAgent(input: CreateAgentInput): Promise<Agent> {
+export async function createAgent(input: CreateAgentInput & { _skipHandleValidation?: boolean }): Promise<Agent> {
+  if (input.handle && !input._skipHandleValidation) {
+    const normalizedHandle = input.handle.toLowerCase();
+    const validationError = validateHandle(normalizedHandle);
+    if (validationError) {
+      throw new Error(`INVALID_HANDLE: ${validationError}`);
+    }
+  }
+
   const result = await db
     .insert(agentsTable)
     .values({

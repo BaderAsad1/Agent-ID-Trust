@@ -141,6 +141,13 @@
       "when": 1773850357910,
       "tag": "0019_mpp_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1774003200000,
+      "tag": "0020_handle_foundations",
+      "breakpoints": true
     }
   ]
 }

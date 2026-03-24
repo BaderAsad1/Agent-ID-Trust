@@ -17,7 +17,7 @@ function legacyPricingShape(tier: ReturnType<typeof getHandleTier>) {
 const HANDLE_PRICING_TIERS = [
   { minLength: 3, maxLength: 3, tier: "premium_3", annualPriceUsd: 640, annualPriceCents: 64000, description: "Ultra-premium 3-char (ENS pricing)" },
   { minLength: 4, maxLength: 4, tier: "premium_4", annualPriceUsd: 160, annualPriceCents: 16000, description: "Premium 4-char (ENS pricing)" },
-  { minLength: 5, maxLength: undefined, tier: "standard_5plus", annualPriceUsd: 10, annualPriceCents: 1000, description: "Standard 5+ char handle" },
+  { minLength: 5, maxLength: undefined, tier: "standard_5plus", annualPriceUsd: 5, annualPriceCents: 500, description: "Standard 5+ char handle" },
 ];
 import { requireAuth } from "../../middlewares/replit-auth";
 import { db } from "@workspace/db";

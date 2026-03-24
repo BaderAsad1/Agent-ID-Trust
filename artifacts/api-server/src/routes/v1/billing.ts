@@ -18,6 +18,8 @@ import {
   getPriceIdFromPlan,
 } from "../../services/billing";
 import { logActivity } from "../../services/activity-logger";
+import { validateHandle } from "../../services/agents";
+import { isHandleReserved, checkRateLimit, checkHandleRegistrationLimits, recordHandleRegistration } from "../../services/handle";
 
 const router = Router();
 
@@ -36,7 +38,7 @@ router.get("/plans", (req, res) => {
           yearly: e.STRIPE_PRICE_STARTER_YEARLY ?? null,
         },
         agentLimit: 5,
-        features: ["5 agents", "Inbox access", "Tasks", "Handle (5+ chars, $10/yr)", "Trust score", "Email support"],
+        features: ["5 agents", "Inbox access", "Tasks", "Handle (5+ chars, $5/yr)", "Trust score", "Email support"],
         cta: "Start for $29/mo",
         popular: false,
       },
@@ -69,7 +71,7 @@ router.get("/plans", (req, res) => {
       { tier: "reserved_1_2", chars: "1-2", annualUsd: null, annualCents: null, note: "Reserved" },
       { tier: "premium_3", chars: "3", annualUsd: 640, annualCents: 64000, note: "Ultra-premium handle, Stripe payment required" },
       { tier: "premium_4", chars: "4", annualUsd: 160, annualCents: 16000, note: "Premium handle, Stripe payment required" },
-      { tier: "standard_5plus", chars: "5+", annualUsd: 10, annualCents: 1000, note: "Free with active plan" },
+      { tier: "standard_5plus", chars: "5+", annualUsd: 5, annualCents: 500, note: "Free with active plan" },
     ],
   });
 });
@@ -241,6 +243,29 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
   try {
     const body = handleCheckoutSchema.parse(req.body);
     const normalizedHandle = body.handle.toLowerCase();
+
+    const rateLimitCheck = await checkRateLimit(req.userId!);
+    if (rateLimitCheck) {
+      throw new AppError(rateLimitCheck.status, "RATE_LIMIT_EXCEEDED", rateLimitCheck.message);
+    }
+
+    try {
+      await recordHandleRegistration(req.userId!, normalizedHandle);
+    } catch {}
+
+    const handleError = validateHandle(normalizedHandle);
+    if (handleError) {
+      throw new AppError(400, "INVALID_HANDLE", handleError);
+    }
+
+    if (isHandleReserved(normalizedHandle)) {
+      throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
+    }
+
+    const limitCheck = await checkHandleRegistrationLimits(req.userId!, normalizedHandle);
+    if (limitCheck) {
+      throw new AppError(limitCheck.status, "HANDLE_LIMIT_EXCEEDED", limitCheck.message);
+    }
 
     const result = await createHandleCheckoutSession(
       req.userId!,

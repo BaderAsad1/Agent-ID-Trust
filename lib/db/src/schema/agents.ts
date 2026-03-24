@@ -112,6 +112,11 @@ export const agentsTable = pgTable(
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     revocationReason: varchar("revocation_reason", { length: 100 }),
     revocationStatement: text("revocation_statement"),
+    chainMints: jsonb("chain_mints").$type<Record<string, unknown>>().default({}),
+    nftStatus: varchar("nft_status", { length: 20 }).default("none"),
+    paidThrough: timestamp("paid_through", { withTimezone: true }),
+    gracePeriodEnds: timestamp("grace_period_ends", { withTimezone: true }),
+    handleStatus: varchar("handle_status", { length: 20 }).default("active"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
