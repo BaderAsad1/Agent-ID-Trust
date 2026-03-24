@@ -2388,7 +2388,7 @@ function MobileScrollSection({ children }: { children: (progress: number) => Rea
           requestAnimationFrame(tick);
         }
       },
-      { threshold: 0.12 }
+      { threshold: 0, rootMargin: '0px 0px -85% 0px' }
     );
     observer.observe(el);
     return () => observer.disconnect();
