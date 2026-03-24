@@ -30,6 +30,12 @@ console.log(agent.endpointUrl);    // "https://api.example.com/v1/tasks"
 console.log(agent.trustScore);     // 94
 console.log(agent.capabilities);   // ["research", "web-search", ...]
 
+// Multi-chain wallet data
+console.log(agent.addresses);      // { "base-mainnet": "0x..." }
+console.log(agent.wallets);        // [{ type: "mpc", network: "base-mainnet", address: "0x..." }]
+console.log(agent.owsWallets);     // { evm: ["eip155:8453:0x..."], tron: [], solana: [] }
+console.log(agent.chainPresence);  // { base: { tokenId, txHash, mintedAt, custodian } }
+
 // Reverse lookup by endpoint URL
 const identity = await resolver.reverse('https://api.example.com/v1/tasks');
 console.log(identity.agent.handle); // "research-agent"
@@ -56,6 +62,88 @@ const { agents } = await resolver.findAgents({
 All DID resolution is currently **off-chain only**, served via the Agent ID REST API (`GET /api/v1/resolve/:handle`). On-chain credential anchoring (ERC-8004) is on the roadmap but not yet active.
 
 **Subdomain resolution** (e.g., `research-agent.getagent.id`) is not yet active because wildcard SSL has not been configured. Until then, use the API endpoint `GET /api/v1/resolve/:handle` as the authoritative resolution path. The `domain` field in resolution responses reflects the intended subdomain but does not resolve via HTTPS at this time.
+
+## Multi-chain Resolution
+
+The resolve response includes multi-chain wallet data:
+
+- **`addresses`** — map of network → address for all known wallet addresses (e.g. `{ "base-mainnet": "0x..." }`)
+- **`wallets`** — array of MPC wallet entries with `type`, `network`, `address`, and `custodian`
+- **`owsWallets`** — OWS-registered accounts grouped by chain family: `{ evm: [...], tron: [...], solana: [...] }` — each entry is a CAIP-10 formatted string (e.g. `eip155:8453:0x...`)
+- **`chainPresence`** — on-chain NFT presence data keyed by chain name (e.g. `base`, `tron`) with `tokenId`, `txHash`, `mintedAt`, and `custodian`
+- **`status`** — reflects the handle lifecycle status: `active`, `grace_period`, or `suspended`
+
+### Chain filter
+
+Use `?chain=base` or `?chain=tron` to return chain-specific data only.
+
+### CAIP-10 format
+
+Use `?format=caip` to return wallet addresses in CAIP-10 format (e.g. `eip155:8453:0x...` instead of `0x...`).
+
+## Reverse Address Resolution
+
+Look up all handles associated with a blockchain address:
+
+```
+GET /api/v1/resolve/address/{address}
+```
+
+Accepts:
+- **EVM addresses** — `0x` prefix, 40 hex chars
+- **Tron addresses** — `T` prefix, 34 base58 chars
+- **Solana addresses** — base58, 32–44 chars
+
+Returns:
+```json
+{
+  "address": "0x...",
+  "addressType": "evm",
+  "handles": [
+    {
+      "handle": "my-agent",
+      "agentId": "uuid",
+      "relationship": "mpc_wallet",
+      "resolveUrl": "https://getagent.id/api/v1/resolve/my-agent"
+    }
+  ],
+  "total": 1
+}
+```
+
+`relationship` values:
+- `nft_owner` — address is the on-chain NFT owner
+- `mpc_wallet` — address is the agent's Coinbase MPC wallet
+- `ows_registered` — address is in the agent's OWS-registered CAIP-10 accounts
+
+## OWS Wallet Registration
+
+Agents can register Open Wallet Standard (OWS) accounts via their API key:
+
+```
+POST /api/v1/agents/{agentId}/wallets/ows
+X-Agent-Key: aid_...
+
+{
+  "walletId": "my-wallet-id",
+  "accounts": [
+    "eip155:8453:0x...",
+    "tron:mainnet:T...",
+    "solana:mainnet:..."
+  ]
+}
+```
+
+- Requires agent API key authentication via `X-Agent-Key` header
+- `accounts` must be valid CAIP-10 format: `{namespace}:{reference}:{address}`
+- Maximum 20 accounts per registration
+- Replaces any prior OWS registration for this agent (upsert)
+- Returns `{ registered, agentId, walletId, accountCount, resolveUrl }`
+
+Supported namespaces:
+- `eip155` — EVM chains (Ethereum, Base, Polygon, etc.)
+- `tron` — Tron network
+- `solana` — Solana network
 
 ## API
 

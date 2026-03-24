@@ -21,6 +21,27 @@ export interface HandleIdentity {
   expiresAt: string | null;
 }
 
+export interface ChainMintInfo {
+  tokenId: string;
+  txHash: string;
+  mintedAt: string;
+  custodian: string;
+  contract?: string;
+}
+
+export interface OWSWallets {
+  evm: string[];
+  tron: string[];
+  solana: string[];
+}
+
+export interface WalletEntry {
+  type: string;
+  network: string;
+  address: string;
+  custodian?: string;
+}
+
 export interface ResolvedAgent {
   machineIdentity: MachineIdentity;
   handleIdentity: HandleIdentity | null;
@@ -41,19 +62,55 @@ export interface ResolvedAgent {
   verificationStatus: "unverified" | "pending" | "pending_verification" | "verified" | "failed";
   verificationMethod: string | null;
   verifiedAt: string | null;
-  status: "draft" | "active" | "inactive" | "suspended" | "pending_verification" | "revoked";
+  status: "active" | "grace_period" | "suspended" | "draft" | "inactive" | "pending_verification" | "revoked";
   avatarUrl: string | null;
   ownerKey: string | null;
   pricing: AgentPricing | null;
+  addresses: Record<string, string> | null;
+  wallets: WalletEntry[] | null;
+  owsWallets: OWSWallets | null;
+  chainPresence: Record<string, ChainMintInfo> | null;
   walletAddress: string | null;
   walletNetwork: string | null;
   paymentMethods: string[];
   metadata: Record<string, unknown> | null;
+  metadataUrl: string | null;
   tasksCompleted: number;
   createdAt: string;
   updatedAt: string;
   profileUrl: string;
   erc8004Uri: string | null;
+}
+
+export interface ReverseAddressHandle {
+  handle: string;
+  agentId: string;
+  relationship: "nft_owner" | "mpc_wallet" | "ows_registered";
+  resolveUrl: string;
+}
+
+export interface ReverseAddressResponse {
+  address: string;
+  addressType: "evm" | "tron" | "solana";
+  handles: ReverseAddressHandle[];
+  total: number;
+}
+
+export interface OWSRegistrationResponse {
+  registered: boolean;
+  agentId: string;
+  walletId: string;
+  accountCount: number;
+  resolveUrl: string;
+}
+
+export interface ChainMintResponse {
+  chain: string;
+  tokenId: string;
+  txHash: string;
+  contract?: string;
+  handle: string;
+  agentId: string;
 }
 
 export interface ResolveResponse {

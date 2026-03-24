@@ -148,6 +148,13 @@
       "when": 1774003200000,
       "tag": "0020_handle_foundations",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1742774400000,
+      "tag": "0021_ows_wallets_multi_chain",
+      "breakpoints": true
     }
   ]
 }

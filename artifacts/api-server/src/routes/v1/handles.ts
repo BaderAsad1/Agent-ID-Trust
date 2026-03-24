@@ -318,4 +318,143 @@ router.post("/auctions/:handle/bid", requireAuth, async (req, res, next) => {
   }
 });
 
+const mintChainSchema = z.object({
+  chain: z.enum(["tron"]),
+  paymentIntentId: z.string().optional(),
+});
+
+router.post("/:handle/mint-chain", requireAuth, async (req, res, next) => {
+  try {
+    const handle = req.params.handle as string;
+    const userId = req.userId!;
+
+    const multiChainEnabled = process.env.MULTI_CHAIN_ENABLED === "true";
+    if (!multiChainEnabled) {
+      res.status(501).json({
+        error: "MULTI_CHAIN_NOT_ENABLED",
+        message: "Multi-chain minting is not yet enabled",
+      });
+      return;
+    }
+
+    const parsed = mintChainSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid request body", parsed.error.issues);
+    }
+
+    const { chain, paymentIntentId: submittedPaymentIntentId } = parsed.data;
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: and(
+        eq(agentsTable.handle, handle),
+        eq(agentsTable.userId, userId),
+      ),
+      columns: {
+        id: true,
+        handle: true,
+        handleTier: true,
+        chainMints: true,
+        userId: true,
+      },
+    });
+
+    if (!agent) {
+      throw new AppError(404, "HANDLE_NOT_FOUND", `Handle "${handle}" not found or not owned by you`);
+    }
+
+    const tier = getHandleTier(handle);
+    const is3or4Char = tier.tier === "premium_3" || tier.tier === "premium_4";
+    if (!is3or4Char) {
+      throw new AppError(400, "INVALID_HANDLE_TIER", "Only 3-char and 4-char handles can be minted on additional chains");
+    }
+
+    const existingMints = (agent.chainMints as Record<string, unknown>) ?? {};
+    if (existingMints[chain]) {
+      throw new AppError(409, "ALREADY_MINTED", `Handle "${handle}" has already been minted on ${chain}`);
+    }
+
+    if (chain === "tron") {
+      const tronApiUrl = process.env.TRON_API_URL;
+      const tronKey = process.env.TRON_MINTER_PRIVATE_KEY;
+      const tronContract = process.env.TRON_CONTRACT_ADDRESS;
+      const tronTopic = process.env.TRON_HANDLE_MINTED_TOPIC;
+      const missing = [
+        !tronApiUrl && "TRON_API_URL",
+        !tronKey && "TRON_MINTER_PRIVATE_KEY",
+        !tronContract && "TRON_CONTRACT_ADDRESS",
+        !tronTopic && "TRON_HANDLE_MINTED_TOPIC",
+      ].filter(Boolean);
+      if (missing.length > 0) {
+        throw new AppError(503, "TRON_NOT_CONFIGURED", `Tron minting is not configured: missing ${missing.join(", ")}`);
+      }
+    }
+
+    const { getUserPlan } = await import("../../services/billing");
+    const plan = await getUserPlan(userId);
+    const isStarterPlan = plan === "none" || plan === "starter";
+
+    if (isStarterPlan) {
+      const stripe = getStripe();
+
+      if (submittedPaymentIntentId) {
+        const pi = await stripe.paymentIntents.retrieve(submittedPaymentIntentId);
+
+        if (pi.metadata?.type !== "chain_mint" || pi.metadata?.handle !== handle || pi.metadata?.chain !== chain || pi.metadata?.userId !== userId) {
+          throw new AppError(400, "INVALID_PAYMENT_INTENT", "Payment intent does not match this chain mint request");
+        }
+
+        if (pi.status !== "succeeded" && pi.status !== "requires_capture") {
+          throw new AppError(402, "PAYMENT_NOT_COMPLETE", `Payment intent is not in a completed state (status: ${pi.status}). Complete payment before minting.`);
+        }
+
+        logger.info({ handle, chain, paymentIntentId: submittedPaymentIntentId, plan }, "[handles] Payment verified for Starter chain mint, proceeding");
+      } else {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: 500,
+          currency: "usd",
+          metadata: {
+            type: "chain_mint",
+            handle,
+            chain,
+            userId,
+            agentId: agent.id,
+          },
+          description: `Chain mint for ${handle} on ${chain}`,
+        });
+
+        logger.info({ handle, chain, paymentIntentId: paymentIntent.id, plan }, "[handles] Created Stripe PaymentIntent for Starter chain mint");
+
+        res.status(402).json({
+          paymentRequired: true,
+          amount: 500,
+          currency: "usd",
+          paymentIntentId: paymentIntent.id,
+          message: `A $5 charge is required to mint "${handle}" on ${chain} for Starter plan users.`,
+          hint: "Complete payment using the paymentIntentId, then retry this request with { chain, paymentIntentId } to complete minting.",
+        });
+        return;
+      }
+    }
+
+    const { mintHandleOnTron, updateChainMintsTron } = await import("../../services/chains/tron");
+
+    logger.info({ handle, chain, agentId: agent.id }, "[handles] Starting chain mint");
+    const mintResult = await mintHandleOnTron(handle);
+    await updateChainMintsTron(agent.id, handle, mintResult);
+
+    logger.info({ handle, chain, tokenId: mintResult.tokenId, txHash: mintResult.txHash }, "[handles] Chain mint complete");
+
+    res.json({
+      chain,
+      tokenId: mintResult.tokenId,
+      txHash: mintResult.txHash,
+      contract: mintResult.contract,
+      handle,
+      agentId: agent.id,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

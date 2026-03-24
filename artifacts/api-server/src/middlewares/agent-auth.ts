@@ -144,7 +144,7 @@ function buildTrustContext(agent: Agent, scopes: string[] = []): NonNullable<Req
 const agentKeyStrategy: AgentAuthStrategy = {
   name: "agent-key",
   async authenticate(req: Request) {
-    const apiKey = req.headers["x-agent-key"] as string | undefined;
+    const apiKey = (req.headers["x-agent-key"] ?? req.headers["x-api-key"]) as string | undefined;
     if (!apiKey) return null;
 
     const hashed = hashKey(apiKey);

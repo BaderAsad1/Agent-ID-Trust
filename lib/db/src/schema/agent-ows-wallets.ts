@@ -4,6 +4,7 @@ import {
   varchar,
   text,
   boolean,
+  jsonb,
   timestamp,
   index,
   uniqueIndex,
@@ -21,8 +22,10 @@ export const agentOwsWalletsTable = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
+    walletId: varchar("wallet_id", { length: 255 }),
     network: varchar("network", { length: 50 }).notNull(),
     address: varchar("address", { length: 255 }).notNull(),
+    accounts: jsonb("accounts").$type<string[]>().default([]),
     providerWalletId: varchar("provider_wallet_id", { length: 255 }),
     providerPolicyId: varchar("provider_policy_id", { length: 255 }),
     isSelfCustodial: boolean("is_self_custodial").default(false).notNull(),
@@ -39,7 +42,7 @@ export const agentOwsWalletsTable = pgTable(
   (table) => [
     index("agent_ows_wallets_agent_id_idx").on(table.agentId),
     index("agent_ows_wallets_user_id_idx").on(table.userId),
-    uniqueIndex("agent_ows_wallets_agent_network_idx").on(table.agentId, table.network),
+    uniqueIndex("agent_ows_wallets_agent_idx").on(table.agentId),
     index("agent_ows_wallets_address_idx").on(table.address),
   ],
 );

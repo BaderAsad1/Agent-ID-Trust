@@ -91,6 +91,11 @@ const envSchema = z.object({
   // If unset in production, CORS is fail-closed: ALL cross-origin requests are denied.
   // This is intentional — a missing env var must never silently open CORS.
   ALLOWED_ORIGINS: z.string().optional(),
+
+  TRON_API_URL: z.string().optional(),
+  TRON_MINTER_PRIVATE_KEY: z.string().optional(),
+  TRON_CONTRACT_ADDRESS: z.string().optional(),
+  TRON_HANDLE_MINTED_TOPIC: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

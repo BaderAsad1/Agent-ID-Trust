@@ -1213,4 +1213,85 @@ router.post("/:agentId/transfer", requireAuth, validateUuidParam("agentId"), asy
   }
 });
 
+const owsWalletSchema = z.object({
+  walletId: z.string().min(1).max(255),
+  accounts: z.array(z.string()).min(1).max(20),
+});
+
+const CAIP2_NAMESPACE_RE = /^[-a-z0-9]{3,8}$/;
+const CAIP2_REFERENCE_RE = /^[-a-zA-Z0-9]{1,32}$/;
+
+function isValidCaip10(account: string): boolean {
+  const parts = account.split(":");
+  if (parts.length !== 3) return false;
+  const [namespace, reference, address] = parts;
+  if (!namespace || !reference || !address) return false;
+  if (!CAIP2_NAMESPACE_RE.test(namespace)) return false;
+  if (!CAIP2_REFERENCE_RE.test(reference)) return false;
+  if (address.length < 1 || address.length > 128) return false;
+  return true;
+}
+
+router.post("/:agentId/wallets/ows", requireAgentAuth, async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const authenticatedAgent = req.authenticatedAgent!;
+
+    if (authenticatedAgent.id !== agentId) {
+      throw new AppError(403, "FORBIDDEN", "You can only register OWS wallets for your own agent");
+    }
+
+    const parsed = owsWalletSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid OWS wallet registration payload", parsed.error.issues);
+    }
+
+    const { walletId, accounts } = parsed.data;
+
+    const invalidAccounts = accounts.filter((a) => !isValidCaip10(a));
+    if (invalidAccounts.length > 0) {
+      throw new AppError(400, "INVALID_CAIP10", `Invalid CAIP-10 account format: ${invalidAccounts.join(", ")}`);
+    }
+
+    const { agentOwsWalletsTable } = await import("@workspace/db/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const existing = await db.query.agentOwsWalletsTable.findFirst({
+      where: eq(agentOwsWalletsTable.agentId, agentId),
+    });
+
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
+
+    if (existing) {
+      await db
+        .update(agentOwsWalletsTable)
+        .set({
+          walletId,
+          accounts,
+          updatedAt: new Date(),
+        })
+        .where(eq(agentOwsWalletsTable.id, existing.id));
+    } else {
+      await db.insert(agentOwsWalletsTable).values({
+        agentId,
+        userId: authenticatedAgent.userId,
+        walletId,
+        network: "multi",
+        address: accounts[0] ?? "",
+        accounts,
+      });
+    }
+
+    res.json({
+      registered: true,
+      agentId,
+      walletId,
+      accountCount: accounts.length,
+      resolveUrl: `${APP_URL}/api/v1/resolve/${authenticatedAgent.handle ?? agentId}`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

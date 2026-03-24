@@ -6,9 +6,9 @@ import { assertSandboxIsolation } from "../../middlewares/sandbox";
 import { getAgentByHandle, getAgentById } from "../../services/agents";
 import { detectAgent } from "../../middlewares/cli-markdown";
 import { generateAgentProfileMarkdown } from "../../services/agent-markdown";
-import { eq, and, gte, desc as drizzleDesc, sql } from "drizzle-orm";
+import { eq, and, gte, desc as drizzleDesc, sql, or } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, agentKeysTable, marketplaceListingsTable, resolutionEventsTable } from "@workspace/db/schema";
+import { agentsTable, agentKeysTable, marketplaceListingsTable, resolutionEventsTable, agentOwsWalletsTable } from "@workspace/db/schema";
 import { normalizeHandle, formatHandle, formatDomain, formatProfileUrl, formatDID, formatResolverUrl } from "../../utils/handle";
 import { getResolutionCache, setResolutionCache, deleteResolutionCache } from "../../lib/resolution-cache";
 
@@ -87,14 +87,175 @@ async function getPricing(agentId: string): Promise<{ hasListing: true; priceTyp
   };
 }
 
+async function getOwsWallets(agentId: string): Promise<{
+  evm: string[];
+  tron: string[];
+  solana: string[];
+} | null> {
+  const owsRow = await db.query.agentOwsWalletsTable.findFirst({
+    where: eq(agentOwsWalletsTable.agentId, agentId),
+    columns: { accounts: true },
+  });
+
+  if (!owsRow || !owsRow.accounts || owsRow.accounts.length === 0) {
+    return null;
+  }
+
+  const grouped: { evm: string[]; tron: string[]; solana: string[] } = {
+    evm: [],
+    tron: [],
+    solana: [],
+  };
+
+  for (const account of owsRow.accounts) {
+    const parts = account.split(":");
+    if (parts.length < 3) continue;
+    const namespace = parts[0];
+    if (namespace === "eip155") {
+      grouped.evm.push(account);
+    } else if (namespace === "tron") {
+      grouped.tron.push(account);
+    } else if (namespace === "solana") {
+      grouped.solana.push(account);
+    }
+  }
+
+  const hasAny = grouped.evm.length > 0 || grouped.tron.length > 0 || grouped.solana.length > 0;
+  return hasAny ? grouped : null;
+}
+
+function buildChainPresence(agent: typeof agentsTable.$inferSelect): Record<string, unknown> | null {
+  const chainMints = agent.chainMints as Record<string, unknown> | null;
+  if (!chainMints || Object.keys(chainMints).length === 0) {
+    return null;
+  }
+  return chainMints;
+}
+
+const NETWORK_TO_CAIP_CHAIN: Record<string, string> = {
+  "base-mainnet": "eip155:8453",
+  "base": "eip155:8453",
+  "base-onchain": "eip155:8453",
+  "ethereum-mainnet": "eip155:1",
+  "ethereum": "eip155:1",
+  "polygon-mainnet": "eip155:137",
+  "polygon": "eip155:137",
+  "tron-mainnet": "tron:0x2b6653dc",
+  "tron": "tron:0x2b6653dc",
+  "solana-mainnet": "solana:4sGjMW1sUnHzSxGspuhpqLDx6wiyjNtZ",
+  "solana": "solana:4sGjMW1sUnHzSxGspuhpqLDx6wiyjNtZ",
+};
+
+function toCAIP10(network: string, address: string): string {
+  const chain = NETWORK_TO_CAIP_CHAIN[network] ?? `unknown:${network}`;
+  return `${chain}:${address}`;
+}
+
+function buildAddresses(
+  agent: typeof agentsTable.$inferSelect,
+  format?: string,
+): Record<string, string> | null {
+  const addresses: Record<string, string> = {};
+  if (agent.walletAddress) {
+    const network = agent.walletNetwork || "base-mainnet";
+    addresses[network] = format === "caip"
+      ? toCAIP10(network, agent.walletAddress)
+      : agent.walletAddress;
+  }
+  if (agent.onChainOwner) {
+    addresses["base-onchain"] = format === "caip"
+      ? toCAIP10("base-onchain", agent.onChainOwner)
+      : agent.onChainOwner;
+  }
+  return Object.keys(addresses).length > 0 ? addresses : null;
+}
+
+function buildWallets(agent: typeof agentsTable.$inferSelect, format?: string): unknown[] | null {
+  if (!agent.walletAddress) return null;
+  const network = agent.walletNetwork || "base-mainnet";
+  const address = format === "caip"
+    ? toCAIP10(network, agent.walletAddress)
+    : agent.walletAddress;
+
+  return [{
+    type: "mpc",
+    network,
+    address,
+    custodian: "coinbase-cdp",
+  }];
+}
+
+const CHAIN_ADDRESS_PREFIXES: Record<string, string[]> = {
+  base: ["base-", "base"],
+  evm: ["base-", "ethereum-", "polygon-", "evm-"],
+  tron: ["tron-", "tron"],
+  solana: ["solana-", "sol-"],
+};
+
+function applyChainFilter(
+  data: Record<string, unknown>,
+  chain: string | undefined,
+): Record<string, unknown> {
+  if (!chain) return data;
+
+  const chainPresence = data.chainPresence as Record<string, unknown> | null;
+  const filteredPresence = chainPresence && chainPresence[chain]
+    ? { [chain]: chainPresence[chain] }
+    : null;
+
+  const wallets = data.wallets as unknown[] | null;
+  const filteredWallets = chain === "base" || chain === "evm" ? wallets : null;
+
+  const owsWallets = data.owsWallets as Record<string, string[]> | null;
+  const filteredOws: Record<string, string[]> = {};
+  if (owsWallets) {
+    if (chain === "base" || chain === "evm") {
+      if (owsWallets.evm) filteredOws.evm = owsWallets.evm;
+    } else if (chain === "tron") {
+      if (owsWallets.tron) filteredOws.tron = owsWallets.tron;
+    } else if (chain === "solana") {
+      if (owsWallets.solana) filteredOws.solana = owsWallets.solana;
+    }
+  }
+
+  const addresses = data.addresses as Record<string, string> | null;
+  let filteredAddresses: Record<string, string> | null = null;
+  if (addresses) {
+    const prefixes = CHAIN_ADDRESS_PREFIXES[chain] ?? [`${chain}-`];
+    const filtered: Record<string, string> = {};
+    for (const [key, val] of Object.entries(addresses)) {
+      if (prefixes.some((p) => key.startsWith(p) || key === p.replace(/-$/, ""))) {
+        filtered[key] = val;
+      }
+    }
+    filteredAddresses = Object.keys(filtered).length > 0 ? filtered : null;
+  }
+
+  return {
+    ...data,
+    addresses: filteredAddresses,
+    chainPresence: filteredPresence,
+    wallets: filteredWallets,
+    owsWallets: Object.keys(filteredOws).length > 0 ? filteredOws : null,
+    walletAddress: chain === "base" || chain === "evm" ? data.walletAddress : null,
+    walletNetwork: chain === "base" || chain === "evm" ? data.walletNetwork : null,
+  };
+}
+
 function toResolvedAgent(
   agent: typeof agentsTable.$inferSelect,
   ownerKey: string | null,
   pricing: ({ hasListing: true; priceType: string; priceAmount: string | null; currency: string; deliveryHours: number | null; listingUrl: string } | { hasListing: false }),
+  owsWallets: { evm: string[]; tron: string[]; solana: string[] } | null,
+  format?: string,
 ) {
   const APP_URL = process.env.APP_URL || 'https://getagent.id';
   const hasHandle = agent.handlePaid && agent.handle;
   const handle = hasHandle ? normalizeHandle(agent.handle!) : null;
+
+  const addresses = buildAddresses(agent, format);
+  const wallets = buildWallets(agent, format);
+  const chainPresence = buildChainPresence(agent);
 
   return {
     machineIdentity: {
@@ -130,14 +291,23 @@ function toResolvedAgent(
     verificationStatus: agent.verificationStatus,
     verificationMethod: agent.verificationMethod,
     verifiedAt: agent.verifiedAt,
-    status: agent.status,
+    status: agent.handleStatus ?? agent.status,
     avatarUrl: agent.avatarUrl,
     ownerKey,
     pricing,
-    walletAddress: agent.walletAddress || null,
+    addresses,
+    wallets,
+    owsWallets,
+    chainPresence,
+    walletAddress: agent.walletAddress
+      ? (format === "caip"
+          ? toCAIP10(agent.walletNetwork || "base-mainnet", agent.walletAddress)
+          : agent.walletAddress)
+      : null,
     walletNetwork: agent.walletAddress ? (agent.walletNetwork || "base-mainnet") : null,
     paymentMethods: agent.paymentMethods || [],
     metadata: agent.metadata,
+    metadataUrl: handle ? `${APP_URL}/api/v1/resolve/${handle}` : `${APP_URL}/api/v1/resolve/id/${agent.id}`,
     tasksCompleted: agent.tasksCompleted,
     createdAt: agent.createdAt,
     updatedAt: agent.updatedAt,
@@ -154,17 +324,18 @@ function toResolvedAgent(
   };
 }
 
-async function enrichAndResolve(agent: typeof agentsTable.$inferSelect) {
-  const [ownerKey, pricing, lineage, keys] = await Promise.all([
+async function enrichAndResolve(agent: typeof agentsTable.$inferSelect, format?: string) {
+  const [ownerKey, pricing, lineage, keys, owsWallets] = await Promise.all([
     getOwnerKey(agent.id),
     getPricing(agent.id),
     getLineageBlock(agent),
     getActiveKeys(agent.id),
+    getOwsWallets(agent.id),
   ]);
   const meta = (agent.metadata as Record<string, unknown> | null) ?? {};
   const agentIsSandbox = agent.handle?.startsWith("sandbox-") || meta.isSandbox === true;
   return {
-    ...toResolvedAgent(agent, ownerKey, pricing),
+    ...toResolvedAgent(agent, ownerKey, pricing, owsWallets, format),
     ...(agentIsSandbox ? { sandboxRef: `sandbox_${agent.id}`, isSandbox: true } : {}),
     lineage,
     publicKeys: keys.map(k => ({
@@ -243,10 +414,161 @@ router.get("/id/:agentId", async (req: Request, res: Response, next: NextFunctio
 
     assertSandboxIsolation(req, agent);
 
-    const resolved = await enrichAndResolve(agent);
+    const format = req.query.format as string | undefined;
+    const chain = req.query.chain as string | undefined;
+    let resolved = await enrichAndResolve(agent, format);
+    if (chain) {
+      resolved = applyChainFilter(resolved as unknown as Record<string, unknown>, chain) as typeof resolved;
+    }
 
     res.setHeader("Cache-Control", "public, max-age=60");
     res.json({ resolved: true, agent: resolved });
+  } catch (err) {
+    next(err);
+  }
+});
+
+function isEvmAddress(addr: string): boolean {
+  return /^0x[0-9a-fA-F]{40}$/.test(addr);
+}
+
+function isTronAddress(addr: string): boolean {
+  return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(addr);
+}
+
+function isSolanaAddress(addr: string): boolean {
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr) && !isTronAddress(addr);
+}
+
+router.get("/address/:address", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const address = req.params.address as string;
+
+    const isEvm = isEvmAddress(address);
+    const isTron = !isEvm && isTronAddress(address);
+    const isSolana = !isEvm && !isTron && isSolanaAddress(address);
+
+    if (!isEvm && !isTron && !isSolana) {
+      throw new AppError(400, "INVALID_ADDRESS", "Address must be an EVM (0x...), Tron (T...), or Solana (base58) address");
+    }
+
+    type RelationshipType = "nft_owner" | "mpc_wallet" | "ows_registered";
+
+    interface MatchedHandle {
+      handle: string;
+      agentId: string;
+      relationship: RelationshipType;
+    }
+
+    const matches: MatchedHandle[] = [];
+    const seenRelationships = new Set<string>();
+    const addressLower = address.toLowerCase();
+    const addressExact = address;
+
+    function addMatch(handle: string, agentId: string, relationship: RelationshipType): void {
+      const key = `${agentId}:${relationship}`;
+      if (!seenRelationships.has(key)) {
+        seenRelationships.add(key);
+        matches.push({ handle, agentId, relationship });
+      }
+    }
+
+    if (isEvm) {
+      const mpcAgents = await db.query.agentsTable.findMany({
+        where: and(
+          sql`lower(${agentsTable.walletAddress}) = ${addressLower}`,
+          eq(agentsTable.status, "active"),
+        ),
+        columns: { handle: true, id: true },
+      });
+
+      for (const a of mpcAgents) {
+        if (a.handle) addMatch(a.handle, a.id, "mpc_wallet");
+      }
+
+      const nftOwnerAgents = await db.query.agentsTable.findMany({
+        where: and(
+          sql`lower(${agentsTable.onChainOwner}) = ${addressLower}`,
+          eq(agentsTable.status, "active"),
+        ),
+        columns: { handle: true, id: true },
+      });
+
+      for (const a of nftOwnerAgents) {
+        if (a.handle) addMatch(a.handle, a.id, "nft_owner");
+      }
+    }
+
+    const chainMintsAgents = await db.query.agentsTable.findMany({
+      where: and(
+        sql`${agentsTable.chainMints} IS NOT NULL AND ${agentsTable.chainMints}::text != '{}'`,
+        eq(agentsTable.status, "active"),
+      ),
+      columns: { handle: true, id: true, chainMints: true },
+    });
+
+    for (const a of chainMintsAgents) {
+      if (!a.handle) continue;
+      const mints = (a.chainMints as Record<string, unknown>) ?? {};
+      for (const [chain, chainData] of Object.entries(mints)) {
+        if (!chainData || typeof chainData !== "object") continue;
+        const mintEntry = chainData as Record<string, unknown>;
+        const ownerAddr = typeof mintEntry.owner === "string" ? mintEntry.owner : null;
+        if (!ownerAddr) continue;
+
+        const isEvmChain = chain === "base" || chain === "ethereum" || chain === "polygon";
+        const addressMatch = isEvmChain
+          ? ownerAddr.toLowerCase() === addressLower
+          : ownerAddr === addressExact;
+
+        if (addressMatch) {
+          addMatch(a.handle, a.id, "nft_owner");
+        }
+      }
+    }
+
+    const owsRows = await db.query.agentOwsWalletsTable.findMany({
+      columns: { agentId: true, accounts: true },
+    });
+
+    for (const row of owsRows) {
+      const accounts = row.accounts ?? [];
+      const matched = accounts.some((acc: string) => {
+        const parts = acc.split(":");
+        if (parts.length < 3) return false;
+        const namespace = parts[0];
+        const accAddress = parts[parts.length - 1];
+        const isEvmNamespace = namespace === "eip155";
+        if (isEvmNamespace) {
+          return accAddress.toLowerCase() === addressLower;
+        }
+        return accAddress === addressExact;
+      });
+
+      if (matched) {
+        const agent = await db.query.agentsTable.findFirst({
+          where: and(eq(agentsTable.id, row.agentId), eq(agentsTable.status, "active")),
+          columns: { handle: true, id: true },
+        });
+        if (agent?.handle) {
+          addMatch(agent.handle, agent.id, "ows_registered");
+        }
+      }
+    }
+
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
+
+    res.json({
+      address,
+      addressType: isEvm ? "evm" : isTron ? "tron" : "solana",
+      handles: matches.map((m) => ({
+        handle: m.handle,
+        agentId: m.agentId,
+        relationship: m.relationship,
+        resolveUrl: `${APP_URL}/api/v1/resolve/${m.handle}`,
+      })),
+      total: matches.length,
+    });
   } catch (err) {
     next(err);
   }
@@ -264,8 +586,11 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
       return;
     }
 
+    const format = req.query.format as string | undefined;
+    const chain = req.query.chain as string | undefined;
+
     const cached = await getResolutionCache(handle);
-    if (cached && !wantsMarkdown(req)) {
+    if (cached && !wantsMarkdown(req) && !format && !chain) {
       const responseTimeMs = Date.now() - startTime;
       logResolutionEvent(handle, null, "machine", responseTimeMs, "HIT");
       res.setHeader("X-Cache", "HIT");
@@ -292,7 +617,7 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
           reason: agent.revocationReason,
           statement: agent.revocationStatement,
           did: `did:agentid:${revokedHandle}`,
-          recordUrl: `${APP_URL}/api/v1/resolve/${revokedHandle}`,
+          recordUrl: `${(process.env.APP_URL || "https://getagent.id")}/api/v1/resolve/${revokedHandle}`,
         },
       });
       return;
@@ -313,7 +638,10 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
       throw new AppError(404, "AGENT_NOT_FOUND", `No agent found for handle "${handle}"`);
     }
 
-    const resolved = await enrichAndResolve(agent);
+    let resolved = await enrichAndResolve(agent, format);
+    if (chain) {
+      resolved = applyChainFilter(resolved as unknown as Record<string, unknown>, chain) as typeof resolved;
+    }
 
     if (wantsMarkdown(req)) {
       const md = generateAgentProfileMarkdown(resolved);
@@ -330,7 +658,9 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
       agent: resolved,
     };
 
-    await setResolutionCache(handle, responseBody);
+    if (!format && !chain) {
+      await setResolutionCache(handle, responseBody);
+    }
 
     const responseTimeMs = Date.now() - startTime;
     logResolutionEvent(handle, agent.id, "machine", responseTimeMs, "MISS");
@@ -497,7 +827,7 @@ export async function handleAgentDiscovery(req: Request, res: Response, next: Ne
       .from(agentsTable)
       .where(whereClause!);
 
-    const enriched = await Promise.all(agents.map(enrichAndResolve));
+    const enriched = await Promise.all(agents.map(a => enrichAndResolve(a)));
 
     res.json({
       agents: enriched,
