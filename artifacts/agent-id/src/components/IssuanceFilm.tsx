@@ -118,67 +118,6 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-function MobileStickySection({ children, minHeight = '200vh', fadeOut = true }: {
-  children: (progress: number) => React.ReactNode;
-  minHeight?: string;
-  fadeOut?: boolean;
-}) {
-  const outerRef = useRef<HTMLDivElement>(null);
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const el = outerRef.current;
-    if (!el) return;
-    let ticking = false;
-    const update = () => {
-      const vh = window.innerHeight;
-      const top = el.offsetTop;
-      const height = el.offsetHeight;
-      const scrollY = window.scrollY;
-      const adjustedStart = top - vh;
-      const range = Math.max(1, height);
-      setProgress(Math.max(0, Math.min(1, (scrollY - adjustedStart) / range)));
-      ticking = false;
-    };
-    const onScroll = () => {
-      if (!ticking) { ticking = true; requestAnimationFrame(update); }
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    update();
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  const fadeT = fadeOut && progress > 0.90 ? (progress - 0.90) / 0.10 : 0;
-
-  return (
-    <section
-      ref={outerRef}
-      style={{
-        position: 'relative',
-        minHeight,
-        marginTop: '-15vh',
-        background: 'linear-gradient(to bottom, transparent 0%, #050711 12vh)',
-        zIndex: 2,
-      }}
-    >
-      <div style={{
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: 1 - fadeT,
-        transform: fadeT > 0
-          ? `scale(${lerp(1, 0.97, fadeT)}) translateY(${lerp(0, -20, fadeT)}px)`
-          : undefined,
-      }}>
-        {children(progress)}
-      </div>
-    </section>
-  );
-}
 
 function GrainOverlay() {
   return (
@@ -762,14 +701,9 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
   const titleTranslateY = lerp(40, 0, titleT);
 
   if (isMobile) {
-    const mt = Math.max(0, Math.min(1, (anatomyProgress - 0.06) / 0.12));
-    const ms = (index: number) => {
-      const s = 0.14 + index * 0.06;
-      return Math.max(0, Math.min(1, (anatomyProgress - s) / 0.12));
-    };
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
-        <div style={{ textAlign: 'center', marginBottom: 28, opacity: mt, transform: `translateY(${lerp(30, 0, mt)}px)` }}>
+        <div style={{ textAlign: 'center', marginBottom: 28, opacity: titleOpacity, transform: `translateY(${titleTranslateY}px)` }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>THE AGENT CREDENTIAL</div>
           <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
             One credential.{' '}
@@ -781,7 +715,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {ANATOMY_LAYERS.map((layer, i) => {
-            const p = ms(i);
+            const p = stagger(i);
             return (
               <div key={layer.id} style={{
                 padding: '12px 14px 12px 16px',
@@ -1005,14 +939,9 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
   const spineOpacity = Math.max(0, Math.min(1, (unlocksProgress - 0.25) / 0.15));
 
   if (isMobile) {
-    const mt = Math.max(0, Math.min(1, (unlocksProgress - 0.06) / 0.12));
-    const mc = (index: number) => {
-      const s = 0.16 + index * 0.08;
-      return Math.max(0, Math.min(1, (unlocksProgress - s) / 0.12));
-    };
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
-        <div style={{ textAlign: 'center', marginBottom: 28, opacity: mt, transform: `translateY(${lerp(30, 0, mt)}px)` }}>
+        <div style={{ textAlign: 'center', marginBottom: 28, opacity: titleOpacity, transform: `translateY(${titleTranslateY}px)` }}>
           <div style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
             letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
@@ -1038,7 +967,8 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {UNLOCK_CHANNELS.map((ch, i) => {
-            const p = mc(i);
+            const chStart = 0.38 + i * 0.09;
+            const chT = Math.max(0, Math.min(1, (unlocksProgress - chStart) / 0.14));
             return (
               <div key={ch.id} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
@@ -1046,8 +976,8 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
                 border: `1px solid ${ch.color}20`,
                 borderRadius: 10,
                 padding: '12px 16px',
-                opacity: p,
-                transform: `translateY(${lerp(16, 0, p)}px)`,
+                opacity: chT,
+                transform: `translateY(${lerp(16, 0, chT)}px)`,
               }}>
                 <div style={{
                   width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
@@ -1333,14 +1263,9 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
   const titleT = Math.max(0, Math.min(1, (outcomeProgress - 0.20) / 0.14));
 
   if (isMobile) {
-    const mt = Math.max(0, Math.min(1, (outcomeProgress - 0.06) / 0.12));
-    const mi = (index: number) => {
-      const s = 0.16 + index * 0.10;
-      return Math.max(0, Math.min(1, (outcomeProgress - s) / 0.12));
-    };
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
-        <div style={{ textAlign: 'center', marginBottom: 24, opacity: mt, transform: `translateY(${lerp(30, 0, mt)}px)` }}>
+        <div style={{ textAlign: 'center', marginBottom: 24, opacity: titleT, transform: `translateY(${(1 - titleT) * 30}px)` }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>WHAT YOUR AGENT GETS</div>
           <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
             Everything it needs to be{' '}
@@ -1349,15 +1274,16 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {OUTCOME_ITEMS.map((item, i) => {
-            const p = mi(i);
+            const itemStart = 0.32 + i * 0.1;
+            const itemT = Math.max(0, Math.min(1, (outcomeProgress - itemStart) / 0.12));
             return (
               <div key={item.label} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 14,
                 background: 'rgba(8,10,22,0.9)',
                 border: `1px solid ${item.color}18`,
                 borderRadius: 12, padding: '14px 16px',
-                opacity: p,
-                transform: `translateY(${lerp(16, 0, p)}px)`,
+                opacity: itemT,
+                transform: `translateY(${(1 - itemT) * 16}px)`,
               }}>
                 <div style={{ fontSize: 20, color: item.color, flexShrink: 0, lineHeight: 1.3 }}>{item.icon}</div>
                 <div>
@@ -1486,15 +1412,9 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
   ];
 
   if (isMobile) {
-    const mt = Math.max(0, Math.min(1, (verificationProgress - 0.06) / 0.12));
-    const mCode = Math.max(0, Math.min(1, (verificationProgress - 0.18) / 0.14));
-    const mf = (index: number) => {
-      const s = 0.34 + index * 0.08;
-      return Math.max(0, Math.min(1, (verificationProgress - s) / 0.12));
-    };
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
-        <div style={{ textAlign: 'center', marginBottom: 24, opacity: mt, transform: `translateY(${lerp(30, 0, mt)}px)` }}>
+        <div style={{ textAlign: 'center', marginBottom: 24, opacity: titleT, transform: `translateY(${(1 - titleT) * 30}px)` }}>
           <div style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
             letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
@@ -1524,8 +1444,8 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
           borderRadius: 14,
           overflow: 'hidden',
           marginBottom: 16,
-          opacity: mCode,
-          transform: `translateY(${lerp(20, 0, mCode)}px)`,
+          opacity: codeT,
+          transform: `translateY(${(1 - codeT) * 20}px)`,
         }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
@@ -1553,15 +1473,16 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {VERIFY_FEATURES.map((feat, i) => {
-            const p = mf(i);
+            const fStart = 0.35 + i * 0.08;
+            const fT = Math.max(0, Math.min(1, (verificationProgress - fStart) / 0.12));
             return (
               <div key={feat.label} style={{
                 background: 'rgba(8,10,22,0.9)',
                 border: '1px solid rgba(79,125,243,0.1)',
                 borderRadius: 10,
                 padding: '12px 16px',
-                opacity: p,
-                transform: `translateY(${lerp(16, 0, p)}px)`,
+                opacity: fT,
+                transform: `translateY(${(1 - fT) * 16}px)`,
               }}>
                 <div style={{
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
@@ -1737,14 +1658,9 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
   const titleT = Math.max(0, Math.min(1, (devToolingProgress - 0.22) / 0.14));
 
   if (isMobile) {
-    const mt = Math.max(0, Math.min(1, (devToolingProgress - 0.06) / 0.12));
-    const mTool = (index: number) => {
-      const s = 0.16 + index * 0.07;
-      return Math.max(0, Math.min(1, (devToolingProgress - s) / 0.12));
-    };
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
-        <div style={{ textAlign: 'center', marginBottom: 24, opacity: mt, transform: `translateY(${lerp(30, 0, mt)}px)` }}>
+        <div style={{ textAlign: 'center', marginBottom: 24, opacity: titleT, transform: `translateY(${(1 - titleT) * 30}px)` }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>BUILT FOR INTEGRATION</div>
           <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
             Connect from{' '}
@@ -1756,15 +1672,16 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {DEV_TOOLS.map((tool, i) => {
-            const p = mTool(i);
+            const tStart = 0.33 + i * 0.08;
+            const tT = Math.max(0, Math.min(1, (devToolingProgress - tStart) / 0.12));
             return (
               <div key={tool.label} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 background: 'rgba(8,10,22,0.9)',
                 border: `1px solid ${tool.color}18`,
                 borderRadius: 10, padding: '12px 14px',
-                opacity: p,
-                transform: `translateY(${lerp(14, 0, p)}px)`,
+                opacity: tT,
+                transform: `translateY(${(1 - tT) * 14}px)`,
               }}>
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: tool.color, marginBottom: 3 }}>{tool.label}</div>
@@ -1891,18 +1808,14 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
   const mobileBtns = Math.max(0, Math.min(1, (ctaProgress - 0.45) / 0.18));
 
   if (isMobile) {
-    const mLabel = Math.max(0, Math.min(1, ctaProgress / 0.10));
-    const mTitle = Math.max(0, Math.min(1, (ctaProgress - 0.08) / 0.14));
-    const mBody = Math.max(0, Math.min(1, (ctaProgress - 0.20) / 0.14));
-    const mBtn = Math.max(0, Math.min(1, (ctaProgress - 0.32) / 0.14));
     return (
       <div style={{ padding: '56px 20px 72px', textAlign: 'center', boxSizing: 'border-box', width: '100%' }}>
-        <div style={{ opacity: mLabel, transform: `translateY(${lerp(20, 0, mLabel)}px)` }}>
+        <div style={{ opacity: mobileLabel, transform: `translateY(${(1 - mobileLabel) * 20}px)` }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 16 }}>
             AGENT ID PROTOCOL
           </div>
         </div>
-        <div style={{ opacity: mTitle, transform: `translateY(${lerp(30, 0, mTitle)}px)` }}>
+        <div style={{ opacity: mobileTitle, transform: `translateY(${(1 - mobileTitle) * 30}px)` }}>
           <h2 style={{
             fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(26px, 8vw, 40px)',
             fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.1, color: '#e8e8f0', marginBottom: 16,
@@ -1911,7 +1824,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
             <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Enter the network.</span>
           </h2>
         </div>
-        <div style={{ opacity: mBody, transform: `translateY(${lerp(20, 0, mBody)}px)` }}>
+        <div style={{ opacity: mobileBody, transform: `translateY(${(1 - mobileBody) * 20}px)` }}>
           <p style={{
             fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.65,
             color: 'rgba(232,232,240,0.38)', marginBottom: 32,
@@ -1919,7 +1832,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
             Claim your .AgentID handle and become verifiable. Every agent that joins strengthens the trust fabric for all of them.
           </p>
         </div>
-        <div style={{ opacity: mBtn, transform: `translateY(${lerp(16, 0, mBtn)}px)` }}>
+        <div style={{ opacity: mobileBtns, transform: `translateY(${(1 - mobileBtns) * 16}px)` }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
             <button onClick={() => {
               const base = import.meta.env.BASE_URL || '/';
@@ -2541,169 +2454,143 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      {isMobile ? (
-        <>
-          <MobileStickySection minHeight="200vh">
-            {(p) => <AnatomySection anatomyProgress={p} />}
-          </MobileStickySection>
-          <MobileStickySection minHeight="180vh">
-            {(p) => <OutcomeStripSection outcomeProgress={p} />}
-          </MobileStickySection>
-          <MobileStickySection minHeight="190vh">
-            {(p) => <SystemActivationSection unlocksProgress={p} />}
-          </MobileStickySection>
-          <MobileStickySection minHeight="200vh">
-            {(p) => <VerificationAPISection verificationProgress={p} />}
-          </MobileStickySection>
-          <MobileStickySection minHeight="180vh">
-            {(p) => <DevToolingSection devToolingProgress={p} />}
-          </MobileStickySection>
-          <MobileStickySection minHeight="140vh" fadeOut={false}>
-            {(p) => <CTASection ctaProgress={p} onNavigate={onNavigate} />}
-          </MobileStickySection>
-        </>
-      ) : (
-        /* ── Desktop: sticky scroll-film ── */
-        <>
-          <section ref={sectionRefs.outcome as React.RefObject<HTMLElement>} className="outcome-section-outer" style={{
-            position: 'relative',
-            minHeight: '220vh',
-            marginTop: '-20vh',
-            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-            zIndex: 2,
-          }}>
-            <div className="outcome-sticky-container" style={{
-              position: 'sticky',
-              top: 0,
-              height: '100vh',
-              overflow: 'hidden',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: scroll.outcomeProgress > 0.92
-                ? lerp(1, 0, (scroll.outcomeProgress - 0.92) / 0.08)
-                : 1,
-              transform: scroll.outcomeProgress > 0.92
-                ? `scale(${lerp(1, 0.97, (scroll.outcomeProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.outcomeProgress - 0.92) / 0.08)}px)`
-                : undefined,
-            }}>
-              <OutcomeStripSection outcomeProgress={scroll.outcomeProgress} />
-            </div>
-          </section>
+      <section ref={sectionRefs.outcome as React.RefObject<HTMLElement>} className="outcome-section-outer" style={{
+        position: 'relative',
+        minHeight: isMobile ? '200vh' : '220vh',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+        zIndex: 2,
+      }}>
+        <div className="outcome-sticky-container" style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.outcomeProgress > 0.92
+            ? lerp(1, 0, (scroll.outcomeProgress - 0.92) / 0.08)
+            : 1,
+          transform: scroll.outcomeProgress > 0.92
+            ? `scale(${lerp(1, 0.97, (scroll.outcomeProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.outcomeProgress - 0.92) / 0.08)}px)`
+            : undefined,
+        }}>
+          <OutcomeStripSection outcomeProgress={scroll.outcomeProgress} />
+        </div>
+      </section>
 
-          <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} className="anatomy-section-outer" style={{
-            position: 'relative',
-            minHeight: '300vh',
-            marginTop: '-20vh',
-            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-            zIndex: 3,
-          }}>
-            <div className="anatomy-sticky-container" style={{
-              position: 'sticky',
-              top: 0,
-              height: '100vh',
-              overflow: 'hidden',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: scroll.anatomyProgress > 0.92
-                ? lerp(1, 0, (scroll.anatomyProgress - 0.92) / 0.08)
-                : 1,
-              transform: scroll.anatomyProgress > 0.92
-                ? `scale(${lerp(1, 0.97, (scroll.anatomyProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.anatomyProgress - 0.92) / 0.08)}px)`
-                : undefined,
-            }}>
-              <AnatomySection anatomyProgress={scroll.anatomyProgress} />
-            </div>
-          </section>
+      <section ref={sectionRefs.anatomy as React.RefObject<HTMLElement>} className="anatomy-section-outer" style={{
+        position: 'relative',
+        minHeight: isMobile ? '250vh' : '300vh',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+        zIndex: 3,
+      }}>
+        <div className="anatomy-sticky-container" style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.anatomyProgress > 0.92
+            ? lerp(1, 0, (scroll.anatomyProgress - 0.92) / 0.08)
+            : 1,
+          transform: scroll.anatomyProgress > 0.92
+            ? `scale(${lerp(1, 0.97, (scroll.anatomyProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.anatomyProgress - 0.92) / 0.08)}px)`
+            : undefined,
+        }}>
+          <AnatomySection anatomyProgress={scroll.anatomyProgress} />
+        </div>
+      </section>
 
-          <section ref={sectionRefs.unlocks as React.RefObject<HTMLElement>} className="activation-section-outer" style={{
-            position: 'relative',
-            minHeight: '280vh',
-            marginTop: '-20vh',
-            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-            zIndex: 4,
-          }}>
-            <div className="activation-sticky-container" style={{
-              position: 'sticky',
-              top: 0,
-              height: '100vh',
-              overflow: 'hidden',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: scroll.unlocksProgress > 0.92
-                ? lerp(1, 0, (scroll.unlocksProgress - 0.92) / 0.08)
-                : 1,
-              transform: scroll.unlocksProgress > 0.92
-                ? `scale(${lerp(1, 0.97, (scroll.unlocksProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.unlocksProgress - 0.92) / 0.08)}px)`
-                : undefined,
-            }}>
-              <SystemActivationSection unlocksProgress={scroll.unlocksProgress} />
-            </div>
-          </section>
+      <section ref={sectionRefs.unlocks as React.RefObject<HTMLElement>} className="activation-section-outer" style={{
+        position: 'relative',
+        minHeight: isMobile ? '220vh' : '280vh',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+        zIndex: 4,
+      }}>
+        <div className="activation-sticky-container" style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.unlocksProgress > 0.92
+            ? lerp(1, 0, (scroll.unlocksProgress - 0.92) / 0.08)
+            : 1,
+          transform: scroll.unlocksProgress > 0.92
+            ? `scale(${lerp(1, 0.97, (scroll.unlocksProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.unlocksProgress - 0.92) / 0.08)}px)`
+            : undefined,
+        }}>
+          <SystemActivationSection unlocksProgress={scroll.unlocksProgress} />
+        </div>
+      </section>
 
-          <section ref={sectionRefs.verification as React.RefObject<HTMLElement>} className="verification-section-outer" style={{
-            position: 'relative',
-            minHeight: '260vh',
-            marginTop: '-20vh',
-            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-            zIndex: 5,
-          }}>
-            <div className="verification-sticky-container" style={{
-              position: 'sticky',
-              top: 0,
-              height: '100vh',
-              overflow: 'hidden',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: scroll.verificationProgress > 0.92
-                ? lerp(1, 0, (scroll.verificationProgress - 0.92) / 0.08)
-                : 1,
-              transform: scroll.verificationProgress > 0.92
-                ? `scale(${lerp(1, 0.97, (scroll.verificationProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.verificationProgress - 0.92) / 0.08)}px)`
-                : undefined,
-            }}>
-              <VerificationAPISection verificationProgress={scroll.verificationProgress} />
-            </div>
-          </section>
+      <section ref={sectionRefs.verification as React.RefObject<HTMLElement>} className="verification-section-outer" style={{
+        position: 'relative',
+        minHeight: isMobile ? '240vh' : '260vh',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+        zIndex: 5,
+      }}>
+        <div className="verification-sticky-container" style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.verificationProgress > 0.92
+            ? lerp(1, 0, (scroll.verificationProgress - 0.92) / 0.08)
+            : 1,
+          transform: scroll.verificationProgress > 0.92
+            ? `scale(${lerp(1, 0.97, (scroll.verificationProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.verificationProgress - 0.92) / 0.08)}px)`
+            : undefined,
+        }}>
+          <VerificationAPISection verificationProgress={scroll.verificationProgress} />
+        </div>
+      </section>
 
-          <section ref={sectionRefs.devTooling as React.RefObject<HTMLElement>} className="devtooling-section-outer" style={{
-            position: 'relative',
-            minHeight: '220vh',
-            marginTop: '-20vh',
-            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-            zIndex: 6,
-          }}>
-            <div className="devtooling-sticky-container" style={{
-              position: 'sticky',
-              top: 0,
-              height: '100vh',
-              overflow: 'hidden',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: scroll.devToolingProgress > 0.92
-                ? lerp(1, 0, (scroll.devToolingProgress - 0.92) / 0.08)
-                : 1,
-              transform: scroll.devToolingProgress > 0.92
-                ? `scale(${lerp(1, 0.97, (scroll.devToolingProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.devToolingProgress - 0.92) / 0.08)}px)`
-                : undefined,
-            }}>
-              <DevToolingSection devToolingProgress={scroll.devToolingProgress} />
-            </div>
-          </section>
+      <section ref={sectionRefs.devTooling as React.RefObject<HTMLElement>} className="devtooling-section-outer" style={{
+        position: 'relative',
+        minHeight: isMobile ? '200vh' : '220vh',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+        zIndex: 6,
+      }}>
+        <div className="devtooling-sticky-container" style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: scroll.devToolingProgress > 0.92
+            ? lerp(1, 0, (scroll.devToolingProgress - 0.92) / 0.08)
+            : 1,
+          transform: scroll.devToolingProgress > 0.92
+            ? `scale(${lerp(1, 0.97, (scroll.devToolingProgress - 0.92) / 0.08)}) translateY(${lerp(0, -30, (scroll.devToolingProgress - 0.92) / 0.08)}px)`
+            : undefined,
+        }}>
+          <DevToolingSection devToolingProgress={scroll.devToolingProgress} />
+        </div>
+      </section>
 
-          <section id="get-started" ref={sectionRefs.cta as React.RefObject<HTMLElement>} className="cta-section-outer" style={{
-            position: 'relative',
-            minHeight: '160vh',
-            marginTop: '-20vh',
-            background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
-            zIndex: 7,
-          }}>
-            <div className="cta-sticky-container" style={{
-              position: 'sticky',
-              top: 0,
-              height: '100vh',
-              overflow: 'hidden',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <CTASection ctaProgress={scroll.ctaProgress} onNavigate={onNavigate} />
-            </div>
-          </section>
-        </>
-      )}
+      <section id="get-started" ref={sectionRefs.cta as React.RefObject<HTMLElement>} className="cta-section-outer" style={{
+        position: 'relative',
+        minHeight: isMobile ? '140vh' : '160vh',
+        marginTop: '-20vh',
+        background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
+        zIndex: 7,
+      }}>
+        <div className="cta-sticky-container" style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <CTASection ctaProgress={scroll.ctaProgress} onNavigate={onNavigate} />
+        </div>
+      </section>
 
       <footer className="film-footer" style={{
         borderTop: '1px solid rgba(255,255,255,0.04)',
