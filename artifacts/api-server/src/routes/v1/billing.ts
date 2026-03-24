@@ -16,6 +16,9 @@ import {
   cancelSubscription,
   getCustomerPortalUrl,
   getPriceIdFromPlan,
+  createCryptoCheckoutSession,
+  getHandlePriceCents,
+  pollForCryptoPayment,
 } from "../../services/billing";
 import { logActivity } from "../../services/activity-logger";
 import { validateHandle } from "../../services/agents";
@@ -295,6 +298,106 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
     const message = err instanceof Error ? err.message : "";
     if (message === "STRIPE_SECRET_KEY is not configured") {
       return next(new AppError(503, "STRIPE_NOT_CONFIGURED", "Payment processing is not yet configured. Handle registered with payment pending."));
+    }
+    next(err);
+  }
+});
+
+const cryptoCheckoutSchema = z.object({
+  handle: z.string().min(3).max(100),
+  agentId: z.string().uuid().optional(),
+  token: z.enum(["USDC", "USDT"]).default("USDC"),
+});
+
+router.post("/crypto-checkout", async (req, res, next) => {
+  try {
+    let userId: string | null = null;
+
+    if (req.userId) {
+      userId = req.userId;
+    } else {
+      const apiKey = req.headers["x-api-key"] as string | undefined;
+      if (apiKey) {
+        const { db } = await import("@workspace/db");
+        const { apiKeysTable } = await import("@workspace/db/schema");
+        const { eq, and, isNull } = await import("drizzle-orm");
+        const { createHash } = await import("crypto");
+        const hashedKeyValue = createHash("sha256").update(apiKey).digest("hex");
+        const keyRow = await db.query.apiKeysTable.findFirst({
+          where: and(eq(apiKeysTable.hashedKey, hashedKeyValue), isNull(apiKeysTable.revokedAt)),
+          columns: { ownerId: true, ownerType: true },
+        });
+        if (keyRow?.ownerType === "user" && keyRow.ownerId) {
+          userId = keyRow.ownerId;
+        }
+      }
+    }
+
+    if (!userId) {
+      throw new AppError(401, "UNAUTHORIZED", "Authentication required. Provide session cookie or X-API-Key.");
+    }
+
+    const body = cryptoCheckoutSchema.parse(req.body);
+    const normalizedHandle = body.handle.toLowerCase();
+
+    const handleError = validateHandle(normalizedHandle);
+    if (handleError) {
+      throw new AppError(400, "INVALID_HANDLE", handleError);
+    }
+
+    if (isHandleReserved(normalizedHandle)) {
+      throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
+    }
+
+    const handleLen = normalizedHandle.replace(/[^a-z0-9]/g, "").length;
+    if (handleLen > 4) {
+      throw new AppError(400, "NOT_ELIGIBLE", "Crypto checkout is only available for 3-4 character (premium) handles");
+    }
+
+    const platformWallet = process.env.BASE_PLATFORM_WALLET;
+    if (!platformWallet) {
+      throw new AppError(503, "CRYPTO_PAYMENTS_UNAVAILABLE", "Crypto payments are not configured. Use Stripe checkout instead.");
+    }
+
+    const session = await createCryptoCheckoutSession(normalizedHandle, userId, body.token);
+
+    res.json(session);
+  } catch (err: unknown) {
+    if (err instanceof AppError) return next(err);
+    if (err instanceof z.ZodError) {
+      return next(new AppError(400, "VALIDATION_ERROR", "Invalid input", err.issues));
+    }
+    next(err);
+  }
+});
+
+const cryptoPaymentStatusSchema = z.object({
+  handle: z.string().min(3).max(100),
+  reference: z.string().min(1),
+  token: z.enum(["USDC", "USDT"]).default("USDC"),
+  agentId: z.string().uuid().optional(),
+});
+
+router.post("/crypto-payment-status", requireAuth, async (req, res, next) => {
+  try {
+    const body = cryptoPaymentStatusSchema.parse(req.body);
+    const normalizedHandle = body.handle.toLowerCase();
+    const priceCents = getHandlePriceCents(normalizedHandle);
+
+    const result = await pollForCryptoPayment(
+      normalizedHandle,
+      req.userId!,
+      body.reference,
+      priceCents,
+      body.token,
+      body.agentId,
+    );
+
+    res.json(result);
+  } catch (err: unknown) {
+    if (err instanceof AppError) return next(err);
+    if (err instanceof z.ZodError) {
+      return next(new AppError(400, "VALIDATION_ERROR", "Invalid input", err.issues));
     }
     next(err);
   }

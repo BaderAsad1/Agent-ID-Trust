@@ -86,6 +86,7 @@ const envSchema = z.object({
   BASE_MINTER_PRIVATE_KEY: z.string().optional(),
   BASE_HANDLE_CONTRACT: z.string().optional(),
   BASE_PLATFORM_WALLET: z.string().optional(),
+  BASE_AGENTID_REGISTRAR: z.string().optional(),
 
   // CORS: comma-separated list of allowed origins in production.
   // Example: "https://getagent.id,https://app.getagent.id"

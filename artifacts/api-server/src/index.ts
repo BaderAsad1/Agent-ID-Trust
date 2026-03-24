@@ -73,6 +73,7 @@ import { startWebhookRetryWorker, stopWebhookRetryWorker } from "./workers/webho
 import { startHandleLifecycleWorker, stopHandleLifecycleWorker } from "./workers/handle-lifecycle";
 import { startNftMintWorker, stopNftMintWorker } from "./workers/nft-mint";
 import { startNftTransferDetector, stopNftTransferDetector } from "./workers/nft-transfer-detector";
+import { startReputationJob, stopReputationJob } from "./services/reputation";
 
 startDomainWorker();
 initWebhookDeliveryWorker();
@@ -85,6 +86,7 @@ startWebhookRetryWorker();
 startHandleLifecycleWorker();
 startNftMintWorker();
 startNftTransferDetector();
+startReputationJob();
 
 const JOB_EXPIRY_INTERVAL_MS = 60 * 1000;
 let jobExpiryTimer: ReturnType<typeof setInterval> | null = null;
@@ -115,6 +117,7 @@ async function gracefulShutdown(signal: string) {
   stopWebhookRetryWorker();
   stopNftMintWorker();
   stopNftTransferDetector();
+  stopReputationJob();
   await stopAgentExpiryWorker();
   await stopHandleLifecycleWorker();
   server.close();

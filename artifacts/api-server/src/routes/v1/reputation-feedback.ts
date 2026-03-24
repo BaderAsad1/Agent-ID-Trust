@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, auditEventsTable } from "@workspace/db/schema";
+import { agentsTable, agentFeedbackTable } from "@workspace/db/schema";
 import { AppError } from "../../middlewares/error-handler";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { logger } from "../../middlewares/request-logger";
@@ -55,22 +55,21 @@ router.post("/:handle/feedback", requireAgentAuth, async (req, res, next) => {
 
     const submittingAgent = req.authenticatedAgent!;
 
-    await db.insert(auditEventsTable).values({
-      actorType: "agent",
-      actorId: submittingAgent.id,
-      eventType: "reputation_feedback",
-      targetType: "agent",
-      targetId: agent.id,
-      payload: {
-        value,
-        valueDecimals: typeof valueDecimals === "number" ? valueDecimals : 0,
-        tag1: tag1 ?? null,
+    const feedbackRow = await db.insert(agentFeedbackTable).values({
+      subjectAgentId: agent.id,
+      submitterAgentId: submittingAgent.id,
+      value: value as number,
+      valueDecimals: typeof valueDecimals === "number" ? (valueDecimals as number) : 0,
+      tag1: tag1 as string ?? null,
+      chain: (chain as string).trim(),
+      onchainStatus: "pending",
+      metadata: {
         endpoint: endpoint ?? null,
-        chain: chain.trim(),
         handle,
       },
-      ipAddress: req.ip?.slice(0, 64) ?? null,
-    });
+    }).returning({ id: agentFeedbackTable.id });
+
+    const feedbackId = feedbackRow[0]?.id;
 
     const onchainEnabled =
       env().ONCHAIN_MINTING_ENABLED === "true" || env().ONCHAIN_MINTING_ENABLED === "1";
@@ -78,13 +77,101 @@ router.post("/:handle/feedback", requireAgentAuth, async (req, res, next) => {
     let txHash: string | undefined;
 
     if (onchainEnabled) {
-      logger.info(
-        { agentId: agent.id, chain, value },
-        "[feedback] On-chain reputation submission is enabled but no ReputationRegistry contract configured — skipping",
-      );
+      const registrarAddress = process.env.BASE_AGENTID_REGISTRAR;
+      const rpcUrl = process.env.BASE_RPC_URL;
+
+      if (registrarAddress && rpcUrl && (chain as string).trim().toLowerCase() === "base") {
+        logger.info(
+          { agentId: agent.id, chain, value, registrar: registrarAddress },
+          "[feedback] On-chain reputation submission enabled — submitting to ERC-8004 registry",
+        );
+
+        try {
+          const { createWalletClient, createPublicClient, http, parseAbi } = await import("viem");
+          const { base } = await import("viem/chains");
+          const { privateKeyToAccount } = await import("viem/accounts");
+
+          const minterKey = process.env.BASE_MINTER_PRIVATE_KEY;
+          if (!minterKey) {
+            throw new Error("BASE_MINTER_PRIVATE_KEY not configured");
+          }
+
+          const REPUTATION_REGISTRY_ABI = parseAbi([
+            "function submitFeedback(address subject, uint256 value, uint8 valueDecimals, string calldata tag1, string calldata chain) external returns (bytes32 feedbackId)",
+          ]);
+
+          const agentRecord = await db.query.agentsTable.findFirst({
+            where: eq(agentsTable.id, agent.id),
+            columns: { walletAddress: true, erc8004AgentId: true },
+          });
+
+          const subjectAddress = agentRecord?.walletAddress ?? agent.id;
+
+          const account = privateKeyToAccount(minterKey as `0x${string}`);
+          const walletClient = createWalletClient({ account, chain: base, transport: http(rpcUrl) });
+          const publicClient = createPublicClient({ chain: base, transport: http(rpcUrl) });
+
+          const hash = await walletClient.writeContract({
+            address: registrarAddress as `0x${string}`,
+            abi: REPUTATION_REGISTRY_ABI,
+            functionName: "submitFeedback",
+            args: [
+              subjectAddress as `0x${string}`,
+              BigInt(value as number),
+              typeof valueDecimals === "number" ? valueDecimals as number : 0,
+              tag1 as string ?? "",
+              (chain as string).trim(),
+            ],
+          });
+
+          const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+          if (receipt.status === "success") {
+            txHash = hash;
+            logger.info({ agentId: agent.id, txHash: hash }, "[feedback] Feedback submitted on-chain");
+
+            if (feedbackId) {
+              await db.update(agentFeedbackTable)
+                .set({ onchainTxHash: hash, onchainStatus: "confirmed" })
+                .where(eq(agentFeedbackTable.id, feedbackId));
+            }
+          } else {
+            logger.warn({ agentId: agent.id, txHash: hash }, "[feedback] On-chain feedback tx reverted");
+            if (feedbackId) {
+              await db.update(agentFeedbackTable)
+                .set({ onchainStatus: "failed", errorMessage: `tx reverted: ${hash}` })
+                .where(eq(agentFeedbackTable.id, feedbackId));
+            }
+          }
+        } catch (onchainErr) {
+          const errMsg = onchainErr instanceof Error ? onchainErr.message : String(onchainErr);
+          logger.error({ agentId: agent.id, error: errMsg }, "[feedback] On-chain feedback submission failed");
+          if (feedbackId) {
+            await db.update(agentFeedbackTable)
+              .set({ onchainStatus: "failed", errorMessage: errMsg })
+              .where(eq(agentFeedbackTable.id, feedbackId));
+          }
+        }
+      } else {
+        logger.info(
+          { agentId: agent.id, chain, registrarConfigured: !!registrarAddress, rpcConfigured: !!rpcUrl },
+          "[feedback] On-chain submission skipped — registrar not configured or non-Base chain",
+        );
+        if (feedbackId) {
+          await db.update(agentFeedbackTable)
+            .set({ onchainStatus: "skipped" })
+            .where(eq(agentFeedbackTable.id, feedbackId));
+        }
+      }
+    } else {
+      if (feedbackId) {
+        await db.update(agentFeedbackTable)
+          .set({ onchainStatus: "disabled" })
+          .where(eq(agentFeedbackTable.id, feedbackId));
+      }
     }
 
-    res.json({ submitted: true, ...(txHash ? { txHash } : {}) });
+    res.json({ submitted: true, feedbackId, ...(txHash ? { txHash } : {}) });
   } catch (err) {
     next(err);
   }

@@ -980,6 +980,7 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
               handleRegisteredAt: new Date(),
               handleStripeSubscriptionId: subscriptionId,
               nftStatus: isNftEligible ? "pending_mint" : "none",
+              nftCustodian: isNftEligible ? "platform" : null,
               metadata: {
                 ...existingMeta,
                 ...(isNftEligible ? { nftQueuedAt: new Date().toISOString() } : {}),
@@ -990,8 +991,71 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
         ]);
 
         logger.info({ agentId: agentRecord.id, handle: normalizedHandle, tier: tier.tier, isNftEligible }, "[billing] Handle activated from checkout");
+
         if (isNftEligible) {
-          logger.info({ agentId: agentRecord.id, handle: normalizedHandle, handleLen }, "[billing] Handle is NFT-eligible (<=4 char), set nft_status=pending_mint");
+          logger.info({ agentId: agentRecord.id, handle: normalizedHandle, handleLen }, "[billing] Handle is NFT-eligible (<=4 char), attempting registerOnChain");
+          try {
+            const { registerOnChain } = await import("./chains/base");
+            const { nftAuditLogTable } = await import("@workspace/db/schema");
+            const onchainResult = await registerOnChain(normalizedHandle, tier.tier, expiresAt);
+
+            if (onchainResult) {
+              await db.update(agentsTable)
+                .set({
+                  nftStatus: "minted",
+                  erc8004AgentId: onchainResult.agentId,
+                  erc8004Chain: onchainResult.chain,
+                  erc8004Registry: onchainResult.contractAddress,
+                  chainRegistrations: [
+                    {
+                      chain: "base",
+                      agentId: onchainResult.agentId,
+                      txHash: onchainResult.txHash,
+                      contractAddress: onchainResult.contractAddress,
+                      registeredAt: new Date().toISOString(),
+                    },
+                  ],
+                  updatedAt: new Date(),
+                })
+                .where(eq(agentsTable.id, agentRecord.id));
+
+              await db.insert(nftAuditLogTable).values({
+                agentId: agentRecord.id,
+                handle: normalizedHandle,
+                action: "register",
+                chain: "base",
+                txHash: onchainResult.txHash,
+                contractAddress: onchainResult.contractAddress,
+                custodian: "platform",
+                status: "success",
+                metadata: { agentId: onchainResult.agentId, tier: tier.tier },
+              });
+
+              logger.info({ agentId: agentRecord.id, handle: normalizedHandle, erc8004AgentId: onchainResult.agentId }, "[billing] Handle registered on-chain");
+            } else {
+              logger.info({ agentId: agentRecord.id, handle: normalizedHandle }, "[billing] On-chain minting disabled — nft_status=pending_mint");
+            }
+          } catch (onchainErr) {
+            const errMsg = onchainErr instanceof Error ? onchainErr.message : String(onchainErr);
+            logger.error({ agentId: agentRecord.id, handle: normalizedHandle, error: errMsg }, "[billing] registerOnChain failed — setting nft_status=pending_mint");
+
+            await db.update(agentsTable)
+              .set({ nftStatus: "pending_mint", updatedAt: new Date() })
+              .where(eq(agentsTable.id, agentRecord.id));
+
+            try {
+              const { nftAuditLogTable } = await import("@workspace/db/schema");
+              await db.insert(nftAuditLogTable).values({
+                agentId: agentRecord.id,
+                handle: normalizedHandle,
+                action: "register",
+                chain: "base",
+                status: "failed",
+                errorMessage: errMsg,
+                metadata: { tier: tier.tier },
+              });
+            } catch {}
+          }
         }
       }
     }
@@ -1285,4 +1349,169 @@ export function verifyStripeWebhook(
     throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
   }
   return stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+}
+
+const BASE_USDC_CONTRACT = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const BASE_USDT_CONTRACT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2";
+
+export interface CryptoCheckoutResult {
+  paymentAddress: string;
+  amount: string;
+  amountUsdc: string;
+  token: "USDC" | "USDT";
+  tokenContract: string;
+  chain: "base";
+  chainId: number;
+  reference: string;
+  handle: string;
+  expiresAt: string;
+  instructions: string;
+}
+
+export async function createCryptoCheckoutSession(
+  handle: string,
+  userId: string,
+  token: "USDC" | "USDT" = "USDC",
+): Promise<CryptoCheckoutResult> {
+  const platformWallet = process.env.BASE_PLATFORM_WALLET;
+  if (!platformWallet) {
+    throw new Error("BASE_PLATFORM_WALLET is not configured — crypto payments unavailable");
+  }
+
+  const priceCents = getHandlePriceCents(handle);
+  const priceUsd = (priceCents / 100).toFixed(2);
+
+  const reference = `agentid-${handle}-${userId.slice(0, 8)}-${Date.now().toString(36)}`;
+
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+  const tokenContract = token === "USDT" ? BASE_USDT_CONTRACT : BASE_USDC_CONTRACT;
+
+  return {
+    paymentAddress: platformWallet.toLowerCase(),
+    amount: priceUsd,
+    amountUsdc: priceUsd,
+    token,
+    tokenContract,
+    chain: "base",
+    chainId: 8453,
+    reference,
+    handle,
+    expiresAt: expiresAt.toISOString(),
+    instructions: `Send exactly ${priceUsd} ${token} to ${platformWallet} on Base (chainId 8453). Include "${reference}" in the transaction memo/data if your wallet supports it. Payment expires at ${expiresAt.toUTCString()}.`,
+  };
+}
+
+export async function pollForCryptoPayment(
+  handle: string,
+  userId: string,
+  reference: string,
+  expectedAmountCents: number,
+  token: "USDC" | "USDT",
+  agentId?: string,
+): Promise<{ confirmed: boolean; txHash?: string }> {
+  const rpcUrl = process.env.BASE_RPC_URL;
+  const platformWallet = process.env.BASE_PLATFORM_WALLET;
+
+  if (!rpcUrl || !platformWallet) {
+    logger.warn({ handle, reference }, "[billing] crypto-payment: BASE_RPC_URL or BASE_PLATFORM_WALLET not set — cannot verify");
+    return { confirmed: false };
+  }
+
+  const { createPublicClient, http, parseAbi, formatUnits } = await import("viem");
+  const { base } = await import("viem/chains");
+
+  const publicClient = createPublicClient({ chain: base, transport: http(rpcUrl) });
+
+  const tokenContract = (token === "USDT" ? BASE_USDT_CONTRACT : BASE_USDC_CONTRACT) as `0x${string}`;
+  const expectedAmount = BigInt(expectedAmountCents) * BigInt(10000);
+
+  const currentBlock = await publicClient.getBlockNumber();
+  const fromBlock = currentBlock - BigInt(1000);
+
+  const logs = await publicClient.getLogs({
+    address: tokenContract,
+    event: {
+      type: "event",
+      name: "Transfer",
+      inputs: [
+        { indexed: true, name: "from", type: "address" },
+        { indexed: true, name: "to", type: "address" },
+        { indexed: false, name: "value", type: "uint256" },
+      ],
+    },
+    args: { to: platformWallet as `0x${string}` },
+    fromBlock,
+    toBlock: "latest",
+  });
+
+  for (const log of logs) {
+    const value = log.args.value as bigint | undefined;
+    if (!value) continue;
+    if (value >= expectedAmount) {
+      const txHash = log.transactionHash ?? undefined;
+      logger.info({ handle, reference, txHash, value: value.toString(), expectedAmount: expectedAmount.toString() }, "[billing] crypto-payment: payment detected");
+
+      if (agentId) {
+        const { assignHandleToAgent } = await import("./handle");
+        const { getHandleTier: getHandleTierFn } = await import("./handle");
+        const tierInfo = getHandleTierFn(handle);
+        try {
+          await assignHandleToAgent(agentId, handle, { tier: tierInfo.tier, paid: true });
+          logger.info({ handle, agentId }, "[billing] crypto-payment: handle reserved after payment confirmation");
+
+          const onchainEnabled = process.env.ONCHAIN_MINTING_ENABLED === "true" || process.env.ONCHAIN_MINTING_ENABLED === "1";
+          if (onchainEnabled) {
+            const { registerOnChain } = await import("./chains/base");
+            const expiresAt = new Date();
+            expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+            const onchainResult = await registerOnChain(handle, tierInfo.tier, expiresAt).catch((err: unknown) => {
+              logger.error({ handle, error: err instanceof Error ? err.message : String(err) }, "[billing] crypto-payment: registerOnChain failed after payment");
+              return null;
+            });
+            if (onchainResult) {
+              const { nftAuditLogTable } = await import("@workspace/db/schema");
+              await db.update(agentsTable)
+                .set({
+                  nftStatus: "minted",
+                  erc8004AgentId: onchainResult.agentId,
+                  erc8004Chain: onchainResult.chain,
+                  erc8004Registry: onchainResult.contractAddress,
+                  chainRegistrations: [
+                    {
+                      chain: "base",
+                      agentId: onchainResult.agentId,
+                      txHash: onchainResult.txHash,
+                      contractAddress: onchainResult.contractAddress,
+                      registeredAt: new Date().toISOString(),
+                    },
+                  ],
+                  nftCustodian: "platform",
+                  updatedAt: new Date(),
+                })
+                .where(eq(agentsTable.id, agentId));
+
+              await db.insert(nftAuditLogTable).values({
+                agentId,
+                handle,
+                action: "register",
+                chain: "base",
+                txHash: onchainResult.txHash,
+                contractAddress: onchainResult.contractAddress,
+                custodian: "platform",
+                status: "success",
+                metadata: { agentId: onchainResult.agentId, tier: tierInfo.tier, paymentRef: reference },
+              });
+            }
+          }
+        } catch (err) {
+          logger.error({ handle, agentId, error: err instanceof Error ? err.message : String(err) }, "[billing] crypto-payment: post-payment processing error");
+        }
+      }
+
+      return { confirmed: true, txHash };
+    }
+  }
+
+  return { confirmed: false };
 }

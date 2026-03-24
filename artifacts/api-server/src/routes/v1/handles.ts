@@ -457,4 +457,97 @@ router.post("/:handle/mint-chain", requireAuth, async (req, res, next) => {
   }
 });
 
+const claimNftSchema = z.object({
+  userWallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "userWallet must be a valid EVM address"),
+});
+
+router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
+  try {
+    const handle = (req.params.handle as string).toLowerCase();
+    const userId = req.userId!;
+
+    const parsed = claimNftSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "userWallet must be a valid EVM address (0x...)", parsed.error.issues);
+    }
+    const { userWallet } = parsed.data;
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: and(
+        eq(agentsTable.handle, handle),
+        eq(agentsTable.userId, userId),
+      ),
+      columns: {
+        id: true,
+        handle: true,
+        userId: true,
+        nftStatus: true,
+        nftCustodian: true,
+        erc8004AgentId: true,
+        onChainTokenId: true,
+      },
+    });
+
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Handle not found or you do not own this handle");
+    }
+
+    if (agent.nftCustodian !== "platform") {
+      throw new AppError(400, "NOT_IN_PLATFORM_CUSTODY", `NFT is not in platform custody. Current custodian: ${agent.nftCustodian ?? "none"}`);
+    }
+
+    const { transferToUser: transferToUserFn, isOnchainMintingEnabled } = await import("../../services/chains/base");
+
+    let txHash: string | undefined;
+
+    if (isOnchainMintingEnabled()) {
+      try {
+        const result = await transferToUserFn(handle, userWallet);
+        if (result) {
+          txHash = result.txHash;
+        }
+      } catch (chainErr) {
+        const errMsg = chainErr instanceof Error ? chainErr.message : String(chainErr);
+        logger.error({ agentId: agent.id, handle, userWallet, error: errMsg }, "[handles] claim-nft: transferToUser failed");
+        throw new AppError(500, "TRANSFER_FAILED", `On-chain transfer failed: ${errMsg}`);
+      }
+    }
+
+    const { nftAuditLogTable } = await import("@workspace/db/schema");
+
+    await db.update(agentsTable)
+      .set({
+        nftCustodian: "user",
+        nftOwnerWallet: userWallet.toLowerCase(),
+        updatedAt: new Date(),
+      })
+      .where(eq(agentsTable.id, agent.id));
+
+    await db.insert(nftAuditLogTable).values({
+      agentId: agent.id,
+      handle,
+      action: "claim",
+      chain: "base",
+      txHash: txHash ?? null,
+      toAddress: userWallet.toLowerCase(),
+      custodian: "user",
+      status: "success",
+      metadata: { userWallet, erc8004AgentId: agent.erc8004AgentId ?? null },
+    });
+
+    logger.info({ agentId: agent.id, handle, userWallet, txHash }, "[handles] claim-nft: NFT claimed to user wallet");
+
+    res.json({
+      handle,
+      status: "claimed",
+      nftCustodian: "user",
+      nftOwnerWallet: userWallet.toLowerCase(),
+      ...(txHash ? { txHash } : {}),
+      message: `Handle NFT for @${handle} has been transferred to your wallet.`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
