@@ -840,6 +840,36 @@ export async function handleAgentDiscovery(req: Request, res: Response, next: Ne
   }
 }
 
+router.get("/erc8004/:chainId/:agentId", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const chainId = (req.params.chainId as string).toLowerCase();
+    const erc8004AgentIdRaw = req.params.agentId as string;
+    const erc8004AgentIdNum = parseInt(erc8004AgentIdRaw, 10);
+
+    if (isNaN(erc8004AgentIdNum)) {
+      throw new AppError(400, "INVALID_AGENT_ID", "erc8004 agentId must be a valid integer");
+    }
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: and(
+        sql`${agentsTable.erc8004AgentId} = ${erc8004AgentIdNum}`,
+        sql`lower(${agentsTable.erc8004Chain}) = ${chainId}`,
+        eq(agentsTable.status, "active"),
+      ),
+    });
+
+    if (!agent) {
+      throw new AppError(404, "AGENT_NOT_FOUND", `No agent found for chainId=${chainId} agentId=${erc8004AgentIdNum}`);
+    }
+
+    const resolved = await enrichAndResolve(agent);
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.json({ resolved: true, agent: resolved });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/", handleAgentDiscovery);
 
 router.get("/:orgSlug/:handle", async (req: Request, res: Response, next: NextFunction) => {

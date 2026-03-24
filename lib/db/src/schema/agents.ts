@@ -117,6 +117,10 @@ export const agentsTable = pgTable(
     paidThrough: timestamp("paid_through", { withTimezone: true }),
     gracePeriodEnds: timestamp("grace_period_ends", { withTimezone: true }),
     handleStatus: varchar("handle_status", { length: 20 }).default("active"),
+    erc8004AgentId: integer("erc8004_agent_id"),
+    erc8004Chain: varchar("erc8004_chain", { length: 100 }),
+    erc8004Registry: varchar("erc8004_registry", { length: 255 }),
+    chainRegistrations: jsonb("chain_registrations").$type<Record<string, unknown>[]>().default([]),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

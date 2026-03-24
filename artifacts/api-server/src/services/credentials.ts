@@ -271,7 +271,13 @@ function buildCaip10Address(network: string, address: string): string {
   return `${chainId}:${address}`;
 }
 
-function parseChainRegistrations(chainMints: Record<string, unknown> | null | undefined): Array<Record<string, unknown>> {
+function parseChainRegistrations(
+  chainRegistrations: Record<string, unknown>[] | null | undefined,
+  chainMints: Record<string, unknown> | null | undefined,
+): Array<Record<string, unknown>> {
+  if (chainRegistrations && Array.isArray(chainRegistrations) && chainRegistrations.length > 0) {
+    return chainRegistrations as Array<Record<string, unknown>>;
+  }
   if (!chainMints || typeof chainMints !== "object") return [];
   return Object.entries(chainMints)
     .filter(([, v]) => v && typeof v === "object")
@@ -373,7 +379,10 @@ export async function buildErc8004(handle: string) {
     publicKeyJwk: k.jwk || undefined,
   }));
 
-  const chainRegistrations = parseChainRegistrations(agent.chainMints as Record<string, unknown> | null);
+  const chainRegistrations = parseChainRegistrations(
+    (agent as unknown as { chainRegistrations?: Record<string, unknown>[] }).chainRegistrations,
+    agent.chainMints as Record<string, unknown> | null,
+  );
 
   const owsEvmWallets = owsWallets
     .filter(w => w.network.toLowerCase() !== "tron")
@@ -387,6 +396,8 @@ export async function buildErc8004(handle: string) {
 
   const x402Support = !!(agent.walletAddress || owsEvmWallets.length > 0);
 
+  const APP_URL = env().APP_URL;
+
   return {
     "@context": [
       "https://www.w3.org/ns/did/v1",
@@ -394,15 +405,19 @@ export async function buildErc8004(handle: string) {
       "https://eips.ethereum.org/EIPS/eip-8004",
     ],
     spec: "registration-v1",
+    type: "AgentRegistration",
     id: `did:web:getagent.id:agents:${agent.handle}`,
     controller: "did:web:getagent.id",
+    name: agent.displayName,
+    description: agent.description || null,
+    image: agent.avatarUrl || `${APP_URL}/api/v1/agents/${agent.id}/nft-image`,
     active: agent.status === "active",
     x402Support,
     supportedTrust: ["unverified", "basic", "verified", "trusted", "elite"],
     registrations: chainRegistrations,
     verificationMethod,
     authentication: verificationMethod.map((vm) => vm.id),
-    service: services,
+    services,
     agentid: {
       handle: agent.handle,
       did: `did:web:getagent.id:agents:${agent.handle}`,

@@ -65,3 +65,4 @@ export * from "./mpp-payments";
 export * from "./waitlist";
 export * from "./handle-registration-log";
 export * from "./agent-ows-wallets";
+export * from "./nft-audit-log";
