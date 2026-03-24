@@ -90,7 +90,7 @@ function buildAgentIdentityDocument(
   };
 }
 
-router.get("/.well-known/agent.json", async (req: Request, res: Response, next: NextFunction) => {
+async function agentIdentityDocumentHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const hostname = req.hostname || req.headers.host?.split(":")[0] || "";
 
@@ -145,7 +145,15 @@ router.get("/.well-known/agent.json", async (req: Request, res: Response, next: 
   } catch (err) {
     next(err);
   }
-});
+}
+
+// Agent identity document endpoint
+router.get("/.well-known/agent.json", agentIdentityDocumentHandler);
+
+// did:web DID document endpoint — canonical alias for /.well-known/agent.json.
+// Per the did:web spec, the DID document for did:web:example.com is served at
+// https://example.com/.well-known/did.json. This route satisfies that requirement.
+router.get("/.well-known/did.json", agentIdentityDocumentHandler);
 
 router.get("/.well-known/agentid-configuration", async (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");

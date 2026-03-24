@@ -57,11 +57,15 @@ app.use(requestLogger);
 
 const corsOrigins: cors.CorsOptions["origin"] = (() => {
   if (config.NODE_ENV !== "production") return true;
-  // Production: explicit allowlist only. Never fall back to wildcard open-CORS
-  // because a missing env var would otherwise grant any origin access.
-  const origins: string[] = ["https://getagent.id"];
-  if (config.REPLIT_DEV_DOMAIN) origins.push(`https://${config.REPLIT_DEV_DOMAIN}`);
-  if (config.BASE_AGENT_DOMAIN) origins.push(`https://${config.BASE_AGENT_DOMAIN}`);
+  // Production: fail-closed CORS. ALLOWED_ORIGINS must be set explicitly.
+  // If ALLOWED_ORIGINS is unset or empty, ALL cross-origin requests are denied.
+  // This prevents a missing env var from accidentally opening CORS to any origin.
+  // Example: ALLOWED_ORIGINS="https://getagent.id,https://app.getagent.id"
+  if (!config.ALLOWED_ORIGINS) {
+    // Empty array → cors() will deny all cross-origin requests
+    return [];
+  }
+  const origins = config.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean);
   return origins;
 })();
 

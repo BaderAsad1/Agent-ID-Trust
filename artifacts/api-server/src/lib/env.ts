@@ -77,6 +77,13 @@ const envSchema = z.object({
   ADMIN_ALLOWED_IPS: z.string().optional(),
 
   X402_ENABLED: z.string().optional(),
+
+  // CORS: comma-separated list of allowed origins in production.
+  // Example: "https://getagent.id,https://app.getagent.id"
+  // REQUIRED in production for cross-origin requests to succeed.
+  // If unset in production, CORS is fail-closed: ALL cross-origin requests are denied.
+  // This is intentional — a missing env var must never silently open CORS.
+  ALLOWED_ORIGINS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
