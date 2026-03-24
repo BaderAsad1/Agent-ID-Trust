@@ -2036,7 +2036,7 @@ function MobileScrollSection({ children }: { children: (progress: number) => Rea
     const update = () => {
       const rect = el.getBoundingClientRect();
       const vh = window.innerHeight;
-      const p = Math.max(0, Math.min(1, (vh - rect.top) / (vh * 0.65)));
+      const p = Math.max(0, Math.min(1, (vh - rect.top) / (vh * 0.85)));
       setProgress(p);
     };
     window.addEventListener('scroll', update, { passive: true });
@@ -2073,9 +2073,9 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       <GrainOverlay />
       <NavBar opacity={navOpacity} onNavigate={onNavigate} />
 
-      <section ref={sectionRefs.hero as React.RefObject<HTMLElement>} style={{
+      <section ref={sectionRefs.hero as React.RefObject<HTMLElement>} className="hero-section" style={{
         position: 'relative',
-        height: '550vh',
+        height: isMobile ? '290vh' : '550vh',
       }}>
         <div style={{
           position: 'sticky',

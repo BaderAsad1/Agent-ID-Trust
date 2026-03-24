@@ -134,18 +134,22 @@
   align-items: center !important;
 }
 
-/* Anatomy internal layout */
+/* Anatomy internal layout — fix flex:1 minHeight:0 collapse */
 .mobile-film-sections .anatomy-content {
-  overflow: visible !important;
+  flex: none !important;
   height: auto !important;
+  overflow: visible !important;
+  min-height: 0 !important;
 }
 .mobile-film-sections .anatomy-credential {
   display: none !important;
 }
 .mobile-film-sections .anatomy-layers {
-  overflow: visible !important;
+  flex: none !important;
   height: auto !important;
+  overflow: visible !important;
   min-height: 0 !important;
+  width: 100% !important;
 }
 
 /* Grid layout adjustments */
@@ -161,7 +165,7 @@
   margin-top: 32px !important;
 }
 
-/* Activation layout */
+/* Activation layout — fix flex:1 minHeight:0 collapse on channels parent */
 .mobile-film-sections .activation-spine {
   display: none !important;
 }
@@ -170,6 +174,41 @@
 }
 .mobile-film-sections .activation-channels {
   flex: none !important;
+  height: auto !important;
+}
+/* The position:relative flex:1 div wrapping spine + channels */
+.mobile-film-sections .activation-wrapper > div:last-child {
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+/* Verification API layout — fix flex:1 minHeight:0 collapse and stack vertically */
+.mobile-film-sections .verification-wrapper > div:last-child {
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  flex-direction: column !important;
+  width: 100% !important;
+}
+.mobile-film-sections .verification-code {
+  flex: none !important;
+  width: 100% !important;
+}
+.mobile-film-sections .verification-features {
+  flex: none !important;
+  width: 100% !important;
+}
+
+/* CTA — ensure transform is reset and all sub-children are visible */
+.mobile-film-sections .cta-content {
+  opacity: 1 !important;
+  transform: none !important;
+}
+/* Skip the first child (decorative absolute-positioned radial backdrop) */
+.mobile-film-sections .cta-content > *:not(:first-child) {
+  opacity: 1 !important;
+  transform: none !important;
 }
 
 /* ─── MEDIA QUERY (for browsers without JS or SSR) ───────────────────────── */
