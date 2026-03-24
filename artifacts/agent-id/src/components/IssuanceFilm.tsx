@@ -892,11 +892,80 @@ const UNLOCK_CHANNELS = [
 ];
 
 function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number }) {
+  const isMobile = useIsMobile();
+
   const titleT = Math.max(0, Math.min(1, (unlocksProgress - 0.25) / 0.13));
   const titleOpacity = titleT;
   const titleTranslateY = lerp(40, 0, titleT);
 
   const spineOpacity = Math.max(0, Math.min(1, (unlocksProgress - 0.25) / 0.15));
+
+  if (isMobile) {
+    return (
+      <div className="activation-wrapper" style={{
+        padding: '56px 20px 48px',
+        maxWidth: 900,
+        margin: '0 auto',
+        boxSizing: 'border-box',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+            letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
+          }}>INFRASTRUCTURE</div>
+          <h2 style={{
+            fontFamily: "'Bricolage Grotesque', sans-serif",
+            fontSize: 'clamp(24px, 7vw, 36px)',
+            fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15,
+            color: '#e8e8f0', marginBottom: 12,
+          }}>
+            Verified identity unlocks{' '}
+            <span style={{
+              background: 'linear-gradient(135deg, #34d399, #4f7df3)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            }}>agent infrastructure.</span>
+          </h2>
+          <p style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6,
+            color: 'rgba(232,232,240,0.5)',
+          }}>
+            A credential doesn't just prove who your agent is. It unlocks the infrastructure your agent needs to operate — routing, trust signals, marketplace access, and more.
+          </p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {UNLOCK_CHANNELS.map((ch) => (
+            <div key={ch.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              background: 'rgba(8,10,22,0.9)',
+              border: `1px solid ${ch.color}20`,
+              borderRadius: 10,
+              padding: '12px 16px',
+            }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                background: ch.color, boxShadow: `0 0 8px ${ch.color}50`,
+              }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                  letterSpacing: '0.1em', color: ch.color, marginBottom: 3,
+                }}>{ch.label}</div>
+                <div style={{
+                  fontFamily: "'Inter', sans-serif", fontSize: 12,
+                  color: 'rgba(232,232,240,0.45)', lineHeight: 1.45,
+                }}>{ch.desc}</div>
+              </div>
+              <div style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                color: 'rgba(232,232,240,0.25)', whiteSpace: 'nowrap', flexShrink: 0,
+                borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: 12,
+              }}>{ch.metric}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="activation-wrapper" style={{
@@ -1241,6 +1310,7 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
 }
 
 function VerificationAPISection({ verificationProgress }: { verificationProgress: number }) {
+  const isMobile = useIsMobile();
   const titleT = Math.max(0, Math.min(1, (verificationProgress - 0.22) / 0.14));
   const codeT = Math.max(0, Math.min(1, (verificationProgress - 0.42) / 0.16));
   const itemsT = Math.max(0, Math.min(1, (verificationProgress - 0.35) / 0.18));
@@ -1264,6 +1334,88 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
     { label: 'Capabilities', desc: 'Inspect the signed capability manifest to know what the agent can do' },
     { label: 'Routing', desc: 'Resolve the agent\'s inbox address for direct communication' },
   ];
+
+  if (isMobile) {
+    return (
+      <div className="verification-wrapper" style={{
+        padding: '56px 20px 48px',
+        maxWidth: 1100,
+        margin: '0 auto',
+        boxSizing: 'border-box',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+            letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
+          }}>FOR PLATFORMS AND BUILDERS</div>
+          <h2 style={{
+            fontFamily: "'Bricolage Grotesque', sans-serif",
+            fontSize: 'clamp(24px, 7vw, 36px)',
+            fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15,
+            color: '#e8e8f0', marginBottom: 12,
+          }}>
+            Verify any agent before{' '}
+            <span style={{
+              background: 'linear-gradient(135deg, #34d399, #4f7df3)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            }}>you let it act.</span>
+          </h2>
+          <p style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6,
+            color: 'rgba(232,232,240,0.45)',
+          }}>
+            Any platform, agent, or system can resolve an Agent Credential in milliseconds. No trust is assumed. Everything is verifiable.
+          </p>
+        </div>
+        <div className="verification-code" style={{ marginBottom: 16 }}>
+          <div style={{
+            background: 'rgba(6,8,18,0.96)',
+            border: '1px solid rgba(79,125,243,0.12)',
+            borderRadius: 14, overflow: 'hidden',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '10px 18px',
+              borderBottom: '1px solid rgba(255,255,255,0.04)',
+            }}>
+              {['#ff5f57','#febc2e','#28c840'].map((c) => (
+                <div key={c} style={{ width: 8, height: 8, borderRadius: '50%', background: c, opacity: 0.7 }} />
+              ))}
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                color: 'rgba(232,232,240,0.25)', marginLeft: 8,
+              }}>verify-agent.ts</span>
+            </div>
+            <pre style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+              color: 'rgba(232,232,240,0.7)', lineHeight: 1.7,
+              padding: '16px 18px', margin: 0,
+              overflowX: 'auto', whiteSpace: 'pre',
+            }}>{codeExample}</pre>
+          </div>
+        </div>
+        <div className="verification-features" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {VERIFY_FEATURES.map((feat) => (
+            <div key={feat.label} style={{
+              background: 'rgba(8,10,22,0.9)',
+              border: '1px solid rgba(79,125,243,0.1)',
+              borderRadius: 10,
+              padding: '12px 16px',
+            }}>
+              <div style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+                letterSpacing: '0.12em', color: '#34d399', marginBottom: 4,
+              }}>{feat.label.toUpperCase()}</div>
+              <div style={{
+                fontFamily: "'Inter', sans-serif", fontSize: 13,
+                color: 'rgba(232,232,240,0.45)', lineHeight: 1.45,
+              }}>{feat.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="verification-wrapper" style={{
