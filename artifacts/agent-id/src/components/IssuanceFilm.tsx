@@ -2199,22 +2199,33 @@ function IssuanceMomentFlash({ active }: { active: boolean }) {
 }
 
 function MobileScrollSection({ children }: { children: (progress: number) => React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    const outer = outerRef.current;
+    if (!outer) return;
     const update = () => {
-      const rect = el.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const p = Math.max(0, Math.min(1, (vh - rect.top) / (vh * 0.85)));
-      setProgress(p);
+      const scrollY = window.scrollY;
+      const offsetTop = outer.offsetTop;
+      const range = outer.offsetHeight - window.innerHeight;
+      if (range <= 0) { setProgress(1); return; }
+      setProgress(Math.max(0, Math.min(1, (scrollY - offsetTop) / range)));
     };
     window.addEventListener('scroll', update, { passive: true });
     update();
     return () => window.removeEventListener('scroll', update);
   }, []);
-  return <div ref={ref}>{children(progress)}</div>;
+  return (
+    <div ref={outerRef} style={{ minHeight: '220vh' }}>
+      <div style={{
+        position: 'sticky', top: 0,
+        minHeight: '100vh',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {children(progress)}
+      </div>
+    </div>
+  );
 }
 
 export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: string) => void } = {}) {
