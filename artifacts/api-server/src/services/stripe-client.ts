@@ -10,7 +10,10 @@ export function isStripeAvailable(): boolean {
 export function getStripe(): Stripe {
   if (stripeInstance) return stripeInstance;
 
-  const key = process.env.STRIPE_SECRET_KEY;
+  const isProd = process.env.NODE_ENV === "production";
+  const key = isProd && process.env.STRIPE_LIVE_SECRET_KEY
+    ? process.env.STRIPE_LIVE_SECRET_KEY
+    : process.env.STRIPE_SECRET_KEY;
   if (key) {
     stripeInstance = new Stripe(key, {
       apiVersion: "2025-04-30.basil" as Stripe.LatestApiVersion,
