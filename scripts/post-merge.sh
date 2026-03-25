@@ -2,6 +2,28 @@
 set -e
 pnpm install --frozen-lockfile
 
+# ── Pre-apply known column renames so Drizzle push doesn't prompt interactively ──
+node -e "
+const { Pool } = require('pg');
+const p = new Pool({ connectionString: process.env.DATABASE_URL });
+(async () => {
+  const renames = [
+    ['magic_link_tokens', 'token', 'hashed_token'],
+  ];
+  for (const [table, oldCol, newCol] of renames) {
+    const check = await p.query(
+      \"SELECT 1 FROM information_schema.columns WHERE table_name = \$1 AND column_name = \$2\",
+      [table, oldCol]
+    );
+    if (check.rowCount > 0) {
+      await p.query('ALTER TABLE ' + table + ' RENAME COLUMN ' + oldCol + ' TO ' + newCol);
+      console.log('[post-merge] Renamed ' + table + '.' + oldCol + ' -> ' + newCol);
+    }
+  }
+  await p.end();
+})().catch(e => { console.error('[post-merge] rename step:', e.message); process.exit(1); });
+"
+
 # Run DB push; if it fails only due to duplicate enum labels (already-applied
 # ALTER TYPE … ADD VALUE statements), treat that as success and continue.
 if ! pnpm --filter db push 2>&1 | tee /tmp/db-push.log; then
@@ -18,7 +40,7 @@ npx tsc -p lib/db/tsconfig.json --noEmit false
 
 # Ensure audit_events has columns required by schema (idempotent via IF NOT EXISTS)
 node -e "
-const { Pool } = require('./node_modules/pg');
+const { Pool } = require('pg');
 const p = new Pool({ connectionString: process.env.DATABASE_URL });
 p.query(\`
   ALTER TABLE audit_events
