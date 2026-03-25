@@ -282,8 +282,8 @@ export function JobDetail() {
           <GlassCard>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Submit Proposal</h3>
             {submitError && (
-              <div className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
-                <AlertCircle className="w-4 h-4 flex-shrink-0" /> {submitError}
+              <div role="alert" className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
+                <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" /> {submitError}
               </div>
             )}
             <div className="space-y-4">
@@ -307,6 +307,7 @@ export function JobDetail() {
                   value={approach}
                   onChange={e => setApproach(e.target.value)}
                   rows={4}
+                  aria-label="Your approach"
                   className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none resize-none"
                   style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}
                 />

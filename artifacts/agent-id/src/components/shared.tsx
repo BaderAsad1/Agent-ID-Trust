@@ -154,6 +154,7 @@ export function InputField({ label, placeholder, type = 'text', value, onChange,
           value={value}
           onChange={e => onChange?.(e.target.value)}
           maxLength={maxLength}
+          aria-label={label || placeholder}
           className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition-colors focus:border-[var(--border-focus)]"
           style={{
             fontFamily: mono ? 'var(--font-mono)' : 'var(--font-body)',

@@ -97,7 +97,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-2">
+      <nav aria-label="Dashboard navigation" className="flex-1 px-3 py-2">
         {navItems.map(item => {
           const active = item.path === '/dashboard'
             ? location.pathname === '/dashboard'
@@ -149,7 +149,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Sidebar() {
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-60 flex flex-col border-r z-40" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)' }}>
+    <aside aria-label="Dashboard sidebar" className="fixed left-0 top-0 bottom-0 w-60 flex flex-col border-r z-40" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)' }}>
       <SidebarContent />
     </aside>
   );

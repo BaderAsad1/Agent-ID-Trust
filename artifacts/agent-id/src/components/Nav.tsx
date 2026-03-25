@@ -31,6 +31,7 @@ export function Nav() {
   return (
     <>
       <nav
+        aria-label="Main navigation"
         className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
         style={{
           background: scrolled ? 'rgba(5,7,17,0.85)' : 'rgba(5,7,17,0.5)',

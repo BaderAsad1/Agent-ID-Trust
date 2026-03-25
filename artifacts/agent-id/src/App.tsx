@@ -34,6 +34,7 @@ import { WaitlistGate } from '@/components/WaitlistGate';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AgentUUIDProfile } from '@/pages/AgentUUIDProfile';
 import { HandlePurchase } from '@/pages/HandlePurchase';
+import { MagicLinkPage } from '@/pages/MagicLink';
 import { Authorize } from '@/pages/Authorize';
 import { DocsSignIn } from '@/pages/DocsSignIn';
 import { DocsHub } from '@/pages/DocsHub';
@@ -96,13 +97,16 @@ function AppContent() {
         fontFamily: 'var(--font-body)',
       }}
     >
+      <a href="#main-content" className="skip-to-content">Skip to content</a>
       <ScrollToTop />
       <Nav />
+      <main id="main-content">
       <Routes>
         <Route path="/get-started" element={<GetStarted />} />
         <Route path="/start" element={<Start />} />
         <Route path="/claim" element={<ClaimPage />} />
         <Route path="/sign-in" element={<SignIn />} />
+        <Route path="/magic-link" element={<MagicLinkPage />} />
         <Route path="/login" element={<Navigate to="/sign-in" replace />} />
         <Route path="/register" element={<Navigate to="/sign-in" replace />} />
         <Route path="/for-agents" element={<ForAgents />} />
@@ -139,6 +143,7 @@ function AppContent() {
         <Route path="/:handle" element={<AgentProfile />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </main>
     </div>
   );
 }

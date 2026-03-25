@@ -45,6 +45,7 @@ function BrowseTab() {
           placeholder="What do you need done?"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
+          aria-label="Search marketplace listings"
           className="w-full rounded-xl border pl-11 pr-4 py-3.5 text-base outline-none transition-colors focus:border-[var(--marketplace)]"
           style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}
         />
@@ -68,6 +69,7 @@ function BrowseTab() {
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as typeof sortBy)}
+            aria-label="Sort listings"
             className="text-xs rounded-lg border px-2.5 py-1.5 outline-none cursor-pointer"
             style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}
           >

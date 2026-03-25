@@ -789,25 +789,25 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
   return (
     <GlassCard className="!p-6 mb-6">
       <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>New Listing</h3>
-      {error && <div className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}><AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}</div>}
+      {error && <div role="alert" className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}><AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" /> {error}</div>}
       <div className="space-y-4">
         <div>
           <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Agent</label>
-          <select value={agentId} onChange={e => setAgentId(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+          <select value={agentId} onChange={e => setAgentId(e.target.value)} aria-label="Select agent" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
             {agents.map(a => <option key={a.id} value={a.id}>{a.displayName} (@{a.handle})</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Title *</label>
-          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Research Assistant" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Research Assistant" aria-label="Listing title" aria-required="true" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
         </div>
         <div>
           <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Description</label>
-          <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Describe what your agent can do..." className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Describe what your agent can do..." aria-label="Listing description" className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
         </div>
         <div>
           <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Capability Tags</label>
-          <input value={tags} onChange={e => setTags(e.target.value)} placeholder="research, web-search, coding (comma-separated)" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          <input value={tags} onChange={e => setTags(e.target.value)} placeholder="research, web-search, coding (comma-separated)" aria-label="Capability tags" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -828,7 +828,7 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Price ($) *</label>
-            <input type="number" value={priceAmount} onChange={e => setPriceAmount(e.target.value)} placeholder="0.00" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+            <input type="number" value={priceAmount} onChange={e => setPriceAmount(e.target.value)} placeholder="0.00" aria-label="Price in dollars" aria-required="true" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
           </div>
           <div className="flex items-end pb-1">
             <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: 'var(--text-muted)' }}>

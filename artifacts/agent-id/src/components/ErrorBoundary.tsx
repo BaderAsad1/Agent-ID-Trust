@@ -24,12 +24,15 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 99998,
-        background: '#050711',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: "'Inter', sans-serif",
-      }}>
+      <div
+        role="alert"
+        style={{
+          position: 'fixed', inset: 0, zIndex: 99998,
+          background: '#050711',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: "'Inter', sans-serif",
+        }}
+      >
         <div style={{ textAlign: 'center', maxWidth: 480, padding: '0 24px' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -38,7 +41,7 @@ export class ErrorBoundary extends Component<Props, State> {
             border: '1px solid rgba(239,68,68,0.25)',
             marginBottom: 24,
           }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -54,18 +57,34 @@ export class ErrorBoundary extends Component<Props, State> {
           <p style={{ fontSize: 14, color: '#8690a8', lineHeight: 1.6, margin: '0 0 32px' }}>
             An unexpected error occurred. This has been logged.
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              padding: '12px 32px', fontSize: 14, fontWeight: 600,
-              fontFamily: "'Inter', sans-serif",
-              background: 'linear-gradient(135deg, #4f7df3, #6366f1)',
-              color: '#fff', border: 'none', borderRadius: 12,
-              cursor: 'pointer',
-            }}
-          >
-            Reload page
-          </button>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => window.history.back()}
+              style={{
+                padding: '12px 32px', fontSize: 14, fontWeight: 600,
+                fontFamily: "'Inter', sans-serif",
+                background: 'transparent',
+                color: '#e8e8f0', border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: 12, cursor: 'pointer',
+                minHeight: 44,
+              }}
+            >
+              Go back
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '12px 32px', fontSize: 14, fontWeight: 600,
+                fontFamily: "'Inter', sans-serif",
+                background: 'linear-gradient(135deg, #4f7df3, #6366f1)',
+                color: '#fff', border: 'none', borderRadius: 12,
+                cursor: 'pointer',
+                minHeight: 44,
+              }}
+            >
+              Refresh page
+            </button>
+          </div>
           {this.state.error && process.env.NODE_ENV !== 'production' && (
             <pre style={{
               marginTop: 32, padding: 16, borderRadius: 8,

@@ -268,3 +268,62 @@
   .cursor-blink::after { animation: none !important; }
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button, a, input, select, textarea, [role="button"], [tabindex] {
+  min-height: 44px;
+}
+
+input[type="checkbox"], input[type="radio"] {
+  min-height: auto;
+}
+
+nav button, nav a {
+  min-height: 44px;
+}
+
+select {
+  min-height: 44px;
+}
+
+@media (max-width: 768px) {
+  [data-mobile-compact] .p-6 {
+    padding: 16px;
+  }
+  [data-mobile-compact] .p-8 {
+    padding: 16px;
+  }
+  .md\:p-8 {
+    padding: 16px;
+  }
+  .grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 375px) {
+  [data-mobile-compact] .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 99999;
+  padding: 12px 24px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 0 0 8px 0;
+}
+.skip-to-content:focus {
+  left: 0;
+}
