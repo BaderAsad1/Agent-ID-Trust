@@ -20,7 +20,7 @@ import { logActivity } from "../../services/activity-logger";
 import { getOrCreateInbox } from "../../services/mail";
 import { formatDomain, formatHandle } from "../../utils/handle";
 import { getUserPlan, getPlanLimits } from "../../services/billing";
-import { registrationRateLimitStrict, challengeRateLimit } from "../../middlewares/rate-limit";
+import { registrationRateLimitStrict, challengeRateLimit, resolutionRateLimit } from "../../middlewares/rate-limit";
 
 const router = Router();
 
@@ -76,7 +76,21 @@ router.post("/claim", registrationRateLimitStrict, async (req, res, next) => {
     }
 
     if (agent.isClaimed && agent.verificationStatus === "verified") {
-      throw new AppError(409, "ALREADY_ACTIVATED", "This agent is already activated and claimed");
+      const APP_URL = process.env.APP_URL || "https://getagent.id";
+      res.status(200).json({
+        message: "This agent is already activated and claimed",
+        idempotent: true,
+        identity: {
+          agentId: agent.id,
+          handle: agent.handle ?? null,
+          status: agent.status,
+          verificationStatus: agent.verificationStatus,
+          profile: agent.handle
+            ? `${APP_URL}/${agent.handle}`
+            : `${APP_URL}/id/${agent.id}`,
+        },
+      });
+      return;
     }
 
     const agentKey = await createAgentKey({
@@ -171,18 +185,28 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
       throw new AppError(400, "VERIFICATION_FAILED", result.error!);
     }
 
+    if (agent.status === "active" && agent.verificationStatus === "verified" && agent.isClaimed) {
+      res.status(200).json({
+        message: "Agent is already activated",
+        agentId,
+        status: "active",
+        idempotent: true,
+      });
+      return;
+    }
+
     const apiKey = generateAgentApiKey();
 
-    await Promise.all([
-      db.insert(apiKeysTable).values({
+    await db.transaction(async (tx) => {
+      await tx.insert(apiKeysTable).values({
         ownerType: "agent",
         ownerId: agentId,
         name: `${agent.handle ? agent.handle + "-primary" : "primary-" + agentId.slice(0, 8)}`,
         keyPrefix: apiKey.prefix,
         hashedKey: apiKey.hashed,
         scopes: [],
-      }),
-      db
+      });
+      await tx
         .update(agentsTable)
         .set({
           status: "active",
@@ -194,8 +218,8 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
           bootstrapIssuedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(agentsTable.id, agentId)),
-      db
+        .where(eq(agentsTable.id, agentId));
+      await tx
         .update(agentClaimTokensTable)
         .set({
           isUsed: true,
@@ -203,7 +227,10 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
           usedAt: new Date(),
           usedByUserId: agent.userId,
         })
-        .where(eq(agentClaimTokensTable.id, claimRecord.id)),
+        .where(eq(agentClaimTokensTable.id, claimRecord.id));
+    });
+
+    await Promise.all([
       getOrCreateInbox(agentId),
       logActivity({
         agentId,
@@ -294,7 +321,7 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
   }
 });
 
-router.get("/status/:agentId", async (req, res, next) => {
+router.get("/status/:agentId", resolutionRateLimit, async (req, res, next) => {
   try {
     const agent = await getAgentById(req.params.agentId as string);
     if (!agent) {

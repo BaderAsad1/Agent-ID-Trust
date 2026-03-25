@@ -35,7 +35,7 @@ const authorizeSchema = z.object({
   scope: z.string().optional(),
   state: z.string().optional(),
   code_challenge: z.string().optional(),
-  code_challenge_method: z.enum(["S256", "plain"]).optional(),
+  code_challenge_method: z.enum(["S256"]).optional(),
   agent_id: z.string().uuid().optional(),
 });
 
@@ -92,8 +92,6 @@ async function validateClientSecret(clientId: string, clientSecretHash?: string)
   return client;
 }
 
-const validateClient = validateClientSecret;
-
 router.get("/authorize", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = authorizeSchema.safeParse(req.query);
@@ -120,8 +118,10 @@ router.get("/authorize", async (req: Request, res: Response, next: NextFunction)
     }
 
     const scopes = (scope || "").split(" ").filter(Boolean);
-    const allowedScopes = client.allowedScopes || [];
-    const grantedScopes = scopes.filter(s => allowedScopes.includes(s) || allowedScopes.length === 0);
+    const allowedScopes = (client.allowedScopes as string[]) || [];
+    const grantedScopes = allowedScopes.length > 0
+      ? scopes.filter(s => allowedScopes.includes(s))
+      : [];
 
     const APP_URL = env().APP_URL || "https://getagent.id";
 
@@ -191,7 +191,7 @@ router.post("/authorize/approve", requireAuth, async (req: Request, res: Respons
     const allowedScopes = (client.allowedScopes as string[]) || [];
     const scopes = allowedScopes.length > 0
       ? requestedScopes.filter((s: string) => allowedScopes.includes(s))
-      : requestedScopes;
+      : [];
 
     const code = await createAuthorizationCode(
       client_id,
@@ -270,7 +270,7 @@ router.post("/token", registrationRateLimit, async (req: Request, res: Response,
       const clientAllowedScopes = (client.allowedScopes as string[]) || [];
       const scopes = clientAllowedScopes.length > 0
         ? requestedScopes.filter((s: string) => clientAllowedScopes.includes(s))
-        : requestedScopes;
+        : [];
 
       if (requestedScopes.length > 0 && scopes.length === 0) {
         throw new AppError(400, "invalid_scope", "None of the requested scopes are permitted for this client");
@@ -390,7 +390,7 @@ router.post("/revoke", async (req: Request, res: Response, next: NextFunction) =
     const { token, token_type_hint, client_id, client_secret } = parsed.data;
 
     if (client_id) {
-      await validateClient(client_id, client_secret);
+      await validateClientSecret(client_id, client_secret);
     } else {
       res.status(401).json({
         error: "invalid_client",

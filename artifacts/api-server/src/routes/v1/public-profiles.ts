@@ -205,9 +205,9 @@ router.get("/:handle/activity", async (req, res, next) => {
     const { getPublicSignedActivityLog } = await import("../../services/activity-log");
     const limit = Math.min(Number(req.query.limit) || 20, 100);
     const offset = Number(req.query.offset) || 0;
-    const activities = await getPublicSignedActivityLog(agent.id, limit, offset);
+    const result = await getPublicSignedActivityLog(agent.id, limit, offset);
 
-    res.json({ activities });
+    res.json({ activities: result.activities, total: result.total, limit, offset });
   } catch (err) {
     next(err);
   }

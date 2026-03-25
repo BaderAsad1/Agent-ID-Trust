@@ -214,7 +214,7 @@ router.get("/.well-known/openid-configuration", async (_req: Request, res: Respo
       "urn:agentid:grant-type:signed-assertion",
     ],
     token_endpoint_auth_methods_supported: ["client_secret_post", "none"],
-    code_challenge_methods_supported: ["S256", "plain"],
+    code_challenge_methods_supported: ["S256"],
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: ["EdDSA"],
     userinfo_signing_alg_values_supported: ["EdDSA"],

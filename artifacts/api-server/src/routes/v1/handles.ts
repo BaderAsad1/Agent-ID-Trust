@@ -28,7 +28,7 @@ import { logger } from "../../middlewares/request-logger";
 const router = Router();
 
 const checkHandleSchema = z.object({
-  handle: z.string().min(1).max(100),
+  handle: z.string().min(1).max(32),
 });
 
 router.get("/check", async (req, res, next) => {

@@ -27,6 +27,7 @@ import {
   agentClaimHistoryTable,
 } from "@workspace/db/schema";
 import { AppError } from "../../middlewares/error-handler";
+import { logger } from "../../middlewares/request-logger";
 import { writeAuditEvent } from "../../services/auth-session";
 
 const router = Router();
@@ -35,7 +36,7 @@ const adminRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders: true,
   message: {
     error: "ADMIN_RATE_LIMITED",
     message: "Too many admin requests. Limit is 30 per minute per IP.",
@@ -65,6 +66,7 @@ function adminAuth(req: Request, res: Response, next: NextFunction): void {
     res.status(401).json({
       error: "ADMIN_UNAUTHORIZED",
       message: "Admin authentication required. Provide X-Admin-Key header.",
+      requestId: req.requestId ?? "unknown",
     });
   };
 
@@ -74,7 +76,7 @@ function adminAuth(req: Request, res: Response, next: NextFunction): void {
   // Fail closed: if env var is not set, no key can ever be valid.
   // Log a warning when the secret is absent so operators are alerted.
   if (!expectedKey) {
-    console.warn("[admin] ADMIN_SECRET_KEY is not set; all admin requests will be denied.");
+    logger.warn("[admin] ADMIN_SECRET_KEY is not set; all admin requests will be denied.");
     deny();
     return;
   }
@@ -107,13 +109,16 @@ function adminAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-let adminIpWarningLogged = false;
 function adminIpAllowlist(req: Request, res: Response, next: NextFunction): void {
   const allowedRaw = process.env.ADMIN_ALLOWED_IPS;
   if (!allowedRaw || allowedRaw.trim() === "") {
-    if (process.env.NODE_ENV === "production" && !adminIpWarningLogged) {
-      console.warn("[admin] WARNING: ADMIN_ALLOWED_IPS is not set — admin routes are accessible from any IP with the correct secret. Set ADMIN_ALLOWED_IPS to restrict access.");
-      adminIpWarningLogged = true;
+    if (process.env.NODE_ENV === "production") {
+      res.status(503).json({
+        error: "ADMIN_NOT_CONFIGURED",
+        message: "ADMIN_ALLOWED_IPS is not configured. Admin access is disabled in production until an IP allowlist is set.",
+        requestId: req.requestId ?? "unknown",
+      });
+      return;
     }
     next();
     return;
@@ -123,10 +128,11 @@ function adminIpAllowlist(req: Request, res: Response, next: NextFunction): void
   const reqIp = getRequestorIp(req);
 
   if (!allowedIps.includes(reqIp)) {
-    console.warn(`[admin] IP ${reqIp} not in ADMIN_ALLOWED_IPS allowlist`);
+    logger.warn({ ip: reqIp }, "[admin] IP not in ADMIN_ALLOWED_IPS allowlist");
     res.status(403).json({
       error: "ADMIN_FORBIDDEN",
       message: "Request denied: IP not in admin allowlist.",
+      requestId: req.requestId ?? "unknown",
     });
     return;
   }
@@ -156,38 +162,38 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
     });
     if (!agent) throw new AppError(404, "NOT_FOUND", "Agent not found");
 
-    await db.update(agentsTable).set({
-      status: "revoked",
-      revokedAt: new Date(),
-      revocationReason: reason,
-      revocationStatement: statement,
-      updatedAt: new Date(),
-    }).where(eq(agentsTable.id, agentId));
+    const { agentKeysTable, agentCredentialsTable } = await import("@workspace/db/schema");
 
-    try {
-      const { agentKeysTable } = await import("@workspace/db/schema");
-      await db.update(agentKeysTable)
+    await db.transaction(async (tx) => {
+      await tx.update(agentsTable).set({
+        status: "revoked",
+        revokedAt: new Date(),
+        revocationReason: reason,
+        revocationStatement: statement,
+        updatedAt: new Date(),
+      }).where(eq(agentsTable.id, agentId));
+
+      await tx.update(agentKeysTable)
         .set({ status: "revoked", revokedAt: new Date() })
         .where(and(
           eq(agentKeysTable.agentId, agentId),
           eq(agentKeysTable.status, "active"),
         ));
-    } catch {}
 
-    try {
-      const { agentCredentialsTable } = await import("@workspace/db/schema");
-      await db.update(agentCredentialsTable)
+      await tx.update(agentCredentialsTable)
         .set({ isActive: false, revokedAt: new Date(), updatedAt: new Date() })
         .where(and(
           eq(agentCredentialsTable.agentId, agentId),
           eq(agentCredentialsTable.isActive, true),
         ));
-    } catch {}
+    });
 
     try {
       const { clearVcCache } = await import("../../services/verifiable-credential");
       clearVcCache(agentId);
-    } catch {}
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, agentId }, "[admin] Failed to clear VC cache during revocation");
+    }
 
     try {
       if (agent.handle) {
@@ -195,7 +201,9 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
         const { normalizeHandle } = await import("../../utils/handle");
         await deleteResolutionCache(normalizeHandle(agent.handle));
       }
-    } catch {}
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, agentId }, "[admin] Failed to clear resolution cache during revocation");
+    }
 
     setImmediate(async () => {
       try {
@@ -221,9 +229,13 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
         }
 
         for (const { subjectId } of attestedAgents) {
-          try { await recomputeAndStore(subjectId); } catch {}
+          try { await recomputeAndStore(subjectId); } catch (err) {
+            logger.warn({ err: (err as Error).message, subjectId }, "[admin] Failed to recompute trust score after revocation");
+          }
         }
-      } catch {}
+      } catch (err) {
+        logger.error({ err: (err as Error).message, agentId }, "[admin] Failed to process attestation cleanup after revocation");
+      }
     });
 
     await writeAuditEvent("admin", "system", "admin.agent.revoked", "agent", agentId,

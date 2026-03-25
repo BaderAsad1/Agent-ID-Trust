@@ -19,6 +19,10 @@ function planMeetsMinimum(currentPlan: string, minPlan: string): boolean {
 
 export function requirePlan(minPlan: "starter" | "pro" | "enterprise") {
   return async (req: Request, res: Response, next: NextFunction) => {
+    if (process.env.LAUNCH_MODE === "true") {
+      return next();
+    }
+
     if (!req.userId) {
       res.status(401).json({
         error: "Authentication required",

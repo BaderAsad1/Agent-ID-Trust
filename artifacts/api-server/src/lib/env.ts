@@ -1,4 +1,7 @@
 import { z } from "zod/v4";
+import pino from "pino";
+
+const envLogger = pino({ name: "env" });
 
 const envSchema = z.object({
   PORT: z.string().min(1),
@@ -46,6 +49,7 @@ const envSchema = z.object({
   // WARNING: Leaving this as "false" in a proxied deployment will cause req.ip to show proxy IPs.
   TRUST_PROXY: z.string().default("false"),
   MAIL_BASE_DOMAIN: z.string().default("getagent.id"),
+  COOKIE_DOMAIN: z.string().optional(),
   RESEND_WEBHOOK_SECRET: z.string().optional(),
 
   VC_SIGNING_KEY: z.string().optional(),
@@ -125,9 +129,9 @@ export function validateEnv(): Env {
   applyStripeAliases();
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
-    console.error("[env] Environment validation failed:");
+    envLogger.error("[env] Environment validation failed:");
     for (const issue of result.error.issues) {
-      console.error(`  ${issue.path.join(".")}: ${issue.message}`);
+      envLogger.error({ field: issue.path.join("."), message: issue.message }, "[env] validation issue");
     }
     if (process.env.NODE_ENV === "production") {
       process.exit(1);
@@ -140,46 +144,46 @@ export function validateEnv(): Env {
   const isProd = env.NODE_ENV === "production";
 
   if (isProd && !env.ACTIVITY_HMAC_SECRET) {
-    console.error("[env] FATAL: ACTIVITY_HMAC_SECRET is required in production.");
+    envLogger.fatal("[env] ACTIVITY_HMAC_SECRET is required in production.");
     process.exit(1);
   }
   if (isProd && !env.WEBHOOK_SECRET_KEY) {
-    console.error("[env] FATAL: WEBHOOK_SECRET_KEY is required in production.");
+    envLogger.fatal("[env] WEBHOOK_SECRET_KEY is required in production.");
     process.exit(1);
   }
   if (isProd && !env.VC_SIGNING_KEY) {
-    console.error("[env] FATAL: VC_SIGNING_KEY is required in production for W3C VC issuance.");
+    envLogger.fatal("[env] VC_SIGNING_KEY is required in production for W3C VC issuance.");
     process.exit(1);
   }
   if (isProd && !env.VC_PUBLIC_KEY) {
-    console.error("[env] FATAL: VC_PUBLIC_KEY is required in production for W3C VC verification.");
+    envLogger.fatal("[env] VC_PUBLIC_KEY is required in production for W3C VC verification.");
     process.exit(1);
   }
   if (isProd && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) {
-    console.error("[env] FATAL: JWT_SECRET is required in production and must be at least 32 characters.");
+    envLogger.fatal("[env] JWT_SECRET is required in production and must be at least 32 characters.");
     process.exit(1);
   }
 
   if (!env.REDIS_URL) {
-    console.warn("[env] REDIS_URL not set — rate limiting will use in-memory store, BullMQ workers disabled.");
+    envLogger.warn("[env] REDIS_URL not set — rate limiting will use in-memory store, BullMQ workers disabled.");
   }
   if (!env.STRIPE_SECRET_KEY) {
-    console.warn("[env] STRIPE_SECRET_KEY not set — payment processing disabled.");
+    envLogger.warn("[env] STRIPE_SECRET_KEY not set — payment processing disabled.");
   }
   if (!env.RESEND_API_KEY) {
-    console.warn("[env] RESEND_API_KEY not set — external email delivery disabled.");
+    envLogger.warn("[env] RESEND_API_KEY not set — external email delivery disabled.");
   }
   if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ZONE_ID) {
-    console.warn("[env] Cloudflare credentials not set — domain provisioning disabled.");
+    envLogger.warn("[env] Cloudflare credentials not set — domain provisioning disabled.");
   }
   if (!env.ACTIVITY_HMAC_SECRET) {
-    console.warn("[env] ACTIVITY_HMAC_SECRET not set — using ephemeral secret (dev only).");
+    envLogger.warn("[env] ACTIVITY_HMAC_SECRET not set — using ephemeral secret (dev only).");
   }
   if (!env.WEBHOOK_SECRET_KEY) {
-    console.warn("[env] WEBHOOK_SECRET_KEY not set — using ephemeral encryption key (dev only).");
+    envLogger.warn("[env] WEBHOOK_SECRET_KEY not set — using ephemeral encryption key (dev only).");
   }
   if (!env.CREDENTIAL_SIGNING_SECRET) {
-    console.warn("[env] CREDENTIAL_SIGNING_SECRET not set — using ephemeral secret (dev only).");
+    envLogger.warn("[env] CREDENTIAL_SIGNING_SECRET not set — using ephemeral secret (dev only).");
   }
 
   return env;

@@ -17,7 +17,7 @@ export async function provisionAgentWallet(
     return null;
   }
 
-  console.log(`[wallet] provisionAgentWallet starting for agentId=${agentId} handle=${handle ?? "(none)"}`);
+  logger.info({ agentId, handle: handle ?? "(none)" }, "[wallet] provisionAgentWallet starting");
 
   try {
     const existing = await db.query.agentsTable.findFirst({
@@ -26,18 +26,18 @@ export async function provisionAgentWallet(
     });
 
     if (existing?.walletAddress) {
-      console.log(`[wallet] agentId=${agentId} already has wallet address=${existing.walletAddress}, skipping provisioning`);
+      logger.info({ agentId, walletAddress: existing.walletAddress }, "[wallet] already has wallet, skipping provisioning");
       return { address: existing.walletAddress, network: NETWORK_ID };
     }
 
     const cdp = getCdpClient();
-    console.log(`[wallet] agentId=${agentId} CDP client obtained`);
+    logger.info({ agentId }, "[wallet] CDP client obtained");
 
     const accountName = `aid-${agentId.replace(/-/g, "").substring(0, 28)}`;
-    console.log(`[wallet] agentId=${agentId} requesting EVM account name=${accountName}`);
+    logger.info({ agentId, accountName }, "[wallet] requesting EVM account");
     const account = await cdp.evm.getOrCreateAccount({ name: accountName });
     const address = account.address;
-    console.log(`[wallet] agentId=${agentId} EVM account obtained, address=${address}`);
+    logger.info({ agentId, address }, "[wallet] EVM account obtained");
 
     await db.update(agentsTable).set({
       walletAddress: address,
@@ -59,7 +59,7 @@ export async function provisionAgentWallet(
       });
     } catch (rulesErr) {
       const rulesMsg = rulesErr instanceof Error ? rulesErr.message : String(rulesErr);
-      console.warn(`[wallet] agentId=${agentId} spending rules insert skipped (likely already exists): ${rulesMsg}`);
+      logger.warn({ agentId, error: rulesMsg }, "[wallet] spending rules insert skipped (likely already exists)");
     }
 
     await db.insert(agentWalletTransactionsTable).values({
@@ -73,7 +73,7 @@ export async function provisionAgentWallet(
       description: `Wallet provisioned on ${NETWORK_ID}`,
     });
 
-    console.log(`[wallet] agentId=${agentId} wallet provisioned successfully address=${address} network=${NETWORK_ID}`);
+    logger.info({ agentId, address, network: NETWORK_ID }, "[wallet] wallet provisioned successfully");
     logger.info({ agentId, address, network: NETWORK_ID }, "[wallet] Wallet provisioned");
 
     return { address, network: NETWORK_ID };

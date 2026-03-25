@@ -30,7 +30,7 @@ import {
 import { clearVcCache } from "../../services/verifiable-credential";
 import { buildBootstrapBundle } from "./agent-runtime";
 import { verifyClaimToken, generateClaimToken } from "../../utils/claim-token";
-import { desc, eq, and, gte, sql } from "drizzle-orm";
+import { desc, eq, and, gte, sql, count } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable, agentClaimHistoryTable } from "@workspace/db/schema";
 
@@ -62,7 +62,7 @@ router.get("/whoami", requireAgentAuth, async (req, res, next) => {
 });
 
 const createAgentSchema = z.object({
-  handle: z.string().min(3).max(100),
+  handle: z.string().min(3).max(32),
   displayName: z.string().min(1).max(255),
   description: z.string().max(5000).optional(),
   endpointUrl: z.url().optional(),
@@ -433,18 +433,23 @@ router.get("/:agentId/activity", requireHumanOrAgentAuthForActivity, validateUui
 
     if (source === "signed") {
       const { getSignedActivityLog } = await import("../../services/activity-log");
-      const activities = await getSignedActivityLog(agentId, limit, offset);
-      res.json({ activities, source: "signed" });
+      const result = await getSignedActivityLog(agentId, limit, offset);
+      res.json({ activities: result.activities, total: result.total, limit, offset, source: "signed" });
       return;
     }
 
-    const activities = await db.query.agentActivityLogTable.findMany({
-      where: eq(agentActivityLogTable.agentId, agentId),
-      orderBy: [desc(agentActivityLogTable.createdAt)],
-      limit,
-    });
+    const condition = eq(agentActivityLogTable.agentId, agentId);
+    const [activities, countResult] = await Promise.all([
+      db.query.agentActivityLogTable.findMany({
+        where: condition,
+        orderBy: [desc(agentActivityLogTable.createdAt)],
+        limit,
+        offset,
+      }),
+      db.select({ total: count() }).from(agentActivityLogTable).where(condition),
+    ]);
 
-    res.json({ activities });
+    res.json({ activities, total: countResult[0]?.total ?? 0, limit, offset });
   } catch (err) {
     next(err);
   }

@@ -48,7 +48,7 @@ function hashIp(ip: string | string[] | undefined): string | undefined {
 const router = Router();
 
 const registerSchema = z.object({
-  handle: z.string().min(3).max(100).optional(),
+  handle: z.string().min(3).max(32).optional(),
   displayName: z.string().min(1).max(255),
   publicKey: z.string().min(1),
   keyType: z.enum(["ed25519"]).default("ed25519"),
@@ -265,6 +265,21 @@ router.post("/agents/register", registrationRateLimitStrict, async (req, res, ne
 
     let ownerId = req.userId;
     const tUser = performance.now();
+
+    if (ownerId) {
+      const ownerPlan = await getUserPlan(ownerId);
+      const ownerLimits = getPlanLimits(ownerPlan);
+      const existingAgents = await db.select({ id: agentsTable.id }).from(agentsTable)
+        .where(and(eq(agentsTable.userId, ownerId), eq(agentsTable.status, "active")));
+      if (existingAgents.length >= ownerLimits.agentLimit) {
+        throw new AppError(403, "AGENT_LIMIT_REACHED", `Agent limit reached. Your ${ownerPlan} plan allows ${ownerLimits.agentLimit} agent(s).`, {
+          currentPlan: ownerPlan,
+          agentLimit: ownerLimits.agentLimit,
+          currentCount: existingAgents.length,
+        });
+      }
+    }
+
     // C4: Per-IP daily unverified agent cap applies to ALL registrations (auth'd and anon)
     await checkUnverifiedAgentDailyLimit(req.ip);
     if (!ownerId) {
@@ -458,6 +473,28 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
     if (req.userId && agent.userId !== req.userId) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
+
+    if (agent.status === "active" && agent.verificationStatus === "verified") {
+      res.status(200).json({
+        message: "Agent is already verified",
+        agentId,
+        status: "active",
+        idempotent: true,
+      });
+      return;
+    }
+
+    const preActivationPlan = await getUserPlan(agent.userId);
+    const preActivationLimits = getPlanLimits(preActivationPlan);
+    const existingActiveAgents = await db.select({ id: agentsTable.id }).from(agentsTable)
+      .where(and(eq(agentsTable.userId, agent.userId), eq(agentsTable.status, "active")));
+    if (existingActiveAgents.length >= preActivationLimits.agentLimit) {
+      throw new AppError(403, "AGENT_LIMIT_REACHED", `Agent limit reached. The owner's ${preActivationPlan} plan allows ${preActivationLimits.agentLimit} active agent(s).`, {
+        currentPlan: preActivationPlan,
+        agentLimit: preActivationLimits.agentLimit,
+        currentCount: existingActiveAgents.length,
+      });
+    }
     const lookupMs = performance.now() - tLookup;
 
     const tChallenge = performance.now();
@@ -519,16 +556,16 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
     const claimToken = generateClaimToken(agentId, apiKey.prefix);
 
     const tParallel = performance.now();
-    await Promise.all([
-      db.insert(apiKeysTable).values({
+    await db.transaction(async (tx) => {
+      await tx.insert(apiKeysTable).values({
         ownerType: "agent",
         ownerId: agentId,
         name: `${agent.handle ? agent.handle + "-primary" : "primary-" + agentId.slice(0, 8)}`,
         keyPrefix: apiKey.prefix,
         hashedKey: apiKey.hashed,
         scopes: [],
-      }),
-      db
+      });
+      await tx
         .update(agentsTable)
         .set({
           status: 'active',
@@ -538,12 +575,14 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
           bootstrapIssuedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(agentsTable.id, agentId)),
-      getOrCreateInbox(agentId),
-      db.insert(agentClaimTokensTable).values({
+        .where(eq(agentsTable.id, agentId));
+      await tx.insert(agentClaimTokensTable).values({
         agentId,
         token: claimToken,
-      }),
+      });
+    });
+    await Promise.all([
+      getOrCreateInbox(agentId),
       logActivity({
         agentId,
         eventType: "agent.verified",

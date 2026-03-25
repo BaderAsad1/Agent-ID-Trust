@@ -405,7 +405,7 @@ export async function buildErc8004(handle: string) {
       "https://eips.ethereum.org/EIPS/eip-8004",
     ],
     spec: "registration-v1",
-    type: "AgentRegistration",
+    type: "https://eips.ethereum.org/EIPS/eip-8004#AgentRegistration",
     id: `did:web:getagent.id:agents:${agent.handle}`,
     controller: "did:web:getagent.id",
     name: agent.displayName,

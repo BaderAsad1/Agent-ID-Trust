@@ -40,16 +40,18 @@ const trustProxyValue: boolean | number | string = (() => {
 })();
 
 if (config.NODE_ENV === "production" && trustProxyValue === false) {
-  // Deliberately not throwing — proxy trust is infrastructure-dependent.
-  // Operators MUST set TRUST_PROXY for their deployment. Log a clear startup warning.
-  console.warn(
-    "[security] WARNING: TRUST_PROXY is 'false' in production. " +
-    "If running behind a reverse proxy, req.ip will reflect proxy IPs, " +
-    "undermining IP-based rate limits. Set TRUST_PROXY to your proxy hop count or CIDR range.",
+  throw new Error(
+    "[security] FATAL: TRUST_PROXY is 'false' in production. " +
+    "Set TRUST_PROXY to your proxy hop count (e.g. '2' for Cloudflare+nginx) or a CIDR range. " +
+    "Running without proxy trust undermines IP-based rate limits and security controls.",
   );
 }
 app.set("trust proxy", trustProxyValue);
 
+app.use((_req, res, next) => {
+  res.setHeader("X-API-Version", "1");
+  next();
+});
 app.use(requestIdMiddleware);
 app.use(securityHeaders);
 app.use(sandboxMiddleware);
@@ -88,6 +90,7 @@ app.use(cors({
     "X-RateLimit-Remaining",
     "X-RateLimit-Reset",
     "Retry-After",
+    "X-API-Version",
   ],
 }));
 app.use(cookieParser());
@@ -201,7 +204,21 @@ app.use("/api", router);
 
 const MCP_PORT = Number(process.env.MCP_PORT || 3001);
 
-app.all("/mcp", (req: Request, res: Response) => {
+app.all("/mcp", async (req: Request, res: Response, next: NextFunction) => {
+  const { tryAgentAuth } = await import("./middlewares/agent-auth");
+  tryAgentAuth(req, res, (err?: unknown) => {
+    if (err) return next(err);
+    if (!req.authenticatedAgent && !req.userId) {
+      res.status(401).json({
+        error: "UNAUTHORIZED",
+        message: "MCP proxy requires authentication via X-Agent-Key header or Authorization bearer token",
+        requestId: req.requestId ?? "unknown",
+      });
+      return;
+    }
+    next();
+  });
+}, (req: Request, res: Response) => {
   const bodyStr = req.body && typeof req.body === "object"
     ? JSON.stringify(req.body)
     : typeof req.body === "string"

@@ -306,11 +306,11 @@ describe("LR-4 — Env fail-closed: startup validation", () => {
     expect(src).toContain("isProd");
   });
 
-  it("env.ts: dev-mode missing secrets produce console.warn (not exit)", () => {
+  it("env.ts: dev-mode missing secrets produce structured logger warnings (not exit)", () => {
     const fs = require("fs");
     const path = require("path");
     const src: string = fs.readFileSync(path.join(__dirname, "../lib/env.ts"), "utf8");
-    expect(src).toContain("console.warn");
+    expect(src).toContain("envLogger.warn");
     expect(src).toContain("dev only");
   });
 

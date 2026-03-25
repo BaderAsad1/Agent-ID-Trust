@@ -236,7 +236,7 @@ router.post("/cancel", requireAuth, async (req, res, next) => {
 });
 
 const handleCheckoutSchema = z.object({
-  handle: z.string().min(3).max(100),
+  handle: z.string().min(3).max(32),
   agentId: z.string().uuid().optional(),
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
@@ -304,7 +304,7 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
 });
 
 const cryptoCheckoutSchema = z.object({
-  handle: z.string().min(3).max(100),
+  handle: z.string().min(3).max(32),
   agentId: z.string().uuid().optional(),
   token: z.enum(["USDC", "USDT"]).default("USDC"),
 });
@@ -372,7 +372,7 @@ router.post("/crypto-checkout", async (req, res, next) => {
 });
 
 const cryptoPaymentStatusSchema = z.object({
-  handle: z.string().min(3).max(100),
+  handle: z.string().min(3).max(32),
   reference: z.string().min(1),
   token: z.enum(["USDC", "USDT"]).default("USDC"),
   agentId: z.string().uuid().optional(),

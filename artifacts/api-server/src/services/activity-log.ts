@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes } from "crypto";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, count } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentSignedActivityTable } from "@workspace/db/schema";
 import { env } from "../lib/env";
@@ -93,12 +93,17 @@ export async function getSignedActivityLog(
   limit = 50,
   offset = 0,
 ) {
-  return db.query.agentSignedActivityTable.findMany({
-    where: eq(agentSignedActivityTable.agentId, agentId),
-    orderBy: [desc(agentSignedActivityTable.sequenceNumber)],
-    limit,
-    offset,
-  });
+  const condition = eq(agentSignedActivityTable.agentId, agentId);
+  const [activities, countResult] = await Promise.all([
+    db.query.agentSignedActivityTable.findMany({
+      where: condition,
+      orderBy: [desc(agentSignedActivityTable.sequenceNumber)],
+      limit,
+      offset,
+    }),
+    db.select({ total: count() }).from(agentSignedActivityTable).where(condition),
+  ]);
+  return { activities, total: countResult[0]?.total ?? 0 };
 }
 
 export async function getPublicSignedActivityLog(
@@ -106,15 +111,20 @@ export async function getPublicSignedActivityLog(
   limit = 50,
   offset = 0,
 ) {
-  return db.query.agentSignedActivityTable.findMany({
-    where: and(
-      eq(agentSignedActivityTable.agentId, agentId),
-      eq(agentSignedActivityTable.isPublic, "true"),
-    ),
-    orderBy: [desc(agentSignedActivityTable.sequenceNumber)],
-    limit,
-    offset,
-  });
+  const condition = and(
+    eq(agentSignedActivityTable.agentId, agentId),
+    eq(agentSignedActivityTable.isPublic, "true"),
+  );
+  const [activities, countResult] = await Promise.all([
+    db.query.agentSignedActivityTable.findMany({
+      where: condition,
+      orderBy: [desc(agentSignedActivityTable.sequenceNumber)],
+      limit,
+      offset,
+    }),
+    db.select({ total: count() }).from(agentSignedActivityTable).where(condition),
+  ]);
+  return { activities, total: countResult[0]?.total ?? 0 };
 }
 
 export async function verifyActivityChain(agentId: string): Promise<{

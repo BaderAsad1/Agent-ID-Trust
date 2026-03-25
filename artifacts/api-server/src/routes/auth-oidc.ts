@@ -18,6 +18,7 @@ import {
 import { env } from "../lib/env";
 import { logger } from "../middlewares/request-logger";
 import { sendMagicLinkEmail } from "../services/email";
+import { magicLinkSendRateLimit } from "../middlewares/rate-limit";
 
 const router = Router();
 
@@ -32,13 +33,18 @@ function getAppUrl(req: Request): string {
 }
 
 function setSessionCookie(res: Response, sid: string) {
-  res.cookie(SESSION_COOKIE, sid, {
+  const cfg = env();
+  const cookieOpts: import("express").CookieOptions = {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL,
-  });
+  };
+  if (cfg.COOKIE_DOMAIN) {
+    cookieOpts.domain = cfg.COOKIE_DOMAIN;
+  }
+  res.cookie(SESSION_COOKIE, sid, cookieOpts);
 }
 
 function setOauthCookie(res: Response, name: string, value: string) {
@@ -312,24 +318,25 @@ router.get("/auth/google/callback", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/auth/magic-link/send", async (req: Request, res: Response) => {
+router.post("/auth/magic-link/send", magicLinkSendRateLimit, async (req: Request, res: Response) => {
   const { email } = req.body as { email?: string };
   if (!email || !email.includes("@")) {
-    res.status(400).json({ error: "INVALID_EMAIL", message: "A valid email address is required" });
+    res.status(400).json({ error: "INVALID_EMAIL", message: "A valid email address is required", requestId: req.requestId ?? "unknown" });
     return;
   }
 
   const token = crypto.randomBytes(32).toString("hex");
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
   await db.insert(magicLinkTokensTable).values({
     email: email.toLowerCase().trim(),
-    token,
+    token: hashedToken,
     expiresAt,
   });
 
   const baseUrl = env().AUTH_BASE_URL || getAppUrl(req);
-  const magicUrl = `${baseUrl}/api/auth/magic-link/verify?token=${token}`;
+  const magicUrl = `${baseUrl}/magic-link#token=${token}`;
 
   try {
     await sendMagicLinkEmail(email, magicUrl);
@@ -338,6 +345,46 @@ router.post("/auth/magic-link/send", async (req: Request, res: Response) => {
   }
 
   res.json({ sent: true, email });
+});
+
+router.post("/auth/magic-link/verify", async (req: Request, res: Response) => {
+  const { token } = req.body as { token?: string };
+
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "INVALID_TOKEN", message: "Token is required", requestId: req.requestId ?? "unknown" });
+    return;
+  }
+
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const [record] = await db
+    .select()
+    .from(magicLinkTokensTable)
+    .where(and(eq(magicLinkTokensTable.token, hashedToken), isNull(magicLinkTokensTable.usedAt)))
+    .limit(1);
+
+  if (!record || record.expiresAt < new Date()) {
+    res.status(400).json({ error: "TOKEN_EXPIRED", message: "Token is invalid or expired", requestId: req.requestId ?? "unknown" });
+    return;
+  }
+
+  await db
+    .update(magicLinkTokensTable)
+    .set({ usedAt: new Date() })
+    .where(eq(magicLinkTokensTable.id, record.id));
+
+  const user = await upsertProviderUser({
+    provider: "email",
+    providerId: record.email,
+    email: record.email,
+    emailVerified: true,
+    displayName: record.email.split("@")[0] || null,
+  });
+
+  const sessionData: SessionData = { user };
+  const sid = await createSession(sessionData);
+  setSessionCookie(res, sid);
+  res.json({ success: true, user: { id: user.id, email: user.email } });
 });
 
 router.get("/auth/magic-link/verify", async (req: Request, res: Response) => {
@@ -349,10 +396,12 @@ router.get("/auth/magic-link/verify", async (req: Request, res: Response) => {
     return;
   }
 
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
   const [record] = await db
     .select()
     .from(magicLinkTokensTable)
-    .where(and(eq(magicLinkTokensTable.token, token), isNull(magicLinkTokensTable.usedAt)))
+    .where(and(eq(magicLinkTokensTable.token, hashedToken), isNull(magicLinkTokensTable.usedAt)))
     .limit(1);
 
   if (!record || record.expiresAt < new Date()) {

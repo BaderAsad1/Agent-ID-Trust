@@ -1,11 +1,14 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import pino from "pino";
+
+const claimLogger = pino({ name: "claim-token" });
 
 const CLAIM_TOKEN_SECRET = process.env.CLAIM_TOKEN_SECRET;
 if (!CLAIM_TOKEN_SECRET) {
   if (process.env.NODE_ENV === "production") {
     throw new Error("CLAIM_TOKEN_SECRET environment variable is required in production");
   }
-  console.warn("WARNING: CLAIM_TOKEN_SECRET not set. Using insecure default for development only.");
+  claimLogger.warn("CLAIM_TOKEN_SECRET not set. Using insecure default for development only.");
 }
 const SECRET = CLAIM_TOKEN_SECRET || "dev-only-claim-token-secret-not-for-production";
 

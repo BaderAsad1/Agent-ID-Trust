@@ -120,7 +120,7 @@ router.post("/authorize", requireAuth, async (req, res, next) => {
 });
 
 const handleClaimSchema = z.object({
-  handle: z.string().min(5).max(100),
+  handle: z.string().min(5).max(32),
   agentId: z.string().uuid(),
 });
 

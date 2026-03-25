@@ -31,6 +31,7 @@ export function errorHandler(
     return;
   }
 
+  const isProd = process.env.NODE_ENV === "production";
   logger.error(
     { err, requestId, method: req.method, path: req.path },
     "Unhandled error",
@@ -38,7 +39,8 @@ export function errorHandler(
 
   res.status(500).json({
     error: "INTERNAL_ERROR",
-    message: "Internal server error",
+    message: isProd ? "Internal server error" : err.message,
     requestId,
+    ...(isProd ? {} : { stack: err.stack }),
   });
 }

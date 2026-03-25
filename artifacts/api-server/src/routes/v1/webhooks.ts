@@ -2,6 +2,7 @@ import { Router, raw } from "express";
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { marketplaceOrdersTable, agentsTable, tasksTable } from "@workspace/db/schema";
+import { logger } from "../../middlewares/request-logger";
 import {
   verifyStripeWebhook,
   handleCheckoutCompleted,
@@ -24,7 +25,7 @@ const router = Router();
 async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
   const orderId = pi.metadata?.orderId;
   if (!orderId) {
-    console.log("[webhook] payment_intent.succeeded: no orderId in metadata, skipping");
+    logger.info("[webhook] payment_intent.succeeded: no orderId in metadata, skipping");
     return;
   }
 
@@ -33,7 +34,7 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
   });
 
   if (!order) {
-    console.warn(`[webhook] payment_intent.succeeded: order ${orderId} not found`);
+    logger.warn({ orderId }, "[webhook] payment_intent.succeeded: order not found");
     return;
   }
 
@@ -42,16 +43,16 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
       .update(marketplaceOrdersTable)
       .set({ status: "pending", updatedAt: new Date() })
       .where(eq(marketplaceOrdersTable.id, orderId));
-    console.log(`[webhook] payment_intent.succeeded: advanced order ${orderId} from payment_pending to pending`);
+    logger.info({ orderId }, "[webhook] payment_intent.succeeded: advanced order from payment_pending to pending");
   } else {
-    console.log(`[webhook] payment_intent.succeeded: order ${orderId} already in status ${order.status}, no action`);
+    logger.info({ orderId, status: order.status }, "[webhook] payment_intent.succeeded: order already processed, no action");
   }
 }
 
 async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
   const orderId = pi.metadata?.orderId;
   if (!orderId) {
-    console.log("[webhook] payment_intent.payment_failed: no orderId in metadata, skipping");
+    logger.info("[webhook] payment_intent.payment_failed: no orderId in metadata, skipping");
     return;
   }
 
@@ -60,7 +61,7 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
   });
 
   if (!order) {
-    console.warn(`[webhook] payment_intent.payment_failed: order ${orderId} not found`);
+    logger.warn({ orderId }, "[webhook] payment_intent.payment_failed: order not found");
     return;
   }
 
@@ -69,9 +70,9 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
       .update(marketplaceOrdersTable)
       .set({ status: "payment_failed", updatedAt: new Date() })
       .where(eq(marketplaceOrdersTable.id, orderId));
-    console.log(`[webhook] payment_intent.payment_failed: marked order ${orderId} as payment_failed`);
+    logger.info({ orderId }, "[webhook] payment_intent.payment_failed: marked order as payment_failed");
   } else {
-    console.log(`[webhook] payment_intent.payment_failed: order ${orderId} in status ${order.status}, no action`);
+    logger.info({ orderId, status: order.status }, "[webhook] payment_intent.payment_failed: order in different status, no action");
   }
 }
 
@@ -80,7 +81,7 @@ async function handlePaymentIntentCapturableUpdated(pi: Stripe.PaymentIntent) {
   // funds are now authorised (reserved) on the card. This is when the escrow
   // truly "holds" money — advance the task from "payment_pending" to "held".
   if (!pi.metadata?.taskId) {
-    console.log("[webhook] payment_intent.amount_capturable_updated: no taskId in metadata, skipping");
+    logger.info("[webhook] payment_intent.amount_capturable_updated: no taskId in metadata, skipping");
     return;
   }
   const taskId = pi.metadata.taskId;
@@ -94,15 +95,15 @@ async function handlePaymentIntentCapturableUpdated(pi: Stripe.PaymentIntent) {
     ))
     .returning({ id: tasksTable.id });
   if (updated.length > 0) {
-    console.log(`[webhook] payment_intent.amount_capturable_updated: task ${taskId} escrow advanced to held`);
+    logger.info({ taskId }, "[webhook] payment_intent.amount_capturable_updated: task escrow advanced to held");
   } else {
-    console.log(`[webhook] payment_intent.amount_capturable_updated: task ${taskId} not in payment_pending state, skipping`);
+    logger.info({ taskId }, "[webhook] payment_intent.amount_capturable_updated: task not in payment_pending state, skipping");
   }
 }
 
 function handleChargeRefunded(charge: Stripe.Charge) {
   const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
-  console.log(`[webhook] charge.refunded: charge ${charge.id} refunded (payment_intent: ${piId ?? "N/A"}, amount_refunded: ${charge.amount_refunded})`);
+  logger.info({ chargeId: charge.id, paymentIntent: piId ?? "N/A", amountRefunded: charge.amount_refunded }, "[webhook] charge.refunded");
 }
 
 router.post(

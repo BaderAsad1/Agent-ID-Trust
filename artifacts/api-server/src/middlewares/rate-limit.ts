@@ -109,11 +109,13 @@ function getLimiter(limit: number, prefix: string, windowMs = 60_000): ReturnTyp
       },
       handler(req: Request, res: Response) {
         const requestId = (req as unknown as { requestId?: string }).requestId || req.headers["x-request-id"] || "unknown";
+        const retryAfterSeconds = Math.ceil(windowMs / 1000);
+        res.setHeader("Retry-After", String(retryAfterSeconds));
         res.status(429).json({
           error: "RATE_LIMIT_EXCEEDED",
           message: "Too many requests",
           requestId,
-          details: { retryAfterSeconds: Math.ceil(windowMs / 1000) },
+          details: { retryAfterSeconds },
         });
       },
       ...(store ? { store } : {}),
@@ -208,4 +210,8 @@ export function apiRateLimiter(req: Request, res: Response, next: NextFunction):
 
 export function challengeRateLimit(req: Request, res: Response, next: NextFunction): void {
   void applyLimiter(5, "rl:challenge:", 60_000, req, res, next);
+}
+
+export function magicLinkSendRateLimit(req: Request, res: Response, next: NextFunction): void {
+  void applyLimiter(5, "rl:magic:", 900_000, req, res, next);
 }
