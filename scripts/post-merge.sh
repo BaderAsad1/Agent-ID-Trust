@@ -4,7 +4,7 @@ pnpm install --frozen-lockfile
 
 # ── Pre-apply known column renames so Drizzle push doesn't prompt interactively ──
 node -e "
-const { Pool } = require('pg');
+const { Pool } = require('./lib/db/node_modules/pg');
 const p = new Pool({ connectionString: process.env.DATABASE_URL });
 (async () => {
   const renames = [
@@ -40,7 +40,7 @@ npx tsc -p lib/db/tsconfig.json --noEmit false
 
 # Ensure audit_events has columns required by schema (idempotent via IF NOT EXISTS)
 node -e "
-const { Pool } = require('pg');
+const { Pool } = require('./lib/db/node_modules/pg');
 const p = new Pool({ connectionString: process.env.DATABASE_URL });
 p.query(\`
   ALTER TABLE audit_events
