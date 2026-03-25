@@ -405,7 +405,8 @@ export async function buildErc8004(handle: string) {
       "https://eips.ethereum.org/EIPS/eip-8004",
     ],
     spec: "registration-v1",
-    type: "AgentRegistration",
+    // H7: Canonical URI per ERC-8004 §3.1 — short names cause verifier rejections.
+    type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
     id: `did:web:getagent.id:agents:${agent.handle}`,
     controller: "did:web:getagent.id",
     name: agent.displayName,

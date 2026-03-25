@@ -5,13 +5,13 @@ export const magicLinkTokensTable = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     email: varchar("email", { length: 255 }).notNull(),
-    token: varchar("token", { length: 255 }).notNull(),
+    hashedToken: varchar("hashed_token", { length: 255 }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("magic_link_token_idx").on(table.token),
+    uniqueIndex("magic_link_token_idx").on(table.hashedToken),
     index("magic_link_email_idx").on(table.email),
   ],
 );

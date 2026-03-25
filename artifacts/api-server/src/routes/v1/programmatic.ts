@@ -48,7 +48,7 @@ function hashIp(ip: string | string[] | undefined): string | undefined {
 const router = Router();
 
 const registerSchema = z.object({
-  handle: z.string().min(3).max(100).optional(),
+  handle: z.string().min(3).max(32).optional(),
   displayName: z.string().min(1).max(255),
   publicKey: z.string().min(1),
   keyType: z.enum(["ed25519"]).default("ed25519"),
@@ -278,6 +278,19 @@ router.post("/agents/register", registrationRateLimitStrict, async (req, res, ne
         displayName: requestedHandle ? `autonomous-${requestedHandle}` : `autonomous-${autonomousId.slice(0, 8)}`,
       }).returning({ id: usersTable.id });
       ownerId = newUser.id;
+    } else {
+      // H4: Authenticated users registering via the programmatic path are subject to the
+      // same plan-based agent count limits as the dashboard path. Autonomous (no-owner)
+      // registrations are rate-limited by the Sybil quota instead.
+      const ownerPlanCheck = await getUserPlan(ownerId);
+      const ownerLimits = getPlanLimits(ownerPlanCheck);
+      const activeAgentCount = await db.select({ id: agentsTable.id }).from(agentsTable)
+        .where(and(eq(agentsTable.userId, ownerId), eq(agentsTable.status, "active")));
+      if (activeAgentCount.length >= ownerLimits.agentLimit) {
+        throw new AppError(403, "AGENT_LIMIT_REACHED",
+          `Agent limit reached. Your ${ownerPlanCheck} plan allows ${ownerLimits.agentLimit} agent(s).`,
+          { currentPlan: ownerPlanCheck, agentLimit: ownerLimits.agentLimit, currentCount: activeAgentCount.length });
+      }
     }
     const userMs = performance.now() - tUser;
 
@@ -458,6 +471,21 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
     if (req.userId && agent.userId !== req.userId) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
+
+    // H4: Re-check agent count limit before activation to prevent bypass via this path.
+    // Only applies to owned agents (autonomous agents are limited by Sybil quota instead).
+    if (agent.userId) {
+      const ownerPlanVerify = await getUserPlan(agent.userId);
+      const ownerLimitsVerify = getPlanLimits(ownerPlanVerify);
+      const activeCountVerify = await db.select({ id: agentsTable.id }).from(agentsTable)
+        .where(and(eq(agentsTable.userId, agent.userId), eq(agentsTable.status, "active")));
+      if (activeCountVerify.length >= ownerLimitsVerify.agentLimit) {
+        throw new AppError(403, "AGENT_LIMIT_REACHED",
+          `Agent limit reached. Your ${ownerPlanVerify} plan allows ${ownerLimitsVerify.agentLimit} active agent(s).`,
+          { currentPlan: ownerPlanVerify, agentLimit: ownerLimitsVerify.agentLimit });
+      }
+    }
+
     const lookupMs = performance.now() - tLookup;
 
     const tChallenge = performance.now();
@@ -519,16 +547,17 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
     const claimToken = generateClaimToken(agentId, apiKey.prefix);
 
     const tParallel = performance.now();
-    await Promise.all([
-      db.insert(apiKeysTable).values({
+    // H5: Wrap core activation writes in a transaction for atomicity.
+    await db.transaction(async (tx) => {
+      await tx.insert(apiKeysTable).values({
         ownerType: "agent",
         ownerId: agentId,
         name: `${agent.handle ? agent.handle + "-primary" : "primary-" + agentId.slice(0, 8)}`,
         keyPrefix: apiKey.prefix,
         hashedKey: apiKey.hashed,
         scopes: [],
-      }),
-      db
+      });
+      await tx
         .update(agentsTable)
         .set({
           status: 'active',
@@ -538,12 +567,16 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
           bootstrapIssuedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(agentsTable.id, agentId)),
-      getOrCreateInbox(agentId),
-      db.insert(agentClaimTokensTable).values({
+        .where(eq(agentsTable.id, agentId));
+      await tx.insert(agentClaimTokensTable).values({
         agentId,
         token: claimToken,
-      }),
+      });
+    });
+
+    // Side-effects outside the transaction (non-critical)
+    await Promise.all([
+      getOrCreateInbox(agentId),
       logActivity({
         agentId,
         eventType: "agent.verified",

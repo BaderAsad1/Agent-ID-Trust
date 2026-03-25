@@ -209,3 +209,11 @@ export function apiRateLimiter(req: Request, res: Response, next: NextFunction):
 export function challengeRateLimit(req: Request, res: Response, next: NextFunction): void {
   void applyLimiter(5, "rl:challenge:", 60_000, req, res, next);
 }
+
+/**
+ * H1: Rate limit for magic-link send endpoint.
+ * 5 requests per 15 minutes per IP to prevent email-bombing attacks.
+ */
+export function magicLinkSendRateLimit(req: Request, res: Response, next: NextFunction): void {
+  void applyLimiter(5, "rl:magic-send:", 15 * 60_000, req, res, next);
+}

@@ -14,7 +14,7 @@ const router = Router();
 const SUB_HANDLE_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 
 const createSubHandleSchema = z.object({
-  rootHandle: z.string().min(3).max(100),
+  rootHandle: z.string().min(3).max(32),
   subName: z.string().min(1).max(50).refine(
     (val) => SUB_HANDLE_REGEX.test(val.toLowerCase()) && !val.includes('.'),
     { message: "Sub-handle must contain only lowercase letters, numbers, and hyphens (no dots), and cannot start/end with a hyphen" }

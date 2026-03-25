@@ -23,7 +23,7 @@ import { eq, and, sql, isNull } from "drizzle-orm";
 const router = Router();
 
 const spawnSchema = z.object({
-  handle: z.string().min(3).max(100),
+  handle: z.string().min(3).max(32),
   displayName: z.string().min(1).max(255),
   description: z.string().max(5000).optional(),
   agentType: z.enum(["subagent", "ephemeral"]).default("subagent"),

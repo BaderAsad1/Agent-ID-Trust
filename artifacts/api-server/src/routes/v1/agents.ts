@@ -62,7 +62,7 @@ router.get("/whoami", requireAgentAuth, async (req, res, next) => {
 });
 
 const createAgentSchema = z.object({
-  handle: z.string().min(3).max(100),
+  handle: z.string().min(3).max(32),
   displayName: z.string().min(1).max(255),
   description: z.string().max(5000).optional(),
   endpointUrl: z.url().optional(),
@@ -438,10 +438,12 @@ router.get("/:agentId/activity", requireHumanOrAgentAuthForActivity, validateUui
       return;
     }
 
+    // L3: Pass `offset` to findMany so pagination actually works.
     const activities = await db.query.agentActivityLogTable.findMany({
       where: eq(agentActivityLogTable.agentId, agentId),
       orderBy: [desc(agentActivityLogTable.createdAt)],
       limit,
+      offset,
     });
 
     res.json({ activities });

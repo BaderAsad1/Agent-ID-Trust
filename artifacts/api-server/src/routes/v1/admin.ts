@@ -156,33 +156,33 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
     });
     if (!agent) throw new AppError(404, "NOT_FOUND", "Agent not found");
 
-    await db.update(agentsTable).set({
-      status: "revoked",
-      revokedAt: new Date(),
-      revocationReason: reason,
-      revocationStatement: statement,
-      updatedAt: new Date(),
-    }).where(eq(agentsTable.id, agentId));
+    // M5: Wrap core revocation writes in a transaction so agent status and key
+    // revocation are always consistent — no partial state on failure.
+    await db.transaction(async (tx) => {
+      await tx.update(agentsTable).set({
+        status: "revoked",
+        revokedAt: new Date(),
+        revocationReason: reason,
+        revocationStatement: statement,
+        updatedAt: new Date(),
+      }).where(eq(agentsTable.id, agentId));
 
-    try {
       const { agentKeysTable } = await import("@workspace/db/schema");
-      await db.update(agentKeysTable)
+      await tx.update(agentKeysTable)
         .set({ status: "revoked", revokedAt: new Date() })
         .where(and(
           eq(agentKeysTable.agentId, agentId),
           eq(agentKeysTable.status, "active"),
         ));
-    } catch {}
 
-    try {
       const { agentCredentialsTable } = await import("@workspace/db/schema");
-      await db.update(agentCredentialsTable)
+      await tx.update(agentCredentialsTable)
         .set({ isActive: false, revokedAt: new Date(), updatedAt: new Date() })
         .where(and(
           eq(agentCredentialsTable.agentId, agentId),
           eq(agentCredentialsTable.isActive, true),
         ));
-    } catch {}
+    });
 
     try {
       const { clearVcCache } = await import("../../services/verifiable-credential");

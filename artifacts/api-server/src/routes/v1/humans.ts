@@ -9,7 +9,7 @@ import { humanProfilesTable, agentsTable } from "@workspace/db/schema";
 const router = Router();
 
 const claimSchema = z.object({
-  handle: z.string().min(3).max(100).regex(/^[a-z0-9][a-z0-9._-]*[a-z0-9]$/),
+  handle: z.string().min(3).max(32).regex(/^[a-z0-9][a-z0-9._-]*[a-z0-9]$/),
   displayName: z.string().min(1).max(255),
   bio: z.string().max(2000).optional(),
 });

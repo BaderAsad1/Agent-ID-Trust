@@ -20,7 +20,7 @@ import { logActivity } from "../../services/activity-logger";
 import { getOrCreateInbox } from "../../services/mail";
 import { formatDomain, formatHandle } from "../../utils/handle";
 import { getUserPlan, getPlanLimits } from "../../services/billing";
-import { registrationRateLimitStrict, challengeRateLimit } from "../../middlewares/rate-limit";
+import { registrationRateLimitStrict, challengeRateLimit, resolutionRateLimit } from "../../middlewares/rate-limit";
 
 const router = Router();
 
@@ -173,16 +173,19 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
 
     const apiKey = generateAgentApiKey();
 
-    await Promise.all([
-      db.insert(apiKeysTable).values({
+    // H5: Wrap all activation writes in a transaction to guarantee atomicity.
+    // A partial failure previously left agents in an inconsistent state
+    // (e.g., API key inserted but status not updated, or claim token not consumed).
+    await db.transaction(async (tx) => {
+      await tx.insert(apiKeysTable).values({
         ownerType: "agent",
         ownerId: agentId,
         name: `${agent.handle ? agent.handle + "-primary" : "primary-" + agentId.slice(0, 8)}`,
         keyPrefix: apiKey.prefix,
         hashedKey: apiKey.hashed,
         scopes: [],
-      }),
-      db
+      });
+      await tx
         .update(agentsTable)
         .set({
           status: "active",
@@ -194,8 +197,8 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
           bootstrapIssuedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(agentsTable.id, agentId)),
-      db
+        .where(eq(agentsTable.id, agentId));
+      await tx
         .update(agentClaimTokensTable)
         .set({
           isUsed: true,
@@ -203,7 +206,11 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
           usedAt: new Date(),
           usedByUserId: agent.userId,
         })
-        .where(eq(agentClaimTokensTable.id, claimRecord.id)),
+        .where(eq(agentClaimTokensTable.id, claimRecord.id));
+    });
+
+    // Side-effects outside the transaction (non-critical, failures won't roll back activation)
+    await Promise.all([
       getOrCreateInbox(agentId),
       logActivity({
         agentId,
@@ -294,7 +301,8 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
   }
 });
 
-router.get("/status/:agentId", async (req, res, next) => {
+// M3: Rate-limit the status endpoint to prevent agent-existence enumeration.
+router.get("/status/:agentId", resolutionRateLimit, async (req, res, next) => {
   try {
     const agent = await getAgentById(req.params.agentId as string);
     if (!agent) {

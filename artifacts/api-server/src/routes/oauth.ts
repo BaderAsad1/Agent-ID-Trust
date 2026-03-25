@@ -35,7 +35,8 @@ const authorizeSchema = z.object({
   scope: z.string().optional(),
   state: z.string().optional(),
   code_challenge: z.string().optional(),
-  code_challenge_method: z.enum(["S256", "plain"]).optional(),
+  // H3: Only S256 is accepted — `plain` provides no security benefit and is disallowed per RFC 7636 §4.2.
+  code_challenge_method: z.enum(["S256"]).optional(),
   agent_id: z.string().uuid().optional(),
 });
 
@@ -92,8 +93,6 @@ async function validateClientSecret(clientId: string, clientSecretHash?: string)
   return client;
 }
 
-const validateClient = validateClientSecret;
-
 router.get("/authorize", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = authorizeSchema.safeParse(req.query);
@@ -120,8 +119,9 @@ router.get("/authorize", async (req: Request, res: Response, next: NextFunction)
     }
 
     const scopes = (scope || "").split(" ").filter(Boolean);
-    const allowedScopes = client.allowedScopes || [];
-    const grantedScopes = scopes.filter(s => allowedScopes.includes(s) || allowedScopes.length === 0);
+    const allowedScopes = (client.allowedScopes as string[]) || [];
+    // C2: Deny-by-default — empty allowedScopes means no scopes are permitted.
+    const grantedScopes = scopes.filter(s => allowedScopes.includes(s));
 
     const APP_URL = env().APP_URL || "https://getagent.id";
 
@@ -189,9 +189,8 @@ router.post("/authorize/approve", requireAuth, async (req: Request, res: Respons
 
     const requestedScopes = (scope || "").split(" ").filter(Boolean);
     const allowedScopes = (client.allowedScopes as string[]) || [];
-    const scopes = allowedScopes.length > 0
-      ? requestedScopes.filter((s: string) => allowedScopes.includes(s))
-      : requestedScopes;
+    // C2: Deny-by-default — only grant scopes explicitly listed on the client.
+    const scopes = requestedScopes.filter((s: string) => allowedScopes.includes(s));
 
     const code = await createAuthorizationCode(
       client_id,
@@ -268,9 +267,8 @@ router.post("/token", registrationRateLimit, async (req: Request, res: Response,
 
       const requestedScopes = (scope || "").split(" ").filter(Boolean);
       const clientAllowedScopes = (client.allowedScopes as string[]) || [];
-      const scopes = clientAllowedScopes.length > 0
-        ? requestedScopes.filter((s: string) => clientAllowedScopes.includes(s))
-        : requestedScopes;
+      // C2: Deny-by-default — only grant scopes explicitly listed on the client.
+      const scopes = requestedScopes.filter((s: string) => clientAllowedScopes.includes(s));
 
       if (requestedScopes.length > 0 && scopes.length === 0) {
         throw new AppError(400, "invalid_scope", "None of the requested scopes are permitted for this client");

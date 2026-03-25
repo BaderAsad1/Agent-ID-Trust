@@ -14,6 +14,7 @@ import { requestIdMiddleware } from "./middlewares/request-id";
 import { requestLogger } from "./middlewares/request-logger";
 import { replitAuth } from "./middlewares/replit-auth";
 import { apiKeyAuth } from "./middlewares/api-key-auth";
+import { tryAgentAuth } from "./middlewares/agent-auth";
 import { errorHandler } from "./middlewares/error-handler";
 import { cliDetect, cliMarkdownRoot } from "./middlewares/cli-markdown";
 import { apiRateLimiter } from "./middlewares/rate-limit";
@@ -40,12 +41,13 @@ const trustProxyValue: boolean | number | string = (() => {
 })();
 
 if (config.NODE_ENV === "production" && trustProxyValue === false) {
-  // Deliberately not throwing — proxy trust is infrastructure-dependent.
-  // Operators MUST set TRUST_PROXY for their deployment. Log a clear startup warning.
-  console.warn(
-    "[security] WARNING: TRUST_PROXY is 'false' in production. " +
-    "If running behind a reverse proxy, req.ip will reflect proxy IPs, " +
-    "undermining IP-based rate limits. Set TRUST_PROXY to your proxy hop count or CIDR range.",
+  // M2: Hard-fail in production when TRUST_PROXY is not configured.
+  // Without it, req.ip reflects the proxy's IP, making all IP-based rate limits and
+  // Sybil quotas trivially bypassable. Operators must explicitly configure this.
+  throw new Error(
+    "[security] FATAL: TRUST_PROXY must be set in production. " +
+    "Set TRUST_PROXY to your reverse-proxy hop count (e.g., '1') or CIDR range. " +
+    "Without it, all IP-based rate limits are ineffective.",
   );
 }
 app.set("trust proxy", trustProxyValue);
@@ -201,7 +203,16 @@ app.use("/api", router);
 
 const MCP_PORT = Number(process.env.MCP_PORT || 3001);
 
-app.all("/mcp", (req: Request, res: Response) => {
+// H6: MCP proxy requires authentication — either a valid user session or an agent API key.
+// Unauthenticated requests are rejected before reaching the internal MCP server.
+function requireAnyAuth(req: Request, res: Response, next: NextFunction): void {
+  if (req.user || req.authenticatedAgent) {
+    next();
+    return;
+  }
+  res.status(401).json({ error: "Authentication required", code: "UNAUTHORIZED" });
+}
+app.all("/mcp", tryAgentAuth, requireAnyAuth, (req: Request, res: Response) => {
   const bodyStr = req.body && typeof req.body === "object"
     ? JSON.stringify(req.body)
     : typeof req.body === "string"

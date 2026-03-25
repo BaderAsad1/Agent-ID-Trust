@@ -7,6 +7,9 @@ import { getAgentAuthorization } from "../services/agentic-payment";
 
 const APP_URL = () => process.env.APP_URL || "https://getagent.id";
 
+// M4: LAUNCH_MODE bypasses plan gates consistently across all feature-gate checks.
+const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
+
 const PLAN_ORDER = ["starter", "pro", "enterprise"];
 
 function planMeetsMinimum(currentPlan: string, minPlan: string): boolean {
@@ -19,6 +22,12 @@ function planMeetsMinimum(currentPlan: string, minPlan: string): boolean {
 
 export function requirePlan(minPlan: "starter" | "pro" | "enterprise") {
   return async (req: Request, res: Response, next: NextFunction) => {
+    // M4: LAUNCH_MODE bypasses plan requirements so all users can access features.
+    if (LAUNCH_MODE) {
+      next();
+      return;
+    }
+
     if (!req.userId) {
       res.status(401).json({
         error: "Authentication required",
