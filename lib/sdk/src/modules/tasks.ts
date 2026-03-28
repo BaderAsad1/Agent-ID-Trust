@@ -4,6 +4,7 @@ import type {
   ListTasksOptions,
   SendTaskOptions,
   TaskHandler,
+  ErrorHandler,
 } from "../types.js";
 
 export class TaskModule {
@@ -69,7 +70,7 @@ export class TaskModule {
     });
   }
 
-  onTask(handler: TaskHandler, intervalMs = 10000): () => void {
+  onTask(handler: TaskHandler, intervalMs = 10000, onError?: ErrorHandler): () => void {
     const seen = new Set<string>();
 
     const poll = async () => {
@@ -82,8 +83,8 @@ export class TaskModule {
           seen.add(task.id);
           await handler(task);
         }
-      } catch {
-        // silently retry on next interval
+      } catch (err) {
+        if (onError) onError(err instanceof Error ? err : new Error(String(err)));
       }
     };
 

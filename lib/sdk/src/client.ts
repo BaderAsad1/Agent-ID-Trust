@@ -7,6 +7,8 @@ import { TrustModule } from "./modules/trust.js";
 import { ResolveModule } from "./modules/resolve.js";
 import { MarketplaceModule } from "./modules/marketplace.js";
 import { MppModule } from "./modules/mpp.js";
+import { HandleModule } from "./modules/handles.js";
+import { WalletModule } from "./modules/wallet.js";
 import type {
   AgentIDConfig,
   BootstrapBundle,
@@ -40,6 +42,8 @@ export class AgentID {
   public trust: TrustModule;
   public marketplace: MarketplaceModule;
   public mpp: MppModule;
+  public handles: HandleModule;
+  public wallet: WalletModule;
 
   private constructor(config: AgentIDConfig, agentId: string) {
     this._baseUrl = config.baseUrl || DEFAULT_BASE_URL;
@@ -51,8 +55,10 @@ export class AgentID {
     this.mail = new MailModule(this.http, this._agentId);
     this.tasks = new TaskModule(this.http, this._agentId);
     this.trust = new TrustModule(this.http, this._agentId);
-    this.marketplace = new MarketplaceModule(this.http);
+    this.marketplace = new MarketplaceModule(this.http, this._agentId);
     this.mpp = new MppModule(this.http, this._agentId);
+    this.handles = new HandleModule(this.http, this._agentId);
+    this.wallet = new WalletModule(this.http, this._agentId);
   }
 
   get agentId(): string {
@@ -197,7 +203,11 @@ export class AgentID {
         if (response.mail?.hasNewMessages && options?.onNewMessages) {
           options.onNewMessages(response.mail);
         }
-      } catch (_) {}
+      } catch (err) {
+        if (options?.onError) {
+          options.onError(err instanceof Error ? err : new Error(String(err)));
+        }
+      }
     };
     doHeartbeat();
     this.heartbeatTimer = setInterval(doHeartbeat, HEARTBEAT_INTERVAL_MS);

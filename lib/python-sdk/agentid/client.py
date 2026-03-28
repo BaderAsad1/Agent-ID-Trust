@@ -489,6 +489,191 @@ class AgentID:
             is_sandbox=data.get("isSandbox", False),
         )
 
+    def acknowledge_task(self, task_id: str) -> Task:
+        """
+        Acknowledge receipt of a task.
+
+        Args:
+            task_id: UUID of the task.
+
+        Returns:
+            Updated Task object.
+        """
+        data = self._request("POST", f"/tasks/{task_id}/acknowledge", body={})
+        task_data = data.get("task", data)
+        return Task(
+            id=task_data.get("id", task_id),
+            to_agent_id=task_data.get("recipientAgentId", ""),
+            from_agent_id=task_data.get("senderAgentId"),
+            title=task_data.get("taskType", ""),
+            status=task_data.get("businessStatus", "acknowledged"),
+        )
+
+    def complete_task(
+        self, task_id: str, result: Optional[Dict[str, Any]] = None
+    ) -> Task:
+        """
+        Mark a task as completed, optionally attaching a result payload.
+
+        Args:
+            task_id: UUID of the task.
+            result: Optional result data to attach.
+
+        Returns:
+            Updated Task object.
+        """
+        body: Dict[str, Any] = {"status": "completed"}
+        if result is not None:
+            body["result"] = result
+        data = self._request("PATCH", f"/tasks/{task_id}/business-status", body=body)
+        task_data = data.get("task", data)
+        return Task(
+            id=task_data.get("id", task_id),
+            to_agent_id=task_data.get("recipientAgentId", ""),
+            from_agent_id=task_data.get("senderAgentId"),
+            title=task_data.get("taskType", ""),
+            status=task_data.get("businessStatus", "completed"),
+        )
+
+    def fail_task(
+        self, task_id: str, result: Optional[Dict[str, Any]] = None
+    ) -> Task:
+        """
+        Mark a task as failed.
+
+        Args:
+            task_id: UUID of the task.
+            result: Optional error/reason data.
+
+        Returns:
+            Updated Task object.
+        """
+        body: Dict[str, Any] = {}
+        if result is not None:
+            body["result"] = result
+        data = self._request("POST", f"/tasks/{task_id}/fail", body=body)
+        task_data = data.get("task", data)
+        return Task(
+            id=task_data.get("id", task_id),
+            to_agent_id=task_data.get("recipientAgentId", ""),
+            from_agent_id=task_data.get("senderAgentId"),
+            title=task_data.get("taskType", ""),
+            status=task_data.get("businessStatus", "failed"),
+        )
+
+    def list_tasks(
+        self,
+        agent_id: str,
+        *,
+        business_status: Optional[str] = None,
+        delivery_status: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[Task]:
+        """
+        List tasks for a given agent.
+
+        Args:
+            agent_id: UUID of the agent (recipient).
+            business_status: Filter by business status (e.g. "pending", "completed").
+            delivery_status: Filter by delivery status.
+            limit: Max records to return.
+            offset: Pagination offset.
+
+        Returns:
+            List of Task objects.
+        """
+        params: Dict[str, Any] = {
+            "recipientAgentId": agent_id,
+            "limit": limit,
+            "offset": offset,
+        }
+        if business_status:
+            params["businessStatus"] = business_status
+        if delivery_status:
+            params["deliveryStatus"] = delivery_status
+
+        data = self._request("GET", "/tasks", params=params)
+        tasks = data.get("tasks", [])
+        return [
+            Task(
+                id=t.get("id", ""),
+                to_agent_id=t.get("recipientAgentId", ""),
+                from_agent_id=t.get("senderAgentId"),
+                title=t.get("taskType", ""),
+                status=t.get("businessStatus", "pending"),
+            )
+            for t in tasks
+        ]
+
+    def check_handle(self, handle: str) -> Dict[str, Any]:
+        """
+        Check if a handle is available and get pricing information.
+
+        Args:
+            handle: The handle to check (e.g. "my-agent").
+
+        Returns:
+            Dict with keys: handle, available, tier, isFree, priceDollars,
+            priceYearly, reason (if unavailable), onChainMintPrice, etc.
+        """
+        params: Dict[str, Any] = {"handle": handle.lower().rstrip(".agentid")}
+        return self._request("GET", "/handles/check", params=params)
+
+    def list_handles(
+        self, agent_id: str, *, limit: int = 20, offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        List handles owned by a specific agent.
+
+        Args:
+            agent_id: UUID of the agent.
+            limit: Max records to return.
+            offset: Pagination offset.
+
+        Returns:
+            List of handle dicts with keys: handle, agentId, status, nftStatus, paidThrough.
+        """
+        params: Dict[str, Any] = {
+            "agentId": agent_id,
+            "limit": limit,
+            "offset": offset,
+        }
+        data = self._request("GET", "/handles", params=params)
+        return data.get("handles", [])
+
+    def get_wallet_balance(self, agent_id: str) -> Dict[str, Any]:
+        """
+        Get the wallet balance for an agent.
+
+        Args:
+            agent_id: UUID of the agent.
+
+        Returns:
+            Dict with keys: balanceCents, balanceFormatted, currency, lastUpdatedAt.
+        """
+        return self._request("GET", f"/agents/{agent_id}/wallet/balance")
+
+    def get_wallet_transactions(
+        self, agent_id: str, *, limit: int = 20, offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        Get wallet transaction history for an agent.
+
+        Args:
+            agent_id: UUID of the agent.
+            limit: Max records to return.
+            offset: Pagination offset.
+
+        Returns:
+            List of transaction dicts.
+        """
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        data = self._request(
+            "GET", f"/agents/{agent_id}/wallet/transactions", params=params
+        )
+        return data.get("transactions", [])
+
     def close(self) -> None:
         """Close the underlying HTTP client."""
         self._client.close()

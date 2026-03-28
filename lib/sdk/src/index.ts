@@ -7,6 +7,8 @@ export { TaskModule } from "./modules/tasks.js";
 export { TrustModule } from "./modules/trust.js";
 export { ResolveModule } from "./modules/resolve.js";
 export { MarketplaceModule } from "./modules/marketplace.js";
+export { HandleModule } from "./modules/handles.js";
+export { WalletModule } from "./modules/wallet.js";
 export { verifyControlPlaneInstruction } from "./modules/control-plane.js";
 export {
   parseAgentClaims,
@@ -28,6 +30,44 @@ export type {
   AgentClaimOptions,
   AgentTransferOptions,
 } from "./modules/org.js";
+
+export type {
+  HandleAvailability,
+  OwnedHandle,
+  ListHandlesResult,
+  RequestMintResult,
+  HandleCheckOptions,
+} from "./modules/handles.js";
+
+export type {
+  WalletInfo,
+  WalletBalance,
+  WalletTransaction,
+  WalletTransactionsResult,
+  SpendingRule,
+  ListSpendingRulesResult,
+  CreateSpendingRuleOptions,
+} from "./modules/wallet.js";
+
+export type {
+  CreateListingOptions,
+  UpdateListingOptions,
+  SubmitReviewOptions,
+  CreateOrderOptions,
+  MarketplaceOrder,
+} from "./modules/marketplace.js";
+
+export type {
+  ControlPlaneInstruction,
+  SignedControlPlaneInstruction,
+  VerifyControlPlaneOptions,
+} from "./modules/control-plane.js";
+
+export type {
+  MppPaymentRequirement,
+  MppPaymentResult,
+  MppCreateIntentOptions,
+} from "./modules/mpp.js";
 
 export type {
   AgentIDConfig,
@@ -63,11 +103,11 @@ export type {
   KeyPair,
   TaskHandler,
   MessageHandler,
+  ErrorHandler,
   MarketplaceListing,
   ListListingsOptions,
   ListListingsResult,
   MarketplaceReview,
-  ListReviewsResult,
   SpawnSubagentOptions,
   SpawnSubagentResult,
   SubagentInfo,
@@ -75,15 +115,3 @@ export type {
   ListSubagentsOptions,
   TerminateSubagentResult,
 } from "./types.js";
-
-export type {
-  ControlPlaneInstruction,
-  SignedControlPlaneInstruction,
-  VerifyControlPlaneOptions,
-} from "./modules/control-plane.js";
-
-export type {
-  MppPaymentRequirement,
-  MppPaymentResult,
-  MppCreateIntentOptions,
-} from "./modules/mpp.js";

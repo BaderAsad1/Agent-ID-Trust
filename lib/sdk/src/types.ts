@@ -95,6 +95,7 @@ export interface HeartbeatOptions {
   endpointUrl?: string;
   runtimeContext?: { framework?: string; version?: string; [key: string]: unknown };
   onNewMessages?: (mail: HeartbeatMailInfo) => void;
+  onError?: (error: Error) => void;
 }
 
 export interface MailMessage {
@@ -459,3 +460,4 @@ export interface TerminateSubagentResult {
 
 export type TaskHandler = (task: Task) => void | Promise<void>;
 export type MessageHandler = (message: MailMessage) => void | Promise<void>;
+export type ErrorHandler = (error: Error) => void;

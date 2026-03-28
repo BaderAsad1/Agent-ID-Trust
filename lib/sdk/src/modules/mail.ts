@@ -8,6 +8,7 @@ import type {
   ListThreadsOptions,
   ListMessagesOptions,
   MessageHandler,
+  ErrorHandler,
 } from "../types.js";
 
 export class MailModule {
@@ -97,7 +98,7 @@ export class MailModule {
     return this.http.get(`/api/v1/mail/agents/${this.agentId}/messages${qs ? `?${qs}` : ""}`);
   }
 
-  onMessage(handler: MessageHandler, intervalMs = 10000): () => void {
+  onMessage(handler: MessageHandler, intervalMs = 10000, onError?: ErrorHandler): () => void {
     let lastSeen: string | null = null;
 
     const poll = async () => {
@@ -113,8 +114,8 @@ export class MailModule {
         if (messages.length > 0) {
           lastSeen = messages[messages.length - 1].createdAt;
         }
-      } catch {
-        // silently retry on next interval
+      } catch (err) {
+        if (onError) onError(err instanceof Error ? err : new Error(String(err)));
       }
     };
 
