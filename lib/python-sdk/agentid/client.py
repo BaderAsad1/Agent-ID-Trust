@@ -674,6 +674,438 @@ class AgentID:
         )
         return data.get("transactions", [])
 
+    # ------------------------------------------------------------------
+    # Billing
+    # ------------------------------------------------------------------
+
+    def get_plans(self) -> Dict[str, Any]:
+        """Return available plans and handle pricing tiers (public)."""
+        return self._request("GET", "/billing/plans")
+
+    def get_subscription(self) -> Dict[str, Any]:
+        """Return the authenticated user's current plan, limits, and subscription details."""
+        return self._request("GET", "/billing/subscription")
+
+    def create_checkout(
+        self,
+        *,
+        plan: Optional[str] = None,
+        price_id: Optional[str] = None,
+        billing_interval: str = "monthly",
+        success_url: Optional[str] = None,
+        cancel_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a Stripe checkout session for a subscription plan. Returns {url}."""
+        body: Dict[str, Any] = {"billingInterval": billing_interval}
+        if plan:
+            body["plan"] = plan
+        if price_id:
+            body["priceId"] = price_id
+        if success_url:
+            body["successUrl"] = success_url
+        if cancel_url:
+            body["cancelUrl"] = cancel_url
+        return self._request("POST", "/billing/checkout", body=body)
+
+    def create_handle_checkout(
+        self,
+        handle: str,
+        *,
+        success_url: str,
+        cancel_url: str,
+        agent_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a Stripe checkout session to claim a premium handle. Returns {url, handle, priceCents}."""
+        body: Dict[str, Any] = {
+            "handle": handle.lower(),
+            "successUrl": success_url,
+            "cancelUrl": cancel_url,
+        }
+        if agent_id:
+            body["agentId"] = agent_id
+        return self._request("POST", "/billing/handle-checkout", body=body)
+
+    def get_portal_url(self) -> Dict[str, Any]:
+        """Return the Stripe customer portal URL for the authenticated user. Returns {url}."""
+        return self._request("POST", "/billing/portal", body={})
+
+    def cancel_subscription(self) -> Dict[str, Any]:
+        """Cancel the authenticated user's active subscription at period end."""
+        return self._request("POST", "/billing/cancel", body={})
+
+    def activate_agent(self, agent_id: str) -> Dict[str, Any]:
+        """Activate an agent under the current subscription."""
+        return self._request("POST", f"/billing/agents/{agent_id}/activate", body={})
+
+    def deactivate_agent(self, agent_id: str) -> Dict[str, Any]:
+        """Deactivate an agent (identity preserved, features suspended)."""
+        return self._request("POST", f"/billing/agents/{agent_id}/deactivate", body={})
+
+    def get_agent_billing_status(self, agent_id: str) -> Dict[str, Any]:
+        """Return billing status for a specific agent."""
+        return self._request("GET", f"/billing/agents/{agent_id}/status")
+
+    # ------------------------------------------------------------------
+    # API Keys
+    # ------------------------------------------------------------------
+
+    def create_api_key(
+        self,
+        name: str,
+        *,
+        scopes: Optional[List[str]] = None,
+        sandbox: bool = False,
+    ) -> Dict[str, Any]:
+        """Create a new API key. Returns the key value once — store it securely."""
+        body: Dict[str, Any] = {"name": name, "sandbox": sandbox}
+        if scopes is not None:
+            body["scopes"] = scopes
+        return self._request("POST", "/api-keys", body=body)
+
+    def list_api_keys(self) -> List[Dict[str, Any]]:
+        """List all active API keys for the authenticated user."""
+        data = self._request("GET", "/api-keys")
+        return data.get("keys", [])
+
+    def revoke_api_key(self, key_id: str) -> Dict[str, Any]:
+        """Revoke an API key by its UUID."""
+        return self._request("DELETE", f"/api-keys/{key_id}")
+
+    # ------------------------------------------------------------------
+    # OAuth Clients (Sign in with Agent ID)
+    # ------------------------------------------------------------------
+
+    def list_oauth_clients(self) -> List[Dict[str, Any]]:
+        """List OAuth/OIDC clients registered by the authenticated user."""
+        data = self._request("GET", "/clients")
+        return data.get("clients", [])
+
+    def register_oauth_client(
+        self,
+        name: str,
+        *,
+        description: Optional[str] = None,
+        redirect_uris: Optional[List[str]] = None,
+        allowed_scopes: Optional[List[str]] = None,
+        grant_types: Optional[List[str]] = None,
+        client_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Register a new OAuth client for 'Sign in with Agent ID'. Returns clientId and clientSecret."""
+        body: Dict[str, Any] = {"name": name}
+        if description is not None:
+            body["description"] = description
+        if redirect_uris is not None:
+            body["redirectUris"] = redirect_uris
+        if allowed_scopes is not None:
+            body["allowedScopes"] = allowed_scopes
+        if grant_types is not None:
+            body["grantTypes"] = grant_types
+        if client_type is not None:
+            body["clientType"] = client_type
+        return self._request("POST", "/clients", body=body)
+
+    def get_oauth_client(self, client_id: str) -> Dict[str, Any]:
+        """Get a specific OAuth client by its clientId string."""
+        return self._request("GET", f"/clients/{client_id}")
+
+    def update_oauth_client(self, client_id: str, **kwargs: Any) -> Dict[str, Any]:
+        """Update an OAuth client. Accepts name, description, redirectUris, allowedScopes."""
+        camel = {
+            "name": kwargs.get("name"),
+            "description": kwargs.get("description"),
+            "redirectUris": kwargs.get("redirect_uris"),
+            "allowedScopes": kwargs.get("allowed_scopes"),
+        }
+        body = {k: v for k, v in camel.items() if v is not None}
+        return self._request("PATCH", f"/clients/{client_id}", body=body)
+
+    def revoke_oauth_client(self, client_id: str) -> Dict[str, Any]:
+        """Revoke an OAuth client."""
+        return self._request("DELETE", f"/clients/{client_id}")
+
+    def rotate_oauth_client_secret(self, client_id: str) -> Dict[str, Any]:
+        """Rotate the client secret for a confidential OAuth client."""
+        return self._request("POST", f"/clients/{client_id}/rotate-secret", body={})
+
+    # ------------------------------------------------------------------
+    # Organizations
+    # ------------------------------------------------------------------
+
+    def create_org(
+        self,
+        slug: str,
+        display_name: str,
+        *,
+        description: Optional[str] = None,
+        avatar_url: Optional[str] = None,
+        website_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a new organization with a namespace slug (e.g. 'acme' → acme.agentid)."""
+        body: Dict[str, Any] = {"slug": slug.lower(), "displayName": display_name}
+        if description is not None:
+            body["description"] = description
+        if avatar_url is not None:
+            body["avatarUrl"] = avatar_url
+        if website_url is not None:
+            body["websiteUrl"] = website_url
+        return self._request("POST", "/orgs", body=body)
+
+    def get_org(self, slug: str) -> Dict[str, Any]:
+        """Get an organization and its member agents by slug."""
+        return self._request("GET", f"/orgs/{slug.lower()}")
+
+    def add_agent_to_org(self, org_slug: str, agent_id: str) -> Dict[str, Any]:
+        """Add an agent you own to an organization."""
+        return self._request("POST", f"/orgs/{org_slug.lower()}/agents", body={"agentId": agent_id})
+
+    def remove_agent_from_org(self, org_slug: str, agent_id: str) -> Dict[str, Any]:
+        """Remove an agent from an organization."""
+        return self._request("DELETE", f"/orgs/{org_slug.lower()}/agents/{agent_id}")
+
+    def list_org_members(self, org_slug: str) -> List[Dict[str, Any]]:
+        """List members of an organization (requires membership)."""
+        data = self._request("GET", f"/orgs/{org_slug.lower()}/members")
+        return data.get("members", [])
+
+    # ------------------------------------------------------------------
+    # Fleet (sub-handle delegation — Pro+ plan)
+    # ------------------------------------------------------------------
+
+    def list_fleets(self) -> List[Dict[str, Any]]:
+        """List all root handles and their sub-handle agents (requires Pro plan)."""
+        data = self._request("GET", "/fleet")
+        return data.get("fleets", [])
+
+    def create_sub_handle(
+        self,
+        root_handle: str,
+        sub_name: str,
+        display_name: str,
+        *,
+        description: Optional[str] = None,
+        capabilities: Optional[List[str]] = None,
+        endpoint_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a sub-handle agent under a root handle (e.g. sub.root.agentid)."""
+        body: Dict[str, Any] = {
+            "rootHandle": root_handle.lower(),
+            "subName": sub_name.lower(),
+            "displayName": display_name,
+        }
+        if description is not None:
+            body["description"] = description
+        if capabilities is not None:
+            body["capabilities"] = capabilities
+        if endpoint_url is not None:
+            body["endpointUrl"] = endpoint_url
+        return self._request("POST", "/fleet/sub-handles", body=body)
+
+    def delete_sub_handle(self, agent_id: str) -> Dict[str, Any]:
+        """Delete a sub-handle agent by its UUID."""
+        return self._request("DELETE", f"/fleet/sub-handles/{agent_id}")
+
+    # ------------------------------------------------------------------
+    # Jobs & Proposals (marketplace jobs board)
+    # ------------------------------------------------------------------
+
+    def list_jobs(
+        self,
+        *,
+        category: Optional[str] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+        budget_min: Optional[float] = None,
+        budget_max: Optional[float] = None,
+        capability: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List open jobs from the marketplace jobs board."""
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if category:
+            params["category"] = category
+        if status:
+            params["status"] = status
+        if search:
+            params["search"] = search
+        if budget_min is not None:
+            params["budgetMin"] = budget_min
+        if budget_max is not None:
+            params["budgetMax"] = budget_max
+        if capability:
+            params["capability"] = capability
+        if sort_by:
+            params["sortBy"] = sort_by
+        if sort_order:
+            params["sortOrder"] = sort_order
+        return self._request("GET", "/jobs", params=params)
+
+    def get_job(self, job_id: str) -> Dict[str, Any]:
+        """Get a specific job by UUID."""
+        return self._request("GET", f"/jobs/{job_id}")
+
+    def my_jobs(self) -> List[Dict[str, Any]]:
+        """List jobs posted by the authenticated user."""
+        data = self._request("GET", "/jobs/mine")
+        return data.get("jobs", [])
+
+    def create_job(
+        self,
+        title: str,
+        *,
+        description: Optional[str] = None,
+        category: Optional[str] = None,
+        budget_min: Optional[str] = None,
+        budget_max: Optional[str] = None,
+        budget_fixed: Optional[str] = None,
+        deadline_hours: Optional[int] = None,
+        required_capabilities: Optional[List[str]] = None,
+        min_trust_score: Optional[int] = None,
+        verified_only: bool = False,
+    ) -> Dict[str, Any]:
+        """Post a new job to the marketplace jobs board."""
+        body: Dict[str, Any] = {"title": title}
+        if description is not None:
+            body["description"] = description
+        if category is not None:
+            body["category"] = category
+        if budget_min is not None:
+            body["budgetMin"] = budget_min
+        if budget_max is not None:
+            body["budgetMax"] = budget_max
+        if budget_fixed is not None:
+            body["budgetFixed"] = budget_fixed
+        if deadline_hours is not None:
+            body["deadlineHours"] = deadline_hours
+        if required_capabilities is not None:
+            body["requiredCapabilities"] = required_capabilities
+        if min_trust_score is not None:
+            body["minTrustScore"] = min_trust_score
+        body["verifiedOnly"] = verified_only
+        return self._request("POST", "/jobs", body=body)
+
+    def update_job(self, job_id: str, **kwargs: Any) -> Dict[str, Any]:
+        """Update an existing job. Accepts title, description, category, budgetMin/Max/Fixed, etc."""
+        camel = {
+            "title": kwargs.get("title"),
+            "description": kwargs.get("description"),
+            "category": kwargs.get("category"),
+            "budgetMin": kwargs.get("budget_min"),
+            "budgetMax": kwargs.get("budget_max"),
+            "budgetFixed": kwargs.get("budget_fixed"),
+            "deadlineHours": kwargs.get("deadline_hours"),
+            "requiredCapabilities": kwargs.get("required_capabilities"),
+            "minTrustScore": kwargs.get("min_trust_score"),
+            "verifiedOnly": kwargs.get("verified_only"),
+        }
+        body = {k: v for k, v in camel.items() if v is not None}
+        return self._request("PATCH", f"/jobs/{job_id}", body=body)
+
+    def close_job(self, job_id: str, status: str = "closed") -> Dict[str, Any]:
+        """Update job status to 'filled', 'closed', or 'expired'."""
+        return self._request("PATCH", f"/jobs/{job_id}/status", body={"status": status})
+
+    def list_job_proposals(
+        self, job_id: str, *, limit: int = 20, offset: int = 0
+    ) -> Dict[str, Any]:
+        """List proposals for a job you posted."""
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._request("GET", f"/jobs/{job_id}/proposals", params=params)
+
+    def my_proposals(self, *, limit: int = 20, offset: int = 0) -> Dict[str, Any]:
+        """List proposals submitted by agents you own."""
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._request("GET", "/jobs/proposals/mine", params=params)
+
+    def submit_proposal(
+        self,
+        job_id: str,
+        agent_id: str,
+        *,
+        approach: Optional[str] = None,
+        price_amount: Optional[str] = None,
+        delivery_hours: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Submit a proposal on a job using one of your agents."""
+        body: Dict[str, Any] = {"agentId": agent_id}
+        if approach is not None:
+            body["approach"] = approach
+        if price_amount is not None:
+            body["priceAmount"] = price_amount
+        if delivery_hours is not None:
+            body["deliveryHours"] = delivery_hours
+        return self._request("POST", f"/jobs/{job_id}/proposals", body=body)
+
+    def update_proposal_status(
+        self, job_id: str, proposal_id: str, status: str
+    ) -> Dict[str, Any]:
+        """Accept or reject a proposal on your job. status: 'accepted' | 'rejected'."""
+        return self._request("PATCH", f"/jobs/{job_id}/proposals/{proposal_id}", body={"status": status})
+
+    def withdraw_proposal(self, job_id: str, proposal_id: str) -> Dict[str, Any]:
+        """Withdraw a proposal you submitted."""
+        return self._request("POST", f"/jobs/{job_id}/proposals/{proposal_id}/withdraw", body={})
+
+    # ------------------------------------------------------------------
+    # Custom Domains
+    # ------------------------------------------------------------------
+
+    def get_domain(self, agent_id: str) -> Dict[str, Any]:
+        """Get the custom domain configured for an agent."""
+        return self._request("GET", f"/agents/{agent_id}/domain")
+
+    def get_domain_status(self, agent_id: str) -> Dict[str, Any]:
+        """Get DNS/SSL verification status for an agent's custom domain."""
+        return self._request("GET", f"/agents/{agent_id}/domain/status")
+
+    def provision_domain(self, agent_id: str) -> Dict[str, Any]:
+        """Provision a custom domain for an agent."""
+        return self._request("POST", f"/agents/{agent_id}/domain/provision", body={})
+
+    def reprovision_domain(self, agent_id: str) -> Dict[str, Any]:
+        """Re-provision (reset) the custom domain for an agent."""
+        return self._request("POST", f"/agents/{agent_id}/domain/reprovision", body={})
+
+    # ------------------------------------------------------------------
+    # Agent Verification (key-challenge)
+    # ------------------------------------------------------------------
+
+    def initiate_verification(
+        self, agent_id: str, method: str = "key_challenge"
+    ) -> Dict[str, Any]:
+        """
+        Initiate agent verification by requesting a signing challenge.
+
+        Returns:
+            Dict with keys: agentId, challenge, method, expiresAt.
+        """
+        return self._request(
+            "POST", f"/agents/{agent_id}/verify/initiate", body={"method": method}
+        )
+
+    def complete_verification(
+        self, agent_id: str, challenge: str, signature: str, kid: str
+    ) -> Dict[str, Any]:
+        """
+        Complete agent verification by submitting the signed challenge.
+
+        Args:
+            agent_id: UUID of the agent to verify.
+            challenge: Challenge string returned by initiate_verification.
+            signature: Base64-encoded signature over the challenge using the agent's private key.
+            kid: Key ID of the signing key.
+
+        Returns:
+            Dict with keys: verified, agentId, handle, trustScore, trustTier, bootstrapIssuedAt.
+        """
+        return self._request(
+            "POST",
+            f"/agents/{agent_id}/verify/complete",
+            body={"challenge": challenge, "signature": signature, "kid": kid},
+        )
+
     def close(self) -> None:
         """Close the underlying HTTP client."""
         self._client.close()

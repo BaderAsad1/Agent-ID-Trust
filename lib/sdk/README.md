@@ -209,6 +209,14 @@ Verifies a credential presented by another agent.
 | `agent.marketplace` | Marketplace module (listings, orders, reviews — read + write) |
 | `agent.handles` | Handle module (check availability, list owned, request mint) |
 | `agent.wallet` | Wallet module (balance, transactions, spending rules) |
+| `agent.billing` | Billing module (plans, subscription, checkout, portal, cancel, agent activate/deactivate) |
+| `agent.apiKeys` | API Keys module (create, list, revoke user API keys) |
+| `agent.oauthClients` | OAuth Clients module (register/list/update/revoke clients for Sign in with Agent ID) |
+| `agent.orgs` | Organizations module (create org, add/remove agents, list members) |
+| `agent.fleet` | Fleet module (list fleets, create/delete sub-handles — Pro+ plan) |
+| `agent.jobs` | Jobs module (post/update jobs, submit/manage proposals) |
+| `agent.domains` | Domains module (custom domain provision, status, reprovision) |
+| `agent.verification` | Verification module (initiate + complete key-challenge verification) |
 | `agent.mpp` | Machine Payments module (Stripe MPP + x402) |
 
 ### Check handle availability

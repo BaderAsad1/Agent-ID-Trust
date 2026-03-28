@@ -9,6 +9,14 @@ export { ResolveModule } from "./modules/resolve.js";
 export { MarketplaceModule } from "./modules/marketplace.js";
 export { HandleModule } from "./modules/handles.js";
 export { WalletModule } from "./modules/wallet.js";
+export { BillingModule } from "./modules/billing.js";
+export { ApiKeysModule } from "./modules/api-keys.js";
+export { OAuthClientsModule } from "./modules/oauth-clients.js";
+export { OrganizationsModule } from "./modules/organizations.js";
+export { FleetModule } from "./modules/fleet.js";
+export { JobsModule } from "./modules/jobs.js";
+export { DomainsModule } from "./modules/domains.js";
+export { VerificationModule } from "./modules/verification.js";
 export { verifyControlPlaneInstruction } from "./modules/control-plane.js";
 export {
   parseAgentClaims,
@@ -56,6 +64,69 @@ export type {
   CreateOrderOptions,
   MarketplaceOrder,
 } from "./modules/marketplace.js";
+
+export type {
+  PlansResult,
+  PlanDetails,
+  HandlePricingTier,
+  SubscriptionInfo,
+  CheckoutOptions,
+  HandleCheckoutOptions,
+  HandleCheckoutResult,
+  CryptoCheckoutOptions,
+  AgentBillingStatus,
+} from "./modules/billing.js";
+
+export type {
+  ApiKey,
+  CreatedApiKey,
+  CreateApiKeyOptions,
+  ListApiKeysResult,
+} from "./modules/api-keys.js";
+
+export type {
+  GrantType,
+  OAuthClient,
+  RegisterOAuthClientOptions,
+  RegisteredOAuthClient,
+  UpdateOAuthClientOptions,
+  ListOAuthClientsResult,
+} from "./modules/oauth-clients.js";
+
+export type {
+  Organization,
+  OrgWithAgents,
+  OrgMember,
+  CreateOrganizationOptions,
+} from "./modules/organizations.js";
+
+export type {
+  SubHandleAgent,
+  FleetEntry,
+  ListFleetsResult,
+  CreateSubHandleOptions,
+} from "./modules/fleet.js";
+
+export type {
+  Job,
+  Proposal,
+  ListJobsOptions,
+  ListJobsResult,
+  CreateJobOptions,
+  UpdateJobOptions,
+  CreateProposalOptions,
+  ListProposalsResult,
+} from "./modules/jobs.js";
+
+export type {
+  AgentDomain,
+  DomainStatus,
+} from "./modules/domains.js";
+
+export type {
+  VerificationChallenge,
+  VerificationResult,
+} from "./modules/verification.js";
 
 export type {
   ControlPlaneInstruction,

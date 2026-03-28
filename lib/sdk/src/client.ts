@@ -9,6 +9,14 @@ import { MarketplaceModule } from "./modules/marketplace.js";
 import { MppModule } from "./modules/mpp.js";
 import { HandleModule } from "./modules/handles.js";
 import { WalletModule } from "./modules/wallet.js";
+import { BillingModule } from "./modules/billing.js";
+import { ApiKeysModule } from "./modules/api-keys.js";
+import { OAuthClientsModule } from "./modules/oauth-clients.js";
+import { OrganizationsModule } from "./modules/organizations.js";
+import { FleetModule } from "./modules/fleet.js";
+import { JobsModule } from "./modules/jobs.js";
+import { DomainsModule } from "./modules/domains.js";
+import { VerificationModule } from "./modules/verification.js";
 import type {
   AgentIDConfig,
   BootstrapBundle,
@@ -44,6 +52,14 @@ export class AgentID {
   public mpp: MppModule;
   public handles: HandleModule;
   public wallet: WalletModule;
+  public billing: BillingModule;
+  public apiKeys: ApiKeysModule;
+  public oauthClients: OAuthClientsModule;
+  public orgs: OrganizationsModule;
+  public fleet: FleetModule;
+  public jobs: JobsModule;
+  public domains: DomainsModule;
+  public verification: VerificationModule;
 
   private constructor(config: AgentIDConfig, agentId: string) {
     this._baseUrl = config.baseUrl || DEFAULT_BASE_URL;
@@ -59,6 +75,14 @@ export class AgentID {
     this.mpp = new MppModule(this.http, this._agentId);
     this.handles = new HandleModule(this.http, this._agentId);
     this.wallet = new WalletModule(this.http, this._agentId);
+    this.billing = new BillingModule(this.http);
+    this.apiKeys = new ApiKeysModule(this.http);
+    this.oauthClients = new OAuthClientsModule(this.http);
+    this.orgs = new OrganizationsModule(this.http);
+    this.fleet = new FleetModule(this.http);
+    this.jobs = new JobsModule(this.http);
+    this.domains = new DomainsModule(this.http);
+    this.verification = new VerificationModule(this.http);
   }
 
   get agentId(): string {
