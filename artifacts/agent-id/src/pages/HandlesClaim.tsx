@@ -124,6 +124,12 @@ export function HandlesClaim() {
     setClaimLoading(true);
     setClaimError(null);
     try {
+      if (isStandardHandle(result)) {
+        await api.agents.create({ handle: result.handle, displayName: result.handle });
+        const successUrl = `/dashboard/handles?claimed=${encodeURIComponent(result.handle)}`;
+        window.location.href = successUrl;
+        return;
+      }
       const base = window.location.origin;
       const successUrl = `${base}/dashboard/handles?claimed=${encodeURIComponent(result.handle)}`;
       const cancelUrl = `${base}/dashboard/handles`;
@@ -134,7 +140,7 @@ export function HandlesClaim() {
         window.location.href = successUrl;
       }
     } catch (err: unknown) {
-      setClaimError(err instanceof Error ? err.message : 'Failed to start checkout. Please try again.');
+      setClaimError(err instanceof Error ? err.message : 'Failed to claim handle. Please try again.');
     } finally {
       setClaimLoading(false);
     }
@@ -150,7 +156,7 @@ export function HandlesClaim() {
           Claim a Handle
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Search for a handle and claim it. 5+ character handles are included with your plan.
+          Search for a handle and claim it. 5+ character handles are free.
         </p>
       </div>
 
@@ -211,7 +217,7 @@ export function HandlesClaim() {
                       )}
                       {isStandardHandle(result) ? (
                         <span className="font-semibold" style={{ color: 'var(--success)' }}>
-                          Included with your plan
+                          Free
                         </span>
                       ) : (
                         getAnnualUsd(result) !== null && (
@@ -231,7 +237,7 @@ export function HandlesClaim() {
                     {claimLoading ? (
                       <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</span>
                     ) : (
-                      isStandardHandle(result) ? 'Claim (included)' : `Claim @${result.handle}`
+                      isStandardHandle(result) ? 'Register — Free' : `Claim @${result.handle}`
                     )}
                   </PrimaryButton>
                 </div>
@@ -310,8 +316,8 @@ export function HandlesClaim() {
           {HANDLE_PRICING_TIERS.map(tier => (
             <div key={tier.label} className="flex items-center justify-between text-sm">
               <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{tier.label}</span>
-              <span className="font-semibold" style={{ color: tier.annualPrice && tier.annualPrice > 10 ? 'var(--text-primary)' : 'var(--success)' }}>
-                {tier.annualPrice === null ? 'Reserved' : tier.annualPrice <= 10 ? 'Included with plan' : `$${tier.annualPrice}/yr`}
+              <span className="font-semibold" style={{ color: tier.annualPrice > 0 ? 'var(--text-primary)' : 'var(--success)' }}>
+                {tier.annualPrice === 0 ? 'FREE' : `$${tier.annualPrice}/yr`}
               </span>
             </div>
           ))}

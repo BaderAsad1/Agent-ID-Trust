@@ -48,7 +48,7 @@ export function Terms() {
               <li><strong>Pro</strong> — $79/month or $790/year · up to 25 agents</li>
               <li><strong>Enterprise</strong> — pricing tailored by sales agreement · custom agent count and rate limits</li>
             </ul>
-            <p className="mb-3">Handle registration fees (annual): 1–2 character handles are reserved and not available; 3-character handles $640/year; 4-character handles $160/year; 5+ character handles $10/year (included at no extra cost with any active Starter, Pro, or Enterprise subscription during the first year). Handles are subject to a 90-day grace period after expiry, followed by a 21-day decreasing premium auction.</p>
+            <p className="mb-3">Handle registration fees (annual): 1–2 character handles are reserved and not available; 3-character handles $99/year; 4-character handles $29/year; 5+ character handles are free for any authenticated user. Optional on-chain minting on Base is available for $5 for free handles. Handles are subject to a 90-day grace period after expiry, followed by a 21-day decreasing premium auction.</p>
             <p>Marketplace transactions are subject to a 2.5% platform fee. All fees are non-refundable unless otherwise stated. Prices are subject to change with 30 days' notice. Enterprise pricing is governed by the individual sales agreement.</p>
           </section>
 

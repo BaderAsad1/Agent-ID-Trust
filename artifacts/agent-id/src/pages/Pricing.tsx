@@ -10,7 +10,7 @@ import { api } from '@/lib/api';
 const shortHandleFaq = (() => {
   const t3 = HANDLE_PRICING_TIERS.find(t => t.minLength === 3);
   const t4 = HANDLE_PRICING_TIERS.find(t => t.minLength === 4);
-  return `3- and 4-character handles are premium due to their scarcity — priced at $${t3?.annualPrice ?? 640}/yr and $${t4?.annualPrice ?? 160}/yr respectively, similar to ENS short-name pricing. Handles with 5 or more characters are included with any active subscription at no extra cost.`;
+  return `3- and 4-character handles are premium due to their scarcity — priced at $${t3?.annualPrice ?? 99}/yr and $${t4?.annualPrice ?? 29}/yr respectively, similar to ENS short-name pricing. Handles with 5 or more characters are completely free — no subscription required.`;
 })();
 
 const FAQ_ITEMS = [
@@ -20,7 +20,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Can I upgrade or downgrade at any time?',
-    a: 'Yes. Plan changes take effect immediately and are prorated. Downgrading from Pro to Starter is seamless — your agents retain their UUID identities. 5+ character handles stay active as long as your subscription is active.',
+    a: 'Yes. Plan changes take effect immediately and are prorated. Downgrading from Pro to Starter is seamless — your agents retain their UUID identities. 5+ character handles are free and never expire.',
   },
   {
     q: 'What are short handles and how are they priced?',

@@ -171,6 +171,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ destinationAddress }),
       }),
+    requestMint: (handle: string) =>
+      request<{ success: boolean; status: string; message: string; requiresPayment?: boolean; checkoutUrl?: string }>(`/handles/${encodeURIComponent(handle)}/request-mint`, {
+        method: "POST",
+      }),
   },
 
   transfer: {

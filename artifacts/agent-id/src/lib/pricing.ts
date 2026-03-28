@@ -100,9 +100,10 @@ export function getHandlePrice(handle: string): { annualPrice: number; tier: Dis
 }
 
 export function formatHandlePrice(handle: string): string {
-  const { annualPrice } = getHandlePrice(handle);
-  if (annualPrice === 0) return 'Reserved';
-  return `$${annualPrice}/yr`;
+  const t: SharedTier = getHandlePricingTier(handle);
+  if (t.isReserved) return 'Reserved';
+  if (t.isFree) return 'FREE';
+  return `$${t.annualPriceUsd}/yr`;
 }
 
 export function formatPrice(amount: string | number, priceType?: string): string {

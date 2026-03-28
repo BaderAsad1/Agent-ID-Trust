@@ -284,7 +284,7 @@ export function Start() {
       if (lc.includes('taken') || lc.includes('conflict') || lc.includes('already') || lc.includes('duplicate')) {
         setError(`The handle "${handle}" is already taken. Please choose a different handle.`);
       } else if (lc.includes('payment') || lc.includes('subscription') || lc.includes('plan') || lc.includes('upgrade')) {
-        setError(`A paid plan is required to register this handle. Starter ($29/mo) and up include one standard handle (5+ characters) at no extra cost. Shorter handles (4 chars: $160/yr · 3 chars: $640/yr) require separate checkout.`);
+        setError(`5+ character handles are free. Shorter premium handles (4 chars: $29/yr · 3 chars: $99/yr) require separate checkout at /handle/purchase.`);
       } else if (lc.includes('reserved') || lc.includes('1-2') || lc.includes('unavailable')) {
         setError(`This handle is reserved and not available for registration. Handles of 1-2 characters are reserved. Please choose a handle of 3 or more characters.`);
       } else {
@@ -527,9 +527,9 @@ export function Start() {
               {handle && (() => {
                 const { annualPrice: rawAnnualPrice, tier } = getHandlePrice(handle);
                 const annualPrice = rawAnnualPrice ?? 0;
-                const isUltraPremium = annualPrice >= 640;
-                const isPremium = annualPrice >= 160 && annualPrice < 640;
-                const priceLabel = isUltraPremium ? `$${annualPrice}/yr — Ultra-premium` : isPremium ? `$${annualPrice}/yr — Premium` : 'Included — Standard';
+                const isUltraPremium = annualPrice >= 99;
+                const isPremium = annualPrice >= 29 && annualPrice < 99;
+                const priceLabel = isUltraPremium ? `$${annualPrice}/yr — Premium` : isPremium ? `$${annualPrice}/yr — Standard` : 'FREE';
                 const priceColor = isUltraPremium ? '#a78bfa' : isPremium ? '#f59e0b' : '#34d399';
                 const priceBg = isUltraPremium ? 'rgba(167,139,250,0.08)' : isPremium ? 'rgba(245,158,11,0.06)' : 'rgba(52,211,153,0.06)';
                 const priceBorder = isUltraPremium ? 'rgba(167,139,250,0.2)' : isPremium ? 'rgba(245,158,11,0.15)' : 'rgba(52,211,153,0.15)';

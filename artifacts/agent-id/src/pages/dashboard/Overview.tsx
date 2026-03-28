@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Copy, Check, ExternalLink, Wallet, Star, MessageSquare, ClipboardList, Zap, User, Globe, ArrowUpRight, Shield, CheckCircle2, Circle, Github, Key, Plug } from 'lucide-react';
 import { GlassCard, Identicon, PrimaryButton } from '@/components/shared';
 import { useAuth } from '@/lib/AuthContext';
+import { api } from '@/lib/api';
 import type { Agent } from '@/lib/api';
 
 function CopyField({ label, value }: { label: string; value: string }) {
@@ -39,11 +40,135 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
+function getHandleTierBadge(agent: Agent): { label: string; color: string; bg: string; border: string } | null {
+  if (!agent.handle) return null;
+  const len = agent.handle.replace(/[^a-z0-9-]/g, '').length;
+  if (len <= 2) return null;
+  if (len === 3) return { label: 'Premium', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)' };
+  if (len === 4) return { label: 'Standard', color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)', border: 'rgba(139,92,246,0.3)' };
+  return { label: 'Basic', color: '#10b981', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.3)' };
+}
+
+function isPaidHandle(agent: Agent): boolean {
+  if (!agent.handle) return false;
+  const len = agent.handle.replace(/[^a-z0-9-]/g, '').length;
+  return len >= 3 && len <= 4;
+}
+
+function OnChainStatus({ agent }: { agent: Agent }) {
+  const [minting, setMinting] = useState(false);
+  const [mintError, setMintError] = useState<string | null>(null);
+
+  const nftStatus = agent.nftStatus ?? 'none';
+  const paid = isPaidHandle(agent);
+
+  async function requestMint() {
+    if (!agent.handle) return;
+    setMinting(true);
+    setMintError(null);
+    try {
+      const result = await api.handles.requestMint(agent.handle);
+      if (result.requiresPayment && result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+    } catch (err: unknown) {
+      setMintError(err instanceof Error ? err.message : 'Failed to request mint');
+    } finally {
+      setMinting(false);
+    }
+  }
+
+  if (paid) {
+    if (nftStatus === 'minted') {
+      const tokenId = agent.onChainTokenId;
+      const explorerUrl = tokenId ? `https://basescan.org/token/${tokenId}` : 'https://basescan.org';
+      return (
+        <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
+          <span className="text-xs px-2 py-1 rounded-md font-medium flex items-center gap-1" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.2)' }}>
+            On-chain: Included
+          </span>
+          <a href={explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs" style={{ color: 'var(--accent)' }}>
+            View on Base <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      );
+    }
+    if (nftStatus === 'pending_mint' || nftStatus === 'pending_claim') {
+      return (
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
+          <span className="text-xs px-2 py-1 rounded-md font-medium" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
+            On-chain: Pending
+          </span>
+        </div>
+      );
+    }
+    return (
+      <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
+        <span className="text-xs px-2 py-1 rounded-md font-medium" style={{ background: 'rgba(79,125,243,0.1)', color: 'var(--accent)', border: '1px solid rgba(79,125,243,0.2)' }}>
+          On-chain: Included
+        </span>
+      </div>
+    );
+  }
+
+  if (nftStatus === 'minted') {
+    const tokenId = agent.onChainTokenId;
+    const explorerUrl = tokenId ? `https://basescan.org/token/${tokenId}` : 'https://basescan.org';
+    return (
+      <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
+        <span className="text-xs px-2 py-1 rounded-md font-medium" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.2)' }}>
+          Minted on Base
+        </span>
+        <a href={explorerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs" style={{ color: 'var(--accent)' }}>
+          Explorer <ExternalLink className="w-3 h-3" />
+        </a>
+      </div>
+    );
+  }
+
+  if (nftStatus === 'pending_mint' || nftStatus === 'pending_claim') {
+    return (
+      <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
+        <span className="text-xs px-2 py-1 rounded-md font-medium" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
+          Pending
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Not minted</span>
+        {agent.handle && (
+          <button
+            onClick={() => void requestMint()}
+            disabled={minting}
+            className="text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1"
+            style={{
+              background: 'rgba(79,125,243,0.12)',
+              border: '1px solid rgba(79,125,243,0.3)',
+              color: 'var(--accent)',
+              cursor: minting ? 'not-allowed' : 'pointer',
+              opacity: minting ? 0.6 : 1,
+            }}
+          >
+            {minting ? 'Redirecting…' : 'Mint on Base — $5'}
+          </button>
+        )}
+      </div>
+      {mintError && <p className="text-xs mt-1" style={{ color: '#ef4444' }}>{mintError}</p>}
+    </div>
+  );
+}
+
 function IdentityCard({ agent }: { agent: Agent }) {
   const initial = (agent.displayName || 'A').charAt(0).toUpperCase();
   const did = `did:agentid:${agent.id}`;
   const inbox = agent.handle ? `${agent.handle}@agentid.dev` : `${agent.id}@agentid.dev`;
   const wallet = agent.walletAddress || 'Provisioning…';
+  const tierBadge = getHandleTierBadge(agent);
 
   return (
     <GlassCard className="!p-6 mb-6">
@@ -77,6 +202,11 @@ function IdentityCard({ agent }: { agent: Agent }) {
             <span className="text-xs px-2 py-0.5 rounded-md font-medium" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)', border: '1px solid rgba(139,92,246,0.2)' }}>
               Trust {agent.trustScore ?? 0}
             </span>
+            {tierBadge && (
+              <span className="text-xs px-2 py-0.5 rounded-md font-medium" style={{ background: tierBadge.bg, color: tierBadge.color, border: `1px solid ${tierBadge.border}` }}>
+                {tierBadge.label}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -85,6 +215,7 @@ function IdentityCard({ agent }: { agent: Agent }) {
         <CopyField label="Inbox" value={inbox} />
         <CopyField label="Wallet" value={wallet} />
       </div>
+      <OnChainStatus agent={agent} />
     </GlassCard>
   );
 }

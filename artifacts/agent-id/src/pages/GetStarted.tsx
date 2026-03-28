@@ -438,8 +438,8 @@ export function GetStarted() {
             {handlePrice && handlePrice.annualPrice !== null && (
               <div style={{ marginTop: 6, fontSize: 12, color: 'rgba(232,232,240,0.3)' }}>
                 {handlePrice.annualPrice > 0
-                  ? `${handle.length <= 3 ? 'Ultra-premium' : handle.length === 4 ? 'Premium' : 'Standard'} handle — $${handlePrice.annualPrice}/yr`
-                  : 'Free handle'}
+                  ? `${handle.length <= 3 ? 'Premium' : handle.length === 4 ? 'Standard' : 'Basic'} handle — $${handlePrice.annualPrice}/yr`
+                  : 'FREE handle'}
               </div>
             )}
           </div>
