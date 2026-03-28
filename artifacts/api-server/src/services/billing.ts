@@ -19,11 +19,11 @@ const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
 export const MARKETPLACE_FEE_BPS = 250;
 
 const PLAN_LIMITS: Record<string, { maxPublicAgents: number; maxPrivateAgents: number; agentLimit: number; maxSubagents: number }> = {
-  none: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
-  starter: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
-  pro: { maxPublicAgents: 25, maxPrivateAgents: 25, agentLimit: 25, maxSubagents: 100 },
+  none: { maxPublicAgents: 10, maxPrivateAgents: 10, agentLimit: 10, maxSubagents: 0 },
+  starter: { maxPublicAgents: 20, maxPrivateAgents: 20, agentLimit: 20, maxSubagents: 25 },
+  pro: { maxPublicAgents: 100, maxPrivateAgents: 100, agentLimit: 100, maxSubagents: 100 },
   enterprise: { maxPublicAgents: 999, maxPrivateAgents: 999, agentLimit: 999, maxSubagents: 9999 },
-  free: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
+  free: { maxPublicAgents: 10, maxPrivateAgents: 10, agentLimit: 10, maxSubagents: 0 },
 };
 
 const PLAN_PRICES: Record<string, Record<string, number>> = {
@@ -33,9 +33,9 @@ const PLAN_PRICES: Record<string, Record<string, number>> = {
 };
 
 export const ENS_HANDLE_PRICING = [
-  { minLength: 3, maxLength: 3, tier: "premium_3", annualCents: 64000, annualUsd: 640 },
-  { minLength: 4, maxLength: 4, tier: "premium_4", annualCents: 16000, annualUsd: 160 },
-  { minLength: 5, maxLength: Infinity, tier: "standard_5plus", annualCents: 500, annualUsd: 5 },
+  { minLength: 3, maxLength: 3, tier: "premium_3", annualCents: 9900, annualUsd: 99, isFree: false, onChainMintPrice: 0, includesOnChainMint: true },
+  { minLength: 4, maxLength: 4, tier: "premium_4", annualCents: 2900, annualUsd: 29, isFree: false, onChainMintPrice: 0, includesOnChainMint: true },
+  { minLength: 5, maxLength: Infinity, tier: "standard_5plus", annualCents: 0, annualUsd: 0, isFree: true, onChainMintPrice: 500, includesOnChainMint: false },
 ];
 
 export function getHandlePriceCents(handle: string): number {
@@ -914,6 +914,53 @@ export async function markHandlePaymentComplete(agentId: string): Promise<void> 
 
 export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const sessionType = session.metadata?.type;
+
+  if (sessionType === "handle_mint_request") {
+    const handle = session.metadata?.handle;
+    const userId = session.metadata?.userId;
+    const agentIdMeta = session.metadata?.agentId;
+
+    if (!handle || !userId || !agentIdMeta) {
+      logger.warn({ sessionId: session.id }, "[billing] handle_mint_request: missing handle, userId, or agentId in metadata — skipping");
+      return;
+    }
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: and(eq(agentsTable.id, agentIdMeta), eq(agentsTable.userId, userId)),
+      columns: { id: true, handle: true, nftStatus: true },
+    });
+
+    if (!agent) {
+      logger.warn({ sessionId: session.id, agentId: agentIdMeta, userId }, "[billing] handle_mint_request: agent not found — skipping");
+      return;
+    }
+
+    if (agent.nftStatus === "minted" || agent.nftStatus === "pending_mint") {
+      logger.info({ sessionId: session.id, agentId: agent.id, nftStatus: agent.nftStatus }, "[billing] handle_mint_request: already minted or queued — skipping");
+      return;
+    }
+
+    await db.update(agentsTable)
+      .set({ nftStatus: "pending_mint", updatedAt: new Date() })
+      .where(eq(agentsTable.id, agent.id));
+
+    try {
+      const { nftAuditLogTable } = await import("@workspace/db/schema");
+      await db.insert(nftAuditLogTable).values({
+        agentId: agent.id,
+        handle: handle.toLowerCase(),
+        action: "queue_mint",
+        chain: "base",
+        status: "success",
+        metadata: { source: "stripe_checkout", sessionId: session.id, userId, mintPriceCents: 500 },
+      });
+    } catch (auditErr) {
+      logger.warn({ auditErr, agentId: agent.id }, "[billing] handle_mint_request: failed to write audit log");
+    }
+
+    logger.info({ agentId: agent.id, handle, sessionId: session.id }, "[billing] handle_mint_request: queued for on-chain minting after payment");
+    return;
+  }
 
   if (sessionType === "handle_registration") {
     const handle = session.metadata?.handle;

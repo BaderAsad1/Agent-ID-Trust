@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable } from "@workspace/db/schema";
+import { agentsTable, nftAuditLogTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { mintHandleOnBase, BaseChainError } from "../services/chains/base";
 import { sql } from "drizzle-orm";
@@ -9,6 +9,11 @@ const POLL_INTERVAL_MS = 60 * 1000;
 const MAX_RETRIES = 3;
 
 let timer: ReturnType<typeof setInterval> | null = null;
+
+function isOnchainMintingEnabled(): boolean {
+  const v = process.env.ONCHAIN_MINTING_ENABLED;
+  return v === "true" || v === "1";
+}
 
 function isBaseEnabled(): boolean {
   return !!(
@@ -19,8 +24,13 @@ function isBaseEnabled(): boolean {
   );
 }
 
-async function processPendingMints(): Promise<void> {
+export async function processPendingMints(): Promise<void> {
+  if (!isOnchainMintingEnabled()) {
+    logger.debug("[nft-mint] ONCHAIN_MINTING_ENABLED=false — skipping processPendingMints");
+    return;
+  }
   if (!isBaseEnabled()) {
+    logger.debug("[nft-mint] Base chain not configured — skipping processPendingMints");
     return;
   }
 
@@ -35,7 +45,7 @@ async function processPendingMints(): Promise<void> {
     .where(
       eq(agentsTable.nftStatus, "pending_mint"),
     )
-    .limit(50);
+    .limit(10);
 
   if (pendingAgents.length === 0) return;
 
@@ -106,6 +116,23 @@ async function processPendingMints(): Promise<void> {
           updatedAt: new Date(),
         })
         .where(eq(agentsTable.id, agent.id));
+
+      try {
+        await db.insert(nftAuditLogTable).values({
+          agentId: agent.id,
+          handle: agent.handle,
+          action: "mint",
+          chain: "base",
+          txHash: result.txHash,
+          tokenId: result.tokenId.toString(),
+          contractAddress: result.contract,
+          custodian: "platform",
+          status: "success",
+          metadata: { mintedAt: new Date().toISOString() },
+        });
+      } catch (auditErr) {
+        logger.warn({ auditErr, agentId: agent.id }, "[nft-mint] Failed to write audit log");
+      }
 
       logger.info(
         { agentId: agent.id, handle: agent.handle, tokenId: result.tokenId.toString(), txHash: result.txHash },

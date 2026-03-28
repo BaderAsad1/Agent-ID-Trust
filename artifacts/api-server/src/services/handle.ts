@@ -25,27 +25,27 @@ export const HANDLE_TIERS: Record<HandleTier, HandleTierInfo> = {
   },
   premium_3: {
     tier: "premium_3",
-    annualCents: 64000,
-    annualUsd: 640,
+    annualCents: 9900,
+    annualUsd: 99,
     label: "3-character premium",
     requiresPayment: true,
     freeWithPlan: false,
   },
   premium_4: {
     tier: "premium_4",
-    annualCents: 16000,
-    annualUsd: 160,
+    annualCents: 2900,
+    annualUsd: 29,
     label: "4-character premium",
     requiresPayment: true,
     freeWithPlan: false,
   },
   standard_5plus: {
     tier: "standard_5plus",
-    annualCents: 500,
-    annualUsd: 5,
+    annualCents: 0,
+    annualUsd: 0,
     label: "5+ character standard",
     requiresPayment: false,
-    freeWithPlan: true,
+    freeWithPlan: false,
   },
 };
 
@@ -411,6 +411,41 @@ export async function checkHandleRegistrationLimits(
         status: 409,
         message: `Maximum ${tierLimit} handles of this tier per account`,
       };
+    }
+  }
+
+  if (tier.tier === "standard_5plus") {
+    const userPlanRow = await db.query.usersTable.findFirst({
+      where: eq(usersTable.id, userId),
+      columns: { plan: true },
+    });
+    const userPlan = (userPlanRow?.plan ?? "none") as string;
+    const isFreeTier = userPlan === "free" || userPlan === "none";
+
+    if (isFreeTier) {
+      const standardLimit = 10;
+      const existingHandles = await db
+        .select({ handle: agentsTable.handle })
+        .from(agentsTable)
+        .where(
+          and(
+            eq(agentsTable.userId, userId),
+            isNull(agentsTable.revokedAt),
+            sql`${agentsTable.handle} IS NOT NULL`,
+          ),
+        );
+      const standardCount = existingHandles.filter((a) => {
+        if (!a.handle) return false;
+        const len = a.handle.replace(/[^a-z0-9]/g, "").length;
+        return len >= 5;
+      }).length;
+      if (standardCount >= standardLimit) {
+        return {
+          allowed: false,
+          status: 409,
+          message: `Maximum ${standardLimit} standard handles (5+ characters) per free account. Upgrade to a paid plan for more handles.`,
+        };
+      }
     }
   }
 

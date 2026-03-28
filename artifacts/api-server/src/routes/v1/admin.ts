@@ -436,4 +436,39 @@ router.post("/claims/resolve", async (req: Request, res: Response, next: NextFun
   }
 });
 
+router.post("/process-pending-mints", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { isOnchainMintingEnabled } = await import("../../services/chains/base");
+    if (!isOnchainMintingEnabled()) {
+      res.json({
+        triggered: false,
+        reason: "ONCHAIN_MINTING_ENABLED is not set to true — minting is disabled",
+        processedCount: 0,
+      });
+      return;
+    }
+
+    const { processPendingMints } = await import("../../workers/nft-mint");
+
+    await writeAuditEvent("admin", "system", "admin.mints.triggered", "system", "pending-mints",
+      adminAuditMeta(req, { signal: "admin_process_pending_mints" }),
+      getRequestorIp(req),
+    );
+
+    logger.info({ ip: getRequestorIp(req) }, "[admin] Manual pending mint processing triggered");
+
+    processPendingMints().catch(err => {
+      logger.error({ err }, "[admin] process-pending-mints: Background mint pass failed");
+    });
+
+    res.json({
+      triggered: true,
+      message: "Pending mint processing has been triggered. Check logs for results.",
+      triggeredAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

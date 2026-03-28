@@ -40,8 +40,8 @@ router.get("/plans", (req, res) => {
           monthly: e.STRIPE_PRICE_STARTER_MONTHLY ?? null,
           yearly: e.STRIPE_PRICE_STARTER_YEARLY ?? null,
         },
-        agentLimit: 5,
-        features: ["5 agents", "Inbox access", "Tasks", "Handle (5+ chars, $5/yr)", "Trust score", "Email support"],
+        agentLimit: 20,
+        features: ["20 agents", "Inbox access", "Tasks", "Handle (5+ chars, free)", "Trust score", "Email support"],
         cta: "Start for $29/mo",
         popular: false,
       },
@@ -53,8 +53,8 @@ router.get("/plans", (req, res) => {
           monthly: e.STRIPE_PRICE_PRO_MONTHLY ?? null,
           yearly: e.STRIPE_PRICE_PRO_YEARLY ?? null,
         },
-        agentLimit: 25,
-        features: ["25 agents", "Fleet management", "Analytics dashboard", "Custom domains", "Priority support"],
+        agentLimit: 100,
+        features: ["100 agents", "Fleet management", "Analytics dashboard", "Custom domains", "Priority support"],
         cta: "Go Pro",
         popular: true,
       },
@@ -71,11 +71,12 @@ router.get("/plans", (req, res) => {
       },
     ],
     handlePricing: [
-      { tier: "reserved_1_2", chars: "1-2", annualUsd: null, annualCents: null, note: "Reserved" },
-      { tier: "premium_3", chars: "3", annualUsd: 640, annualCents: 64000, note: "Ultra-premium handle, Stripe payment required" },
-      { tier: "premium_4", chars: "4", annualUsd: 160, annualCents: 16000, note: "Premium handle, Stripe payment required" },
-      { tier: "standard_5plus", chars: "5+", annualUsd: 5, annualCents: 500, note: "Free with active plan" },
+      { tier: "reserved_1_2", chars: "1-2", annualUsd: null, annualCents: null, isFree: false, onChainMintPrice: null, includesOnChainMint: false, note: "Reserved — not available" },
+      { tier: "premium_3", chars: "3", annualUsd: 99, annualCents: 9900, isFree: false, onChainMintPrice: 0, includesOnChainMint: true, note: "Ultra-premium handle, Stripe payment required, includes on-chain mint" },
+      { tier: "premium_4", chars: "4", annualUsd: 29, annualCents: 2900, isFree: false, onChainMintPrice: 0, includesOnChainMint: true, note: "Premium handle, Stripe payment required, includes on-chain mint" },
+      { tier: "standard_5plus", chars: "5+", annualUsd: 0, annualCents: 0, isFree: true, onChainMintPrice: 500, onChainMintPriceDollars: 5, includesOnChainMint: false, note: "Free for any authenticated user — optional $5 on-chain mint" },
     ],
+    freeTierAgentLimit: 10,
   });
 });
 

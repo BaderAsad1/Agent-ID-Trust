@@ -69,7 +69,14 @@ router.use("/auth", authRouter);
 router.use("/users", usersRouter);
 router.use("/users/me/api-keys", apiKeysRouter);
 router.use("/users/me/identities", identitiesRouter);
-router.post("/agents", requirePlan("starter"), checkAgentLimit(), (req, res, next) => next());
+router.post("/agents", (req, res, next) => {
+  const handle: string = (req.body?.handle ?? "").toLowerCase();
+  const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
+  if (handleLen >= 5) {
+    return checkAgentLimit()(req, res, next);
+  }
+  return requirePlan("starter")(req, res, () => checkAgentLimit()(req, res, next));
+});
 router.use("/agents", agentsRouter);
 router.use("/agents", agentVerificationRouter);
 router.use("/agents", agentDomainsRouter);

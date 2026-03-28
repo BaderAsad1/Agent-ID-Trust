@@ -6,18 +6,23 @@ import { validateHandle, isHandleAvailable, getHandleReservation, isHandleReserv
 import { getHandleTier, isHandleReserved as isHandleTierReserved } from "../../services/handle";
 
 function legacyPricingShape(tier: ReturnType<typeof getHandleTier>) {
+  const isStandard = tier.tier === "standard_5plus";
   return {
     tier: tier.tier,
     annualPriceUsd: tier.annualUsd,
     annualPriceCents: tier.annualCents,
-    description: `${tier.tier === "premium_3" ? "Ultra-premium 3-char (ENS pricing)" : tier.tier === "premium_4" ? "Premium 4-char (ENS pricing)" : "Standard 5+ char handle"}`,
+    description: `${tier.tier === "premium_3" ? "Ultra-premium 3-char — includes on-chain mint" : tier.tier === "premium_4" ? "Premium 4-char — includes on-chain mint" : "Standard 5+ char handle — free"}`,
+    isFree: isStandard,
+    onChainMintPrice: isStandard ? 500 : 0,
+    onChainMintPriceDollars: isStandard ? 5 : 0,
+    includesOnChainMint: !isStandard && tier.tier !== "reserved_1_2",
   };
 }
 
 const HANDLE_PRICING_TIERS = [
-  { minLength: 3, maxLength: 3, tier: "premium_3", annualPriceUsd: 640, annualPriceCents: 64000, description: "Ultra-premium 3-char (ENS pricing)" },
-  { minLength: 4, maxLength: 4, tier: "premium_4", annualPriceUsd: 160, annualPriceCents: 16000, description: "Premium 4-char (ENS pricing)" },
-  { minLength: 5, maxLength: undefined, tier: "standard_5plus", annualPriceUsd: 5, annualPriceCents: 500, description: "Standard 5+ char handle" },
+  { minLength: 3, maxLength: 3, tier: "premium_3", annualPriceUsd: 99, annualPriceCents: 9900, description: "Ultra-premium 3-char — includes on-chain mint", isFree: false, onChainMintPrice: 0, onChainMintPriceDollars: 0, includesOnChainMint: true },
+  { minLength: 4, maxLength: 4, tier: "premium_4", annualPriceUsd: 29, annualPriceCents: 2900, description: "Premium 4-char — includes on-chain mint", isFree: false, onChainMintPrice: 0, onChainMintPriceDollars: 0, includesOnChainMint: true },
+  { minLength: 5, maxLength: undefined, tier: "standard_5plus", annualPriceUsd: 0, annualPriceCents: 0, description: "Standard 5+ char handle — free", isFree: true, onChainMintPrice: 500, onChainMintPriceDollars: 5, includesOnChainMint: false },
 ];
 import { requireAuth } from "../../middlewares/replit-auth";
 import { db } from "@workspace/db";
@@ -145,6 +150,10 @@ router.get("/check", async (req, res, next) => {
       tier: pricing.tier,
       annual: pricing.annualPriceCents,
       annualUsd: pricing.annualPriceUsd,
+      isFree: pricing.isFree,
+      onChainMintPrice: pricing.onChainMintPrice,
+      onChainMintPriceDollars: pricing.onChainMintPriceDollars,
+      includesOnChainMint: pricing.includesOnChainMint,
       pricing,
     });
   } catch (err) {
@@ -544,6 +553,150 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
       nftOwnerWallet: userWallet.toLowerCase(),
       ...(txHash ? { txHash } : {}),
       message: `Handle NFT for @${handle} has been transferred to your wallet.`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const requestMintSchema = z.object({
+  successUrl: z.url().optional(),
+  cancelUrl: z.url().optional(),
+});
+
+router.post("/:handle/request-mint", requireAuth, async (req, res, next) => {
+  try {
+    const onchainMintingEnabled = process.env.ONCHAIN_MINTING_ENABLED === "true" || process.env.ONCHAIN_MINTING_ENABLED === "1";
+    if (!onchainMintingEnabled) {
+      throw new AppError(503, "ONCHAIN_MINTING_DISABLED", "On-chain minting is not currently enabled");
+    }
+
+    const handle = (req.params.handle as string).toLowerCase();
+    const validationError = validateHandle(handle);
+    if (validationError) {
+      throw new AppError(400, "INVALID_HANDLE", validationError);
+    }
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: and(
+        eq(agentsTable.handle, handle),
+        eq(agentsTable.userId, req.userId!),
+      ),
+      columns: { id: true, handle: true, nftStatus: true, handleTier: true, userId: true },
+    });
+
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Handle not found or you do not own this handle");
+    }
+
+    if (agent.nftStatus === "minted") {
+      throw new AppError(409, "ALREADY_MINTED", "This handle has already been minted on-chain");
+    }
+
+    if (agent.nftStatus === "pending_mint") {
+      throw new AppError(409, "MINT_PENDING", "This handle already has a pending mint request");
+    }
+
+    const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
+    const isFreeHandle = handleLen >= 5;
+
+    if (isFreeHandle) {
+      const parsed = requestMintSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
+      }
+
+      const stripe = getStripe();
+      if (!stripe) {
+        throw new AppError(503, "PAYMENT_UNAVAILABLE", "Payment processing is not configured");
+      }
+
+      const { usersTable } = await import("@workspace/db/schema");
+      const user = await db.query.usersTable.findFirst({
+        where: eq(usersTable.id, req.userId!),
+        columns: { id: true, stripeCustomerId: true, email: true, displayName: true },
+      });
+
+      if (!user) {
+        throw new AppError(404, "NOT_FOUND", "User not found");
+      }
+
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email ?? undefined,
+          name: user.displayName ?? undefined,
+          metadata: { userId: user.id },
+        });
+        customerId = customer.id;
+        await db
+          .update(usersTable)
+          .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+          .where(eq(usersTable.id, req.userId!));
+      }
+
+      const APP_URL = process.env.APP_URL ?? "https://getagent.id";
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: "payment",
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: `On-Chain Mint: @${handle}`,
+                description: `Queue @${handle} for on-chain NFT minting on Agent ID (Base network)`,
+              },
+              unit_amount: 500,
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: parsed.data.successUrl ?? `${APP_URL}/dashboard?mint=success&handle=${handle}`,
+        cancel_url: parsed.data.cancelUrl ?? `${APP_URL}/dashboard?mint=cancelled`,
+        metadata: {
+          type: "handle_mint_request",
+          agentId: agent.id,
+          handle,
+          userId: req.userId!,
+        },
+      });
+
+      logger.info({ agentId: agent.id, handle, sessionId: session.id }, "[handles] request-mint: Created Stripe checkout for free handle mint");
+
+      res.json({
+        handle,
+        requiresPayment: true,
+        mintPriceCents: 500,
+        mintPriceDollars: 5,
+        checkoutUrl: session.url,
+        message: "Complete payment to queue your handle for on-chain minting.",
+      });
+      return;
+    }
+
+    await db
+      .update(agentsTable)
+      .set({ nftStatus: "pending_mint", updatedAt: new Date() })
+      .where(eq(agentsTable.id, agent.id));
+
+    const { nftAuditLogTable } = await import("@workspace/db/schema");
+    await db.insert(nftAuditLogTable).values({
+      agentId: agent.id,
+      handle,
+      action: "queue_mint",
+      chain: "base",
+      status: "success",
+      metadata: { source: "request-mint", tier: agent.handleTier, includesOnChainMint: true },
+    });
+
+    logger.info({ agentId: agent.id, handle }, "[handles] request-mint: Queued paid handle for on-chain minting");
+
+    res.json({
+      handle,
+      requiresPayment: false,
+      nftStatus: "pending_mint",
+      message: "Your handle has been queued for on-chain minting. This is included in your handle purchase.",
     });
   } catch (err) {
     next(err);

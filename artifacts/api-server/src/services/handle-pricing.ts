@@ -9,6 +9,10 @@ export interface HandlePricingResult {
   description: string;
   isReserved: boolean;
   isFreeWithPlan: boolean;
+  isFree: boolean;
+  onChainMintPrice: number;
+  onChainMintPriceDollars: number;
+  includesOnChainMint: boolean;
 }
 
 export function getHandlePricing(handle: string): HandlePricingResult {
@@ -20,5 +24,9 @@ export function getHandlePricing(handle: string): HandlePricingResult {
     description: t.description,
     isReserved: t.isReserved,
     isFreeWithPlan: t.isFreeWithPlan,
+    isFree: t.isFree,
+    onChainMintPrice: t.onChainMintPrice,
+    onChainMintPriceDollars: t.onChainMintPriceDollars,
+    includesOnChainMint: t.includesOnChainMint,
   };
 }

@@ -142,6 +142,34 @@ router.post("/", requireAuth, async (req, res, next) => {
     const handlePriceCents = getHandlePriceCents(normalizedHandle);
     const handleLen = normalizedHandle.replace(/[^a-z0-9]/g, "").length;
     const pricingTier = handleLen <= 3 ? "ultra_premium" : handleLen === 4 ? "premium" : "standard";
+    const isFreeHandle = handleLen >= 5;
+
+    if (!isFreeHandle && !isSandbox) {
+      const APP_URL = process.env.APP_URL ?? "https://getagent.id";
+      res.status(402).json({
+        code: "HANDLE_PAYMENT_REQUIRED",
+        message: `This handle requires payment of $${(handlePriceCents / 100).toFixed(2)}/year. Use POST /api/v1/billing/handle-checkout to start checkout.`,
+        handle: normalizedHandle,
+        priceCents: handlePriceCents,
+        priceDollars: handlePriceCents / 100,
+        tier: pricingTier,
+        characterLength: handleLen,
+        isFree: false,
+        includesOnChainMint: true,
+        checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
+        handlePricing: {
+          annualPriceCents: handlePriceCents,
+          annualPriceDollars: handlePriceCents / 100,
+          tier: pricingTier,
+          characterLength: handleLen,
+          isFree: false,
+          onChainMintPrice: 0,
+          onChainMintPriceDollars: 0,
+          includesOnChainMint: true,
+        },
+      });
+      return;
+    }
 
     const sandboxHandle = isSandbox ? `sandbox-${normalizedHandle}` : normalizedHandle;
 
@@ -159,7 +187,8 @@ router.post("/", requireAuth, async (req, res, next) => {
             annualPriceCents: handlePriceCents,
             tier: pricingTier,
             characterLength: handleLen,
-            paymentStatus: "pending",
+            paymentStatus: "paid",
+            isFree: true,
             registeredAt: new Date().toISOString(),
           },
         },
@@ -171,6 +200,15 @@ router.post("/", requireAuth, async (req, res, next) => {
       throw err;
     }
 
+    if (!isSandbox) {
+      await db.update(agentsTable).set({
+        handleStatus: "active",
+        nftStatus: "none",
+        paidThrough: null,
+        updatedAt: new Date(),
+      }).where(eq(agentsTable.id, agent.id));
+    }
+
     await logActivity({
       agentId: agent.id,
       eventType: "agent.created",
@@ -178,6 +216,7 @@ router.post("/", requireAuth, async (req, res, next) => {
         handle: agent.handle,
         handlePriceCents,
         pricingTier,
+        isFreeHandle,
       },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
@@ -211,6 +250,10 @@ router.post("/", requireAuth, async (req, res, next) => {
           annualPriceDollars: handlePriceCents / 100,
           tier: pricingTier,
           characterLength: handleLen,
+          isFree: true,
+          onChainMintPrice: 500,
+          onChainMintPriceDollars: 5,
+          includesOnChainMint: false,
         },
       }),
     });
