@@ -15,7 +15,7 @@ import {
 import { isCdpConfigured, BASE_EXPLORER_URL, NETWORK_ID, USDC_CONTRACT_ADDRESS } from "../../lib/cdp";
 import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 
 const router = Router();
 
@@ -245,7 +245,7 @@ router.post("/:agentId/wallet/provision", requireAgentAuth, async (req, res, nex
 
 async function verifyAgentOwnership(userId: string, agentId: string): Promise<boolean> {
   const agent = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
+    where: and(eq(agentsTable.id, agentId), or(eq(agentsTable.userId, userId), eq(agentsTable.ownerUserId, userId))),
     columns: { id: true },
   });
   return !!agent;

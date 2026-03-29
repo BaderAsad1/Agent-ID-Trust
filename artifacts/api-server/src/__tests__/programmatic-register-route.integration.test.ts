@@ -204,7 +204,7 @@ describe("POST /api/v1/programmatic/agents/register — Autonomous Registration"
         displayName: "Autonomous Agent",
         publicKey: publicKeyB64,
         keyType: "ed25519",
-        ownerToken: ownerToken.token,
+        ownerToken: ownerToken.rawToken,
       });
 
     expect(res.status).toBe(201);
@@ -298,7 +298,7 @@ describe("POST /api/v1/programmatic/agents/register — Owner-Token Linking (C5)
         displayName: "Owned Agent",
         publicKey: publicKeyB64,
         keyType: "ed25519",
-        ownerToken: ownerToken.token,
+        ownerToken: ownerToken.rawToken,
       });
 
     expect(res.status).toBe(201);
@@ -359,7 +359,7 @@ describe("POST /api/v1/programmatic/agents/register — Owner-Token Linking (C5)
         displayName: "Cross-User Token Agent",
         publicKey: publicKeyB64,
         keyType: "ed25519",
-        ownerToken: otherToken.token,
+        ownerToken: otherToken.rawToken,
       });
 
     expect(res.status).toBe(201);

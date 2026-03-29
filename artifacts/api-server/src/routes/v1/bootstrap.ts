@@ -68,6 +68,10 @@ router.post("/claim", registrationRateLimitStrict, async (req, res, next) => {
       throw new AppError(404, "TOKEN_NOT_FOUND", "Claim token not found, already used, or deactivated");
     }
 
+    if (claimRecord.expiresAt && claimRecord.expiresAt < new Date()) {
+      throw new AppError(410, "TOKEN_EXPIRED", "This claim token has expired");
+    }
+
     const agent = await getAgentById(claimRecord.agentId);
     if (!agent) {
       throw new AppError(404, "AGENT_NOT_FOUND", "The agent associated with this claim token no longer exists");
@@ -165,6 +169,10 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
 
     if (!claimRecord) {
       throw new AppError(404, "TOKEN_NOT_FOUND", "Claim token not found, already used, or does not match this agent");
+    }
+
+    if (claimRecord.expiresAt && claimRecord.expiresAt < new Date()) {
+      throw new AppError(410, "TOKEN_EXPIRED", "This claim token has expired");
     }
 
     const agent = await getAgentById(agentId);

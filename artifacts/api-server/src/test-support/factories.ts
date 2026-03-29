@@ -4,7 +4,7 @@
  * All factories write directly to the real test DB.
  * Use within a transaction (withTestTransaction) for automatic cleanup.
  */
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { db } from "@workspace/db";
 import {
   usersTable,
@@ -20,7 +20,6 @@ import {
   type AgentKey,
   type ApiKey,
 } from "@workspace/db/schema";
-import { createHash } from "crypto";
 import { generateEd25519KeyPair } from "./crypto";
 
 function uid(prefix = ""): string {
@@ -253,17 +252,23 @@ export async function createTestSession(agentId: string, overrides: Partial<type
   return session;
 }
 
-/** Create an owner token for a user */
+/** Create an owner token for a user.
+ *
+ * The DB stores only the SHA-256 hash of the token (matching runtime behaviour).
+ * The returned object includes `rawToken` for use in API calls and
+ * `token` (the hash) for direct DB lookups.
+ */
 export async function createTestOwnerToken(userId: string, expiresInMs = 24 * 60 * 60 * 1000) {
-  const token = `aid_${randomBytes(16).toString("hex")}`;
+  const rawToken = `aid_${randomBytes(16).toString("hex")}`;
+  const hashedToken = createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = new Date(Date.now() + expiresInMs);
 
   const [entry] = await db.insert(ownerTokensTable).values({
-    token,
+    token: hashedToken,
     userId,
     used: false,
     expiresAt,
   }).returning();
 
-  return entry;
+  return { ...entry, rawToken };
 }

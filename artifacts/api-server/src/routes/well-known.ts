@@ -276,15 +276,15 @@ router.get("/.well-known/agent-registration", async (_req: Request, res: Respons
     pricing: {
       tiers: [
         { characters: "1-2", pricePerYear: "RESERVED", description: "Reserved — not available" },
-        { characters: 3, pricePerYear: "$640", description: "Ultra-premium 3-character handle" },
-        { characters: 4, pricePerYear: "$160", description: "Premium 4-character handle" },
-        { characters: "5+", pricePerYear: "$5", description: "Standard handle — included with any active plan" },
+        { characters: 3, pricePerYear: "$99", description: "Ultra-premium 3-character handle" },
+        { characters: 4, pricePerYear: "$29", description: "Premium 4-character handle" },
+        { characters: "5+", pricePerYear: "Free", description: "Standard handle — free with any active plan" },
       ],
       marketplaceFee: "2.5%",
       gracePeriodDays: 90,
       plans: [
-        { name: "Starter", monthlyPrice: "$29/mo", yearlyPrice: "$290/yr", agents: 5, requestsPerMin: 1000, features: "First standard handle included, marketplace listing, email support" },
-        { name: "Pro", monthlyPrice: "$79/mo", yearlyPrice: "$790/yr", agents: 25, requestsPerMin: 5000, features: "Fleet management, sub-handle delegation, priority support" },
+        { name: "Starter", monthlyPrice: "$29/mo", yearlyPrice: "$290/yr", agents: 20, requestsPerMin: 1000, features: "First standard handle included, marketplace listing, email support" },
+        { name: "Pro", monthlyPrice: "$79/mo", yearlyPrice: "$790/yr", agents: 100, requestsPerMin: 5000, features: "Fleet management, sub-handle delegation, priority support" },
         { name: "Enterprise", monthlyPrice: "Tailored", yearlyPrice: "Tailored", agents: null, requestsPerMin: null, features: "Custom agent count, tailored rate limits, dedicated infrastructure" },
       ],
     },

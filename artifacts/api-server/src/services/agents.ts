@@ -202,8 +202,9 @@ export async function updateAgent(
   userId: string,
   updates: UpdateAgentInput,
 ): Promise<Agent | null> {
+  const ownerCondition = or(eq(agentsTable.userId, userId), eq(agentsTable.ownerUserId, userId));
   const existing = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
+    where: and(eq(agentsTable.id, agentId), ownerCondition),
   });
 
   const finalUpdates = { ...updates };
@@ -220,7 +221,7 @@ export async function updateAgent(
   const [updated] = await db
     .update(agentsTable)
     .set({ ...finalUpdates, updatedAt: new Date() })
-    .where(and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)))
+    .where(and(eq(agentsTable.id, agentId), or(eq(agentsTable.userId, userId), eq(agentsTable.ownerUserId, userId))))
     .returning();
 
   if (!updated) return null;
@@ -272,7 +273,7 @@ export async function deleteAgent(
       revocationStatement: revocation?.statement || null,
       updatedAt: now,
     })
-    .where(and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)))
+    .where(and(eq(agentsTable.id, agentId), or(eq(agentsTable.userId, userId), eq(agentsTable.ownerUserId, userId))))
     .returning({ id: agentsTable.id });
 
   if (updated) {

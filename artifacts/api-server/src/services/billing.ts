@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, or } from "drizzle-orm";
 import { getHandleTier } from "./handle";
 import { db } from "@workspace/db";
 import { logger } from "../middlewares/request-logger";
@@ -436,7 +436,7 @@ export async function getAgentSubscription(agentId: string): Promise<AgentSubscr
 
 export async function getAgentBillingStatus(agentId: string, userId: string) {
   const agent = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
+    where: and(eq(agentsTable.id, agentId), or(eq(agentsTable.userId, userId), eq(agentsTable.ownerUserId, userId))),
     columns: { id: true, handle: true, status: true, displayName: true },
   });
 

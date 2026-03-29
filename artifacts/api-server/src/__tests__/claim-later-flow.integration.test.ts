@@ -15,6 +15,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import express from "express";
+import { createHash } from "crypto";
 import { errorHandler } from "../middlewares/error-handler";
 
 vi.mock("../services/activity-logger", () => ({
@@ -137,7 +138,7 @@ describe("Claim-Later Flow — full ownership claim with real DB", () => {
     rawApiKey = keyResult.rawKey;
 
     const tokenRecord = await createTestOwnerToken(ownerUserId);
-    ownerToken = tokenRecord.token;
+    ownerToken = tokenRecord.rawToken;
     ownerTokenId = tokenRecord.id;
   });
 
@@ -228,7 +229,7 @@ describe("Claim-Later Flow — revoked agent cannot be claimed", () => {
     rawApiKey = keyResult.rawKey;
 
     const tokenRecord = await createTestOwnerToken(ownerUserId);
-    ownerToken = tokenRecord.token;
+    ownerToken = tokenRecord.rawToken;
   });
 
   afterAll(async () => {
@@ -277,7 +278,7 @@ describe("Claim-Later Flow — unverified agent cannot be claimed", () => {
     rawApiKey = keyResult.rawKey;
 
     const tokenRecord = await createTestOwnerToken(ownerUserId);
-    ownerToken = tokenRecord.token;
+    ownerToken = tokenRecord.rawToken;
   });
 
   afterAll(async () => {
@@ -326,7 +327,7 @@ describe("Claim-Later Flow — expired token is rejected", () => {
     rawApiKey = keyResult.rawKey;
 
     const expiredTokenRecord = await createTestOwnerToken(ownerUserId, -1000);
-    expiredToken = expiredTokenRecord.token;
+    expiredToken = expiredTokenRecord.rawToken;
   });
 
   afterAll(async () => {
@@ -363,7 +364,7 @@ describe("Claim-Later Flow — concurrent double-claim via Promise.all", () => {
     ownerUserId = ownerUser.id;
 
     const tokenRecord = await createTestOwnerToken(ownerUserId);
-    ownerToken = tokenRecord.token;
+    ownerToken = tokenRecord.rawToken;
 
     for (let i = 0; i < 3; i++) {
       const agentUser = await createTestUser();
@@ -419,7 +420,7 @@ describe("Claim-Later Flow — concurrent double-claim via Promise.all", () => {
     }
 
     const tokenRecord = await db.query.ownerTokensTable.findFirst({
-      where: eq(ownerTokensTable.token, ownerToken),
+      where: eq(ownerTokensTable.token, createHash("sha256").update(ownerToken).digest("hex")),
       columns: { used: true },
     });
     expect(tokenRecord!.used).toBe(true);
@@ -470,7 +471,7 @@ describe("Claim-Later Flow — cross-user token isolation (token from user A can
     rawApiKey = keyResult.rawKey;
 
     const tokenRecord = await createTestOwnerToken(userB);
-    tokenFromUserB = tokenRecord.token;
+    tokenFromUserB = tokenRecord.rawToken;
   });
 
   afterAll(async () => {
@@ -556,7 +557,7 @@ describe("Claim-Later Flow — owner-token issuance route (POST /generate, real 
 
   it("generated token is persisted in owner_tokens table with correct userId", async () => {
     const record = await db.query.ownerTokensTable.findFirst({
-      where: eq(ownerTokensTable.token, generatedToken),
+      where: eq(ownerTokensTable.token, createHash("sha256").update(generatedToken).digest("hex")),
       columns: { userId: true, used: true, expiresAt: true },
     });
 
@@ -575,7 +576,7 @@ describe("Claim-Later Flow — owner-token issuance route (POST /generate, real 
     expect(res.body.token).not.toBe(generatedToken);
 
     const oldRecord = await db.query.ownerTokensTable.findFirst({
-      where: eq(ownerTokensTable.token, generatedToken),
+      where: eq(ownerTokensTable.token, createHash("sha256").update(generatedToken).digest("hex")),
       columns: { used: true },
     });
     expect(oldRecord!.used).toBe(true);
@@ -630,7 +631,7 @@ describe("Claim-Later Flow — pre-claim state is preserved after claim (history
     rawApiKey = keyResult.rawKey;
 
     const tokenRecord = await createTestOwnerToken(ownerUserId);
-    ownerToken = tokenRecord.token;
+    ownerToken = tokenRecord.rawToken;
   });
 
   afterAll(async () => {
@@ -693,7 +694,7 @@ describe("Claim-Later Flow — programmatic registration with ownerToken (C5 pat
     const ownerUser = await createTestUser();
     ownerUserId = ownerUser.id;
     const tokenRecord = await createTestOwnerToken(ownerUserId);
-    ownerToken = tokenRecord.token;
+    ownerToken = tokenRecord.rawToken;
   });
 
   afterAll(async () => {
@@ -796,7 +797,7 @@ describe("Claim-Later Flow — programmatic registration with ownerToken (C5 pat
         displayName: "Mismatch User Registration",
         publicKey: publicKey2,
         keyType: "ed25519",
-        ownerToken: tokenRecord2.token,
+        ownerToken: tokenRecord2.rawToken,
       });
 
     expect(res.status).toBe(201);
