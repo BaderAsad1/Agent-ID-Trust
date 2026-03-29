@@ -47,3 +47,16 @@ export function decryptSecret(ciphertext: string): string {
   const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
   return decrypted.toString("utf8");
 }
+
+/**
+ * Hash a claim token for safe storage.
+ * The raw token is returned to the caller after agent creation; only the
+ * SHA-256 hash is stored in the database so a DB leak does not expose live tokens.
+ *
+ * On lookup, hash the incoming token with this function and compare to the
+ * stored hash — identical to how magic-link tokens are handled.
+ */
+export function hashClaimToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+

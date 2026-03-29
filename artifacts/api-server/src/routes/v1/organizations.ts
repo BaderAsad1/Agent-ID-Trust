@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { isAgentOwner } from "../../services/agents";
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
@@ -172,7 +173,7 @@ router.post("/:orgSlug/agents", requireAuth, async (req, res, next) => {
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId!) {
+    if (!isAgentOwner(agent, req.userId!)) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
 

@@ -20,11 +20,12 @@ import { getStripe } from "./stripe-client";
 export async function createConnectAccount(agentId: string, userId: string) {
   const agent = await db.query.agentsTable.findFirst({
     where: eq(agentsTable.id, agentId),
-    columns: { id: true, userId: true, handle: true, displayName: true, stripeConnectAccountId: true },
+    columns: { id: true, userId: true, ownerUserId: true, handle: true, displayName: true, stripeConnectAccountId: true },
   });
 
   if (!agent) throw new Error("AGENT_NOT_FOUND");
-  if (agent.userId !== userId) throw new Error("NOT_OWNER");
+  const effectiveOwner = agent.ownerUserId ?? agent.userId;
+  if (effectiveOwner !== userId) throw new Error("NOT_OWNER");
 
   if (agent.stripeConnectAccountId) {
     return { accountId: agent.stripeConnectAccountId, alreadyExists: true };

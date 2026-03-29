@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import DOMPurify from 'dompurify';
 import {
   Mail as MailIcon, Send, Search, ArrowLeft, Tag, CheckCircle, XCircle,
   ShieldCheck, ShieldAlert, Bot, User, Clock, Paperclip, ChevronRight,
@@ -10,18 +11,26 @@ import { useAuth } from '@/lib/AuthContext';
 import { api, type Agent, type MailThread, type MailMessage, type MailLabel, type MailEvent, type InboxStats, type MailInbox, type RoutingRule, type MailAttachment } from '@/lib/api';
 import { Identicon, GlassCard, PrimaryButton, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 
+const DOMPURIFY_CONFIG: DOMPurify.Config = {
+  ALLOWED_TAGS: [
+    'p', 'br', 'b', 'i', 'em', 'strong', 'u', 's', 'del', 'ins',
+    'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'span', 'div',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr',
+  ],
+  ALLOWED_ATTR: [
+    'href', 'title', 'alt', 'src', 'width', 'height',
+    'style', 'class', 'id', 'target', 'rel',
+    'colspan', 'rowspan', 'align', 'valign',
+  ],
+  ALLOW_DATA_ATTR: false,
+  FORBID_TAGS: ['svg', 'math', 'script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange'],
+  FORCE_BODY: true,
+};
+
 function sanitizeHtml(html: string): string {
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  div.querySelectorAll('script,iframe,object,embed,form,link,style').forEach(el => el.remove());
-  div.querySelectorAll('*').forEach(el => {
-    for (const attr of Array.from(el.attributes)) {
-      if (attr.name.startsWith('on') || attr.value.trim().toLowerCase().startsWith('javascript:')) {
-        el.removeAttribute(attr.name);
-      }
-    }
-  });
-  return div.innerHTML;
+  return DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {

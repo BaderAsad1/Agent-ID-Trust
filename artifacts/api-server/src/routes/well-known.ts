@@ -229,7 +229,7 @@ router.get("/.well-known/openid-configuration", async (_req: Request, res: Respo
     ],
     // Agent ID extensions
     "agentid:session_types_supported": ["delegated", "autonomous"],
-    "agentid:trust_tiers_supported": ["unverified", "basic", "verified", "trusted", "elite"],
+    "agentid:trust_tiers_supported": ["unverified", "basic", "verified", "trusted"],
     "agentid:documentation": "https://getagent.id/docs/sign-in",
   });
 });
@@ -269,7 +269,7 @@ router.get("/.well-known/agent-registration", async (_req: Request, res: Respons
     },
     handleRules: {
       minLength: 3,
-      maxLength: 64,
+      maxLength: 32,
       allowedCharacters: "a-z, 0-9, hyphens",
       format: "lowercase alphanumeric with hyphens, no leading/trailing hyphens",
     },

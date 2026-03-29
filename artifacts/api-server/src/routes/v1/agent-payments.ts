@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { validateUuidParam } from "../../middlewares/validation";
 import { AppError } from "../../middlewares/error-handler";
-import { getAgentById } from "../../services/agents";
+import { getAgentById, isAgentOwner } from "../../services/agents";
 import {
   createConnectAccount,
   createOnboardingLink,
@@ -20,7 +20,7 @@ router.post(
       const agentId = req.params.agentId as string;
       const agent = await getAgentById(agentId);
       if (!agent) throw new AppError(404, "NOT_FOUND", "Agent not found");
-      if (agent.userId !== req.userId) throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+      if (!isAgentOwner(agent, req.userId!)) throw new AppError(403, "FORBIDDEN", "You do not own this agent");
 
       const { accountId } = await createConnectAccount(agentId, req.userId!);
 
@@ -49,7 +49,7 @@ router.get(
       const agentId = req.params.agentId as string;
       const agent = await getAgentById(agentId);
       if (!agent) throw new AppError(404, "NOT_FOUND", "Agent not found");
-      if (agent.userId !== req.userId) throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+      if (!isAgentOwner(agent, req.userId!)) throw new AppError(403, "FORBIDDEN", "You do not own this agent");
 
       if (!agent.stripeConnectAccountId) {
         throw new AppError(400, "NOT_CONNECTED", "Agent has no Stripe Connect account");
@@ -81,7 +81,7 @@ router.get(
       const agentId = req.params.agentId as string;
       const agent = await getAgentById(agentId);
       if (!agent) throw new AppError(404, "NOT_FOUND", "Agent not found");
-      if (agent.userId !== req.userId) throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+      if (!isAgentOwner(agent, req.userId!)) throw new AppError(403, "FORBIDDEN", "You do not own this agent");
 
       const status = await getConnectAccountStatus(agentId);
       res.json(status);

@@ -20,14 +20,18 @@ export { VerificationModule } from "./modules/verification.js";
 export { verifyControlPlaneInstruction } from "./modules/control-plane.js";
 export {
   parseAgentClaims,
+  parseUserClaims,
   verifyAgentToken,
+  verifyUserToken,
   createRelayingPartyClient,
 } from "./modules/auth.js";
 export { OrgModule } from "./modules/org.js";
 export { MppModule } from "./modules/mpp.js";
 
 export type {
+  AgentIDTokenType,
   AgentTokenClaims,
+  UserTokenClaims,
   TokenIntrospectionResult,
   RelayingPartyConfig,
 } from "./modules/auth.js";

@@ -7,6 +7,7 @@ import { logger } from "../../middlewares/request-logger";
 import {
   createAgent,
   getAgentById,
+  isAgentOwner,
   getAgentByHandle,
   validateHandle,
   isHandleAvailable,
@@ -36,6 +37,7 @@ import { db } from "@workspace/db";
 import type { Agent as DbAgent } from "@workspace/db";
 import { apiKeysTable, usersTable, agentsTable, agentClaimTokensTable, agentKeysTable, ownerTokensTable } from "@workspace/db/schema";
 import { eq, and, or } from "drizzle-orm";
+import { hashClaimToken } from "../../utils/crypto";
 import { getRedis, isRedisConfigured } from "../../lib/redis";
 import { recoveryRateLimit, registrationRateLimitStrict, challengeRateLimit } from "../../middlewares/rate-limit";
 
@@ -364,9 +366,10 @@ router.post("/agents/register", registrationRateLimitStrict, async (req, res, ne
         // Do not throw — just skip the token (autonomous agents can't claim ownership at registration)
       } else {
         try {
+          const hashedOwnerToken = createHash("sha256").update(ownerToken).digest("hex");
           const tokenRecord = await db.query.ownerTokensTable.findFirst({
             where: and(
-              eq(ownerTokensTable.token, ownerToken),
+              eq(ownerTokensTable.token, hashedOwnerToken),
               eq(ownerTokensTable.used, false),
             ),
           });
@@ -470,7 +473,7 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (req.userId && agent.userId !== req.userId) {
+    if (req.userId && !isAgentOwner(agent, req.userId)) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
 
@@ -578,7 +581,8 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
         .where(eq(agentsTable.id, agentId));
       await tx.insert(agentClaimTokensTable).values({
         agentId,
-        token: claimToken,
+        token: hashClaimToken(claimToken),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       });
     });
     await Promise.all([
@@ -681,7 +685,7 @@ router.post("/agents/:agentId/rotate-key", requireAuth, async (req, res, next) =
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId) {
+    if (!isAgentOwner(agent, req.userId!)) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
 
@@ -752,7 +756,7 @@ router.post("/agents/:agentId/api-keys", requireAuth, async (req, res, next) => 
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId) {
+    if (!isAgentOwner(agent, req.userId!)) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
 
@@ -806,7 +810,7 @@ router.post("/agents/:agentId/handle/renew", requireAuth, async (req, res, next)
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId) {
+    if (!isAgentOwner(agent, req.userId!)) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
     if (!agent.handle || !agent.handleExpiresAt) {

@@ -18,17 +18,18 @@ ownerTokenRouter.post("/generate", requireAuth, async (req, res, next) => {
       .set({ used: true })
       .where(and(eq(ownerTokensTable.userId, userId), eq(ownerTokensTable.used, false)));
 
-    const token = `aid_${randomBytes(16).toString("hex")}`;
+    const rawToken = `aid_${randomBytes(16).toString("hex")}`;
+    const hashedToken = createHash("sha256").update(rawToken).digest("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const [record] = await db.insert(ownerTokensTable).values({
-      token,
+      token: hashedToken,
       userId,
       expiresAt,
     }).returning();
 
     res.status(201).json({
-      token: record.token,
+      token: rawToken,
       expiresAt: record.expiresAt,
       validForHours: 24,
     });
@@ -90,9 +91,10 @@ agentLinkOwnerRouter.post("/link-owner", async (req, res, next) => {
       });
     }
 
+    const hashedLookup = createHash("sha256").update(token).digest("hex");
     const ownerToken = await db.query.ownerTokensTable.findFirst({
       where: and(
-        eq(ownerTokensTable.token, token),
+        eq(ownerTokensTable.token, hashedLookup),
         eq(ownerTokensTable.used, false),
       ),
     });

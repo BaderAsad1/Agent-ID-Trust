@@ -163,6 +163,23 @@ export async function getAgentById(agentId: string): Promise<Agent | null> {
   return agent ?? null;
 }
 
+/**
+ * Determine whether a user is authorised to manage an agent.
+ *
+ * Ownership logic (in priority order):
+ * 1. If `ownerUserId` is set (agent has been claimed/transferred), only that user is the owner.
+ * 2. Otherwise fall back to `userId` (the original creator).
+ *
+ * This prevents former creators from retaining privileged access after an agent
+ * has been claimed or transferred to a different user.
+ */
+export function isAgentOwner(agent: Agent, userId: string): boolean {
+  if (agent.ownerUserId) {
+    return agent.ownerUserId === userId;
+  }
+  return agent.userId === userId;
+}
+
 export async function getAgentByHandle(handle: string): Promise<Agent | null> {
   const agent = await db.query.agentsTable.findFirst({
     where: ilike(agentsTable.handle, handle),

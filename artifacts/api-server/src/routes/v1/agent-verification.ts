@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { validateUuidParam } from "../../middlewares/validation";
-import { getAgentById } from "../../services/agents";
+import { getAgentById, isAgentOwner } from "../../services/agents";
 import { initiateVerification, verifyChallenge } from "../../services/verification";
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
@@ -29,7 +29,7 @@ router.post("/:agentId/verify/initiate", requireAuth, validateUuidParam("agentId
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId) {
+    if (!isAgentOwner(agent, req.userId!)) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
     if (agent.verificationStatus === "verified") {
@@ -60,7 +60,7 @@ router.post("/:agentId/verify/complete", requireAuth, validateUuidParam("agentId
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId) {
+    if (!isAgentOwner(agent, req.userId!)) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
 

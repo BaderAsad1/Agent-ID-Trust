@@ -8,6 +8,7 @@ import {
 } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { ssrfSafeFetch } from "../lib/ssrf-guard";
+import { decryptSecret } from "../utils/crypto";
 
 const RETRY_INTERVALS_MS = [
   60 * 1000,
@@ -26,7 +27,8 @@ function signPayload(payload: string, secret: string, timestamp: number): string
 
 export function buildSignatureHeader(payload: string, secret: string): string {
   const timestamp = Math.floor(Date.now() / 1000);
-  const v1 = signPayload(payload, secret, timestamp);
+  const plainSecret = decryptSecret(secret);
+  const v1 = signPayload(payload, plainSecret, timestamp);
   return `t=${timestamp},v1=${v1}`;
 }
 

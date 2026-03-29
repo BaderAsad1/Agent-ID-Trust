@@ -5,6 +5,7 @@ import {
   jsonb,
   timestamp,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -33,6 +34,7 @@ export const apiKeysTable = pgTable(
   (table) => [
     index("api_keys_owner_idx").on(table.ownerType, table.ownerId),
     index("api_keys_prefix_idx").on(table.keyPrefix),
+    uniqueIndex("api_keys_hashed_key_unique_idx").on(table.hashedKey),
   ],
 );
 

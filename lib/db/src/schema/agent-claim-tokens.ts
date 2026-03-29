@@ -5,6 +5,7 @@ import {
   boolean,
   timestamp,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { agentsTable } from "./agents";
 import { usersTable } from "./users";
@@ -21,13 +22,14 @@ export const agentClaimTokensTable = pgTable(
     isUsed: boolean("is_used").default(false).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
     usedByUserId: uuid("used_by_user_id").references(() => usersTable.id),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
   (table) => [
     index("agent_claim_tokens_agent_id_idx").on(table.agentId),
-    index("agent_claim_tokens_token_idx").on(table.token),
+    uniqueIndex("agent_claim_tokens_token_unique_idx").on(table.token),
     index("agent_claim_tokens_active_idx").on(table.agentId, table.isActive),
   ],
 );

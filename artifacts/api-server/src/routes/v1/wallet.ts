@@ -442,9 +442,14 @@ router.post("/user/:agentId/wallet/provision", requireAuth, async (req, res, nex
   }
 });
 
-router.get("/:agentId/wallet/info", async (req, res, next) => {
+router.get("/:agentId/wallet/info", requireAgentAuth, async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
+    const authedAgent = req.authenticatedAgent!;
+
+    if (authedAgent.id !== agentId) {
+      throw new AppError(403, "FORBIDDEN", "You can only access your own wallet info");
+    }
 
     const agent = await db.query.agentsTable.findFirst({
       where: eq(agentsTable.id, agentId),

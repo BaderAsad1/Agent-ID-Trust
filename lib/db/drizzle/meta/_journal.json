@@ -155,6 +155,41 @@
       "when": 1742774400000,
       "tag": "0021_ows_wallets_multi_chain",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1742860800000,
+      "tag": "0022_erc8004_compliance",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1742947200000,
+      "tag": "0023_magic_link_hashed_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1743033600000,
+      "tag": "0024_add_security_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1743120000000,
+      "tag": "0025_security_launch_gate_remediation",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1743206400000,
+      "tag": "0026_claim_token_hardening",
+      "breakpoints": true
     }
   ]
 }

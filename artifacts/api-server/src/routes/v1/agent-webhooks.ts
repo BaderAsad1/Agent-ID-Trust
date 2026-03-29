@@ -8,11 +8,12 @@ import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { validateUuidParam } from "../../middlewares/validation";
-import { getAgentById } from "../../services/agents";
+import { getAgentById, isAgentOwner } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
 import { buildSignatureHeader } from "../../services/webhook-delivery";
 import type { Request, Response, NextFunction } from "express";
 import { validateWebhookUrl, ssrfSafeFetch } from "../../lib/ssrf-guard";
+import { encryptSecret, decryptSecret } from "../../utils/crypto";
 
 // Re-export so existing tests that import from agent-webhooks continue to work.
 export { validateWebhookUrl };
@@ -51,21 +52,22 @@ router.post("/:agentId/webhooks", requireHumanOrAgentAuth, validateUuidParam("ag
       }
     } else {
       const agent = await getAgentById(agentId);
-      if (!agent || agent.userId !== req.userId) {
+      if (!agent || !isAgentOwner(agent, req.userId!)) {
         throw new AppError(403, "FORBIDDEN", "You do not own this agent");
       }
     }
 
     const resolvedUrl = parsed.data.endpointUrl ?? parsed.data.url!;
     await validateWebhookUrl(resolvedUrl);
-    const secret = randomBytes(32).toString("hex");
+    const rawSecret = randomBytes(32).toString("hex");
+    const encryptedSecret = encryptSecret(rawSecret);
 
     const [webhook] = await db
       .insert(agentWebhooksTable)
       .values({
         agentId,
         url: resolvedUrl,
-        secret,
+        secret: encryptedSecret,
         events: parsed.data.events,
       })
       .returning();
@@ -84,7 +86,7 @@ router.post("/:agentId/webhooks", requireHumanOrAgentAuth, validateUuidParam("ag
       url: webhook.url,
       events: webhook.events,
       active: webhook.active,
-      secret,
+      secret: rawSecret,
       createdAt: webhook.createdAt,
     });
   } catch (err) {
@@ -102,7 +104,7 @@ router.get("/:agentId/webhooks", requireHumanOrAgentAuth, validateUuidParam("age
       }
     } else {
       const agent = await getAgentById(agentId);
-      if (!agent || agent.userId !== req.userId) {
+      if (!agent || !isAgentOwner(agent, req.userId!)) {
         throw new AppError(403, "FORBIDDEN", "You do not own this agent");
       }
     }
@@ -139,7 +141,7 @@ router.delete("/:agentId/webhooks/:webhookId", requireHumanOrAgentAuth, validate
       }
     } else {
       const agent = await getAgentById(agentId);
-      if (!agent || agent.userId !== req.userId) {
+      if (!agent || !isAgentOwner(agent, req.userId!)) {
         throw new AppError(403, "FORBIDDEN", "You do not own this agent");
       }
     }
@@ -186,7 +188,7 @@ router.post("/:agentId/webhooks/:webhookId/test", requireHumanOrAgentAuth, valid
       }
     } else {
       const agent = await getAgentById(agentId);
-      if (!agent || agent.userId !== req.userId) {
+      if (!agent || !isAgentOwner(agent, req.userId!)) {
         throw new AppError(403, "FORBIDDEN", "You do not own this agent");
       }
     }
@@ -259,7 +261,7 @@ router.post("/:agentId/webhooks/:webhookId/test", requireHumanOrAgentAuth, valid
       timestamp,
     });
 
-    const signature = buildSignatureHeader(body, webhook.secret);
+    const signature = buildSignatureHeader(body, decryptSecret(webhook.secret));
 
     let delivered = false;
     let statusCode = 0;

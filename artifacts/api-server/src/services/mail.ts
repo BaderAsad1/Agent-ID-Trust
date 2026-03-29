@@ -2149,10 +2149,12 @@ export async function verifyAgentOwnership(
   userId: string,
 ): Promise<boolean> {
   const agent = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
-    columns: { id: true },
+    where: eq(agentsTable.id, agentId),
+    columns: { id: true, userId: true, ownerUserId: true },
   });
-  return !!agent;
+  if (!agent) return false;
+  if (agent.ownerUserId) return agent.ownerUserId === userId;
+  return agent.userId === userId;
 }
 
 export async function verifyInboxOwnership(
@@ -2165,8 +2167,10 @@ export async function verifyInboxOwnership(
   if (!inbox) return { owned: false };
 
   const agent = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, inbox.agentId), eq(agentsTable.userId, userId)),
-    columns: { id: true },
+    where: eq(agentsTable.id, inbox.agentId),
+    columns: { id: true, userId: true, ownerUserId: true },
   });
-  return { owned: !!agent, agentId: inbox.agentId };
+  if (!agent) return { owned: false };
+  const owned = agent.ownerUserId ? agent.ownerUserId === userId : agent.userId === userId;
+  return { owned, agentId: inbox.agentId };
 }

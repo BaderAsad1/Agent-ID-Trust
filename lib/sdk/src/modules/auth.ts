@@ -1,12 +1,22 @@
 /**
  * Auth module — Relying Party helpers for verifying Agent ID tokens.
  *
- * RP-side helpers:
- * - verifyAgentToken: verify token signature via JWKS (offline-capable)
- * - parseAgentClaims: parse typed claims from token
- * - createRelayingPartyClient: create an OAuth client wrapper for RP servers
+ * IMPORTANT: Agent tokens and user (human) tokens are cryptographically distinct.
+ * Always use the correct verify function for the expected principal type:
+ *
+ *   - verifyAgentToken()  — verifies machine/agent identity tokens (sub = agentId, tokenType = "agent")
+ *   - verifyUserToken()   — verifies human user session tokens    (sub = userId,  tokenType = "user")
+ *   - parseAgentClaims()  — low-level, parses without verification (use only for debugging)
+ *   - createRelayingPartyClient() — full OAuth client for RP servers
+ *
+ * Mixing token types silently fails dangerous scenarios (e.g. an agent token
+ * being accepted where a human token is required). Both helpers enforce the
+ * `tokenType` claim so type confusion is caught at verify-time.
  */
 import { HttpClient } from "../utils/http.js";
+
+/** Discriminant for token type. */
+export type AgentIDTokenType = "agent" | "user";
 
 export interface AgentTokenClaims {
   sub: string;
@@ -15,6 +25,8 @@ export interface AgentTokenClaims {
   iat: number;
   exp: number;
   jti: string;
+  /** Always "agent" for machine identity tokens. */
+  tokenType: "agent";
   agentId: string;
   trustTier: string;
   verificationStatus: string;
@@ -30,6 +42,21 @@ export interface AgentTokenClaims {
     orgName?: string;
     capabilities?: string[];
   };
+}
+
+export interface UserTokenClaims {
+  sub: string;
+  iss: string;
+  aud: string | string[];
+  iat: number;
+  exp: number;
+  jti: string;
+  /** Always "user" for human identity tokens. */
+  tokenType: "user";
+  userId: string;
+  email?: string;
+  scope: string;
+  scopes: string[];
 }
 
 export interface TokenIntrospectionResult {
@@ -58,6 +85,8 @@ export interface RelayingPartyConfig {
 /**
  * Parse claims from an Agent ID JWT without verification.
  * Use verifyAgentToken() for security-sensitive use cases.
+ *
+ * @internal Low-level helper. Does NOT enforce tokenType — use verifyAgentToken() instead.
  */
 export function parseAgentClaims(token: string): AgentTokenClaims {
   const parts = token.split(".");
@@ -73,6 +102,7 @@ export function parseAgentClaims(token: string): AgentTokenClaims {
     iat: claims.iat,
     exp: claims.exp,
     jti: claims.jti,
+    tokenType: "agent",
     agentId: claims.agent_id,
     trustTier: claims.trust_tier,
     verificationStatus: claims.verification_status,
@@ -85,6 +115,34 @@ export function parseAgentClaims(token: string): AgentTokenClaims {
       ownerType: claims.owner_type,
       unclaimed: claims.owner_type === "none",
     },
+  };
+}
+
+/**
+ * Parse claims from a user (human) JWT without verification.
+ * Use verifyUserToken() for security-sensitive use cases.
+ *
+ * @internal Low-level helper.
+ */
+export function parseUserClaims(token: string): UserTokenClaims {
+  const parts = token.split(".");
+  if (parts.length < 2) throw new Error("Invalid token format");
+
+  const claimsRaw = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+  const claims = JSON.parse(claimsRaw);
+
+  return {
+    sub: claims.sub,
+    iss: claims.iss,
+    aud: claims.aud,
+    iat: claims.iat,
+    exp: claims.exp,
+    jti: claims.jti,
+    tokenType: "user",
+    userId: claims.sub,
+    email: claims.email,
+    scope: claims.scope || "",
+    scopes: (claims.scope || "").split(" ").filter(Boolean),
   };
 }
 
@@ -230,7 +288,152 @@ export async function verifyAgentToken(
     }
   }
 
-  return parseAgentClaims(token);
+  const parsed = parseAgentClaims(token);
+
+  if (claims.token_type && claims.token_type !== "agent") {
+    throw new Error(
+      `Token type mismatch: expected 'agent', got '${claims.token_type}'. ` +
+      `Use verifyUserToken() for human session tokens.`,
+    );
+  }
+
+  if (!claims.agent_id) {
+    throw new Error(
+      "Token is missing agent_id claim. This does not appear to be an agent token. " +
+      "Use verifyUserToken() for human session tokens.",
+    );
+  }
+
+  return parsed;
+}
+
+/**
+ * Verify a human user session token using the JWKS endpoint.
+ * Falls back to introspection if crypto verification is not available.
+ *
+ * Use this only when the expected principal is a human user — NOT an agent.
+ * For agent tokens, use verifyAgentToken() instead.
+ */
+export async function verifyUserToken(
+  token: string,
+  options?: {
+    baseUrl?: string;
+    audience?: string;
+    skipSignatureVerification?: boolean;
+    introspectionSecret?: string;
+  },
+): Promise<UserTokenClaims> {
+  const baseUrl = options?.baseUrl || "https://getagent.id";
+
+  const parts = token.split(".");
+  if (parts.length !== 3) throw new Error("Invalid token format");
+
+  const headerRaw = atob(parts[0].replace(/-/g, "+").replace(/_/g, "/"));
+  const header = JSON.parse(headerRaw) as { alg?: string; kid?: string };
+  const claimsRaw = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+  const claims = JSON.parse(claimsRaw);
+
+  const now = Math.floor(Date.now() / 1000);
+  if (!claims.exp || claims.exp < now) throw new Error("Token has expired");
+  if (!claims.iat || claims.iat > now + 60) throw new Error("Token issued in the future");
+
+  const expectedIssuer = baseUrl.replace(/\/$/, "");
+  if (!claims.iss) throw new Error("Token missing issuer (iss)");
+  const normalizedIss = String(claims.iss).replace(/\/$/, "");
+  if (normalizedIss !== expectedIssuer && normalizedIss !== "agentid") {
+    throw new Error(`Token issuer mismatch: expected '${expectedIssuer}', got '${normalizedIss}'`);
+  }
+
+  if (claims.token_type && claims.token_type !== "user") {
+    throw new Error(
+      `Token type mismatch: expected 'user', got '${claims.token_type}'. ` +
+      `Use verifyAgentToken() for machine identity tokens.`,
+    );
+  }
+
+  if (claims.agent_id) {
+    throw new Error(
+      "Token contains agent_id claim — this appears to be an agent token, not a user token. " +
+      "Use verifyAgentToken() for machine identity tokens.",
+    );
+  }
+
+  if (options?.audience) {
+    const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    if (!aud.includes(options.audience)) throw new Error("Token audience mismatch");
+  }
+
+  if (!options?.skipSignatureVerification) {
+    const introspectionSecret = options?.introspectionSecret;
+
+    const performIntrospection = async (): Promise<void> => {
+      const url = `${baseUrl}/api/v1/auth/introspect`;
+      const reqHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      };
+      if (introspectionSecret) {
+        reqHeaders["X-Introspection-Secret"] = introspectionSecret;
+      }
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: reqHeaders,
+        body: JSON.stringify({ token }),
+      });
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(`Introspection request failed (${resp.status}): ${text}`);
+      }
+      const result = (await resp.json()) as TokenIntrospectionResult;
+      if (!result.active) throw new Error("Token is not active");
+    };
+
+    try {
+      const keyMap = await fetchJwks(baseUrl);
+      const kid = header.kid;
+
+      if (kid && keyMap[kid]) {
+        const jwk = keyMap[kid];
+        const hasCryptoSubtle = typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.subtle !== "undefined";
+
+        if (hasCryptoSubtle) {
+          try {
+            const cryptoKey = await globalThis.crypto.subtle.importKey(
+              "jwk",
+              jwk,
+              { name: "Ed25519", namedCurve: "Ed25519" },
+              false,
+              ["verify"],
+            );
+
+            const encoder = new TextEncoder();
+            const data = encoder.encode(`${parts[0]}.${parts[1]}`);
+            const sigBytes = Uint8Array.from(
+              atob(parts[2].replace(/-/g, "+").replace(/_/g, "/")),
+              c => c.charCodeAt(0),
+            );
+
+            const valid = await globalThis.crypto.subtle.verify("Ed25519", cryptoKey, sigBytes, data);
+            if (!valid) throw new Error("Token signature verification failed");
+          } catch (cryptoErr) {
+            if ((cryptoErr as Error).message.includes("signature")) throw cryptoErr;
+            await performIntrospection();
+          }
+        } else {
+          await performIntrospection();
+        }
+      } else {
+        await performIntrospection();
+      }
+    } catch (err) {
+      if ((err as Error).message.includes("not active") || (err as Error).message.includes("signature")) {
+        throw err;
+      }
+      await performIntrospection();
+    }
+  }
+
+  return parseUserClaims(token);
 }
 
 /**

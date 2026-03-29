@@ -1,28 +1,20 @@
 import { useState, useEffect } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-const BYPASS_KEY = 'agentid_bypass';
-const SECRET_PASS = 'Replit.AgentID';
 
 export function WaitlistGate({ children }: { children: React.ReactNode }) {
   const enabled = import.meta.env.VITE_WAITLIST_ENABLED === 'true';
-  const [bypassed, setBypassed] = useState(() => {
-    try { return localStorage.getItem(BYPASS_KEY) === 'true'; } catch { return false; }
-  });
 
-  if (!enabled || bypassed) return <>{children}</>;
+  if (!enabled) return <>{children}</>;
 
-  return <WaitlistScreen onBypass={() => setBypassed(true)} />;
+  return <WaitlistScreen />;
 }
 
-function WaitlistScreen({ onBypass }: { onBypass: () => void }) {
+function WaitlistScreen() {
   const [email, setEmail] = useState('');
   const [state, setState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [dots, setDots] = useState('');
-  const [passInput, setPassInput] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [passError, setPassError] = useState(false);
 
   useEffect(() => {
     const iv = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 500);
@@ -224,69 +216,6 @@ function WaitlistScreen({ onBypass }: { onBypass: () => void }) {
           <span>Launch 2026</span>
         </div>
 
-        {/* Team access */}
-        <div style={{ marginTop: 40 }}>
-          {!showPass ? (
-            <button
-              onClick={() => setShowPass(true)}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 11, color: 'rgba(134,144,168,0.3)',
-                fontFamily: "'Inter', sans-serif",
-                transition: 'color 0.2s',
-              }}
-              onMouseEnter={e => { (e.target as HTMLButtonElement).style.color = 'rgba(134,144,168,0.6)'; }}
-              onMouseLeave={e => { (e.target as HTMLButtonElement).style.color = 'rgba(134,144,168,0.3)'; }}
-            >
-              Team access
-            </button>
-          ) : (
-            <form
-              onSubmit={e => {
-                e.preventDefault();
-                if (passInput === SECRET_PASS) {
-                  try { localStorage.setItem(BYPASS_KEY, 'true'); } catch {}
-                  onBypass();
-                } else {
-                  setPassError(true);
-                  setPassInput('');
-                  setTimeout(() => setPassError(false), 2000);
-                }
-              }}
-              style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center', animation: 'waitlist-fade-in 0.3s ease-out' }}
-            >
-              <input
-                type="password"
-                placeholder="Password"
-                value={passInput}
-                onChange={e => { setPassInput(e.target.value); setPassError(false); }}
-                autoFocus
-                style={{
-                  width: 160, padding: '8px 14px', fontSize: 12,
-                  fontFamily: "'Inter', sans-serif",
-                  background: 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${passError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)'}`,
-                  borderRadius: 8, color: '#e8e8f0', outline: 'none',
-                  transition: 'border-color 0.2s',
-                }}
-                onFocus={e => { if (!passError) e.target.style.borderColor = 'rgba(79,125,243,0.4)'; }}
-                onBlur={e => { if (!passError) e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-              />
-              <button
-                type="submit"
-                style={{
-                  padding: '8px 16px', fontSize: 11, fontWeight: 600,
-                  fontFamily: "'Inter', sans-serif",
-                  background: 'rgba(79,125,243,0.15)', color: 'var(--accent, #4f7df3)',
-                  border: '1px solid rgba(79,125,243,0.25)', borderRadius: 8,
-                  cursor: 'pointer',
-                }}
-              >
-                Enter
-              </button>
-            </form>
-          )}
-        </div>
       </div>
 
       <style>{`

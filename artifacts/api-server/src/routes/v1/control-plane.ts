@@ -7,6 +7,7 @@ import {
   signControlPlaneInstruction,
   verifyControlPlaneInstruction,
 } from "../../services/control-plane";
+import { isAgentOwner } from "../../services/agents";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
@@ -37,7 +38,7 @@ controlPlaneAgentRouter.post(
         throw new AppError(404, "NOT_FOUND", "Agent not found");
       }
 
-      if (agent.userId !== req.userId) {
+      if (!isAgentOwner(agent, req.userId!)) {
         throw new AppError(403, "FORBIDDEN", "You do not own this agent");
       }
 

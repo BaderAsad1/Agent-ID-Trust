@@ -179,76 +179,107 @@ class AgentID:
 
     def register_agent(
         self,
-        handle: str,
         display_name: str,
+        public_key: str,
         *,
+        handle: Optional[str] = None,
         description: Optional[str] = None,
         endpoint_url: Optional[str] = None,
         capabilities: Optional[List[str]] = None,
-        scopes: Optional[List[str]] = None,
-        protocols: Optional[List[str]] = None,
-        auth_methods: Optional[List[str]] = None,
-        payment_methods: Optional[List[str]] = None,
-        is_public: bool = False,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Agent:
+        key_type: str = "ed25519",
+    ) -> "AgentRegistration":
         """
-        Register a new agent with the given handle.
+        Register a new agent using the secure two-phase bootstrap flow.
+
+        Phase 1: POST /programmatic/agents/register — provisions the agent and
+        returns a cryptographic challenge.
+        Phase 2: POST /programmatic/agents/verify — must be called by the caller
+        with a valid signature over the challenge to activate the agent.
 
         Args:
-            handle: Unique agent handle (3–100 lowercase alphanumeric + hyphens).
             display_name: Human-readable name for the agent.
+            public_key: The agent's Ed25519 public key (base64 or hex encoded).
+            handle: Optional unique handle (3–32 lowercase alphanumeric + hyphens).
             description: Optional description.
             endpoint_url: HTTPS endpoint to receive inbound calls.
             capabilities: List of capability strings.
-            scopes: Permission scopes.
-            protocols: Supported protocols.
-            auth_methods: Accepted authentication methods.
-            payment_methods: Accepted payment methods.
-            is_public: Whether to list on the public marketplace.
-            metadata: Arbitrary key-value metadata.
+            key_type: Key algorithm. Only "ed25519" is supported.
 
         Returns:
-            The created Agent object.
+            AgentRegistration containing agent_id, kid, challenge, and
+            expires_at. The caller MUST call verify_agent() to activate.
+
+        Raises:
+            AgentIDError: If the API returns an error response.
         """
         body: Dict[str, Any] = {
-            "handle": handle,
             "displayName": display_name,
+            "publicKey": public_key,
+            "keyType": key_type,
         }
+        if handle is not None:
+            body["handle"] = handle
         if description is not None:
             body["description"] = description
         if endpoint_url is not None:
             body["endpointUrl"] = endpoint_url
         if capabilities is not None:
             body["capabilities"] = capabilities
-        if scopes is not None:
-            body["scopes"] = scopes
-        if protocols is not None:
-            body["protocols"] = protocols
-        if auth_methods is not None:
-            body["authMethods"] = auth_methods
-        if payment_methods is not None:
-            body["paymentMethods"] = payment_methods
-        if is_public:
-            body["isPublic"] = is_public
-        if metadata is not None:
-            body["metadata"] = metadata
 
-        data = self._request("POST", "/agents", body=body)
+        data = self._request("POST", "/programmatic/agents/register", body=body)
+        return AgentRegistration(
+            agent_id=data["agentId"],
+            kid=data["kid"],
+            challenge=data["challenge"],
+            expires_at=data.get("expiresAt"),
+            handle=data.get("handle"),
+            provisional_domain=data.get("provisionalDomain"),
+        )
+
+    def verify_agent(
+        self,
+        agent_id: str,
+        challenge: str,
+        signature: str,
+        kid: str,
+    ) -> Agent:
+        """
+        Complete the two-phase agent registration by verifying the challenge signature.
+
+        Args:
+            agent_id: UUID of the agent returned from register_agent().
+            challenge: The challenge string returned from register_agent().
+            signature: Ed25519 signature over the challenge bytes (base64url encoded).
+            kid: The key ID returned from register_agent().
+
+        Returns:
+            The fully activated Agent object.
+
+        Raises:
+            AgentIDError: If the signature is invalid or the challenge has expired.
+        """
+        body: Dict[str, Any] = {
+            "agentId": agent_id,
+            "challenge": challenge,
+            "signature": signature,
+            "kid": kid,
+        }
+        data = self._request("POST", "/programmatic/agents/verify", body=body)
+        agent_data = data.get("agent", data)
         return Agent(
-            id=data["id"],
-            handle=data["handle"],
-            display_name=data.get("displayName", ""),
-            description=data.get("description"),
-            endpoint_url=data.get("endpointUrl"),
-            capabilities=data.get("capabilities", []),
-            protocols=data.get("protocols", []),
-            trust_score=data.get("trustScore", 0),
-            trust_tier=data.get("trustTier", "unverified"),
-            verification_status=data.get("verificationStatus", "unverified"),
-            is_public=data.get("isPublic", False),
-            status=data.get("status", "draft"),
-            is_sandbox=data.get("isSandbox", False),
+            id=agent_data.get("id", agent_id),
+            handle=agent_data.get("handle"),
+            display_name=agent_data.get("displayName", ""),
+            description=agent_data.get("description"),
+            endpoint_url=agent_data.get("endpointUrl"),
+            capabilities=agent_data.get("capabilities", []),
+            protocols=agent_data.get("protocols", []),
+            trust_score=agent_data.get("trustScore", 0),
+            trust_tier=agent_data.get("trustTier", "unverified"),
+            verification_status=agent_data.get("verificationStatus", "unverified"),
+            is_public=agent_data.get("isPublic", False),
+            status=agent_data.get("status", "active"),
+            is_sandbox=agent_data.get("isSandbox", False),
         )
 
     def resolve(self, handle: str) -> ResolvedAgent:

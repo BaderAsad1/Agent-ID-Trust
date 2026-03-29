@@ -31,7 +31,7 @@ export const agentsTable = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
-    handle: varchar("handle", { length: 100 }),
+    handle: varchar("handle", { length: 32 }),
     displayName: varchar("display_name", { length: 255 }).notNull(),
     description: text("description"),
     avatarSeed: varchar("avatar_seed", { length: 255 }),

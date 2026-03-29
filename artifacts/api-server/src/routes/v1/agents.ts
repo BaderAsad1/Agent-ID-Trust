@@ -11,6 +11,7 @@ import {
   createAgent,
   listAgentsByUser,
   getAgentById,
+  isAgentOwner,
   updateAgent,
   deleteAgent,
   validateHandle,
@@ -30,6 +31,7 @@ import {
 import { clearVcCache } from "../../services/verifiable-credential";
 import { buildBootstrapBundle } from "./agent-runtime";
 import { verifyClaimToken, generateClaimToken } from "../../utils/claim-token";
+import { hashClaimToken } from "../../utils/crypto";
 import { desc, eq, and, gte, sql, count } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable, agentClaimHistoryTable } from "@workspace/db/schema";
@@ -235,9 +237,11 @@ router.post("/", requireAuth, async (req, res, next) => {
     await recomputeAndStore(agent.id);
 
     const claimTokenValue = `aid_claim_${randomBytes(24).toString("hex")}`;
+    const hashedClaimToken = hashClaimToken(claimTokenValue);
     await db.insert(agentClaimTokensTable).values({
       agentId: agent.id,
-      token: claimTokenValue,
+      token: hashedClaimToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
     res.status(201).json({
@@ -294,7 +298,7 @@ router.get("/:agentId", requireAuth, validateUuidParam("agentId"), async (req, r
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId) {
+    if (!isAgentOwner(agent, req.userId!)) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
     res.json(agent);
@@ -421,7 +425,7 @@ router.delete("/:agentId", requireHumanOrAgentAuthForDelete, validateUuidParam("
         throw new AppError(403, "FORBIDDEN", "An agent can only delete itself");
       }
     } else {
-      if (agent.userId !== req.userId) {
+      if (!isAgentOwner(agent, req.userId!)) {
         throw new AppError(403, "FORBIDDEN", "You do not own this agent");
       }
     }
@@ -465,7 +469,7 @@ router.get("/:agentId/activity", requireHumanOrAgentAuthForActivity, validateUui
       if (!agent) {
         throw new AppError(404, "NOT_FOUND", "Agent not found");
       }
-      if (agent.userId !== req.userId) {
+      if (!isAgentOwner(agent, req.userId!)) {
         throw new AppError(403, "FORBIDDEN", "You do not own this agent");
       }
     }
@@ -863,7 +867,7 @@ router.get("/:agentId/credential", requireAuth, async (req, res, next) => {
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId) {
+    if (!isAgentOwner(agent, req.userId!)) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
 
@@ -894,7 +898,7 @@ router.post("/claim", requireAuth, async (req, res, next) => {
     const result = await db.transaction(async (tx) => {
       const claimRecord = await tx.query.agentClaimTokensTable.findFirst({
         where: and(
-          eq(agentClaimTokensTable.token, token),
+          eq(agentClaimTokensTable.token, hashClaimToken(token)),
           eq(agentClaimTokensTable.isActive, true),
           eq(agentClaimTokensTable.isUsed, false),
         ),
@@ -902,6 +906,10 @@ router.post("/claim", requireAuth, async (req, res, next) => {
 
       if (!claimRecord) {
         throw new AppError(400, "TOKEN_EXPIRED", "This claim token has already been used or deactivated");
+      }
+
+      if (claimRecord.expiresAt && now > claimRecord.expiresAt) {
+        throw new AppError(410, "TOKEN_EXPIRED", "This claim token has expired. Please request a new one.");
       }
 
       const [tokenUpdate] = await tx
@@ -980,7 +988,8 @@ router.post("/:agentId/regenerate-claim-token", requireAgentAuth, async (req, re
     const newToken = generateClaimToken(agentId, "regen");
     await db.insert(agentClaimTokensTable).values({
       agentId,
-      token: newToken,
+      token: hashClaimToken(newToken),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
     const APP_URL = process.env.APP_URL || "https://getagent.id";
@@ -1007,7 +1016,7 @@ router.post("/:agentId/credential/reissue", requireAuth, async (req, res, next) 
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (agent.userId !== req.userId) {
+    if (!isAgentOwner(agent, req.userId!)) {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
 
@@ -1164,7 +1173,7 @@ router.post("/:agentId/claim", requireAuth, validateUuidParam("agentId"), async 
     if (!agent) throw new AppError(404, "NOT_FOUND", "Agent not found");
     if (agent.isClaimed) throw new AppError(409, "ALREADY_CLAIMED", "Agent has already been claimed");
 
-    if (agent.userId !== userId) {
+    if (!isAgentOwner(agent, userId)) {
       throw new AppError(403, "FORBIDDEN", "Only the agent's creator may claim it. Provide a signed proof from the agent's registered key pair to assert possession.");
     }
 

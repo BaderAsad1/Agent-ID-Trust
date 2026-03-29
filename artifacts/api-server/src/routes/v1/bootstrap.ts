@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod/v4";
 import { randomBytes, createHash } from "crypto";
+import { hashClaimToken } from "../../utils/crypto";
 import { AppError } from "../../middlewares/error-handler";
 import { logger } from "../../middlewares/request-logger";
 import { db } from "@workspace/db";
@@ -54,9 +55,10 @@ router.post("/claim", registrationRateLimitStrict, async (req, res, next) => {
 
     const { token, publicKey, keyType } = parsed.data;
 
+    const hashedToken = hashClaimToken(token);
     const claimRecord = await db.query.agentClaimTokensTable.findFirst({
       where: and(
-        eq(agentClaimTokensTable.token, token),
+        eq(agentClaimTokensTable.token, hashedToken),
         eq(agentClaimTokensTable.isActive, true),
         eq(agentClaimTokensTable.isUsed, false),
       ),
@@ -151,9 +153,10 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
 
     const { agentId, kid, challenge, signature, claimToken } = parsed.data;
 
+    const hashedClaimToken = hashClaimToken(claimToken);
     const claimRecord = await db.query.agentClaimTokensTable.findFirst({
       where: and(
-        eq(agentClaimTokensTable.token, claimToken),
+        eq(agentClaimTokensTable.token, hashedClaimToken),
         eq(agentClaimTokensTable.agentId, agentId),
         eq(agentClaimTokensTable.isActive, true),
         eq(agentClaimTokensTable.isUsed, false),

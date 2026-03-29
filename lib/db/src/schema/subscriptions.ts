@@ -4,6 +4,7 @@ import {
   varchar,
   timestamp,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -42,6 +43,9 @@ export const subscriptionsTable = pgTable(
     index("subscriptions_user_id_idx").on(table.userId),
     index("subscriptions_status_idx").on(table.status),
     index("subscriptions_provider_sub_id_idx").on(
+      table.providerSubscriptionId,
+    ),
+    uniqueIndex("subscriptions_provider_sub_id_unique_idx").on(
       table.providerSubscriptionId,
     ),
   ],

@@ -20,6 +20,9 @@ const REGISTRAR_ABI = parseAbi([
   "function transfer(string calldata handle, address newOwner) external",
 ]);
 
+/** Maximum time in milliseconds to wait for an on-chain transaction receipt. */
+const TX_RECEIPT_TIMEOUT_MS = 120_000;
+
 export class BaseChainError extends Error {
   constructor(
     public code: string,
@@ -110,7 +113,7 @@ export async function registerOnChain(
 
   logger.info({ handle, txHash }, "[base] register tx submitted, waiting for receipt");
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: TX_RECEIPT_TIMEOUT_MS });
 
   if (receipt.status !== "success") {
     throw new BaseChainError("REGISTER_FAILED", `registerOnChain tx reverted: ${txHash}`);
@@ -162,7 +165,7 @@ export async function transferToUser(
     args: [handle, userWallet as Address],
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: TX_RECEIPT_TIMEOUT_MS });
 
   if (receipt.status !== "success") {
     throw new BaseChainError("TRANSFER_FAILED", `transferToUser tx reverted: ${txHash}`);
@@ -248,7 +251,7 @@ export async function mintHandleOnBase(handle: string): Promise<MintResult> {
 
   logger.info({ handle, txHash }, "[base] Mint transaction submitted, waiting for receipt");
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: TX_RECEIPT_TIMEOUT_MS });
 
   if (receipt.status !== "success") {
     throw new BaseChainError("MINT_FAILED", `Mint transaction reverted: ${txHash}`);
@@ -309,7 +312,7 @@ export async function transferHandleOnBase(
     args: [platformWallet, destinationAddress, tokenId],
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: TX_RECEIPT_TIMEOUT_MS });
 
   if (receipt.status !== "success") {
     throw new BaseChainError("TRANSFER_FAILED", `Transfer transaction reverted: ${txHash}`);

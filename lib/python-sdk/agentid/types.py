@@ -28,17 +28,18 @@ class Agent(BaseModel):
 
 
 class AgentRegistration(BaseModel):
-    handle: str
-    display_name: str
-    description: Optional[str] = None
-    endpoint_url: Optional[str] = None
-    capabilities: List[str] = []
-    scopes: List[str] = []
-    protocols: List[str] = []
-    auth_methods: List[str] = []
-    payment_methods: List[str] = []
-    is_public: bool = False
-    metadata: Optional[Dict[str, Any]] = None
+    """Response from the two-phase registration Phase 1 (POST /programmatic/agents/register).
+
+    The caller must sign the challenge with the agent's private key and call
+    verify_agent() to complete activation.
+    """
+
+    agent_id: str
+    kid: str
+    challenge: str
+    expires_at: Optional[str] = None
+    handle: Optional[str] = None
+    provisional_domain: Optional[str] = None
 
 
 class ResolvedAgent(BaseModel):

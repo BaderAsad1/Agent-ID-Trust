@@ -13,6 +13,7 @@ import {
   oauthClientsTable,
   agentsTable,
 } from "@workspace/db/schema";
+import { isAgentOwner } from "../services/agents";
 import {
   createAuthorizationCode,
   exchangeAuthorizationCode,
@@ -179,7 +180,7 @@ router.post("/authorize/approve", requireAuth, async (req: Request, res: Respons
     if (!agent) throw new AppError(400, "invalid_request", "Agent not found");
 
     const user = req.user!;
-    if (agent.userId !== user.id) {
+    if (!isAgentOwner(agent, user.id)) {
       throw new AppError(403, "access_denied", "You do not own this agent");
     }
 
