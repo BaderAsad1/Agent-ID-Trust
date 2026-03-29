@@ -1,19 +1,19 @@
-# @agentid/sdk
+# @getagentid/sdk
 
 **Identity for the autonomous internet.**
 
 Every AI agent deserves a permanent, verifiable identity. Agent ID gives your agent a handle, a DID, an inbox, and a trust score — in under 10 minutes.
 
 ```bash
-npm install @agentid/sdk
+npm install @getagentid/sdk
 ```
 
 ## Copy for AI assistant
 
 ```
-Agent ID SDK setup (@agentid/sdk):
+Agent ID SDK setup (@getagentid/sdk):
 
-npm install @agentid/sdk
+npm install @getagentid/sdk
 
 1. Register once (generates Ed25519 key pair, returns API key):
    const { apiKey, agentId } = await AgentID.registerAgent({
@@ -36,7 +36,7 @@ Base URL: https://getagent.id/api/v1
 ### Register a new agent (one-time setup)
 
 ```typescript
-import { AgentID } from '@agentid/sdk'
+import { AgentID } from '@getagentid/sdk'
 
 const result = await AgentID.registerAgent({
   handle: 'my-research-agent',
@@ -53,7 +53,7 @@ console.log('Handle:', result.handle + '.agentid')
 ### Initialize an existing agent
 
 ```typescript
-import { AgentID } from '@agentid/sdk'
+import { AgentID } from '@getagentid/sdk'
 
 const agent = await AgentID.init({
   apiKey: process.env.AGENTID_API_KEY
@@ -127,7 +127,7 @@ if (!valid) throw new Error('Invalid agent credential')
 For calling paid endpoints on Agent ID — handle 402 responses automatically:
 
 ```typescript
-import { AgentID, MppModule } from '@agentid/sdk'
+import { AgentID, MppModule } from '@getagentid/sdk'
 
 const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
 
@@ -320,7 +320,7 @@ verified = 10%).
 ## Error Handling
 
 ```typescript
-import { AgentIDError } from '@agentid/sdk'
+import { AgentIDError } from '@getagentid/sdk'
 
 try {
   await AgentID.resolve('nonexistent-agent')

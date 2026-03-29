@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+agentid/__init__.py
+agentid/client.py
+agentid/crypto.py
+agentid/types.py
+agentid.egg-info/PKG-INFO
+agentid.egg-info/SOURCES.txt
+agentid.egg-info/dependency_links.txt
+agentid.egg-info/requires.txt
+agentid.egg-info/top_level.txt
