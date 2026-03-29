@@ -489,6 +489,38 @@ class AgentID:
             is_sandbox=data.get("isSandbox", False),
         )
 
+    def get_identity_content(
+        self,
+        agent_id: str,
+        format: str = "generic",
+    ) -> str:
+        """
+        Fetch the agent's identity file content for persistent injection into
+        frameworks like OpenClaw, Claude Code, or any custom system prompt.
+
+        Args:
+            agent_id: UUID of the agent (must match the authenticated agent key).
+            format: One of ``"openclaw"``, ``"claude"``, ``"generic"``, or ``"json"``.
+
+        Returns:
+            The identity content as a string (markdown or JSON).
+
+        Example::
+
+            content = client.get_identity_content(agent_id, format="openclaw")
+            with open("~/clawd/AGENTID.md", "w") as f:
+                f.write(content)
+        """
+        valid_formats = {"openclaw", "claude", "generic", "json"}
+        if format not in valid_formats:
+            raise ValueError(f"format must be one of {valid_formats}")
+
+        data = self._request("GET", f"/agents/{agent_id}/identity-file?format={format}")
+
+        if isinstance(data, dict):
+            return json.dumps(data, indent=2)
+        return str(data)
+
     def acknowledge_task(self, task_id: str) -> Task:
         """
         Acknowledge receipt of a task.

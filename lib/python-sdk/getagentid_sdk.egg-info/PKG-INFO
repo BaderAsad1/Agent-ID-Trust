@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: getagentid-sdk
-Version: 0.3.0
+Version: 0.3.1
 Summary: Official Python SDK for the Agent ID platform
 Author-email: Agent ID <sdk@getagent.id>
 License: MIT

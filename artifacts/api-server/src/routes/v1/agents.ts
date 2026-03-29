@@ -1342,4 +1342,153 @@ router.post("/:agentId/wallets/ows", requireAgentAuth, async (req, res, next) =>
   }
 });
 
+router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const authenticatedAgent = req.authenticatedAgent!;
+
+    if (authenticatedAgent.id !== agentId) {
+      throw new AppError(403, "FORBIDDEN", "Agent can only access its own identity file");
+    }
+
+    const format = (req.query.format as string | undefined) || "generic";
+    if (!["openclaw", "claude", "generic", "json"].includes(format)) {
+      throw new AppError(400, "VALIDATION_ERROR", "format must be one of: openclaw, claude, generic, json");
+    }
+
+    const bundle = await buildBootstrapBundle(authenticatedAgent);
+    const handle = bundle.handle || null;
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
+    const API_URL = process.env.API_URL || "https://api.getagent.id";
+
+    const agentCardUrl = handle
+      ? `${API_URL}/v1/agent-card/${handle}`
+      : `${API_URL}/v1/agent-card/${agentId}`;
+    const profileUrl = handle ? `${APP_URL}/${handle}` : `${APP_URL}/id/${agentId}`;
+    const inboxUrl = agentId ? `${API_URL}/v1/mail/agents/${agentId}/inbox` : null;
+    const trustScore = (bundle.trust as { score?: number })?.score ?? 0;
+    const trustTier = bundle.trust?.tier ?? "unverified";
+    const fqdn = handle ? `${handle}.agentid` : null;
+    const did = `did:agentid:${handle || agentId}`;
+    const capabilities = bundle.capabilities || [];
+
+    if (format === "json") {
+      return res.json({
+        handle: handle || null,
+        fqdn,
+        did,
+        agentId,
+        displayName: bundle.display_name,
+        trustScore,
+        trustTier,
+        agentCardUrl,
+        inboxUrl,
+        profileUrl,
+        capabilities,
+        promptBlock: [
+          `## Agent Identity — Agent ID`,
+          ``,
+          `You are an AI agent with a verified identity on the Agent ID network.`,
+          ``,
+          `- **Name**: ${bundle.display_name}`,
+          `- **Handle**: ${fqdn || "(no handle)"}`,
+          `- **DID**: ${did}`,
+          `- **Agent ID**: ${agentId}`,
+          `- **Trust Score**: ${trustScore}/100`,
+          `- **Trust Tier**: ${trustTier}`,
+          `- **Agent Card**: ${agentCardUrl}`,
+          inboxUrl ? `- **Inbox**: ${inboxUrl}` : null,
+          `- **Profile**: ${profileUrl}`,
+          capabilities.length > 0 ? `- **Capabilities**: ${capabilities.join(", ")}` : null,
+          ``,
+          `When asked about your identity, agent ID, or handle, respond with your .agentid handle.`,
+          `When interacting with other Agent ID agents, use your handle for identification.`,
+          inboxUrl ? `You can receive messages from other agents via your Agent ID inbox.` : null,
+          inboxUrl ? `You can receive and execute tasks via the Agent ID task system.` : null,
+        ].filter(Boolean).join("\n"),
+      });
+    }
+
+    if (format === "openclaw") {
+      const content = [
+        `# Agent Identity`,
+        ``,
+        `You are ${bundle.display_name}, an AI agent with a verified identity on Agent ID.`,
+        ``,
+        `- **Handle**: ${fqdn || "(no handle)"}`,
+        `- **DID**: ${did}`,
+        `- **Agent ID**: ${agentId}`,
+        `- **Trust Score**: ${trustScore}/100`,
+        `- **Trust Tier**: ${trustTier}`,
+        `- **Agent Card**: ${agentCardUrl}`,
+        inboxUrl ? `- **Inbox**: ${inboxUrl}` : null,
+        `- **Profile**: ${profileUrl}`,
+        ``,
+        fqdn
+          ? `When asked who you are or what your agent ID is, respond with: "I am ${fqdn}"`
+          : `When asked who you are or what your agent ID is, respond with your Agent ID.`,
+        ``,
+      ];
+
+      if (capabilities.length > 0) {
+        content.push(`## Capabilities`);
+        content.push(``);
+        capabilities.forEach((c: string) => content.push(`- ${c}`));
+        content.push(``);
+      }
+
+      if (inboxUrl) {
+        content.push(`## Communication`);
+        content.push(``);
+        content.push(`- **Inbox**: You can receive messages from other agents at your Agent ID inbox`);
+        content.push(`- **Tasks**: You can receive and process tasks from other Agent ID agents`);
+        content.push(`- **Mail endpoint**: ${inboxUrl}`);
+        content.push(``);
+      }
+
+      return res.type("text/markdown").send(content.filter((l) => l !== null).join("\n"));
+    }
+
+    if (format === "claude") {
+      const content = [
+        `# Agent Identity`,
+        ``,
+        `This agent has a verified identity on Agent ID (getagent.id).`,
+        `Handle: ${fqdn || "(no handle)"} | DID: ${did} | Trust: ${trustScore}/100`,
+        ``,
+        `When asked about identity, respond with the .agentid handle.`,
+      ].join("\n");
+
+      return res.type("text/markdown").send(content);
+    }
+
+    const lines = [
+      `## Agent Identity — Agent ID`,
+      ``,
+      `You are an AI agent with a verified identity on the Agent ID network.`,
+      ``,
+      `- **Name**: ${bundle.display_name}`,
+      `- **Handle**: ${fqdn || "(no handle)"}`,
+      `- **DID**: ${did}`,
+      `- **Agent ID**: ${agentId}`,
+      `- **Trust Score**: ${trustScore}/100`,
+      `- **Trust Tier**: ${trustTier}`,
+      `- **Agent Card**: ${agentCardUrl}`,
+      inboxUrl ? `- **Inbox**: ${inboxUrl}` : null,
+      `- **Profile**: ${profileUrl}`,
+      capabilities.length > 0 ? `- **Capabilities**: ${capabilities.join(", ")}` : null,
+      ``,
+      `When asked about your identity, agent ID, or handle, respond with your .agentid handle.`,
+      `When interacting with other Agent ID agents, use your handle for identification.`,
+      inboxUrl ? `You can receive messages from other agents via your Agent ID inbox.` : null,
+      inboxUrl ? `You can receive and execute tasks via the Agent ID task system.` : null,
+    ].filter(Boolean).join("\n");
+
+    res.type("text/markdown").send(lines);
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
+

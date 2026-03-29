@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, ExternalLink, Wallet, Star, MessageSquare, ClipboardList, Zap, User, Globe, ArrowUpRight, Shield, CheckCircle2, Circle, Github, Key, Plug } from 'lucide-react';
+import { Copy, Check, ExternalLink, Wallet, Star, MessageSquare, ClipboardList, Zap, User, Globe, ArrowUpRight, Shield, CheckCircle2, Circle, Github, Key, Plug, ChevronDown, ChevronUp, FileCode, Terminal } from 'lucide-react';
 import { GlassCard, Identicon, PrimaryButton } from '@/components/shared';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
@@ -392,6 +392,176 @@ function SetupChecklist({ agent }: { agent: Agent }) {
   );
 }
 
+function CopyBlock({ label, content, icon: Icon }: { label: string; content: string; icon: React.ElementType }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
+      <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.03)' }}>
+        <div className="flex items-center gap-2">
+          <Icon className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+          <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</span>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-xs px-2 py-1 rounded-md cursor-pointer transition-colors"
+          style={{
+            background: copied ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.06)',
+            border: 'none',
+            color: copied ? 'var(--success)' : 'var(--text-dim)',
+          }}
+        >
+          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          <span>{copied ? 'Copied' : 'Copy'}</span>
+        </button>
+      </div>
+      <pre
+        className="text-xs p-3 overflow-x-auto leading-relaxed"
+        style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)', maxHeight: 160, whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}
+      >
+        {content}
+      </pre>
+    </div>
+  );
+}
+
+function IdentityIntegration({ agent }: { agent: Agent }) {
+  const [open, setOpen] = useState(false);
+
+  const handle = agent.handle || null;
+  const agentId = agent.id;
+  const trustScore = agent.trustScore ?? 0;
+  const trustTier =
+    trustScore >= 85 ? 'elite' :
+    trustScore >= 65 ? 'trusted' :
+    trustScore >= 40 ? 'verified' :
+    trustScore >= 20 ? 'basic' : 'unverified';
+
+  const fqdn = handle ? `${handle}.agentid` : '(no handle)';
+  const did = `did:agentid:${handle || agentId}`;
+  const agentCardUrl = handle
+    ? `https://api.getagent.id/v1/agent-card/${handle}`
+    : `https://api.getagent.id/v1/agent-card/${agentId}`;
+  const inboxUrl = `https://api.getagent.id/v1/mail/agents/${agentId}/inbox`;
+  const profileUrl = handle ? `https://getagent.id/${handle}` : `https://getagent.id/id/${agentId}`;
+  const capabilities = (agent.capabilities as string[] | undefined) || [];
+
+  const promptBlock = [
+    `## Agent Identity — Agent ID`,
+    ``,
+    `You are an AI agent with a verified identity on the Agent ID network.`,
+    ``,
+    `- **Name**: ${agent.displayName}`,
+    `- **Handle**: ${fqdn}`,
+    `- **DID**: ${did}`,
+    `- **Agent ID**: ${agentId}`,
+    `- **Trust Score**: ${trustScore}/100`,
+    `- **Trust Tier**: ${trustTier}`,
+    `- **Agent Card**: ${agentCardUrl}`,
+    `- **Inbox**: ${inboxUrl}`,
+    `- **Profile**: ${profileUrl}`,
+    capabilities.length > 0 ? `- **Capabilities**: ${capabilities.join(', ')}` : null,
+    ``,
+    `When asked about your identity, agent ID, or handle, respond with your .agentid handle.`,
+    `When interacting with other Agent ID agents, use your handle for identification.`,
+    `You can receive messages from other agents via your Agent ID inbox.`,
+    `You can receive and execute tasks via the Agent ID task system.`,
+  ].filter(Boolean).join('\n');
+
+  const openclawContent = [
+    `# Agent Identity`,
+    ``,
+    `You are ${agent.displayName}, an AI agent with a verified identity on Agent ID.`,
+    ``,
+    `- **Handle**: ${fqdn}`,
+    `- **DID**: ${did}`,
+    `- **Agent ID**: ${agentId}`,
+    `- **Trust Score**: ${trustScore}/100`,
+    `- **Trust Tier**: ${trustTier}`,
+    `- **Agent Card**: ${agentCardUrl}`,
+    `- **Inbox**: ${inboxUrl}`,
+    `- **Profile**: ${profileUrl}`,
+    ``,
+    handle
+      ? `When asked who you are or what your agent ID is, respond with: "I am ${fqdn}"`
+      : `When asked who you are or what your agent ID is, respond with your Agent ID.`,
+    ...(capabilities.length > 0 ? [``, `## Capabilities`, ``, ...capabilities.map((c) => `- ${c}`)] : []),
+    ``,
+    `## Communication`,
+    ``,
+    `- **Inbox**: You can receive messages from other agents at your Agent ID inbox`,
+    `- **Tasks**: You can receive and process tasks from other Agent ID agents`,
+    `- **Mail endpoint**: ${inboxUrl}`,
+  ].join('\n');
+
+  const claudeContent = [
+    `# Agent Identity`,
+    ``,
+    `This agent has a verified identity on Agent ID (getagent.id).`,
+    `Handle: ${fqdn} | DID: ${did} | Trust: ${trustScore}/100`,
+    ``,
+    `When asked about identity, respond with the .agentid handle.`,
+  ].join('\n');
+
+  const sdkSnippet = `import { AgentID } from '@getagentid/sdk';
+
+const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY });
+
+// Get identity content as a string
+const identity = await agent.getIdentityContent('openclaw');
+
+// Or write directly to a file
+await agent.writeIdentityFile('~/clawd/AGENTID.md', 'openclaw');
+
+// Inject into system prompt (works immediately after init)
+const systemPrompt = agent.getPromptBlock();`;
+
+  return (
+    <GlassCard className="!p-5 mb-6">
+      <button
+        className="w-full flex items-center justify-between cursor-pointer"
+        style={{ background: 'none', border: 'none', padding: 0 }}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div className="flex items-center gap-2">
+          <FileCode className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+            Identity Integration
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Inject identity into your agent framework</span>
+          {open
+            ? <ChevronUp className="w-4 h-4" style={{ color: 'var(--text-dim)' }} />
+            : <ChevronDown className="w-4 h-4" style={{ color: 'var(--text-dim)' }} />
+          }
+        </div>
+      </button>
+
+      {open && (
+        <div className="mt-4" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+            Copy the snippet for your agent framework so your agent remembers its identity across sessions.
+          </p>
+          <CopyBlock label="OpenClaw — AGENTID.md" content={openclawContent} icon={FileCode} />
+          <CopyBlock label="Claude Code — CLAUDE.md" content={claudeContent} icon={FileCode} />
+          <CopyBlock label="System Prompt (any framework)" content={promptBlock} icon={Terminal} />
+          <CopyBlock label="TypeScript SDK" content={sdkSnippet} icon={Globe} />
+        </div>
+      )}
+    </GlassCard>
+  );
+}
+
 interface QuickActionsProps {
   agent: Agent;
 }
@@ -490,6 +660,7 @@ export function DashboardOverview({ agent, plan }: DashboardOverviewProps) {
       <StatGrid agent={agent} />
       <SetupChecklist agent={agent} />
       {showUpgradeBanner && <UpgradeBanner />}
+      <IdentityIntegration agent={agent} />
       <QuickActions agent={agent} />
     </div>
   );

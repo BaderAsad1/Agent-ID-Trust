@@ -193,7 +193,34 @@ export class AgentID {
 
   getPromptBlock(): string {
     if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
-    return this.bootstrap.prompt_block || formatPromptBlock(this.bootstrap);
+    return formatPromptBlock(this.bootstrap);
+  }
+
+  async getIdentityContent(format: "openclaw" | "claude" | "generic" | "json" = "generic"): Promise<string> {
+    if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
+    const agentId = this._agentId;
+    if (!agentId) throw new Error("Agent ID is not set.");
+
+    const url = `/api/v1/agents/${encodeURIComponent(agentId)}/identity-file?format=${format}`;
+
+    if (format === "json") {
+      const data = await this.http.get<Record<string, unknown>>(url);
+      return JSON.stringify(data, null, 2);
+    }
+
+    const data = await this.http.get<string>(url);
+    return typeof data === "string" ? data : JSON.stringify(data);
+  }
+
+  async writeIdentityFile(filePath: string, format: "openclaw" | "claude" | "generic" | "json" = "generic"): Promise<void> {
+    const content = await this.getIdentityContent(format);
+    const { writeFile, mkdir } = await import("fs/promises");
+    const { dirname } = await import("path");
+    const dir = dirname(filePath);
+    if (dir && dir !== ".") {
+      await mkdir(dir, { recursive: true });
+    }
+    await writeFile(filePath, content, "utf-8");
   }
 
   async heartbeat(options?: HeartbeatOptions): Promise<HeartbeatResponse> {
