@@ -515,11 +515,32 @@ class AgentID:
         if format not in valid_formats:
             raise ValueError(f"format must be one of {valid_formats}")
 
-        data = self._request("GET", f"/agents/{agent_id}/identity-file?format={format}")
+        response = self._client.request(
+            "GET",
+            f"/agents/{agent_id}/identity-file",
+            params={"format": format},
+        )
 
-        if isinstance(data, dict):
-            return json.dumps(data, indent=2)
-        return str(data)
+        if not response.is_success:
+            try:
+                data = response.json()
+                raise AgentIDError(
+                    status_code=response.status_code,
+                    error_code=data.get("code", "UNKNOWN"),
+                    message=data.get("message", response.text),
+                    details=data.get("details"),
+                )
+            except (ValueError, KeyError):
+                raise AgentIDError(
+                    status_code=response.status_code,
+                    error_code="HTTP_ERROR",
+                    message=response.text,
+                )
+
+        content_type = response.headers.get("content-type", "")
+        if "application/json" in content_type:
+            return json.dumps(response.json(), indent=2)
+        return response.text
 
     def acknowledge_task(self, task_id: str) -> Task:
         """
