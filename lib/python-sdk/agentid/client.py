@@ -491,7 +491,7 @@ class AgentID:
 
     def get_identity_content(
         self,
-        agent_id: str,
+        agent_id: Optional[str] = None,
         format: str = "generic",
     ) -> str:
         """
@@ -499,7 +499,8 @@ class AgentID:
         frameworks like OpenClaw, Claude Code, or any custom system prompt.
 
         Args:
-            agent_id: UUID of the agent (must match the authenticated agent key).
+            agent_id: UUID of the agent. Defaults to the authenticated agent
+                (inferred via ``whoami()`` when not provided).
             format: One of ``"openclaw"``, ``"claude"``, ``"generic"``, or ``"json"``.
 
         Returns:
@@ -507,13 +508,22 @@ class AgentID:
 
         Example::
 
-            content = client.get_identity_content(agent_id, format="openclaw")
-            with open("~/clawd/AGENTID.md", "w") as f:
+            # With an agent key — agent_id is optional (auto-inferred)
+            content = client.get_identity_content(format="openclaw")
+
+            # Or pass agent_id explicitly
+            content = client.get_identity_content(my_agent_id, format="openclaw")
+
+            with open("/path/to/AGENTID.md", "w") as f:
                 f.write(content)
         """
         valid_formats = {"openclaw", "claude", "generic", "json"}
         if format not in valid_formats:
             raise ValueError(f"format must be one of {valid_formats}")
+
+        if agent_id is None:
+            agent = self.whoami()
+            agent_id = agent.id
 
         response = self._client.request(
             "GET",
