@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { AppError } from "../../middlewares/error-handler";
 import { validateHandle, isHandleAvailable, getHandleReservation, isHandleReserved, agentOwnerFilter } from "../../services/agents";
 import { getHandleTier, isHandleReserved as isHandleTierReserved } from "../../services/handle";
@@ -468,8 +468,18 @@ router.post("/:handle/mint-chain", requireAuth, async (req, res, next) => {
 
 const claimNftSchema = z.object({
   userWallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "userWallet must be a valid EVM address"),
+  claimTicket: z.string().optional(),
 });
 
+/**
+ * POST /handles/:handle/claim-nft
+ *
+ * Atomic registrar claim path:
+ *   1. Validate claimTicket if provided (required for pending_anchor handles)
+ *   2. If not yet anchored on-chain → registerOnChain()
+ *   3. transferToUser() to the user's wallet
+ *   4. Commit DB state only after all on-chain steps succeed
+ */
 router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
   try {
     const handle = (req.params.handle as string).toLowerCase();
@@ -479,7 +489,7 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
     if (!parsed.success) {
       throw new AppError(400, "VALIDATION_ERROR", "userWallet must be a valid EVM address (0x...)", parsed.error.issues);
     }
-    const { userWallet } = parsed.data;
+    const { userWallet, claimTicket } = parsed.data;
 
     const agent = await db.query.agentsTable.findFirst({
       where: and(
@@ -493,7 +503,10 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
         nftStatus: true,
         nftCustodian: true,
         erc8004AgentId: true,
+        erc8004Chain: true,
         onChainTokenId: true,
+        chainRegistrations: true,
+        handleExpiresAt: true,
       },
     });
 
@@ -501,20 +514,125 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
       throw new AppError(404, "NOT_FOUND", "Handle not found or you do not own this handle");
     }
 
-    if (agent.nftCustodian !== "platform") {
-      throw new AppError(400, "NOT_IN_PLATFORM_CUSTODY", `NFT is not in platform custody. Current custodian: ${agent.nftCustodian ?? "none"}`);
+    if (agent.nftCustodian === "user") {
+      throw new AppError(400, "ALREADY_CLAIMED", "This handle NFT has already been claimed to a user wallet");
     }
 
-    const { transferToUser: transferToUserFn, isOnchainMintingEnabled } = await import("../../services/chains/base");
+    // Determine whether the handle is already anchored on-chain.
+    const chainRegs = agent.chainRegistrations as Record<string, unknown> | unknown[] | null;
+    const isAnchored = (() => {
+      if (!chainRegs) return false;
+      if (Array.isArray(chainRegs)) {
+        return (chainRegs as Record<string, unknown>[]).some(e => e.chain === "base");
+      }
+      return !!(chainRegs as Record<string, unknown>).base;
+    })();
 
-    let txHash: string | undefined;
+    // Reject if not eligible to claim: must have platform custody or be in pending_anchor state.
+    const eligible =
+      agent.nftCustodian === "platform" ||
+      agent.nftStatus === "pending_anchor" ||
+      isAnchored;
 
-    if (isOnchainMintingEnabled()) {
+    if (!eligible) {
+      throw new AppError(400, "NOT_ELIGIBLE", `Handle is not eligible for NFT claim. nftStatus=${agent.nftStatus}, custodian=${agent.nftCustodian ?? "none"}`);
+    }
+
+    // Claim tickets are required for all registrar-path claims on this endpoint.
+    // This provides signed replay-safe binding between agentId, handle, and optionally wallet.
+    // (Direct admin transfers use POST /handles/:handle/transfer instead.)
+    if (!claimTicket) {
+      throw new AppError(400, "CLAIM_TICKET_REQUIRED", "A signed claim ticket is required. Obtain one from the billing confirmation or POST /api/v1/handles/:handle/request-mint.");
+    }
+
+    // Verify claim ticket without consuming it yet.
+    // The JTI is consumed ONLY after all on-chain steps and DB commit succeed,
+    // so a failed registerOnChain/transferToUser does not strand the user's ticket.
+    const { verifyClaimTicket, consumeClaimTicketJti } = await import("../../services/claim-ticket");
+    const ticketResult = await verifyClaimTicket(claimTicket, {
+      wallet: userWallet,
+      expectedHandle: handle,
+      expectedAgentId: agent.id,
+    });
+    if (!ticketResult.ok) {
+      throw new AppError(400, "INVALID_CLAIM_TICKET", ticketResult.error);
+    }
+    const ticketPayload = ticketResult.payload;
+    const ticketAgentId = ticketPayload.sub;
+    logger.info({ handle, agentId: ticketAgentId, userWallet }, "[handles] claim-nft: claim ticket verified (not yet consumed)");
+
+    const { registerOnChain, transferToUser: transferToUserFn, isOnchainMintingEnabled } = await import("../../services/chains/base");
+    const { nftAuditLogTable } = await import("@workspace/db/schema");
+
+    // Fail-closed: if on-chain minting is not enabled, the endpoint is not available
+    // for unanchored handles. Claims on already-anchored handles still require the
+    // transferToUser on-chain call, so minting must also be enabled for those.
+    // This prevents DB/on-chain state divergence.
+    if (!isOnchainMintingEnabled()) {
+      throw new AppError(503, "ONCHAIN_REQUIRED", "On-chain minting is not enabled on this server. Enable ONCHAIN_MINTING_ENABLED to allow handle NFT claims.");
+    }
+
+    let txHashRegister: string | undefined;
+    let txHashTransfer: string | undefined;
+    let onchainAgentId: string | undefined;
+    let onchainContractAddress: string | undefined;
+
+    {
+      // Step 1: Register on-chain if not yet anchored.
+      if (!isAnchored) {
+        // Idempotency: check if handle is already registered on-chain (e.g. partial retry).
+        // If so, use the existing registration rather than re-registering (which would revert).
+        const { resolveOnChain, getContractAddress } = await import("../../services/chains/base");
+        let existingOnchain: Awaited<ReturnType<typeof resolveOnChain>> | null = null;
+        try {
+          existingOnchain = await resolveOnChain(handle);
+        } catch {
+          // resolveOnChain failure is non-fatal at this point — proceed to register
+        }
+
+        if (existingOnchain && existingOnchain.agentId && existingOnchain.active) {
+          // Already registered on-chain (partial failure recovery path)
+          onchainAgentId = existingOnchain.agentId;
+          onchainContractAddress = (await getContractAddress()) ?? undefined;
+          logger.info({ handle, agentId: agent.id, erc8004AgentId: onchainAgentId }, "[handles] claim-nft: handle already registered on-chain — skipping re-register (idempotent retry)");
+        } else {
+          const { getHandleTier } = await import("../../services/handle");
+          const tierInfo = getHandleTier(handle);
+          const expiresAt = agent.handleExpiresAt ?? (() => {
+            const d = new Date();
+            d.setFullYear(d.getFullYear() + 1);
+            return d;
+          })();
+
+          try {
+            const onchainResult = await registerOnChain(handle, tierInfo.tier, new Date(expiresAt));
+            if (!onchainResult) {
+              // Registrar returned null — chain config incomplete or contract misconfigured.
+              throw new Error("registerOnChain returned null — chain adapter not configured or contract address missing");
+            }
+            txHashRegister = onchainResult.txHash;
+            onchainAgentId = onchainResult.agentId;
+            onchainContractAddress = onchainResult.contractAddress;
+
+            logger.info({ handle, agentId: agent.id, erc8004AgentId: onchainAgentId, txHash: txHashRegister }, "[handles] claim-nft: registerOnChain succeeded");
+          } catch (regErr) {
+            const errMsg = regErr instanceof Error ? regErr.message : String(regErr);
+            logger.error({ agentId: agent.id, handle, error: errMsg }, "[handles] claim-nft: registerOnChain failed");
+            throw new AppError(500, "REGISTER_FAILED", `On-chain registration failed: ${errMsg}`);
+          }
+        }
+      } else {
+        onchainAgentId = agent.erc8004AgentId ?? undefined;
+      }
+
+      // Step 2: Transfer custody to user wallet.
+      // Null return means chain adapter not configured — treat as hard failure.
       try {
         const result = await transferToUserFn(handle, userWallet);
-        if (result) {
-          txHash = result.txHash;
+        if (!result) {
+          throw new Error("transferToUser returned null — chain adapter not configured or contract address missing");
         }
+        txHashTransfer = result.txHash;
       } catch (chainErr) {
         const errMsg = chainErr instanceof Error ? chainErr.message : String(chainErr);
         logger.error({ agentId: agent.id, handle, userWallet, error: errMsg }, "[handles] claim-nft: transferToUser failed");
@@ -522,12 +640,27 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
       }
     }
 
-    const { nftAuditLogTable } = await import("@workspace/db/schema");
+    // Step 3: Commit DB state only after all on-chain steps succeeded.
+    const chainRegistrationsUpdate = !isAnchored && onchainAgentId
+      ? [
+          {
+            chain: "base",
+            agentId: onchainAgentId,
+            txHash: txHashRegister ?? null,
+            contractAddress: onchainContractAddress ?? null,
+            registeredAt: new Date().toISOString(),
+            custodian: "user",
+          },
+        ]
+      : undefined;
 
     await db.update(agentsTable)
       .set({
+        nftStatus: "active",
         nftCustodian: "user",
         nftOwnerWallet: userWallet.toLowerCase(),
+        ...(onchainAgentId ? { erc8004AgentId: onchainAgentId } : {}),
+        ...(chainRegistrationsUpdate ? { chainRegistrations: chainRegistrationsUpdate } : {}),
         updatedAt: new Date(),
       })
       .where(eq(agentsTable.id, agent.id));
@@ -537,21 +670,40 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
       handle,
       action: "claim",
       chain: "base",
-      txHash: txHash ?? null,
+      txHash: txHashTransfer ?? txHashRegister ?? null,
       toAddress: userWallet.toLowerCase(),
       custodian: "user",
       status: "success",
-      metadata: { userWallet, erc8004AgentId: agent.erc8004AgentId ?? null },
+      metadata: {
+        userWallet,
+        erc8004AgentId: onchainAgentId ?? agent.erc8004AgentId ?? null,
+        claimTicketUsed: !!claimTicket,
+        ticketAgentId: ticketAgentId ?? null,
+        registerTxHash: txHashRegister ?? null,
+      },
     });
 
-    logger.info({ agentId: agent.id, handle, userWallet, txHash }, "[handles] claim-nft: NFT claimed to user wallet");
+    // Step 4: All on-chain steps and DB commit succeeded — now consume the JTI.
+    // This is deferred so a failed registerOnChain/transferToUser leaves the ticket usable for retry.
+    const consumeOk = await consumeClaimTicketJti(ticketPayload);
+    if (!consumeOk) {
+      // A concurrent request consumed the JTI between our verify and here.
+      // This is extremely rare but the DB is already committed, so log and continue.
+      logger.warn({ handle, agentId: agent.id, jti: ticketPayload.jti }, "[handles] claim-nft: JTI consumed by concurrent request after DB commit — claim still valid");
+    }
+
+    logger.info(
+      { agentId: agent.id, handle, userWallet, txHashRegister, txHashTransfer, claimTicketUsed: !!claimTicket },
+      "[handles] claim-nft: NFT claimed to user wallet",
+    );
 
     res.json({
       handle,
       status: "claimed",
       nftCustodian: "user",
       nftOwnerWallet: userWallet.toLowerCase(),
-      ...(txHash ? { txHash } : {}),
+      ...(txHashTransfer ? { txHash: txHashTransfer } : {}),
+      ...(txHashRegister ? { registerTxHash: txHashRegister } : {}),
       message: `Handle NFT for @${handle} has been transferred to your wallet.`,
     });
   } catch (err) {
@@ -589,12 +741,12 @@ router.post("/:handle/request-mint", requireAuth, async (req, res, next) => {
       throw new AppError(404, "NOT_FOUND", "Handle not found or you do not own this handle");
     }
 
-    if (agent.nftStatus === "minted") {
-      throw new AppError(409, "ALREADY_MINTED", "This handle has already been minted on-chain");
+    if (agent.nftStatus === "active" || agent.nftStatus === "minted") {
+      throw new AppError(409, "ALREADY_MINTED", "This handle has already been anchored on-chain");
     }
 
-    if (agent.nftStatus === "pending_mint") {
-      throw new AppError(409, "MINT_PENDING", "This handle already has a pending mint request");
+    if (agent.nftStatus === "pending_anchor" || agent.nftStatus === "pending_mint") {
+      throw new AppError(409, "MINT_PENDING", "This handle already has a pending anchor request");
     }
 
     const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
@@ -675,9 +827,23 @@ router.post("/:handle/request-mint", requireAuth, async (req, res, next) => {
       return;
     }
 
+    // Issue a claim ticket so the user can later call /claim-nft with their wallet.
+    let claimTicket: string | null = null;
+    try {
+      const { issueClaimTicket } = await import("../../services/claim-ticket");
+      claimTicket = issueClaimTicket({ agentId: agent.id, handle }) ?? null;
+    } catch {
+      // Non-fatal: proceed without ticket
+    }
+
     await db
       .update(agentsTable)
-      .set({ nftStatus: "pending_mint", updatedAt: new Date() })
+      .set({
+        nftStatus: "pending_anchor",
+        nftCustodian: "platform",
+        metadata: sql`jsonb_set(COALESCE(${agentsTable.metadata}::jsonb, '{}'::jsonb), '{pendingClaimTicket}', ${JSON.stringify(claimTicket)}::jsonb, true)`,
+        updatedAt: new Date(),
+      })
       .where(eq(agentsTable.id, agent.id));
 
     const { nftAuditLogTable } = await import("@workspace/db/schema");
@@ -687,16 +853,17 @@ router.post("/:handle/request-mint", requireAuth, async (req, res, next) => {
       action: "queue_mint",
       chain: "base",
       status: "success",
-      metadata: { source: "request-mint", tier: agent.handleTier, includesOnChainMint: true },
+      metadata: { source: "request-mint", tier: agent.handleTier, includesOnChainMint: true, claimTicketIssued: !!claimTicket },
     });
 
-    logger.info({ agentId: agent.id, handle }, "[handles] request-mint: Queued paid handle for on-chain minting");
+    logger.info({ agentId: agent.id, handle, claimTicketIssued: !!claimTicket }, "[handles] request-mint: Queued paid handle for on-chain anchoring");
 
     res.json({
       handle,
       requiresPayment: false,
-      nftStatus: "pending_mint",
-      message: "Your handle has been queued for on-chain minting. This is included in your handle purchase.",
+      nftStatus: "pending_anchor",
+      ...(claimTicket ? { claimTicket } : {}),
+      message: "Your handle has been queued for on-chain anchoring. Use the returned claimTicket with /claim-nft to transfer custody to your wallet.",
     });
   } catch (err) {
     next(err);

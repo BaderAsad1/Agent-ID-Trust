@@ -6,7 +6,7 @@ import { requireAuth } from "../../middlewares/replit-auth";
 import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
 import { logger } from "../../middlewares/request-logger";
-import { transferHandleOnBase, BaseChainError } from "../../services/chains/base";
+import { transferToUser, BaseChainError, isOnchainMintingEnabled } from "../../services/chains/base";
 import type { Address } from "viem";
 import { agentOwnerFilter } from "../../services/agents";
 
@@ -226,7 +226,9 @@ router.post("/handles/:handle/transfer", requireAuth, async (req, res, next) => 
         handle: true,
         userId: true,
         nftStatus: true,
+        nftCustodian: true,
         onChainTokenId: true,
+        chainRegistrations: true,
         chainMints: true,
       },
     });
@@ -235,46 +237,57 @@ router.post("/handles/:handle/transfer", requireAuth, async (req, res, next) => 
       throw new AppError(404, "NOT_FOUND", "Handle not found or you do not own this handle");
     }
 
-    if (agent.nftStatus !== "minted") {
-      throw new AppError(400, "NOT_MINTED", `Handle NFT is not in minted state. Current status: ${agent.nftStatus}`);
+    // Accept both the canonical nftStatus=active (registrar path) and legacy minted status
+    const validStatuses = ["active", "minted"];
+    if (!validStatuses.includes(agent.nftStatus ?? "")) {
+      throw new AppError(400, "NOT_ANCHORED", `Handle NFT is not anchored on-chain. Current status: ${agent.nftStatus}`);
     }
 
-    const chainMints = (agent.chainMints as Record<string, unknown>) || {};
-    const baseData = (chainMints.base as Record<string, unknown>) || {};
-
-    if (baseData.custodian !== "platform") {
-      throw new AppError(400, "NOT_IN_CUSTODY", "Handle NFT is not in platform custody and cannot be transferred through this endpoint");
+    if (agent.nftCustodian !== "platform") {
+      throw new AppError(400, "NOT_IN_CUSTODY", `Handle NFT is not in platform custody. Current custodian: ${agent.nftCustodian ?? "none"}`);
     }
 
-    if (!agent.onChainTokenId) {
-      throw new AppError(500, "MISSING_TOKEN_ID", "Handle NFT has no on-chain token ID recorded");
+    logger.info({ agentId: agent.id, handle, destinationAddress }, "[nft] Transfer requested via registrar path");
+
+    // Fail-closed: on-chain transfer MUST succeed before DB commit to prevent divergence.
+    if (!isOnchainMintingEnabled()) {
+      throw new AppError(503, "ONCHAIN_REQUIRED", "On-chain transfers are not enabled on this server. Enable ONCHAIN_MINTING_ENABLED to allow handle NFT transfers.");
     }
 
-    const tokenId = BigInt(agent.onChainTokenId);
+    let txHash: string | undefined;
 
-    logger.info({ agentId: agent.id, handle, destinationAddress, tokenId: tokenId.toString() }, "[nft] Transfer requested");
+    const result = await transferToUser(handle, destinationAddress as Address);
+    if (!result) {
+      // Null means chain adapter not configured — treat as hard failure to prevent DB divergence.
+      throw new AppError(500, "TRANSFER_FAILED", "transferToUser returned null — chain adapter not configured or contract address missing");
+    }
+    txHash = result.txHash;
 
-    const { txHash } = await transferHandleOnBase(handle, tokenId, destinationAddress as Address);
+    const { nftAuditLogTable } = await import("@workspace/db/schema");
 
     await db
       .update(agentsTable)
       .set({
+        nftCustodian: "user",
+        nftOwnerWallet: destinationAddress.toLowerCase(),
         onChainOwner: destinationAddress.toLowerCase(),
-        chainMints: {
-          ...chainMints,
-          base: {
-            ...baseData,
-            custodian: "user",
-            ownerWallet: destinationAddress.toLowerCase(),
-            transferTxHash: txHash,
-            transferredAt: new Date().toISOString(),
-          },
-        },
         updatedAt: new Date(),
       })
       .where(eq(agentsTable.id, agent.id));
 
-    logger.info({ agentId: agent.id, handle, destinationAddress, txHash }, "[nft] Transfer complete");
+    await db.insert(nftAuditLogTable).values({
+      agentId: agent.id,
+      handle,
+      action: "claim",
+      chain: "base",
+      txHash: txHash ?? null,
+      toAddress: destinationAddress.toLowerCase(),
+      custodian: "user",
+      status: "success",
+      metadata: { destinationAddress, source: "nft-transfer-route" },
+    });
+
+    logger.info({ agentId: agent.id, handle, destinationAddress, txHash }, "[nft] Transfer complete via registrar path");
 
     res.json({
       txHash,

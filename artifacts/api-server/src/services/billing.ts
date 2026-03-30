@@ -947,13 +947,32 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       return;
     }
 
-    if (agent.nftStatus === "minted" || agent.nftStatus === "pending_mint") {
-      logger.info({ sessionId: session.id, agentId: agent.id, nftStatus: agent.nftStatus }, "[billing] handle_mint_request: already minted or queued — skipping");
+    if (
+      agent.nftStatus === "anchored" ||
+      agent.nftStatus === "minted" ||
+      agent.nftStatus === "active" ||
+      agent.nftStatus === "pending_anchor" ||
+      agent.nftStatus === "pending_mint"
+    ) {
+      logger.info({ sessionId: session.id, agentId: agent.id, nftStatus: agent.nftStatus }, "[billing] handle_mint_request: already anchored or queued — skipping");
       return;
     }
 
+    // Issue a claim ticket so the user can later call /claim-nft with their wallet.
+    let claimTicket: string | undefined;
+    try {
+      const { issueClaimTicket } = await import("./claim-ticket");
+      claimTicket = issueClaimTicket({ agentId: agent.id, handle: handle.toLowerCase() }) ?? undefined;
+    } catch (ticketErr) {
+      logger.warn({ ticketErr, agentId: agent.id }, "[billing] handle_mint_request: failed to issue claim ticket — proceeding without");
+    }
+
     await db.update(agentsTable)
-      .set({ nftStatus: "pending_mint", updatedAt: new Date() })
+      .set({
+        nftStatus: "pending_anchor",
+        metadata: sql`jsonb_set(COALESCE(${agentsTable.metadata}::jsonb, '{}'::jsonb), '{pendingClaimTicket}', ${JSON.stringify(claimTicket ?? null)}::jsonb, true)`,
+        updatedAt: new Date(),
+      })
       .where(eq(agentsTable.id, agent.id));
 
     try {
@@ -964,13 +983,13 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
         action: "queue_mint",
         chain: "base",
         status: "success",
-        metadata: { source: "stripe_checkout", sessionId: session.id, userId, mintPriceCents: 500 },
+        metadata: { source: "stripe_checkout", sessionId: session.id, userId, mintPriceCents: 500, claimTicketIssued: !!claimTicket },
       });
     } catch (auditErr) {
       logger.warn({ auditErr, agentId: agent.id }, "[billing] handle_mint_request: failed to write audit log");
     }
 
-    logger.info({ agentId: agent.id, handle, sessionId: session.id }, "[billing] handle_mint_request: queued for on-chain minting after payment");
+    logger.info({ agentId: agent.id, handle, sessionId: session.id, claimTicketIssued: !!claimTicket }, "[billing] handle_mint_request: queued for on-chain minting after payment");
     return;
   }
 
@@ -1041,7 +1060,7 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
               handleExpiresAt: expiresAt,
               handleRegisteredAt: new Date(),
               handleStripeSubscriptionId: subscriptionId,
-              nftStatus: isNftEligible ? "pending_mint" : "none",
+              nftStatus: isNftEligible ? "pending_anchor" : "none",
               nftCustodian: isNftEligible ? "platform" : null,
               metadata: {
                 ...existingMeta,
@@ -1062,9 +1081,18 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
             const onchainResult = await registerOnChain(normalizedHandle, tier.tier, expiresAt);
 
             if (onchainResult) {
+              // Issue a claim ticket so user can call /claim-nft later to transfer to their wallet.
+              // Keeps claim-ticket policy consistent across all NFT-eligible payment paths.
+              let regClaimTicket: string | null = null;
+              try {
+                const { issueClaimTicket } = await import("./claim-ticket");
+                regClaimTicket = issueClaimTicket({ agentId: agentRecord.id, handle: normalizedHandle }) ?? null;
+              } catch {}
+
               await db.update(agentsTable)
                 .set({
-                  nftStatus: "minted",
+                  nftStatus: "active",
+                  nftCustodian: "platform",
                   erc8004AgentId: onchainResult.agentId,
                   erc8004Chain: onchainResult.chain,
                   erc8004Registry: onchainResult.contractAddress,
@@ -1075,8 +1103,10 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
                       txHash: onchainResult.txHash,
                       contractAddress: onchainResult.contractAddress,
                       registeredAt: new Date().toISOString(),
+                      custodian: "platform",
                     },
                   ],
+                  metadata: sql`jsonb_set(COALESCE(${agentsTable.metadata}::jsonb, '{}'::jsonb), '{pendingClaimTicket}', ${JSON.stringify(regClaimTicket)}::jsonb, true)`,
                   updatedAt: new Date(),
                 })
                 .where(eq(agentsTable.id, agentRecord.id));
@@ -1090,19 +1120,29 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
                 contractAddress: onchainResult.contractAddress,
                 custodian: "platform",
                 status: "success",
-                metadata: { agentId: onchainResult.agentId, tier: tier.tier },
+                metadata: { agentId: onchainResult.agentId, tier: tier.tier, claimTicketIssued: !!regClaimTicket },
               });
 
-              logger.info({ agentId: agentRecord.id, handle: normalizedHandle, erc8004AgentId: onchainResult.agentId }, "[billing] Handle registered on-chain");
+              logger.info({ agentId: agentRecord.id, handle: normalizedHandle, erc8004AgentId: onchainResult.agentId, claimTicketIssued: !!regClaimTicket }, "[billing] Handle registered on-chain — claim ticket issued for custody transfer");
             } else {
-              logger.info({ agentId: agentRecord.id, handle: normalizedHandle }, "[billing] On-chain minting disabled — nft_status=pending_mint");
+              logger.info({ agentId: agentRecord.id, handle: normalizedHandle }, "[billing] On-chain anchoring disabled — nft_status=pending_anchor");
             }
           } catch (onchainErr) {
             const errMsg = onchainErr instanceof Error ? onchainErr.message : String(onchainErr);
-            logger.error({ agentId: agentRecord.id, handle: normalizedHandle, error: errMsg }, "[billing] registerOnChain failed — setting nft_status=pending_mint");
+            logger.error({ agentId: agentRecord.id, handle: normalizedHandle, error: errMsg }, "[billing] registerOnChain failed — setting nft_status=pending_anchor");
+
+            let pendingClaimTicket: string | null = null;
+            try {
+              const { issueClaimTicket } = await import("./claim-ticket");
+              pendingClaimTicket = issueClaimTicket({ agentId: agentRecord.id, handle: normalizedHandle }) ?? null;
+            } catch {}
 
             await db.update(agentsTable)
-              .set({ nftStatus: "pending_mint", updatedAt: new Date() })
+              .set({
+                nftStatus: "pending_anchor",
+                metadata: sql`jsonb_set(COALESCE(${agentsTable.metadata}::jsonb, '{}'::jsonb), '{pendingClaimTicket}', ${JSON.stringify(pendingClaimTicket)}::jsonb, true)`,
+                updatedAt: new Date(),
+              })
               .where(eq(agentsTable.id, agentRecord.id));
 
             try {
@@ -1114,7 +1154,7 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
                 chain: "base",
                 status: "failed",
                 errorMessage: errMsg,
-                metadata: { tier: tier.tier },
+                metadata: { tier: tier.tier, claimTicketIssued: !!pendingClaimTicket },
               });
             } catch {}
           }
@@ -1523,6 +1563,8 @@ export async function pollForCryptoPayment(
           logger.info({ handle, agentId }, "[billing] crypto-payment: handle reserved after payment confirmation");
 
           const onchainEnabled = process.env.ONCHAIN_MINTING_ENABLED === "true" || process.env.ONCHAIN_MINTING_ENABLED === "1";
+          let anchoredSuccessfully = false;
+
           if (onchainEnabled) {
             const { registerOnChain } = await import("./chains/base");
             const expiresAt = new Date();
@@ -1532,10 +1574,19 @@ export async function pollForCryptoPayment(
               return null;
             });
             if (onchainResult) {
+              anchoredSuccessfully = true;
+              // Issue a claim ticket so user can call /claim-nft to transfer to their wallet.
+              // This keeps the unified claim-ticket policy consistent across Stripe + crypto paths.
+              let cryptoAnchorClaimTicket: string | null = null;
+              try {
+                const { issueClaimTicket } = await import("./claim-ticket");
+                cryptoAnchorClaimTicket = issueClaimTicket({ agentId, handle }) ?? null;
+              } catch {}
+
               const { nftAuditLogTable } = await import("@workspace/db/schema");
               await db.update(agentsTable)
                 .set({
-                  nftStatus: "minted",
+                  nftStatus: "active",
                   erc8004AgentId: onchainResult.agentId,
                   erc8004Chain: onchainResult.chain,
                   erc8004Registry: onchainResult.contractAddress,
@@ -1546,9 +1597,11 @@ export async function pollForCryptoPayment(
                       txHash: onchainResult.txHash,
                       contractAddress: onchainResult.contractAddress,
                       registeredAt: new Date().toISOString(),
+                      custodian: "platform",
                     },
                   ],
                   nftCustodian: "platform",
+                  metadata: sql`jsonb_set(COALESCE(${agentsTable.metadata}::jsonb, '{}'::jsonb), '{pendingClaimTicket}', ${JSON.stringify(cryptoAnchorClaimTicket)}::jsonb, true)`,
                   updatedAt: new Date(),
                 })
                 .where(eq(agentsTable.id, agentId));
@@ -1562,9 +1615,32 @@ export async function pollForCryptoPayment(
                 contractAddress: onchainResult.contractAddress,
                 custodian: "platform",
                 status: "success",
-                metadata: { agentId: onchainResult.agentId, tier: tierInfo.tier, paymentRef: reference },
+                metadata: { agentId: onchainResult.agentId, tier: tierInfo.tier, paymentRef: reference, claimTicketIssued: !!cryptoAnchorClaimTicket },
               });
+
+              logger.info({ handle, agentId, claimTicketIssued: !!cryptoAnchorClaimTicket }, "[billing] crypto-payment: on-chain anchoring completed — claim ticket issued for custody transfer");
             }
+          }
+
+          // If on-chain registration didn't succeed (disabled or failed), queue for anchor
+          // and issue a claim ticket so the user can initiate custody transfer later.
+          if (!anchoredSuccessfully) {
+            let cryptoClaimTicket: string | null = null;
+            try {
+              const { issueClaimTicket } = await import("./claim-ticket");
+              cryptoClaimTicket = issueClaimTicket({ agentId, handle }) ?? null;
+            } catch {}
+
+            await db.update(agentsTable)
+              .set({
+                nftStatus: "pending_anchor",
+                nftCustodian: "platform",
+                metadata: sql`jsonb_set(COALESCE(${agentsTable.metadata}::jsonb, '{}'::jsonb), '{pendingClaimTicket}', ${JSON.stringify(cryptoClaimTicket)}::jsonb, true)`,
+                updatedAt: new Date(),
+              })
+              .where(eq(agentsTable.id, agentId));
+
+            logger.info({ handle, agentId, claimTicketIssued: !!cryptoClaimTicket }, "[billing] crypto-payment: on-chain anchoring not completed — queued as pending_anchor with claim ticket");
           }
         } catch (err) {
           logger.error({ handle, agentId, error: err instanceof Error ? err.message : String(err) }, "[billing] crypto-payment: post-payment processing error");

@@ -66,7 +66,7 @@ async function sendRenewalReminders(): Promise<number> {
   return agents.length;
 }
 
-async function expireHandles(): Promise<number> {
+export async function expireHandles(): Promise<number> {
   const gracePeriodEnd = new Date(Date.now() - GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
   const expired = await db
@@ -74,6 +74,7 @@ async function expireHandles(): Promise<number> {
       id: agentsTable.id,
       handle: agentsTable.handle,
       annualPriceUsd: agentsTable.annualPriceUsd,
+      chainRegistrations: agentsTable.chainRegistrations,
     })
     .from(agentsTable)
     .where(
@@ -88,41 +89,91 @@ async function expireHandles(): Promise<number> {
   if (expired.length === 0) return 0;
 
   for (const agent of expired) {
-    await db.transaction(async (tx) => {
-      const oldHandle = agent.handle!;
+    const oldHandle = agent.handle!;
+    const chainRegs = agent.chainRegistrations as Record<string, unknown> | unknown[] | null;
+    // chainRegistrations may be stored as array [{ chain: "base", ... }] or legacy object { base: {...} }
+    const isAnchored = (() => {
+      if (!chainRegs) return false;
+      if (Array.isArray(chainRegs)) {
+        return (chainRegs as Record<string, unknown>[]).some(e => e.chain === "base");
+      }
+      return !!(chainRegs as Record<string, unknown>).base;
+    })();
 
-      await tx
-        .update(agentsTable)
-        .set({
-          handle: `_expired_${agent.id.slice(0, 8)}_${oldHandle}`,
-          handleExpiresAt: null,
-          handleRegisteredAt: null,
-          handleTier: null,
-          annualPriceUsd: null,
-          renewalNotifiedAt: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(agentsTable.id, agent.id));
+    if (isAnchored) {
+      // Anchored handles go through active → grace_period → retired path.
+      // Do NOT rename or auction. Call releaseHandle() on the registrar and mark as retired.
+      logger.info({ handle: oldHandle, agentId: agent.id }, "[handle-lifecycle] Anchored handle expired — retiring (no re-auction)");
 
-      try {
-        const { deleteResolutionCache } = await import("../lib/resolution-cache");
-        await deleteResolutionCache(oldHandle.toLowerCase());
-      } catch {}
+      await db.transaction(async (tx) => {
+        await tx
+          .update(agentsTable)
+          .set({
+            handleStatus: "retired",
+            handleExpiresAt: null,
+            handleRegisteredAt: null,
+            renewalNotifiedAt: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(agentsTable.id, agent.id));
 
-      const pricing = getHandlePricing(oldHandle);
-      const startPrice = pricing.annualPriceCents * AUCTION_START_MULTIPLIER;
-      const endsAt = new Date(Date.now() + AUCTION_DURATION_DAYS * 24 * 60 * 60 * 1000);
-
-      await tx.insert(handleAuctionsTable).values({
-        handle: oldHandle as string,
-        startPrice,
-        reservePrice: pricing.annualPriceCents,
-        currentPrice: startPrice,
-        endsAt,
+        try {
+          const { deleteResolutionCache } = await import("../lib/resolution-cache");
+          await deleteResolutionCache(oldHandle.toLowerCase());
+        } catch {}
       });
-    });
 
-    logger.info({ handle: agent.handle, agentId: agent.id }, "[handle-lifecycle] Handle expired and auction started");
+      // Attempt to call releaseHandle() on-chain (non-blocking; logs intent on failure).
+      try {
+        const { releaseHandleOnChain } = await import("../services/chains/base");
+        const releaseResult = await releaseHandleOnChain(oldHandle);
+        if (releaseResult) {
+          logger.info({ handle: oldHandle, agentId: agent.id, txHash: releaseResult.txHash }, "[handle-lifecycle] releaseHandle on-chain succeeded");
+        } else {
+          logger.info({ handle: oldHandle, agentId: agent.id }, "[handle-lifecycle] releaseHandle on-chain skipped (minting disabled or not configured) — retired off-chain");
+        }
+      } catch (releaseErr) {
+        const errMsg = releaseErr instanceof Error ? releaseErr.message : String(releaseErr);
+        logger.warn({ handle: oldHandle, agentId: agent.id, error: errMsg }, "[handle-lifecycle] releaseHandle on-chain failed — handle retired off-chain only");
+      }
+
+      logger.info({ handle: oldHandle, agentId: agent.id }, "[handle-lifecycle] Anchored handle retired — cannot be re-registered");
+    } else {
+      // Non-anchored handles continue through the existing auction path.
+      await db.transaction(async (tx) => {
+        await tx
+          .update(agentsTable)
+          .set({
+            handle: `_expired_${agent.id.slice(0, 8)}_${oldHandle}`,
+            handleExpiresAt: null,
+            handleRegisteredAt: null,
+            handleTier: null,
+            annualPriceUsd: null,
+            renewalNotifiedAt: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(agentsTable.id, agent.id));
+
+        try {
+          const { deleteResolutionCache } = await import("../lib/resolution-cache");
+          await deleteResolutionCache(oldHandle.toLowerCase());
+        } catch {}
+
+        const pricing = getHandlePricing(oldHandle);
+        const startPrice = pricing.annualPriceCents * AUCTION_START_MULTIPLIER;
+        const endsAt = new Date(Date.now() + AUCTION_DURATION_DAYS * 24 * 60 * 60 * 1000);
+
+        await tx.insert(handleAuctionsTable).values({
+          handle: oldHandle as string,
+          startPrice,
+          reservePrice: pricing.annualPriceCents,
+          currentPrice: startPrice,
+          endsAt,
+        });
+      });
+
+      logger.info({ handle: oldHandle, agentId: agent.id }, "[handle-lifecycle] Non-anchored handle expired and auction started");
+    }
   }
 
   return expired.length;

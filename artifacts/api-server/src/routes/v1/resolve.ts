@@ -125,11 +125,32 @@ async function getOwsWallets(agentId: string): Promise<{
 }
 
 function buildChainPresence(agent: typeof agentsTable.$inferSelect): Record<string, unknown> | null {
-  const chainMints = agent.chainMints as Record<string, unknown> | null;
-  if (!chainMints || Object.keys(chainMints).length === 0) {
-    return null;
+  // Source chain presence from chainRegistrations (canonical registrar path), not chainMints (legacy)
+  const chainRegs = agent.chainRegistrations as Record<string, unknown> | unknown[] | null;
+
+  // chainRegistrations may be stored as an object { base: {...} } or as an array [{ chain: "base", ... }]
+  let regObj: Record<string, unknown> | null = null;
+  if (chainRegs && typeof chainRegs === "object") {
+    if (Array.isArray(chainRegs)) {
+      // Array form: [{ chain: "base", agentId: ..., ... }]
+      regObj = {};
+      for (const entry of chainRegs as Record<string, unknown>[]) {
+        if (entry && typeof entry === "object" && entry.chain) {
+          regObj[entry.chain as string] = entry;
+        }
+      }
+      if (Object.keys(regObj).length === 0) regObj = null;
+    } else {
+      // Object form: { base: { agentId: ..., txHash: ... } }
+      regObj = chainRegs as Record<string, unknown>;
+      if (Object.keys(regObj).length === 0) regObj = null;
+    }
   }
-  return chainMints;
+
+  // chainMints fallback intentionally removed: resolver must not serve stale legacy data.
+  // Agents pre-dating the registrar migration must be re-registered via AgentIDRegistrar
+  // for their chain presence to appear in resolve responses.
+  return regObj;
 }
 
 const NETWORK_TO_CAIP_CHAIN: Record<string, string> = {
@@ -257,6 +278,24 @@ function toResolvedAgent(
   const wallets = buildWallets(agent, format);
   const chainPresence = buildChainPresence(agent);
 
+  // Determine anchoring state from chainRegistrations (canonical) not chainMints (legacy)
+  const chainRegs = agent.chainRegistrations as Record<string, unknown> | unknown[] | null;
+  const baseAnchor = (() => {
+    if (!chainRegs) return null;
+    if (Array.isArray(chainRegs)) {
+      return (chainRegs as Record<string, unknown>[]).find(e => e.chain === "base") ?? null;
+    }
+    return (chainRegs as Record<string, unknown>).base ?? null;
+  })();
+  const isBaseAnchored = !!baseAnchor;
+  const erc8004Status = isBaseAnchored ? "anchored" : "off-chain";
+  const anchoringMethod = isBaseAnchored ? "base-registrar" : "off-chain";
+  const onchainStatus = isBaseAnchored ? "anchored" : (agent.nftStatus === "pending_anchor" ? "pending" : "off-chain");
+
+  const anchorRecords = isBaseAnchored
+    ? { base: baseAnchor }
+    : null;
+
   return {
     machineIdentity: {
       agentId: agent.id,
@@ -271,7 +310,7 @@ function toResolvedAgent(
       resolverUrl: formatResolverUrl(handle),
       profileUrl: formatProfileUrl(handle),
       erc8004Uri: `${APP_URL}/api/v1/p/${handle}/erc8004`,
-      erc8004Status: "off-chain",
+      erc8004Status,
       expiresAt: agent.handleExpiresAt ?? null,
     } : null,
     handle: agent.handle ?? null,
@@ -292,6 +331,7 @@ function toResolvedAgent(
     verificationMethod: agent.verificationMethod,
     verifiedAt: agent.verifiedAt,
     status: agent.handleStatus ?? agent.status,
+    handleStatus: agent.handleStatus ?? null,
     avatarUrl: agent.avatarUrl,
     ownerKey,
     pricing,
@@ -299,6 +339,7 @@ function toResolvedAgent(
     wallets,
     owsWallets,
     chainPresence,
+    anchorRecords,
     walletAddress: agent.walletAddress
       ? (format === "caip"
           ? toCAIP10(agent.walletNetwork || "base-mainnet", agent.walletAddress)
@@ -313,13 +354,13 @@ function toResolvedAgent(
     updatedAt: agent.updatedAt,
     profileUrl: handle ? formatProfileUrl(handle) : `${APP_URL}/id/${agent.id}`,
     erc8004Uri: handle ? `${APP_URL}/api/v1/p/${handle}/erc8004` : null,
-    onchainAnchor: null,
-    onchainStatus: "pending",
+    onchainAnchor: baseAnchor,
+    onchainStatus,
     credential: {
       namespace: ".agentid",
       did: handle ? formatDID(handle) : `did:agentid:${agent.id}`,
       domain: handle ? formatDomain(handle) : null,
-      anchoringMethod: "off-chain",
+      anchoringMethod,
     },
   };
 }

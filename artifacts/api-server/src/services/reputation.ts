@@ -31,22 +31,13 @@ async function fetchOnchainReputation(
   _agentId: string | undefined,
 ): Promise<{ score: number; feedbackCount: number } | null> {
   if (!isOnchainEnabled()) return null;
+  if (chain !== "base") return null;
 
-  try {
-    const registrarAddress = process.env.BASE_AGENTID_REGISTRAR;
-    const rpcUrl = process.env.BASE_RPC_URL;
-
-    if (!registrarAddress || !rpcUrl || chain !== "base") {
-      logger.debug({ chain }, "[reputation] On-chain reputation registry not configured — skipping");
-      return null;
-    }
-
-    logger.debug({ chain, registrar: registrarAddress }, "[reputation] On-chain reputation fetch stub — registry integration pending deployment");
-    return null;
-  } catch (err) {
-    logger.warn({ err, chain }, "[reputation] Failed to fetch on-chain reputation — skipping chain");
-    return null;
-  }
+  // On-chain reputation reads are not yet implemented.
+  // The AgentIDRegistrar contract supports getMetadata(agentId, "agentid.reputation") via the
+  // ERC-8004 registry, but a reputation key schema has not been finalized. Returns null explicitly
+  // until the on-chain reputation contract is deployed and the read path is implemented.
+  return null;
 }
 
 export async function aggregateTrustScore(agentId: string): Promise<ReputationSummary> {
