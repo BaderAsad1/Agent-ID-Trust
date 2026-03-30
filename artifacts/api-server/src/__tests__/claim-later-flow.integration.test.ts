@@ -45,6 +45,11 @@ vi.mock("../services/mail", () => ({
   provisionInboxForAgent: vi.fn().mockResolvedValue(undefined),
   getOrCreateInbox: vi.fn().mockResolvedValue(null),
 }));
+vi.mock("../services/agentic-payment", () => ({
+  setAgentSpendAuthorization: vi.fn().mockResolvedValue(undefined),
+  getAgentSpendAuthorization: vi.fn().mockResolvedValue(null),
+  executeAgentSpend: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { db } from "@workspace/db";
 import {
@@ -823,5 +828,211 @@ describe("Claim-Later Flow — programmatic registration with ownerToken (C5 pat
     await db.delete(ownerTokensTable).where(eq(ownerTokensTable.userId, tokenOwnerUser.id)).catch(() => {});
     await db.delete(usersTable).where(eq(usersTable.id, tokenOwnerUser.id)).catch(() => {});
     await db.delete(usersTable).where(eq(usersTable.id, differentUser.id)).catch(() => {});
+  });
+});
+
+describe("Claim-Later Flow — ownerUserId regression: former creator vs current owner post-transfer", () => {
+  let creatorUserId: string;
+  let newOwnerUserId: string;
+  let agentId: string;
+  let agentHandle: string;
+
+  function buildAuthedApp(userId: string, router: express.Router, prefix = "") {
+    const app = express();
+    app.set("trust proxy", 1);
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      (req as Record<string, unknown>).userId = userId;
+      (req as Record<string, unknown>).user = { id: userId, name: "Test User", profileImage: null };
+      next();
+    });
+    app.use(prefix, router);
+    app.use(errorHandler);
+    return app;
+  }
+
+  beforeAll(async () => {
+    const creator = await createTestUser();
+    creatorUserId = creator.id;
+
+    const newOwner = await createTestUser();
+    newOwnerUserId = newOwner.id;
+
+    agentHandle = `transfer-test-${Date.now()}`;
+
+    const agent = await createTestAgent(creatorUserId, {
+      verificationStatus: "verified",
+      status: "active",
+      isPublic: true,
+    });
+    agentId = agent.id;
+
+    await db
+      .update(agentsTable)
+      .set({
+        ownerUserId: newOwnerUserId,
+        isClaimed: true,
+        claimedAt: new Date(),
+        handle: agentHandle,
+        nftStatus: "minted",
+        nftCustodian: "platform",
+        onChainTokenId: "42",
+      })
+      .where(eq(agentsTable.id, agentId));
+  });
+
+  afterAll(async () => {
+    await db.delete(agentsTable).where(eq(agentsTable.id, agentId)).catch(() => {});
+    await db.delete(usersTable).where(eq(usersTable.id, creatorUserId)).catch(() => {});
+    await db.delete(usersTable).where(eq(usersTable.id, newOwnerUserId)).catch(() => {});
+  });
+
+  it("(c) transferred agent does NOT appear in former creator's listAgentsByUser result", async () => {
+    const { listAgentsByUser } = await import("../services/agents");
+    const creatorAgents = await listAgentsByUser(creatorUserId);
+    const found = creatorAgents.find((a) => a.id === agentId);
+    expect(found).toBeUndefined();
+  });
+
+  it("(c) transferred agent DOES appear in new owner's listAgentsByUser result", async () => {
+    const { listAgentsByUser } = await import("../services/agents");
+    const ownerAgents = await listAgentsByUser(newOwnerUserId);
+    const found = ownerAgents.find((a) => a.id === agentId);
+    expect(found).toBeDefined();
+    expect(found!.id).toBe(agentId);
+  });
+
+  it("(a) former creator is denied domain provision — AGENT_NOT_FOUND", async () => {
+    const { provisionDomain } = await import("../services/domains");
+    const result = await provisionDomain(agentId, creatorUserId);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("AGENT_NOT_FOUND");
+  });
+
+  it("(b) current owner can provision domain — succeeds (success=true)", async () => {
+    const { provisionDomain } = await import("../services/domains");
+    const result = await provisionDomain(agentId, newOwnerUserId);
+    expect(result.success).toBe(true);
+  });
+
+  it("(a) former creator is denied by agentOwnerWhere / isAgentOwner — ownership check fails", async () => {
+    const { isAgentOwner, agentOwnerWhere } = await import("../services/agents");
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+    });
+    expect(agent).toBeDefined();
+    expect(isAgentOwner(agent!, creatorUserId)).toBe(false);
+
+    const ownerCheck = await db.query.agentsTable.findFirst({
+      where: agentOwnerWhere(agentId, creatorUserId),
+      columns: { id: true },
+    });
+    expect(ownerCheck).toBeUndefined();
+  });
+
+  it("(b) current owner passes isAgentOwner and agentOwnerWhere check", async () => {
+    const { isAgentOwner, agentOwnerWhere } = await import("../services/agents");
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+    });
+    expect(agent).toBeDefined();
+    expect(isAgentOwner(agent!, newOwnerUserId)).toBe(true);
+
+    const ownerCheck = await db.query.agentsTable.findFirst({
+      where: agentOwnerWhere(agentId, newOwnerUserId),
+      columns: { id: true },
+    });
+    expect(ownerCheck).toBeDefined();
+    expect(ownerCheck!.id).toBe(agentId);
+  });
+
+  it("(a) former creator is denied by agentOwnerFilter — cannot see agent in fleet listing", async () => {
+    const { agentOwnerFilter } = await import("../services/agents");
+    const agents = await db.query.agentsTable.findMany({
+      where: and(agentOwnerFilter(creatorUserId), eq(agentsTable.id, agentId)),
+    });
+    expect(agents.length).toBe(0);
+  });
+
+  it("(b) current owner sees agent via agentOwnerFilter", async () => {
+    const { agentOwnerFilter } = await import("../services/agents");
+    const agents = await db.query.agentsTable.findMany({
+      where: and(agentOwnerFilter(newOwnerUserId), eq(agentsTable.id, agentId)),
+    });
+    expect(agents.length).toBe(1);
+    expect(agents[0].id).toBe(agentId);
+  });
+
+  it("(a) endpoint: former creator denied spend authorization (POST /pay/authorize) — 404 NOT_FOUND", async () => {
+    const agenticPayRouter = (await import("../routes/v1/agentic-pay")).default;
+    const app = buildAuthedApp(creatorUserId, agenticPayRouter, "/");
+
+    const res = await request(app)
+      .post("/authorize")
+      .send({ agentId, spendLimitCents: 1000 });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe("NOT_FOUND");
+  });
+
+  it("(b) endpoint: current owner succeeds spend authorization (POST /pay/authorize) — 200", async () => {
+    const agenticPayRouter = (await import("../routes/v1/agentic-pay")).default;
+    const app = buildAuthedApp(newOwnerUserId, agenticPayRouter, "/");
+
+    const res = await request(app)
+      .post("/authorize")
+      .send({ agentId, spendLimitCents: 1000 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.agentId).toBe(agentId);
+  });
+
+  it("(a) endpoint: former creator denied handle claim-nft (POST /:handle/claim-nft) — 404 NOT_FOUND", async () => {
+    const handlesRouter = (await import("../routes/v1/handles")).default;
+    const app = buildAuthedApp(creatorUserId, handlesRouter, "/");
+
+    const res = await request(app)
+      .post(`/${agentHandle}/claim-nft`)
+      .send({ userWallet: "0x1234567890123456789012345678901234567890" });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe("NOT_FOUND");
+  });
+
+  it("(b) endpoint: current owner reaches ownership check for handle claim-nft — passes ownership (not 404)", async () => {
+    const handlesRouter = (await import("../routes/v1/handles")).default;
+    const app = buildAuthedApp(newOwnerUserId, handlesRouter, "/");
+
+    const res = await request(app)
+      .post(`/${agentHandle}/claim-nft`)
+      .send({ userWallet: "0x1234567890123456789012345678901234567890" });
+
+    expect(res.status).not.toBe(404);
+  });
+
+  it("(a) endpoint: former creator denied NFT transfer (POST /nft/handles/:handle/transfer) — 404 NOT_FOUND", async () => {
+    const nftRouter = (await import("../routes/v1/nft")).default;
+    const app = buildAuthedApp(creatorUserId, nftRouter, "/");
+
+    const res = await request(app)
+      .post(`/handles/${agentHandle}/transfer`)
+      .send({ destinationAddress: "0x1234567890123456789012345678901234567890" });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe("NOT_FOUND");
+  });
+
+  it("(b) endpoint: current owner passes ownership check for NFT transfer — not 404 (may fail on chain logic)", async () => {
+    const nftRouter = (await import("../routes/v1/nft")).default;
+    const app = buildAuthedApp(newOwnerUserId, nftRouter, "/");
+
+    const res = await request(app)
+      .post(`/handles/${agentHandle}/transfer`)
+      .send({ destinationAddress: "0x1234567890123456789012345678901234567890" });
+
+    expect(res.status).not.toBe(404);
   });
 });

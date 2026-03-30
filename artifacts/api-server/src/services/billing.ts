@@ -92,6 +92,9 @@ export async function getUserPlanLimits(userId: string) {
   const limits = getPlanLimits(plan);
   const sub = await getActiveUserSubscription(userId);
 
+  // creator-attribution read: counts agents the user originally provisioned for plan-limit enforcement.
+  // Intentionally uses userId (original creator) rather than ownerUserId-aware helpers, since
+  // plan limits should reflect how many agents the creator registered under their subscription.
   const agentCountResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(agentsTable)
@@ -659,6 +662,9 @@ export async function isEligibleForIncludedHandle(userId: string, handle: string
   const userSub = await getActiveUserSubscription(userId);
   if (!userSub || userSub.plan === "none") return false;
 
+  // creator-attribution read: checks if the subscription owner has already used their one-time
+  // included-handle benefit across any agent they originally provisioned. Intentionally uses
+  // userId (creator) rather than effective-owner helpers.
   const existingAgents = await db
     .select({ id: agentsTable.id, metadata: agentsTable.metadata })
     .from(agentsTable)
@@ -687,6 +693,8 @@ export async function createHandleCheckoutSession(
 
   const included = await isEligibleForIncludedHandle(userId, handle);
   if (included) {
+    // creator-attribution read: marks the included-handle benefit as used on the provisioner's agent.
+    // Intentionally uses userId (original creator) since the benefit is tied to the subscription owner.
     const agent = await db.query.agentsTable.findFirst({
       where: and(eq(agentsTable.handle, handle.toLowerCase()), eq(agentsTable.userId, userId)),
       columns: { id: true, metadata: true },
@@ -926,6 +934,9 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       return;
     }
 
+    // creator-attribution read: userId here is the Stripe checkout session metadata userId
+    // (the person who initiated and paid for the mint). Intentionally matches against the original
+    // creator (userId) rather than effective-owner, since this is payment-provisioner validation.
     const agent = await db.query.agentsTable.findFirst({
       where: and(eq(agentsTable.id, agentIdMeta), eq(agentsTable.userId, userId)),
       columns: { id: true, handle: true, nftStatus: true },
@@ -988,6 +999,9 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
         return;
       }
 
+      // creator-attribution reads: userId is from Stripe checkout metadata (the paying provisioner).
+      // Intentionally uses userId (original creator) rather than effective-owner helpers —
+      // these are payment-settlement lookups tied to who initiated and paid for the handle checkout.
       let agentRecord: { id: string } | undefined;
       if (agentIdMeta) {
         agentRecord = await db.query.agentsTable.findFirst({

@@ -13,6 +13,7 @@ import { getUserPlan, getPlanLimits } from "../../services/billing";
 import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
+import { agentOwnerWhere } from "../../services/agents";
 
 const router = Router();
 
@@ -90,7 +91,7 @@ router.post("/authorize", requireAuth, async (req, res, next) => {
     const { agentId, spendLimitCents, paymentMethod, stripePaymentMethodId } = parsed.data;
 
     const agent = await db.query.agentsTable.findFirst({
-      where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, req.userId!)),
+      where: agentOwnerWhere(agentId, req.userId!),
       columns: { id: true },
     });
 

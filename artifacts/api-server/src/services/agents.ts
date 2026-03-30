@@ -217,10 +217,7 @@ export async function getAgentByHandle(handle: string): Promise<Agent | null> {
 
 export async function listAgentsByUser(userId: string): Promise<Agent[]> {
   return db.query.agentsTable.findMany({
-    where: or(
-      eq(agentsTable.userId, userId),
-      eq(agentsTable.ownerUserId, userId),
-    ),
+    where: agentOwnerFilter(userId),
     orderBy: (agents, { desc }) => [desc(agents.createdAt)],
   });
 }

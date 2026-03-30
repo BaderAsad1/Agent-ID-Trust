@@ -118,7 +118,7 @@ export async function provisionDomain(
   userId: string,
 ): Promise<{ success: boolean; error?: string; domain?: AgentDomain }> {
   const agent = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
+    where: agentOwnerWhere(agentId, userId),
     columns: { id: true, handle: true },
   });
   if (!agent) return { success: false, error: "AGENT_NOT_FOUND" };
@@ -196,7 +196,7 @@ export async function reprovisionDomain(
   userId: string,
 ): Promise<{ success: boolean; error?: string; domain?: AgentDomain }> {
   const agent = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
+    where: agentOwnerWhere(agentId, userId),
     columns: { id: true, handle: true },
   });
   if (!agent) return { success: false, error: "AGENT_NOT_FOUND" };

@@ -8,7 +8,7 @@ import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
 import { logActivity } from "../../services/activity-logger";
 import { requirePlanFeature } from "../../services/billing";
-import { agentOwnerFilter } from "../../services/agents";
+import { agentOwnerFilter, agentOwnerWhere } from "../../services/agents";
 
 const router = Router();
 
@@ -87,7 +87,7 @@ router.post("/sub-handles", requireAuth, async (req, res, next) => {
 
     const rootAgent = await db.query.agentsTable.findFirst({
       where: and(
-        eq(agentsTable.userId, req.userId!),
+        agentOwnerFilter(req.userId!),
         eq(agentsTable.handle, rootHandle.toLowerCase()),
       ),
     });
@@ -152,7 +152,7 @@ router.delete("/sub-handles/:agentId", requireAuth, validateUuidParam("agentId")
     const agentId = req.params.agentId as string;
 
     const agent = await db.query.agentsTable.findFirst({
-      where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, req.userId!)),
+      where: agentOwnerWhere(agentId, req.userId!),
     });
 
     if (!agent) {
@@ -165,7 +165,7 @@ router.delete("/sub-handles/:agentId", requireAuth, validateUuidParam("agentId")
 
     await db
       .delete(agentsTable)
-      .where(and(eq(agentsTable.id, agentId), eq(agentsTable.userId, req.userId!)));
+      .where(agentOwnerWhere(agentId, req.userId!));
 
     await logActivity({
       agentId,

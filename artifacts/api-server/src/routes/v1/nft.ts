@@ -8,6 +8,7 @@ import { agentsTable } from "@workspace/db/schema";
 import { logger } from "../../middlewares/request-logger";
 import { transferHandleOnBase, BaseChainError } from "../../services/chains/base";
 import type { Address } from "viem";
+import { agentOwnerFilter } from "../../services/agents";
 
 const router = Router();
 
@@ -218,7 +219,7 @@ router.post("/handles/:handle/transfer", requireAuth, async (req, res, next) => 
     const agent = await db.query.agentsTable.findFirst({
       where: and(
         eq(agentsTable.handle, handle),
-        eq(agentsTable.userId, userId),
+        agentOwnerFilter(userId),
       ),
       columns: {
         id: true,

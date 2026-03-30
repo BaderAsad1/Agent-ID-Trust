@@ -484,7 +484,7 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
     const agent = await db.query.agentsTable.findFirst({
       where: and(
         eq(agentsTable.handle, handle),
-        eq(agentsTable.userId, userId),
+        agentOwnerFilter(userId),
       ),
       columns: {
         id: true,
@@ -580,7 +580,7 @@ router.post("/:handle/request-mint", requireAuth, async (req, res, next) => {
     const agent = await db.query.agentsTable.findFirst({
       where: and(
         eq(agentsTable.handle, handle),
-        eq(agentsTable.userId, req.userId!),
+        agentOwnerFilter(req.userId!),
       ),
       columns: { id: true, handle: true, nftStatus: true, handleTier: true, userId: true },
     });
