@@ -2,6 +2,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, agentDomainsTable } from "@workspace/db/schema";
 import { formatDomain } from "../utils/handle";
+import { agentOwnerWhere } from "./agents";
 
 export interface RegistryStatus {
   registered: boolean;
@@ -17,7 +18,7 @@ export async function getRegistryStatus(
   userId: string,
 ): Promise<RegistryStatus> {
   const agent = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
+    where: agentOwnerWhere(agentId, userId),
     columns: { id: true, handle: true, createdAt: true },
   });
 

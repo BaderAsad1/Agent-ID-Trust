@@ -20,9 +20,10 @@ import {
 } from "../../services/agent-transfer";
 import { generateReadinessReport } from "../../services/transfer-readiness";
 import { logActivity } from "../../services/activity-logger";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
+import { agentOwnerWhere } from "../../services/agents";
 
 function requireTransferAuth(req: Request, res: Response, next: NextFunction) {
   if (req.headers["x-agent-key"]) {
@@ -81,7 +82,7 @@ const cancelTransferSchema = z.object({
 router.get("/:agentId/transfers/readiness", requireTransferAuth, requireTransferScope("transfer:read"), async (req, res, next) => {
   try {
     const agent = await db.query.agentsTable.findFirst({
-      where: and(eq(agentsTable.id, req.params.agentId as string), or(eq(agentsTable.userId, req.userId!), eq(agentsTable.ownerUserId, req.userId!))),
+      where: agentOwnerWhere(req.params.agentId as string, req.userId!),
     });
     if (!agent) {
       throw new AppError(404, "NOT_FOUND", "Agent not found or you do not own it");

@@ -8,6 +8,7 @@ import {
 import { logActivity } from "./activity-logger";
 import { enqueueDomainProvisioning } from "../workers/domain-provisioning";
 import { env } from "../lib/env";
+import { agentOwnerWhere } from "./agents";
 
 function getBaseDomain(): string {
   return env().BASE_AGENT_DOMAIN;
@@ -39,7 +40,7 @@ export async function getAgentDomain(
   userId: string,
 ): Promise<AgentDomain | null> {
   const agent = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
+    where: agentOwnerWhere(agentId, userId),
     columns: { id: true },
   });
   if (!agent) return null;

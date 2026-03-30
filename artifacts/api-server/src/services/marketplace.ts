@@ -7,6 +7,7 @@ import {
 } from "@workspace/db/schema";
 import { logActivity } from "./activity-logger";
 import { requirePlanFeature } from "./billing";
+import { agentOwnerWhere } from "./agents";
 
 export interface CreateListingInput {
   agentId: string;
@@ -61,7 +62,7 @@ async function checkListingEligibility(
   userId: string,
 ): Promise<{ eligible: boolean; reason?: string }> {
   const agent = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, agentId), eq(agentsTable.userId, userId)),
+    where: agentOwnerWhere(agentId, userId),
   });
 
   if (!agent) return { eligible: false, reason: "AGENT_NOT_FOUND" };

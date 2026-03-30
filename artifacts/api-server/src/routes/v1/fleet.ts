@@ -8,6 +8,7 @@ import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
 import { logActivity } from "../../services/activity-logger";
 import { requirePlanFeature } from "../../services/billing";
+import { agentOwnerFilter } from "../../services/agents";
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.get("/", requireAuth, async (req, res, next) => {
     }
 
     const rootAgents = await db.query.agentsTable.findMany({
-      where: eq(agentsTable.userId, req.userId!),
+      where: agentOwnerFilter(req.userId!),
     });
 
     const rootHandles = rootAgents.filter(a => a.handle && !a.handle.includes("."));
@@ -43,7 +44,7 @@ router.get("/", requireAuth, async (req, res, next) => {
     for (const root of rootHandles) {
       const subAgents = await db.query.agentsTable.findMany({
         where: and(
-          eq(agentsTable.userId, req.userId!),
+          agentOwnerFilter(req.userId!),
           like(agentsTable.handle, `%.${root.handle}`),
         ),
       });

@@ -180,6 +180,34 @@ export function isAgentOwner(agent: Agent, userId: string): boolean {
   return agent.userId === userId;
 }
 
+/**
+ * Returns a Drizzle WHERE condition that matches agents owned by `userId`,
+ * implementing the same semantics as `isAgentOwner`:
+ *  - If ownerUserId IS set, only that user matches.
+ *  - If ownerUserId IS NULL, only the original creator (userId) matches.
+ *
+ * This prevents former creators retaining access after a transfer, and
+ * prevents current owners from being locked out.
+ */
+export function agentOwnerWhere(agentId: string, userId: string) {
+  return and(
+    eq(agentsTable.id, agentId),
+    agentOwnerFilter(userId),
+  );
+}
+
+/**
+ * Returns a Drizzle WHERE filter for ownership semantics without constraining
+ * by agentId. Useful for `findMany` queries (e.g. fleet listing) where you
+ * want all agents owned by `userId` under the correct ownership rules.
+ */
+export function agentOwnerFilter(userId: string) {
+  return or(
+    and(isNull(agentsTable.ownerUserId), eq(agentsTable.userId, userId)),
+    and(sql`${agentsTable.ownerUserId} IS NOT NULL`, eq(agentsTable.ownerUserId, userId)),
+  );
+}
+
 export async function getAgentByHandle(handle: string): Promise<Agent | null> {
   const agent = await db.query.agentsTable.findFirst({
     where: ilike(agentsTable.handle, handle),
@@ -202,9 +230,8 @@ export async function updateAgent(
   userId: string,
   updates: UpdateAgentInput,
 ): Promise<Agent | null> {
-  const ownerCondition = or(eq(agentsTable.userId, userId), eq(agentsTable.ownerUserId, userId));
   const existing = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, agentId), ownerCondition),
+    where: agentOwnerWhere(agentId, userId),
   });
 
   const finalUpdates = { ...updates };
@@ -221,7 +248,7 @@ export async function updateAgent(
   const [updated] = await db
     .update(agentsTable)
     .set({ ...finalUpdates, updatedAt: new Date() })
-    .where(and(eq(agentsTable.id, agentId), or(eq(agentsTable.userId, userId), eq(agentsTable.ownerUserId, userId))))
+    .where(agentOwnerWhere(agentId, userId))
     .returning();
 
   if (!updated) return null;
@@ -273,7 +300,7 @@ export async function deleteAgent(
       revocationStatement: revocation?.statement || null,
       updatedAt: now,
     })
-    .where(and(eq(agentsTable.id, agentId), or(eq(agentsTable.userId, userId), eq(agentsTable.ownerUserId, userId))))
+    .where(agentOwnerWhere(agentId, userId))
     .returning({ id: agentsTable.id });
 
   if (updated) {

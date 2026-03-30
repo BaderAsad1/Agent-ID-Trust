@@ -67,7 +67,7 @@ export async function handleDomainVerification(
     res.json({
       "@context": ["https://eips.ethereum.org/EIPS/eip-8004"],
       spec: "registration-v1",
-      type: "AgentRegistration",
+      type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
       domain: baseAgentDomain,
       resolverUrl: `${appUrl}/.well-known/agent-registration.json`,
       generatedAt: new Date().toISOString(),

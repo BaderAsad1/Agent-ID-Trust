@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { eq, and } from "drizzle-orm";
 import { AppError } from "../../middlewares/error-handler";
-import { validateHandle, isHandleAvailable, getHandleReservation, isHandleReserved } from "../../services/agents";
+import { validateHandle, isHandleAvailable, getHandleReservation, isHandleReserved, agentOwnerFilter } from "../../services/agents";
 import { getHandleTier, isHandleReserved as isHandleTierReserved } from "../../services/handle";
 
 function legacyPricingShape(tier: ReturnType<typeof getHandleTier>) {
@@ -356,7 +356,7 @@ router.post("/:handle/mint-chain", requireAuth, async (req, res, next) => {
     const agent = await db.query.agentsTable.findFirst({
       where: and(
         eq(agentsTable.handle, handle),
-        eq(agentsTable.userId, userId),
+        agentOwnerFilter(userId),
       ),
       columns: {
         id: true,
