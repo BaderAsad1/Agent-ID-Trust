@@ -20,6 +20,7 @@ import {
 import { forwardTask, getDeliveryReceipts } from "../../services/task-forwarding";
 import { logActivity } from "../../services/activity-logger";
 import { createTaskPaymentIntent, captureTaskPayment, cancelTaskPayment } from "../../services/stripe-connect";
+import { agentOwnerWhere } from "../../services/agents";
 
 function requireHumanOrAgentAuth(req: Request, res: Response, next: NextFunction) {
   if (req.headers["x-agent-key"]) {
@@ -54,10 +55,10 @@ router.post("/", requireHumanOrAgentAuth, async (req, res, next) => {
       senderAgentId = req.authenticatedAgent.id;
     } else if (body.senderAgentId) {
       const senderAgent = await db.query.agentsTable.findFirst({
-        where: eq(agentsTable.id, body.senderAgentId),
-        columns: { id: true, userId: true },
+        where: agentOwnerWhere(body.senderAgentId, req.userId!),
+        columns: { id: true },
       });
-      if (!senderAgent || senderAgent.userId !== req.userId) {
+      if (!senderAgent) {
         res.status(403).json({
           code: "SENDER_NOT_OWNED",
           message: "You do not own the specified sender agent",

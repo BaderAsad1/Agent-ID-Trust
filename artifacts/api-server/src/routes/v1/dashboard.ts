@@ -8,6 +8,7 @@ import {
   paymentLedgerTable,
 } from "@workspace/db/schema";
 import { requireAuth } from "../../middlewares/replit-auth";
+import { agentOwnerFilter } from "../../services/agents";
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.get("/stats", requireAuth, async (req, res, next) => {
     const userId = req.userId!;
 
     const userAgents = await db.query.agentsTable.findMany({
-      where: eq(agentsTable.userId, userId),
+      where: agentOwnerFilter(userId),
       columns: { id: true, handle: true, displayName: true, trustScore: true, status: true },
     });
 

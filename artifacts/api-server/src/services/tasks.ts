@@ -8,6 +8,7 @@ import {
   usersTable,
   type Task,
 } from "@workspace/db/schema";
+import { agentOwnerFilter, agentOwnerWhere } from "./agents";
 
 function hasEmailNotificationsEnabled(agentMetadata: unknown): boolean {
   if (
@@ -86,13 +87,14 @@ export async function submitTask(input: SubmitTaskInput): Promise<Task> {
   try {
     const recipientAgent = await db.query.agentsTable.findFirst({
       where: eq(agentsTable.id, input.recipientAgentId),
-      columns: { handle: true, displayName: true, userId: true, metadata: true },
+      columns: { handle: true, displayName: true, userId: true, ownerUserId: true, metadata: true },
     });
     if (recipientAgent) {
       const emailNotificationsEnabled = hasEmailNotificationsEnabled(recipientAgent.metadata);
+      const ownerUserId = recipientAgent.ownerUserId ?? recipientAgent.userId;
       const owner = emailNotificationsEnabled
         ? await db.query.usersTable.findFirst({
-            where: eq(usersTable.id, recipientAgent.userId),
+            where: eq(usersTable.id, ownerUserId),
             columns: { email: true },
           })
         : null;
@@ -186,10 +188,7 @@ export async function acknowledgeTask(
   if (!task) return null;
 
   const agent = await db.query.agentsTable.findFirst({
-    where: and(
-      eq(agentsTable.id, task.recipientAgentId),
-      eq(agentsTable.userId, agentOwnerId),
-    ),
+    where: agentOwnerWhere(task.recipientAgentId, agentOwnerId),
     columns: { id: true },
   });
 
@@ -236,10 +235,7 @@ export async function updateBusinessStatus(
   if (!task) return null;
 
   const agent = await db.query.agentsTable.findFirst({
-    where: and(
-      eq(agentsTable.id, task.recipientAgentId),
-      eq(agentsTable.userId, agentOwnerId),
-    ),
+    where: agentOwnerWhere(task.recipientAgentId, agentOwnerId),
     columns: { id: true },
   });
 
@@ -326,7 +322,7 @@ export async function updateBusinessStatus(
 
 export async function getUserAgentIds(userId: string): Promise<string[]> {
   const agents = await db.query.agentsTable.findMany({
-    where: eq(agentsTable.userId, userId),
+    where: agentOwnerFilter(userId),
     columns: { id: true },
   });
   return agents.map((a) => a.id);
@@ -339,12 +335,7 @@ export async function canAccessTask(
   const task = await getTaskById(taskId);
   if (!task) return false;
 
-  const userAgents = await db.query.agentsTable.findMany({
-    where: eq(agentsTable.userId, userId),
-    columns: { id: true },
-  });
-
-  const agentIds = userAgents.map((a) => a.id);
+  const agentIds = await getUserAgentIds(userId);
 
   if (agentIds.includes(task.recipientAgentId)) return true;
   if (task.senderAgentId && agentIds.includes(task.senderAgentId)) return true;

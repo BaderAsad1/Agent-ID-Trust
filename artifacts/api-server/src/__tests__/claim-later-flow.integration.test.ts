@@ -58,6 +58,7 @@ import {
   agentKeysTable,
   apiKeysTable,
   ownerTokensTable,
+  tasksTable,
 } from "@workspace/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import {
@@ -836,6 +837,7 @@ describe("Claim-Later Flow — ownerUserId regression: former creator vs current
   let newOwnerUserId: string;
   let agentId: string;
   let agentHandle: string;
+  let existingTaskId: string;
 
   function buildAuthedApp(userId: string, router: express.Router, prefix = "") {
     const app = express();
@@ -879,9 +881,20 @@ describe("Claim-Later Flow — ownerUserId regression: former creator vs current
         onChainTokenId: "42",
       })
       .where(eq(agentsTable.id, agentId));
+
+    const [task] = await db.insert(tasksTable).values({
+      recipientAgentId: agentId,
+      senderUserId: creatorUserId,
+      taskType: "ownership-regression",
+      payload: { source: "claim-later-regression" },
+      deliveryStatus: "delivered",
+      businessStatus: "pending",
+    }).returning({ id: tasksTable.id });
+    existingTaskId = task.id;
   });
 
   afterAll(async () => {
+    await db.delete(tasksTable).where(eq(tasksTable.recipientAgentId, agentId)).catch(() => {});
     await db.delete(agentsTable).where(eq(agentsTable.id, agentId)).catch(() => {});
     await db.delete(usersTable).where(eq(usersTable.id, creatorUserId)).catch(() => {});
     await db.delete(usersTable).where(eq(usersTable.id, newOwnerUserId)).catch(() => {});
@@ -1034,5 +1047,107 @@ describe("Claim-Later Flow — ownerUserId regression: former creator vs current
       .send({ destinationAddress: "0x1234567890123456789012345678901234567890" });
 
     expect(res.status).not.toBe(404);
+  });
+
+  it("(a) endpoint: former creator denied task send using transferred senderAgentId (POST /tasks) — 403 SENDER_NOT_OWNED", async () => {
+    const tasksRouter = (await import("../routes/v1/tasks")).default;
+    const app = buildAuthedApp(creatorUserId, tasksRouter, "/");
+
+    const res = await request(app)
+      .post("/")
+      .send({
+        recipientAgentId: agentId,
+        senderAgentId: agentId,
+        taskType: "ownership-check",
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("SENDER_NOT_OWNED");
+  });
+
+  it("(b) endpoint: current owner can send task using transferred senderAgentId (POST /tasks) — 201", async () => {
+    const tasksRouter = (await import("../routes/v1/tasks")).default;
+    const app = buildAuthedApp(newOwnerUserId, tasksRouter, "/");
+
+    const res = await request(app)
+      .post("/")
+      .send({
+        recipientAgentId: agentId,
+        senderAgentId: agentId,
+        taskType: "ownership-check",
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.task?.id).toBeDefined();
+    expect(res.body.task?.recipientAgentId).toBe(agentId);
+  });
+
+  it("(a) endpoint: former creator cannot list transferred agent tasks (GET /tasks?recipientAgentId=...) — 403 NOT_OWNER", async () => {
+    const tasksRouter = (await import("../routes/v1/tasks")).default;
+    const app = buildAuthedApp(creatorUserId, tasksRouter, "/");
+
+    const res = await request(app)
+      .get("/")
+      .query({ recipientAgentId: agentId });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("NOT_OWNER");
+  });
+
+  it("(b) endpoint: current owner can list transferred agent tasks (GET /tasks?recipientAgentId=...) — 200", async () => {
+    const tasksRouter = (await import("../routes/v1/tasks")).default;
+    const app = buildAuthedApp(newOwnerUserId, tasksRouter, "/");
+
+    const res = await request(app)
+      .get("/")
+      .query({ recipientAgentId: agentId });
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.tasks)).toBe(true);
+    expect(res.body.tasks.some((task: { id: string }) => task.id === existingTaskId)).toBe(true);
+  });
+
+  it("(a) endpoint: former creator cannot fetch transferred agent task (GET /tasks/:taskId) — 404", async () => {
+    const tasksRouter = (await import("../routes/v1/tasks")).default;
+    const app = buildAuthedApp(creatorUserId, tasksRouter, "/");
+
+    const res = await request(app).get(`/${existingTaskId}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe("NOT_FOUND");
+  });
+
+  it("(b) endpoint: current owner can fetch transferred agent task (GET /tasks/:taskId) — 200", async () => {
+    const tasksRouter = (await import("../routes/v1/tasks")).default;
+    const app = buildAuthedApp(newOwnerUserId, tasksRouter, "/");
+
+    const res = await request(app).get(`/${existingTaskId}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(existingTaskId);
+    expect(res.body.recipientAgentId).toBe(agentId);
+  });
+
+  it("(a) endpoint: former creator dashboard stats exclude transferred agent (GET /dashboard/stats) — 0 agents", async () => {
+    const dashboardRouter = (await import("../routes/v1/dashboard")).default;
+    const app = buildAuthedApp(creatorUserId, dashboardRouter, "/");
+
+    const res = await request(app).get("/stats");
+
+    expect(res.status).toBe(200);
+    expect(res.body.totalAgents).toBe(0);
+    expect(res.body.tasksReceived).toBe(0);
+  });
+
+  it("(b) endpoint: current owner dashboard stats include transferred agent (GET /dashboard/stats) — 1+ tasks", async () => {
+    const dashboardRouter = (await import("../routes/v1/dashboard")).default;
+    const app = buildAuthedApp(newOwnerUserId, dashboardRouter, "/");
+
+    const res = await request(app).get("/stats");
+
+    expect(res.status).toBe(200);
+    expect(res.body.totalAgents).toBe(1);
+    expect(res.body.agents.some((agent: { id: string }) => agent.id === agentId)).toBe(true);
+    expect(res.body.tasksReceived).toBeGreaterThanOrEqual(1);
   });
 });
