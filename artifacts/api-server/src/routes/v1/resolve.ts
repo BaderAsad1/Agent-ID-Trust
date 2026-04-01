@@ -283,7 +283,10 @@ function toResolvedAgent(
   const baseAnchor = (() => {
     if (!chainRegs) return null;
     if (Array.isArray(chainRegs)) {
-      return (chainRegs as Record<string, unknown>[]).find(e => e.chain === "base") ?? null;
+      // Accept both "base" (mainnet) and "base-sepolia" (testnet) chain labels
+      return (chainRegs as Record<string, unknown>[]).find(
+        e => e.chain === "base" || e.chain === "base-sepolia",
+      ) ?? null;
     }
     return (chainRegs as Record<string, unknown>).base ?? null;
   })();

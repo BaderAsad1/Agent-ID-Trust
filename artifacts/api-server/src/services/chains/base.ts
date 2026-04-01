@@ -74,14 +74,22 @@ function isOnchainMintingEnabled(): boolean {
 }
 
 /**
- * Select the correct viem chain object based on BASE_CHAIN_ID env var.
- * BASE_CHAIN_ID=84532 → baseSepolia (testnet)
- * Anything else (or unset) → base (mainnet, chain ID 8453)
+ * Resolve the active viem chain for Base.
+ * Precedence (most-specific wins):
+ *   1. BASE_CHAIN_ID=84532  → baseSepolia (explicit chain ID wins)
+ *   2. IS_TESTNET=true       → baseSepolia (shorthand flag, used when chain ID omitted)
+ *   3. (default)             → base mainnet (chain ID 8453)
  */
 function getViemChain() {
   const chainId = process.env.BASE_CHAIN_ID;
   if (chainId === "84532") return baseSepolia;
+  if (process.env.IS_TESTNET === "true") return baseSepolia;
   return base;
+}
+
+/** Returns a human-readable network label for telemetry / logs / DB records. */
+function getNetworkLabel(): "base-sepolia" | "base" {
+  return getViemChain().id === baseSepolia.id ? "base-sepolia" : "base";
 }
 
 function getBaseConfig() {
@@ -108,7 +116,7 @@ function isChainEnabled(): boolean {
 export interface RegisterOnChainResult {
   agentId: string;
   txHash: Hash;
-  chain: "base";
+  chain: "base" | "base-sepolia";
   contractAddress: Address;
 }
 
@@ -186,7 +194,7 @@ export async function registerOnChain(
   return {
     agentId,
     txHash,
-    chain: "base",
+    chain: getNetworkLabel(),
     contractAddress: registrarAddress,
   };
 }

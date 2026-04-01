@@ -94,6 +94,7 @@ const envSchema = z.object({
   BASE_ERC8004_REGISTRY: z.string().optional(),
   BASE_CHAIN_ID: z.string().optional(),
   BASE_METADATA_URI: z.string().optional(),
+  IS_TESTNET: z.enum(["true", "false"]).optional(),
 
   HANDLE_CLAIM_SIGNING_PRIVATE_KEY: z.string().optional(),
   HANDLE_CLAIM_ISSUER: z.string().default("agentid-api"),
