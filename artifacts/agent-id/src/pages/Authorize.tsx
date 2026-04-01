@@ -169,7 +169,7 @@ export function Authorize() {
 
         <div className="auth-card" style={{ width: '100%', maxWidth: 440, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 24, overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)' }}>
 
-          {/* Top section — app connector */}
+          {/* Top section  -  app connector */}
           <div style={{ padding: '36px 36px 28px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}>
             {/* App icon + connecting dots + Agent ID icon */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0, marginBottom: 24 }}>

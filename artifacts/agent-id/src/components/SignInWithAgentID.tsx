@@ -1,5 +1,5 @@
 /**
- * SignInWithAgentID — embeddable button component for third-party apps.
+ * SignInWithAgentID  -  embeddable button component for third-party apps.
  *
  * Usage:
  *   <SignInWithAgentID clientId="agclient_..." redirectUri="https://myapp.com/callback" scopes={['read']} />

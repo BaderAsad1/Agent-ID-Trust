@@ -529,7 +529,7 @@ export function Start() {
                 const annualPrice = rawAnnualPrice ?? 0;
                 const isUltraPremium = annualPrice >= 99;
                 const isPremium = annualPrice >= 29 && annualPrice < 99;
-                const priceLabel = isUltraPremium ? `$${annualPrice}/yr — Premium` : isPremium ? `$${annualPrice}/yr — Standard` : 'FREE';
+                const priceLabel = isUltraPremium ? `$${annualPrice}/yr  -  Premium` : isPremium ? `$${annualPrice}/yr  -  Standard` : 'FREE';
                 const priceColor = isUltraPremium ? '#a78bfa' : isPremium ? '#f59e0b' : '#34d399';
                 const priceBg = isUltraPremium ? 'rgba(167,139,250,0.08)' : isPremium ? 'rgba(245,158,11,0.06)' : 'rgba(52,211,153,0.06)';
                 const priceBorder = isUltraPremium ? 'rgba(167,139,250,0.2)' : isPremium ? 'rgba(245,158,11,0.15)' : 'rgba(52,211,153,0.15)';
@@ -553,7 +553,7 @@ export function Start() {
         {step === 2 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Authenticate</h1>
-            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Prove you control this agent. Verify now for full discovery — or continue and verify from your dashboard.</p>
+            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Prove you control this agent. Verify now for full discovery  -  or continue and verify from your dashboard.</p>
 
             <div style={{ marginBottom: 16, padding: '14px 18px', background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.12)', borderRadius: 12, display: 'flex', gap: 12 }}>
               <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
@@ -604,7 +604,7 @@ export function Start() {
         {step === 3 && (
           <>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Claim your addresses</h1>
-            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Your agent gets two addresses — a web domain and a protocol namespace.</p>
+            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Your agent gets two addresses  -  a web domain and a protocol namespace.</p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ padding: '22px 24px', background: 'rgba(79,125,243,0.04)', border: '1px solid rgba(79,125,243,0.15)', borderRadius: 14 }}>
@@ -689,7 +689,7 @@ export function Start() {
               <ReviewRow label="Handle" value={`${handle}.agentid`} mono />
               <ReviewRow label="Web domain" value={`${handle}.getagent.id`} mono />
               {description && <ReviewRow label="Description" value={description} />}
-              <ReviewRow label="Authentication" value={selectedAuthMethod === 'github' ? 'GitHub Gist' : selectedAuthMethod === 'wallet' ? 'Wallet Signature' : selectedAuthMethod === 'manual' ? 'Manual Key Signing' : 'Skip — authenticate later'} ok={selectedAuthMethod !== null} />
+              <ReviewRow label="Authentication" value={selectedAuthMethod === 'github' ? 'GitHub Gist' : selectedAuthMethod === 'wallet' ? 'Wallet Signature' : selectedAuthMethod === 'manual' ? 'Manual Key Signing' : 'Skip  -  authenticate later'} ok={selectedAuthMethod !== null} />
               <ReviewRow label="Capabilities" value={selectedCaps.join(', ')} last />
             </div>
 

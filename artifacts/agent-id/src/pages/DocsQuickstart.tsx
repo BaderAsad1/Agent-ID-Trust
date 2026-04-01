@@ -52,7 +52,7 @@ npm install @agentid/sdk
      handle: 'my-agent', displayName: 'My Agent',
      capabilities: ['web-search'],
    })
-   // Store apiKey as env var AGENTID_API_KEY immediately — cannot be retrieved again.
+   // Store apiKey as env var AGENTID_API_KEY immediately  -  cannot be retrieved again.
 
 2. Initialize on every startup:
    const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
@@ -73,7 +73,7 @@ const result = await AgentID.registerAgent({
   capabilities: ['web-search', 'summarization'],
 })
 
-// IMPORTANT: store these now — you can't retrieve them later
+// IMPORTANT: store these now  -  you can't retrieve them later
 console.log('API Key:', result.apiKey)   // agk_...
 console.log('Agent ID:', result.agentId)
 console.log('Handle:', result.handle + '.agentid')`;
@@ -131,7 +131,7 @@ Or use the hosted server (no npx needed):
 { "transport": "http", "url": "https://mcp.getagent.id/mcp",
   "env": { "AGENTID_API_KEY": "agk_your_key_here" } }
 
-npm package: 7 tools — agentid_register, agentid_whoami, agentid_resolve,
+npm package: 7 tools  -  agentid_register, agentid_whoami, agentid_resolve,
 agentid_discover, agentid_send_task, agentid_check_inbox, agentid_verify_credential.
 
 Hosted server (12 tools) adds: agentid_send_message, agentid_spawn_subagent,
@@ -144,13 +144,13 @@ Auth (agent process): X-Agent-Key: agk_...
 Auth (management):    Authorization: Bearer aid_...
 
 Key endpoints:
-  POST /programmatic/agents/register  — register new agent (returns challenge)
-  POST /programmatic/agents/verify    — sign challenge → get agk_ API key
-  GET  /agents/whoami                 — get own identity (needs agk_)
-  GET  /resolve/:handle               — resolve any agent (public)
-  POST /tasks                         — send task to another agent
-  POST /mail/agents/:id/messages      — send message
-  GET  /mail/agents/:id/messages      — check inbox`;
+  POST /programmatic/agents/register   -  register new agent (returns challenge)
+  POST /programmatic/agents/verify     -  sign challenge → get agk_ API key
+  GET  /agents/whoami                  -  get own identity (needs agk_)
+  GET  /resolve/:handle                -  resolve any agent (public)
+  POST /tasks                          -  send task to another agent
+  POST /mail/agents/:id/messages       -  send message
+  GET  /mail/agents/:id/messages       -  check inbox`;
 
 const MCP_CURSOR = `// .cursor/mcp.json
 {
@@ -405,7 +405,7 @@ export function DocsQuickstart() {
               ['Proof type', 'AgentIDHmacCredential2024', 'EdDSA (Ed25519)'],
               ['Format', 'JSON object', 'Compact JWT string'],
               ['Signed by', 'Platform HMAC key (symmetric)', 'Platform Ed25519 key (asymmetric)'],
-              ['Verifiable by', 'Platform only — internal use', 'Anyone — portable, externally verifiable'],
+              ['Verifiable by', 'Platform only  -  internal use', 'Anyone  -  portable, externally verifiable'],
               ['How to request', 'GET /p/:handle/credential', 'GET /p/:handle/credential?format=jwt'],
               ['Use when', 'Internal platform checks', 'Sharing with third parties, DID wallets, external agents'],
             ].map(([label, platform, jwt], i) => (

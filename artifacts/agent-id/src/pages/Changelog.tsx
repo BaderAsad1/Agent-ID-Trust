@@ -11,7 +11,7 @@ const CHANGELOG_ENTRIES = [
         items: [
           'Runtime connection layer: agents can establish live, authenticated sessions with external services',
           'Connection health monitoring with automatic reconnect and backoff',
-          'Per-connection credential scoping — no shared service tokens',
+          'Per-connection credential scoping  -  no shared service tokens',
           'Runtime event bus for cross-agent pub/sub messaging',
         ],
       },
@@ -19,9 +19,9 @@ const CHANGELOG_ENTRIES = [
         category: 'MCP Integrations',
         items: [
           'MCP server now exposes resolve, verify, and trust-score tools natively',
-          'One-command install: npx @agentid/mcp-server — no API key required for public lookups',
-          'MCP tool: issue_credential — agents can request signed VCs over MCP',
-          'MCP tool: attest_peer — initiate a peer attestation from any MCP-capable host',
+          'One-command install: npx @agentid/mcp-server  -  no API key required for public lookups',
+          'MCP tool: issue_credential  -  agents can request signed VCs over MCP',
+          'MCP tool: attest_peer  -  initiate a peer attestation from any MCP-capable host',
           'Claude, Cursor, and Windsurf tested and verified compatible',
         ],
       },
@@ -43,7 +43,7 @@ const CHANGELOG_ENTRIES = [
       {
         category: '@agentid/sdk',
         items: [
-          'Published @agentid/sdk to npm — full TypeScript client for Agent ID APIs',
+          'Published @agentid/sdk to npm  -  full TypeScript client for Agent ID APIs',
           'AgentClient: register, resolve, verify, and rotate keys in one import',
           'Tree-shakeable ESM build with zero required peer dependencies',
           'Built-in retry logic, typed errors, and Zod-validated responses',
@@ -80,10 +80,10 @@ const CHANGELOG_ENTRIES = [
         category: 'Agent Mail System',
         items: [
           'Agent-native async messaging: send structured messages between verified agents',
-          'Each agent gets an inbox at handle@getagent.id — no setup required',
+          'Each agent gets an inbox at handle@getagent.id  -  no setup required',
           'Message signing: every message carries an Ed25519 signature verifiable against the sender DID',
           'Delivery receipts and read confirmations included in the activity log',
-          'Webhook push on new mail — agents can react to messages without polling',
+          'Webhook push on new mail  -  agents can react to messages without polling',
           'Spam filtering: only agents with trust score ≥ 20 can initiate mail threads',
         ],
       },
@@ -94,7 +94,7 @@ const CHANGELOG_ENTRIES = [
           'Batch issuance API: sign and issue up to 50 VCs in a single request',
           'Credential status list (StatusList2021) for efficient revocation checks',
           'Selective disclosure: issuers can flag individual claims as optional/redactable',
-          'Credential explorer UI in the dashboard — view, revoke, and reissue from one place',
+          'Credential explorer UI in the dashboard  -  view, revoke, and reissue from one place',
         ],
       },
       {
@@ -171,10 +171,10 @@ const CHANGELOG_ENTRIES = [
       {
         category: 'Protocols',
         items: [
-          'MCP (Model Context Protocol) — Anthropic tool-use standard',
-          'A2A (Agent-to-Agent) — Google peer communication protocol',
-          'REST — Standard HTTP/JSON APIs',
-          'AgentID DID method — protocol-native agent identity standard',
+          'MCP (Model Context Protocol)  -  Anthropic tool-use standard',
+          'A2A (Agent-to-Agent)  -  Google peer communication protocol',
+          'REST  -  Standard HTTP/JSON APIs',
+          'AgentID DID method  -  protocol-native agent identity standard',
           'AgentCard / well-known identity document',
         ],
       },
@@ -186,7 +186,7 @@ const CHANGELOG_ENTRIES = [
           'Webhook delivery with HMAC signing',
           'MCP server integration (npx @agentid/mcp-server)',
           'LangChain, CrewAI, AutoGen, OpenAI, Vercel AI SDK guides',
-          'llms.txt — machine-readable platform description',
+          'llms.txt  -  machine-readable platform description',
         ],
       },
     ],

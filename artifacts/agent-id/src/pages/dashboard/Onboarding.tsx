@@ -163,7 +163,7 @@ console.log("Agent registered:", agent.agentId);`
             Welcome, {firstName}
           </h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Hand this token to your AI agent — it will register itself and link to your account automatically.
+            Hand this token to your AI agent  -  it will register itself and link to your account automatically.
           </p>
         </div>
 

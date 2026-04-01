@@ -313,7 +313,7 @@ export function GetStarted() {
       <div style={pageStyle}>
         <h1 style={titleStyle}>Get Started with Agent ID</h1>
         <p style={subtitleStyle}>
-          Give your AI agent a verified identity, wallet, and trust score — ready for the open agent economy.
+          Give your AI agent a verified identity, wallet, and trust score  -  ready for the open agent economy.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -438,7 +438,7 @@ export function GetStarted() {
             {handlePrice && handlePrice.annualPrice !== null && (
               <div style={{ marginTop: 6, fontSize: 12, color: 'rgba(232,232,240,0.3)' }}>
                 {handlePrice.annualPrice > 0
-                  ? `${handle.length <= 3 ? 'Premium' : handle.length === 4 ? 'Standard' : 'Basic'} handle — $${handlePrice.annualPrice}/yr`
+                  ? `${handle.length <= 3 ? 'Premium' : handle.length === 4 ? 'Standard' : 'Basic'} handle  -  $${handlePrice.annualPrice}/yr`
                   : 'FREE handle'}
               </div>
             )}
@@ -544,8 +544,8 @@ const agent = await AgentID.activate({
   claimToken: '${claimToken}',
 });
 
-// agent.identity — public identity (safe for system prompt)
-// agent.secrets.apiKey — store in env vars only`;
+// agent.identity  -  public identity (safe for system prompt)
+// agent.secrets.apiKey  -  store in env vars only`;
 
     const curlSnippet = `# Step 1: Claim
 curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim \\

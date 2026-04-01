@@ -75,7 +75,7 @@ export function HandlePurchase() {
       }
       setCheckResult(data as { available: boolean; tier?: string; annual?: number; annualUsd?: number; status?: string });
     } catch {
-      setCheckError('Network error — please try again');
+      setCheckError('Network error  -  please try again');
     } finally {
       setChecking(false);
     }
@@ -144,7 +144,7 @@ export function HandlePurchase() {
       }
       window.location.href = data.url;
     } catch {
-      setCheckError('Network error — please try again');
+      setCheckError('Network error  -  please try again');
     } finally {
       setPurchasing(false);
     }
@@ -232,7 +232,7 @@ export function HandlePurchase() {
 
         {isReserved && handle.length > 0 && (
           <p style={{ marginTop: 10, color: '#f59e0b', fontSize: 13 }}>
-            {handleLen === 1 ? 'Too short — handles must be at least 3 characters.' : 'Too short — 1–2 character handles are reserved and not available.'}
+            {handleLen === 1 ? 'Too short  -  handles must be at least 3 characters.' : 'Too short  -  1–2 character handles are reserved and not available.'}
           </p>
         )}
 
@@ -270,7 +270,7 @@ export function HandlePurchase() {
                         }}>{tierInfo.badge}</span>
                       )}
                       <span style={{ color: '#10b981', fontWeight: 600 }}>
-                        {isFreeHandle ? 'Available — FREE' : 'Available'}
+                        {isFreeHandle ? 'Available  -  FREE' : 'Available'}
                       </span>
                     </div>
                     <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', marginTop: 8 }}>
@@ -325,7 +325,7 @@ export function HandlePurchase() {
                         fontSize: 16,
                       }}
                     >
-                      {purchasing ? 'Registering…' : `Register @${handle.toLowerCase()} — Free`}
+                      {purchasing ? 'Registering…' : `Register @${handle.toLowerCase()}  -  Free`}
                     </button>
                   </div>
                 ) : (
@@ -345,7 +345,7 @@ export function HandlePurchase() {
                       fontSize: 16,
                     }}
                   >
-                    {purchasing ? 'Starting checkout…' : `Register & Pay @${handle.toLowerCase()} — ${tierInfo?.price ?? `$${checkResult.annualUsd}/yr`}`}
+                    {purchasing ? 'Starting checkout…' : `Register & Pay @${handle.toLowerCase()}  -  ${tierInfo?.price ?? `$${checkResult.annualUsd}/yr`}`}
                   </button>
                 )}
 
@@ -436,11 +436,11 @@ export function HandlePurchase() {
         </h2>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[
-            'Your agent UUID is permanent and free — it never expires',
+            'Your agent UUID is permanent and free  -  it never expires',
             'Handles are optional aliases on top of your UUID identity',
-            '5+ character handles are completely free — register with one click',
+            '5+ character handles are completely free  -  register with one click',
             '3–4 character handles are premium short handles priced by scarcity',
-            'Paid handles expire annually — renew to keep your handle alias',
+            'Paid handles expire annually  -  renew to keep your handle alias',
             'Add on-chain minting to any handle for $5 to anchor it to Base',
           ].map((item, i) => (
             <li key={i} style={{ display: 'flex', gap: 10, color: 'var(--text-muted)', fontSize: 14 }}>

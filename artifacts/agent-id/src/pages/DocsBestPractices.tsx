@@ -204,9 +204,9 @@ export function DocsBestPractices() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
                 { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Store your key in environment variables (AGENTID_API_KEY) or a secrets manager' },
-                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Rotate keys periodically — generate a new key and revoke the old one in one atomic step' },
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Rotate keys periodically  -  generate a new key and revoke the old one in one atomic step' },
                 { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Never commit keys to source control or log them to stdout' },
-                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Never share your agk_ key with client-side code — it authenticates your agent process, not your users' },
+                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Never share your agk_ key with client-side code  -  it authenticates your agent process, not your users' },
               ].map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', background: item.bg, border: `1px solid ${item.border}`, borderRadius: 8, fontSize: 13, color: item.color, lineHeight: 1.5 }}>
                   <span style={{ fontWeight: 700 }}>{item.icon}</span>
@@ -307,7 +307,7 @@ export function DocsBestPractices() {
               ))}
             </div>
             <div style={{ padding: '12px 16px', background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.18)', borderRadius: 9, fontSize: 13, color: 'rgba(125,165,245,0.9)', lineHeight: 1.6 }}>
-              Always call <code>agent.startHeartbeat()</code> after init to keep your handle in the <code>active</code> state. Suspended agents can reactivate by resuming heartbeats — no re-registration needed.
+              Always call <code>agent.startHeartbeat()</code> after init to keep your handle in the <code>active</code> state. Suspended agents can reactivate by resuming heartbeats  -  no re-registration needed.
             </div>
           </section>
 

@@ -271,7 +271,7 @@ function NftStatusSection({ agent, onTransferred }: { agent: Agent; onTransferre
           <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Minting in progress...</span>
         )}
         {agent.nftStatus === 'minted' && custodian === 'platform' && (
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Minted on Base — held by Agent ID</span>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Minted on Base  -  held by Agent ID</span>
         )}
         {agent.nftStatus === 'minted' && custodian === 'user' && ownerWallet && (
           <span className="text-xs truncate" style={{ color: 'var(--text-muted)', maxWidth: 180 }}>
@@ -282,7 +282,7 @@ function NftStatusSection({ agent, onTransferred }: { agent: Agent; onTransferre
           <span className="text-xs" style={{ color: 'var(--warning, #f59e0b)' }}>Pending claim (7-day dispute window)</span>
         )}
         {agent.nftStatus === 'mint_failed' && (
-          <span className="text-xs" style={{ color: 'var(--danger)' }}>Mint failed — contact support</span>
+          <span className="text-xs" style={{ color: 'var(--danger)' }}>Mint failed  -  contact support</span>
         )}
         {txHash && (
           <a
@@ -517,7 +517,7 @@ function Overview() {
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>Handle payment required</div>
                     <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      ${agent.handlePricing.annualPriceDollars}/yr — complete payment to activate
+                      ${agent.handlePricing.annualPriceDollars}/yr  -  complete payment to activate
                     </div>
                   </div>
                   <PrimaryButton
@@ -672,7 +672,7 @@ function TaskInbox() {
                         color: task.paymentStatus === 'captured' ? 'var(--success)' : task.paymentStatus === 'cancelled' ? 'var(--danger)' : 'var(--accent)',
                       }}>
                         <DollarSign className="w-3 h-3" />
-                        ${(task.paymentAmount / 100).toFixed(2)} — {task.paymentStatus || 'pending'}
+                        ${(task.paymentAmount / 100).toFixed(2)}  -  {task.paymentStatus || 'pending'}
                       </span>
                     )}
                   </div>
@@ -730,7 +730,7 @@ function ActivityLogPage() {
           <div className="space-y-2">
             {activities.map(evt => (
               <div key={evt.id} className="flex items-center gap-3 text-sm py-2 border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-                <span className="text-xs font-mono w-16 flex-shrink-0" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>{evt.hmacHash?.slice(0, 8) || '—'}</span>
+                <span className="text-xs font-mono w-16 flex-shrink-0" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>{evt.hmacHash?.slice(0, 8) || ' - '}</span>
                 <EventTypeIcon type={evt.eventType.includes('task') ? 'task_received' : 'task_completed'} />
                 <span className="flex-1 truncate" style={{ color: 'var(--text-muted)' }}>{evt.eventType}</span>
                 <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-dim)' }}>{new Date(evt.createdAt).toLocaleString()}</span>
@@ -775,7 +775,7 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
           await api.marketplace.listings.update(listing.id, { status: 'active' });
         } catch (pubErr) {
           console.warn('[listing] Created as draft but failed to publish:', pubErr instanceof Error ? pubErr.message : pubErr);
-          setError('Listing created as draft. Publishing failed — activate it from the listings table.');
+          setError('Listing created as draft. Publishing failed  -  activate it from the listings table.');
         }
       }
       onCreated();
@@ -1060,7 +1060,7 @@ function HandleTransferModal({ agent, onClose, onTransferred }: { agent: Agent; 
         ) : (
           <div className="space-y-4">
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Transfer ownership of this handle to another account. This action is irreversible — the new owner will have full control.
+              Transfer ownership of this handle to another account. This action is irreversible  -  the new owner will have full control.
             </p>
             {error && (
               <div className="flex items-center gap-2 p-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
@@ -1310,7 +1310,7 @@ function DomainDashboard() {
                         <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>.agentid Protocol Registry</div>
                         <div className="text-xs" style={{ color: 'var(--text-dim)' }}>
                           {reg?.registered
-                            ? `Registered — resolvable at ${reg.domain}`
+                            ? `Registered  -  resolvable at ${reg.domain}`
                             : 'Pending registration in .agentid registry'}
                         </div>
                       </div>
@@ -1430,7 +1430,7 @@ function SettingsPage() {
           </div>
           {newKeyValue && (
             <div className="p-3 rounded-lg mb-4 text-sm" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--success)' }}>
-              <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Copy this key now — it won't be shown again:</div>
+              <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Copy this key now  -  it won't be shown again:</div>
               <code style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{newKeyValue}</code>
             </div>
           )}
@@ -1848,7 +1848,7 @@ function WalletDashboard() {
                 </div>
               )}
               {balance?.cached && (
-                <div className="text-xs mt-2" style={{ color: 'var(--text-dim)' }}>Cached balance — click refresh for live data</div>
+                <div className="text-xs mt-2" style={{ color: 'var(--text-dim)' }}>Cached balance  -  click refresh for live data</div>
               )}
             </GlassCard>
 

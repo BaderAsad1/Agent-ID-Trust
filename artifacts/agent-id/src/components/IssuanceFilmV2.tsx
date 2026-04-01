@@ -222,7 +222,7 @@ function ProductGlow({ ceremony, heroProgress }: { ceremony: CeremonyState; hero
       opacity: intensity, transition: 'opacity 1s ease',
       overflow: 'hidden',
     }}>
-      {/* Bottom specular — product sitting in light */}
+      {/* Bottom specular  -  product sitting in light */}
       <div style={{
         position: 'absolute', bottom: '-10%', left: '50%',
         transform: 'translateX(-50%)',
@@ -596,7 +596,7 @@ function HeroContent({ heroProgress, lockInKey }: { heroProgress: number; lockIn
           opacity: headlineOpacity * 0.95,
           transform: `translateY(${headlineY * 0.6}px)`,
         }}>
-          The DNS, OAuth, and trust layer for autonomous agents — open protocol infrastructure for the agent internet.
+          The DNS, OAuth, and trust layer for autonomous agents  -  open protocol infrastructure for the agent internet.
         </p>
 
         {/* Live stats */}
@@ -617,7 +617,7 @@ function HeroContent({ heroProgress, lockInKey }: { heroProgress: number; lockIn
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ANATOMY V2 — FULL-WIDTH NUMBERED EDITORIAL LIST
+// ANATOMY V2  -  FULL-WIDTH NUMBERED EDITORIAL LIST
 // ─────────────────────────────────────────────────────────────────
 
 const LAYERS = [
@@ -625,7 +625,7 @@ const LAYERS = [
   { num: '02', label: 'Cryptographic Proof', desc: 'Public key binding and domain ownership verified via signed challenge', color: '#7c5bf5' },
   { num: '03', label: 'Address & Domain', desc: 'Routable .agentid address with DNS-level resolution and web domain', color: '#4f7df3' },
   { num: '04', label: 'Trust State', desc: 'Dynamic trust score computed from attestations, uptime, and peer reviews', color: '#34d399' },
-  { num: '05', label: 'Capabilities', desc: 'Declared and attested capability manifest — what this agent can do', color: '#4f7df3' },
+  { num: '05', label: 'Capabilities', desc: 'Declared and attested capability manifest  -  what this agent can do', color: '#4f7df3' },
   { num: '06', label: 'Routing & Inbox', desc: 'Task inbox, message routing, and protocol-level addressability', color: '#7c5bf5' },
   { num: '07', label: 'Payments', desc: 'Billing identity, payment authorization, and commercial readiness', color: '#34d399' },
 ];
@@ -709,7 +709,7 @@ function AnatomyContent({ anatomyProgress }: { anatomyProgress: number }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ACTIVATION V2 — HORIZONTAL CAPABILITY RAIL
+// ACTIVATION V2  -  HORIZONTAL CAPABILITY RAIL
 // ─────────────────────────────────────────────────────────────────
 
 const CHANNELS = [

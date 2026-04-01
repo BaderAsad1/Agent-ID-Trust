@@ -204,7 +204,7 @@ export function DocsWebhooks() {
           </h1>
         </div>
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, maxWidth: 580, marginBottom: 40 }}>
-          Subscribe to real-time events from the Agent ID network — task updates, messages, trust changes, and payment confirmations.
+          Subscribe to real-time events from the Agent ID network  -  task updates, messages, trust changes, and payment confirmations.
         </p>
       </div>
 
@@ -222,7 +222,7 @@ export function DocsWebhooks() {
           <section id="register" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Register a webhook</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
-              Register an endpoint to receive events. The <code style={{ color: '#7da5f5' }}>secret</code> you provide is used to sign every delivery — store it in your environment and never share it.
+              Register an endpoint to receive events. The <code style={{ color: '#7da5f5' }}>secret</code> you provide is used to sign every delivery  -  store it in your environment and never share it.
             </p>
             <CodeBlock code={REGISTER_WEBHOOK} lang="bash" />
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', lineHeight: 1.6 }}>

@@ -137,7 +137,7 @@ export function TransferWizardModal({ agent, existingTransfer, onClose, onComple
 
         <div className="flex items-center gap-2 p-3 rounded-lg text-xs mb-6" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: 'rgba(245,158,11,0.85)' }}>
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          <span><strong>Direct transfer — no escrow protection.</strong> Ownership is transferred directly between parties. Agent ID does not hold funds or provide dispute resolution. Proceed only with trusted counterparties.</span>
+          <span><strong>Direct transfer  -  no escrow protection.</strong> Ownership is transferred directly between parties. Agent ID does not hold funds or provide dispute resolution. Proceed only with trusted counterparties.</span>
         </div>
 
         <div className="flex items-center gap-2 mb-6">
@@ -455,7 +455,7 @@ export function HandoffChecklist({ agentId, transferId }: { agentId: string; tra
         <div>
           <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Transfer Progress</h2>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            @{transfer.agentHandle} — {TRANSFER_TYPE_INFO[transfer.transferType]?.label || transfer.transferType}
+            @{transfer.agentHandle}  -  {TRANSFER_TYPE_INFO[transfer.transferType]?.label || transfer.transferType}
           </p>
         </div>
         <TransferStatusBadge status={transfer.status} />
@@ -553,7 +553,7 @@ export function HandoffChecklist({ agentId, transferId }: { agentId: string; tra
           <div className="text-center py-6 rounded-xl" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
             <AlertTriangle className="w-10 h-10 mx-auto mb-2" style={{ color: 'var(--danger)' }} />
             <p className="text-sm font-semibold" style={{ color: 'var(--danger)' }}>Transfer Disputed</p>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>A dispute has been flagged on this transfer. Agent ID does not provide automated dispute resolution — parties should resolve the issue directly or contact support for manual assistance.</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>A dispute has been flagged on this transfer. Agent ID does not provide automated dispute resolution  -  parties should resolve the issue directly or contact support for manual assistance.</p>
           </div>
         )}
       </div>
@@ -887,7 +887,7 @@ function TransferDetailView({ agentId, transferId }: { agentId: string; transfer
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <GlassCard className="!p-4">
           <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Trust Score</div>
-          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{transfer.agentTrustScore ?? '—'}</div>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{transfer.agentTrustScore ?? ' - '}</div>
         </GlassCard>
         <GlassCard className="!p-4">
           <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Created</div>
@@ -946,11 +946,11 @@ export function TransferDisclosure({ agent }: { agent: Agent & TransferOwnership
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span style={{ color: 'var(--text-muted)' }}>Trust Peak</span>
-              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{agent.historicalTrustPeak ?? '—'}</span>
+              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{agent.historicalTrustPeak ?? ' - '}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span style={{ color: 'var(--text-muted)' }}>Transferred</span>
-              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{agent.transferredAt ? new Date(agent.transferredAt).toLocaleDateString() : '—'}</span>
+              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{agent.transferredAt ? new Date(agent.transferredAt).toLocaleDateString() : ' - '}</span>
             </div>
           </div>
         </div>

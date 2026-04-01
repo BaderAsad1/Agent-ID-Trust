@@ -154,7 +154,7 @@ function OnChainStatus({ agent }: { agent: Agent }) {
               opacity: minting ? 0.6 : 1,
             }}
           >
-            {minting ? 'Redirecting…' : 'Mint on Base — $5'}
+            {minting ? 'Redirecting…' : 'Mint on Base  -  $5'}
           </button>
         )}
       </div>
@@ -455,7 +455,7 @@ function IdentityIntegration({ agent }: { agent: Agent }) {
   const capabilities = (agent.capabilities as string[] | undefined) || [];
 
   const promptBlock = [
-    `## Agent Identity — Agent ID`,
+    `## Agent Identity  -  Agent ID`,
     ``,
     `You are an AI agent with a verified identity on the Agent ID network.`,
     ``,
@@ -552,8 +552,8 @@ const systemPrompt = agent.getPromptBlock();`;
           <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
             Copy the snippet for your agent framework so your agent remembers its identity across sessions.
           </p>
-          <CopyBlock label="OpenClaw — AGENTID.md" content={openclawContent} icon={FileCode} />
-          <CopyBlock label="Claude Code — CLAUDE.md" content={claudeContent} icon={FileCode} />
+          <CopyBlock label="OpenClaw  -  AGENTID.md" content={openclawContent} icon={FileCode} />
+          <CopyBlock label="Claude Code  -  CLAUDE.md" content={claudeContent} icon={FileCode} />
           <CopyBlock label="System Prompt (any framework)" content={promptBlock} icon={Terminal} />
           <CopyBlock label="TypeScript SDK" content={sdkSnippet} icon={Globe} />
         </div>

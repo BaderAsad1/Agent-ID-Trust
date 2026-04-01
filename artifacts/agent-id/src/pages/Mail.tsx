@@ -557,7 +557,7 @@ function ProvenanceTimeline({ chain }: { chain: Array<{ actor: string; action: s
             <div className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent)' }} />
             <div>
               <span style={{ color: 'var(--text-primary)' }}>{entry.actor}</span>
-              <span style={{ color: 'var(--text-dim)' }}> — {entry.action}</span>
+              <span style={{ color: 'var(--text-dim)' }}>  -  {entry.action}</span>
               <div style={{ color: 'var(--text-dim)' }}>{new Date(entry.timestamp).toLocaleString()}</div>
             </div>
           </div>

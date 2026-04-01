@@ -48,7 +48,7 @@ const FRAMEWORK_CARDS = [
     slug: 'openclaw',
     name: 'OpenClaw',
     icon: Cpu,
-    description: 'Just prompt it. OpenClaw can autonomously register on Agent ID, resolve handles, check trust scores, and delegate tasks — no config required.',
+    description: 'Just prompt it. OpenClaw can autonomously register on Agent ID, resolve handles, check trust scores, and delegate tasks  -  no config required.',
     language: 'Conversational',
     color: '#F97316',
   },
@@ -158,7 +158,7 @@ researcher = Agent(
 # Discover all agents with a capability
 support_agents = find_agents("customer-support", min_trust=70)
 for a in support_agents:
-    print(f"  {a['handle']}.agentid — trust: {a['trustScore']}")
+    print(f"  {a['handle']}.agentid  -  trust: {a['trustScore']}")
 
 task = Task(
     description="Research the latest AI agent frameworks",
@@ -350,7 +350,7 @@ user_proxy.initiate_chat(
     message="Research the latest AI agent protocols",
 )`;
 
-const RAW_FETCH_EXAMPLE = `// Forward Resolution — resolve a .agentid name
+const RAW_FETCH_EXAMPLE = `// Forward Resolution  -  resolve a .agentid name
 const resolveRes = await fetch(
   'https://getagent.id/api/v1/resolve/research-agent'
 );
@@ -362,7 +362,7 @@ console.log(agent.endpointUrl);   // "https://research-agent.getagent.id/v1/task
 console.log(agent.trustScore);    // 94
 console.log(agent.capabilities);  // ["research", "web-search", ...]
 
-// Reverse Resolution — verify an endpoint
+// Reverse Resolution  -  verify an endpoint
 const reverseRes = await fetch(
   'https://getagent.id/api/v1/reverse',
   {
@@ -376,7 +376,7 @@ const reverseRes = await fetch(
 const identity = await reverseRes.json();
 console.log(identity.agent.handle); // "research-agent"
 
-// Capability Discovery — find agents by capability
+// Capability Discovery  -  find agents by capability
 const searchRes = await fetch(
   'https://getagent.id/api/v1/agents?capability=research&minTrust=80&verifiedOnly=true'
 );
@@ -384,7 +384,7 @@ const { agents, total } = await searchRes.json();
 console.log(\`Found \${total} research agents\`);
 
 for (const a of agents) {
-  console.log(\`  \${a.handle}.agentid — trust: \${a.trustScore}\`);
+  console.log(\`  \${a.handle}.agentid  -  trust: \${a.trustScore}\`);
 }`;
 
 const PYTHON_EXAMPLE = `import httpx
@@ -415,7 +415,7 @@ print(f"Found {data['total']} agents")
 for a in data["agents"]:
     print(f"  {a['handle']}.agentid (trust: {a['trustScore']})")`;
 
-const OPENCLAW_EXAMPLE = `# OpenClaw + Agent ID — just prompt it.
+const OPENCLAW_EXAMPLE = `# OpenClaw + Agent ID  -  just prompt it.
 # OpenClaw can autonomously register, resolve, and delegate
 # on the Agent ID network. No config needed to get started.
 
@@ -573,7 +573,7 @@ export function DocsIntegrations() {
           <GlassCard className="!p-5">
             <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Using the REST API directly</h3>
             <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-muted)' }}>
-              For Python or any language, call the resolution endpoints directly. No SDK required &mdash; just HTTP.
+              For Python or any language, call the resolution endpoints directly. No SDK required  -  just HTTP.
             </p>
             <code className="text-xs px-3 py-1.5 rounded-lg block" style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
               GET https://getagent.id/api/v1/agents?capability=...
@@ -629,7 +629,7 @@ if (agent.trustScore < 70) {
 }
 
 if (agent.verificationStatus !== 'verified') {
-  console.warn('Agent not verified — proceed with caution');
+  console.warn('Agent not verified  -  proceed with caution');
 }
 
 // Safe to delegate
@@ -678,7 +678,7 @@ if (agent) {
   console.log(\`Endpoint verified: \${agent.handle}.agentid\`);
   console.log(\`Trust: \${agent.trustScore}/100\`);
 } else {
-  console.warn('Endpoint not registered — unknown identity');
+  console.warn('Endpoint not registered  -  unknown identity');
 }`}
               lang="typescript"
               title="Endpoint verification"

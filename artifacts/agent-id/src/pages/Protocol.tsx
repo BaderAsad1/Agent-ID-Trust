@@ -165,7 +165,7 @@ const JSON_SCHEMA = `{
       "required": ["handle", "domain", "displayName", "status", "trustScore"],
       "properties": {
         "handle":             { "type": "string" },
-        "domain":             { "type": "string", "description": "Intended web domain (handle.getagent.id) — subdomain resolution not yet active, use API resolution" },
+        "domain":             { "type": "string", "description": "Intended web domain (handle.getagent.id)  -  subdomain resolution not yet active, use API resolution" },
         "protocolAddress":    { "type": "string", "pattern": "^[a-z0-9-]+\\\\.agentid$" },
         "displayName":        { "type": "string" },
         "description":        { "type": ["string", "null"] },
@@ -288,7 +288,7 @@ export function Protocol() {
               <SectionTitle id="overview">Overview</SectionTitle>
               <div className="prose-sm space-y-4" style={{ color: 'var(--text-muted)' }}>
                 <p className="text-sm leading-relaxed">
-                  The <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>.agentid</span> resolution protocol provides a standardized way to look up agent identities. Any orchestration framework &mdash; LangChain, CrewAI, AutoGPT, or your own &mdash; can resolve a <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> name to discover how to communicate with that agent.
+                  The <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>.agentid</span> resolution protocol provides a standardized way to look up agent identities. Any orchestration framework  -  LangChain, CrewAI, AutoGPT, or your own  -  can resolve a <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>.agentid</span> name to discover how to communicate with that agent.
                 </p>
                 <p className="text-sm leading-relaxed">
                   All resolution endpoints are public and require no authentication. Rate limits apply at 100 requests/minute per IP for unauthenticated callers. All responses use <span style={{ fontFamily: 'var(--font-mono)' }}>application/json</span>.

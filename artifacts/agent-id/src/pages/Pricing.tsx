@@ -10,17 +10,17 @@ import { api } from '@/lib/api';
 const shortHandleFaq = (() => {
   const t3 = HANDLE_PRICING_TIERS.find(t => t.minLength === 3);
   const t4 = HANDLE_PRICING_TIERS.find(t => t.minLength === 4);
-  return `3- and 4-character handles are premium due to their scarcity — priced at $${t3?.annualPrice ?? 99}/yr and $${t4?.annualPrice ?? 29}/yr respectively, similar to ENS short-name pricing. Handles with 5 or more characters are completely free — no subscription required.`;
+  return `3- and 4-character handles are premium due to their scarcity  -  priced at $${t3?.annualPrice ?? 99}/yr and $${t4?.annualPrice ?? 29}/yr respectively, similar to ENS short-name pricing. Handles with 5 or more characters are completely free  -  no subscription required.`;
 })();
 
 const FAQ_ITEMS = [
   {
     q: 'What happens if I don\'t renew?',
-    a: 'Your UUID machine identity is permanent — it never expires and always resolves. Only your handle (the human-readable alias) is annual. After expiry you get a 90-day grace period, then a 21-day decreasing-price auction before the handle becomes available to others.',
+    a: 'Your UUID machine identity is permanent  -  it never expires and always resolves. Only your handle (the human-readable alias) is annual. After expiry you get a 90-day grace period, then a 21-day decreasing-price auction before the handle becomes available to others.',
   },
   {
     q: 'Can I upgrade or downgrade at any time?',
-    a: 'Yes. Plan changes take effect immediately and are prorated. Downgrading from Pro to Starter is seamless — your agents retain their UUID identities. 5+ character handles are free and never expire.',
+    a: 'Yes. Plan changes take effect immediately and are prorated. Downgrading from Pro to Starter is seamless  -  your agents retain their UUID identities. 5+ character handles are free and never expire.',
   },
   {
     q: 'What are short handles and how are they priced?',
@@ -107,7 +107,7 @@ export function Pricing() {
             Simple pricing. SDK, MCP, and REST API included.
           </h1>
           <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--text-muted)' }}>
-            Three tiers — no free plan. Every agent gets a permanent UUID identity at registration, regardless of plan.
+            Three tiers  -  no free plan. Every agent gets a permanent UUID identity at registration, regardless of plan.
           </p>
         </div>
 
@@ -196,7 +196,7 @@ export function Pricing() {
         </div>
 
         <p className="text-center text-sm mb-16" style={{ color: 'var(--text-dim)' }}>
-          Trusted by autonomous agents everywhere — verifiable, routable, and ready to work.
+          Trusted by autonomous agents everywhere  -  verifiable, routable, and ready to work.
         </p>
 
         <div className="max-w-[700px] mx-auto">

@@ -41,18 +41,18 @@ const org = await AgentID.orgs.register({
 
 console.log(org.orgId)          // org_01JX...
 console.log(org.handle)         // acmecorp.agentid
-console.log(org.orgTrustScore)  // 0 — grows as org gets verified
+console.log(org.orgTrustScore)  // 0  -  grows as org gets verified
 
 // 2. Register the CEO agent under the org
 const ceo = await AgentID.orgs.registerMember(org.orgId, {
   handle: 'ceo',              // resolves as ceo@acmecorp.agentid
   displayName: 'CEO Agent',
   capabilities: ['strategy', 'approve', 'delegate'],
-  role: 'admin',              // org admin — can invite/revoke members
+  role: 'admin',              // org admin  -  can invite/revoke members
 })
 
 console.log(ceo.handle)         // ceo@acmecorp.agentid
-console.log(ceo.apiKey)         // agk_... — store securely
+console.log(ceo.apiKey)         // agk_...  -  store securely
 
 // 3. Register sub-agents (C-suite)
 const cto = await AgentID.orgs.registerMember(org.orgId, {
@@ -113,13 +113,13 @@ const TRUST_EXAMPLE = `// Org trust is currently computed as the average of all 
 
 const resolved = await AgentID.resolve('compiler@acmecorp')
 
-console.log(resolved.agentTrustScore)     // 45 — individual history
-console.log(resolved.orgTrustScore)       // 88 — org avg of member scores
+console.log(resolved.agentTrustScore)     // 45  -  individual history
+console.log(resolved.orgTrustScore)       // 88  -  org avg of member scores
 
 // An unproven new hire still benefits from the org's reputation:
 const newHire = await AgentID.resolve('newbot@acmecorp')
-console.log(newHire.agentTrustScore)     // 12 — brand new agent
-console.log(newHire.orgTrustScore)       // 88 — org avg unchanged`;
+console.log(newHire.agentTrustScore)     // 12  -  brand new agent
+console.log(newHire.orgTrustScore)       // 88  -  org avg unchanged`;
 
 const DELEGATION_EXAMPLE = `// CEO issues a delegation VC to the CTO
 // Scoped to engineering capabilities only
@@ -305,7 +305,7 @@ export function DocsOrganizations() {
           </h1>
         </div>
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, maxWidth: 580, marginBottom: 32 }}>
-          Register a company, department, or team as a verified org on Agent ID. Every agent in the org gets a namespaced handle, inherits the org's trust baseline, and participates in a delegated credential chain — from CEO down to individual coder or art agents.
+          Register a company, department, or team as a verified org on Agent ID. Every agent in the org gets a namespaced handle, inherits the org's trust baseline, and participates in a delegated credential chain  -  from CEO down to individual coder or art agents.
         </p>
 
       </div>
@@ -325,12 +325,12 @@ export function DocsOrganizations() {
           <section id="overview" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 12 }}>Overview</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 20 }}>
-              A company running AI agents needs more than individual registrations. Agent ID supports first-class organisations — a verified entity that owns a namespace, sets a trust floor for all its members, and controls a delegation hierarchy from the board level down to individual task agents.
+              A company running AI agents needs more than individual registrations. Agent ID supports first-class organisations  -  a verified entity that owns a namespace, sets a trust floor for all its members, and controls a delegation hierarchy from the board level down to individual task agents.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
               {[
-                { icon: Users, color: '#4F7DF3', title: 'Namespaced handles', desc: 'Every agent gets agent@org.agentid — clear ownership, no collisions.' },
+                { icon: Users, color: '#4F7DF3', title: 'Namespaced handles', desc: 'Every agent gets agent@org.agentid  -  clear ownership, no collisions.' },
                 { icon: Shield, color: '#8B5CF6', title: 'Trust inheritance', desc: "Org reputation floors sub-agent trust. A new hire isn't unverified if the org is elite." },
                 { icon: GitBranch, color: '#10B981', title: 'Delegation chain', desc: 'CEO issues VCs to C-suite; they re-delegate (within scope) down the tree.' },
               ].map(f => (
@@ -343,7 +343,7 @@ export function DocsOrganizations() {
             </div>
 
             <div style={{ background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '20px 22px', marginBottom: 4 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>Example org — Acme Corp</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>Example org  -  Acme Corp</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {ORG_CHART.map((agent) => (
                   <div
@@ -374,7 +374,7 @@ export function DocsOrganizations() {
                 ))}
               </div>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', marginTop: 14, marginBottom: 0 }}>
-                Trust scores shown are <strong style={{ color: 'rgba(255,255,255,0.35)' }}>effectiveTrustScore</strong> — blended from individual agent history and org reputation.
+                Trust scores shown are <strong style={{ color: 'rgba(255,255,255,0.35)' }}>effectiveTrustScore</strong>  -  blended from individual agent history and org reputation.
               </p>
             </div>
           </section>
@@ -382,11 +382,11 @@ export function DocsOrganizations() {
           <section id="handles" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Handle format</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
-              Org agents use <code style={{ color: '#7da5f5' }}>agent@org</code> handle notation. The <code style={{ color: '#7da5f5' }}>@</code> separator signals org membership at a glance — mirrors email convention and is unambiguous when parsed.
+              Org agents use <code style={{ color: '#7da5f5' }}>agent@org</code> handle notation. The <code style={{ color: '#7da5f5' }}>@</code> separator signals org membership at a glance  -  mirrors email convention and is unambiguous when parsed.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
-                { type: 'Individual agent', handle: 'research-bot.agentid', note: 'No org — standalone identity' },
+                { type: 'Individual agent', handle: 'research-bot.agentid', note: 'No org  -  standalone identity' },
                 { type: 'Org root', handle: 'acmecorp.agentid', note: 'The org entity itself' },
                 { type: 'Org member', handle: 'cto@acmecorp.agentid', note: 'Agent inside org' },
                 { type: 'Canonical DID', handle: 'did:agentid:org:acmecorp:cto', note: 'Off-chain DID format (on-chain anchoring coming soon)' },
@@ -418,7 +418,7 @@ export function DocsOrganizations() {
                 ['CEO (established)', '91', '88', 'elite', '', ''],
                 ['CTO (experienced)', '72', '88', 'trusted', '', ''],
                 ['New coder (day 1)', '12', '88', 'basic', '', ''],
-                ['Solo agent (no org)', '12', '—', 'unverified', '', ''],
+                ['Solo agent (no org)', '12', ' - ', 'unverified', '', ''],
               ].map(([agent, at, ot, tier, _unused, header], i) => (
                 <div key={agent} style={{ display: 'grid', gridTemplateColumns: '200px 90px 90px 1fr', padding: '9px 14px', background: i === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
                   <span style={{ fontSize: i === 0 ? 11 : 13, color: i === 0 ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.55)', fontWeight: i === 0 ? 700 : 400, textTransform: i === 0 ? 'uppercase' : 'none', letterSpacing: i === 0 ? '0.05em' : 0 }}>{agent}</span>
@@ -429,9 +429,9 @@ export function DocsOrganizations() {
               ))}
             </div>
             <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.3)', lineHeight: 1.6, margin: 0 }}>
-              The org's <code style={{ color: '#7da5f5' }}>orgTrustScore</code> rises with business verification (legal entity proof, website attestation, domain verification). An elite-tier org meaningfully lifts every member's standing — making it worth investing in org verification early.
+              The org's <code style={{ color: '#7da5f5' }}>orgTrustScore</code> rises with business verification (legal entity proof, website attestation, domain verification). An elite-tier org meaningfully lifts every member's standing  -  making it worth investing in org verification early.
             </p>
-            <CodeBlock code={TRUST_EXAMPLE} title="Trust blending — TypeScript" />
+            <CodeBlock code={TRUST_EXAMPLE} title="Trust blending  -  TypeScript" />
           </section>
 
           <section id="register" style={{ marginBottom: 52 }}>
@@ -439,18 +439,18 @@ export function DocsOrganizations() {
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
               One SDK call registers the org; subsequent calls add members. Each member gets its own API key and DID, stored securely by each respective agent.
             </p>
-            <CodeBlock code={ORG_REGISTER_EXAMPLE} title="Register org + C-suite — TypeScript" />
+            <CodeBlock code={ORG_REGISTER_EXAMPLE} title="Register org + C-suite  -  TypeScript" />
           </section>
 
           <section id="teams" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Teams &amp; hierarchy</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
-              Teams group agents under a parent. There is no handle nesting beyond <code style={{ color: '#7da5f5' }}>agent@org</code> — team membership is metadata, not URL structure. All handles remain flat and human-readable.
+              Teams group agents under a parent. There is no handle nesting beyond <code style={{ color: '#7da5f5' }}>agent@org</code>  -  team membership is metadata, not URL structure. All handles remain flat and human-readable.
             </p>
             <div style={{ padding: '10px 14px', background: 'rgba(52,211,153,0.05)', border: '1px solid rgba(52,211,153,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(52,211,153,0.7)', lineHeight: 1.55, marginBottom: 16 }}>
-              <strong style={{ fontWeight: 700 }}>Handle stays flat:</strong> A coder in the engineering team is <code style={{ fontSize: 11 }}>compiler@acmecorp.agentid</code> — not <code style={{ fontSize: 11 }}>compiler@engineering.acmecorp.agentid</code>. Team membership is queryable via the API but doesn't change the handle.
+              <strong style={{ fontWeight: 700 }}>Handle stays flat:</strong> A coder in the engineering team is <code style={{ fontSize: 11 }}>compiler@acmecorp.agentid</code>  -  not <code style={{ fontSize: 11 }}>compiler@engineering.acmecorp.agentid</code>. Team membership is queryable via the API but doesn't change the handle.
             </div>
-            <CodeBlock code={TEAM_REGISTER_EXAMPLE} title="Teams + leaf agents — TypeScript" />
+            <CodeBlock code={TEAM_REGISTER_EXAMPLE} title="Teams + leaf agents  -  TypeScript" />
           </section>
 
           <section id="delegation" style={{ marginBottom: 52 }}>
@@ -472,19 +472,19 @@ export function DocsOrganizations() {
                 </div>
               ))}
             </div>
-            <CodeBlock code={DELEGATION_EXAMPLE} title="Issue & verify delegation chain — TypeScript" />
+            <CodeBlock code={DELEGATION_EXAMPLE} title="Issue & verify delegation chain  -  TypeScript" />
           </section>
 
           <section id="revocation" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Revocation</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
-              Any org admin can remove a member or revoke a specific credential. Revocation is immediate and cascades — every VC issued by the revoked agent becomes invalid.
+              Any org admin can remove a member or revoke a specific credential. Revocation is immediate and cascades  -  every VC issued by the revoked agent becomes invalid.
             </p>
             <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 8, fontSize: 12.5, color: 'rgba(252,165,165,0.75)', lineHeight: 1.55, marginBottom: 16, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <AlertTriangle size={14} style={{ color: '#EF4444', marginTop: 1, flexShrink: 0 }} />
               <span><strong style={{ fontWeight: 700 }}>Cascade is irreversible:</strong> Removing an agent immediately invalidates all credentials they issued downstream. If a CTO issued VCs to 50 team agents, those all expire on CTO removal. Re-issue from the CEO or a new CTO after restructuring.</span>
             </div>
-            <CodeBlock code={REVOKE_EXAMPLE} title="Remove member & revoke credentials — TypeScript" />
+            <CodeBlock code={REVOKE_EXAMPLE} title="Remove member & revoke credentials  -  TypeScript" />
           </section>
 
           <section id="api" style={{ marginBottom: 52 }}>

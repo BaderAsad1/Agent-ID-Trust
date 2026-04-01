@@ -679,11 +679,11 @@ function HeroIssuanceRings({ heroProgress }: { heroProgress: number }) {
 }
 
 const ANATOMY_LAYERS = [
-  { id: 'identity', label: 'IDENTITY', desc: 'Your agent\'s verified name and unique handle registered globally — the source of record for who this agent is', color: '#4f7df3' },
+  { id: 'identity', label: 'IDENTITY', desc: 'Your agent\'s verified name and unique handle registered globally  -  the source of record for who this agent is', color: '#4f7df3' },
   { id: 'proof', label: 'CRYPTOGRAPHIC PROOF', desc: 'A public key binding that lets any system verify the credential without contacting you', color: '#7c5bf5' },
-  { id: 'address', label: 'ADDRESS & DOMAIN', desc: 'A routable .AgentID subdomain — other agents and systems can find and reach your agent directly', color: '#4f7df3' },
-  { id: 'trust', label: 'TRUST STATE', desc: 'A live trust score derived from attestations, uptime, and activity — readable by any relying party in real time', color: '#34d399' },
-  { id: 'capabilities', label: 'CAPABILITIES', desc: 'A signed manifest of what your agent can do — declared and attested, not self-asserted', color: '#4f7df3' },
+  { id: 'address', label: 'ADDRESS & DOMAIN', desc: 'A routable .AgentID subdomain  -  other agents and systems can find and reach your agent directly', color: '#4f7df3' },
+  { id: 'trust', label: 'TRUST STATE', desc: 'A live trust score derived from attestations, uptime, and activity  -  readable by any relying party in real time', color: '#34d399' },
+  { id: 'capabilities', label: 'CAPABILITIES', desc: 'A signed manifest of what your agent can do  -  declared and attested, not self-asserted', color: '#4f7df3' },
   { id: 'routing', label: 'ROUTING & INBOX', desc: 'Protocol-level addressability for receiving tasks, messages, and delegated work', color: '#7c5bf5' },
   { id: 'payments', label: 'OPTIONAL: PAYMENTS', desc: 'When enabled, your agent gains billing identity and payment authorization for commercial interactions', color: '#34d399' },
 ];
@@ -711,7 +711,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
             <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Immediate trust.</span>
           </h2>
           <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.6, color: 'rgba(232,232,240,0.45)' }}>
-            Everything another system needs to know about your agent — readable in milliseconds.
+            Everything another system needs to know about your agent  -  readable in milliseconds.
           </p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -776,7 +776,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
           fontFamily: "'Inter', sans-serif", fontSize: 'clamp(13px, 1.4vw, 17px)', lineHeight: 1.55,
           color: 'rgba(232,232,240,0.5)', maxWidth: 520, margin: '0 auto',
         }}>
-          An Agent Credential is a live identity object. It carries everything another system needs to know about your agent — without an API call, without a handshake, without your involvement.
+          An Agent Credential is a live identity object. It carries everything another system needs to know about your agent  -  without an API call, without a handshake, without your involvement.
         </p>
       </div>
 
@@ -1046,7 +1046,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
           fontFamily: "'Inter', sans-serif", fontSize: 'clamp(13px, 1.4vw, 17px)', lineHeight: 1.55,
           color: 'rgba(232,232,240,0.5)', maxWidth: 460, margin: '0 auto',
         }}>
-          A credential doesn't just prove who your agent is. It unlocks the infrastructure your agent needs to operate — routing, trust signals, marketplace access, and more.
+          A credential doesn't just prove who your agent is. It unlocks the infrastructure your agent needs to operate  -  routing, trust signals, marketplace access, and more.
         </p>
       </div>
 
@@ -1235,7 +1235,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
 const OUTCOME_ITEMS = [
   {
     label: 'A unique .AgentID handle',
-    desc: 'Your agent gets a persistent, globally unique identifier — readable by humans, resolvable by machines.',
+    desc: 'Your agent gets a persistent, globally unique identifier  -  readable by humans, resolvable by machines.',
     icon: '◈',
     color: '#4f7df3',
   },
@@ -1247,7 +1247,7 @@ const OUTCOME_ITEMS = [
   },
   {
     label: 'A live trust state',
-    desc: 'A dynamic trust score — continuously updated from activity, attestations, and peer reviews — visible to any relying party.',
+    desc: 'A dynamic trust score  -  continuously updated from activity, attestations, and peer reviews  -  visible to any relying party.',
     icon: '◎',
     color: '#34d399',
   },
@@ -1650,7 +1650,7 @@ const DEV_TOOLS = [
   { label: 'TypeScript SDK', desc: 'First-class types and async helpers for Node.js and browser environments.', tag: 'STABLE', color: '#4f7df3' },
   { label: 'Python SDK', desc: 'Idiomatic Python client for agent registration and credential resolution.', tag: 'STABLE', color: '#7c5bf5' },
   { label: 'Resolver Library', desc: 'Lightweight library for resolving .AgentID handles to credential objects.', tag: 'STABLE', color: '#34d399' },
-  { label: 'Credential Verification', desc: 'Standalone verification module — no SDK required. Verify anywhere.', tag: 'STABLE', color: '#34d399' },
+  { label: 'Credential Verification', desc: 'Standalone verification module  -  no SDK required. Verify anywhere.', tag: 'STABLE', color: '#34d399' },
   { label: 'MCP Support', desc: 'Model Context Protocol integration for Claude, Cursor, and compatible hosts.', tag: 'BETA', color: '#f5a623' },
 ];
 
@@ -2208,7 +2208,7 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         opacity: contentOpacity * 0.8,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
-        Claim a .AgentID handle. Issue an Agent Credential. Let any system resolve, verify, and trust your agent — without asking you first.
+        Claim a .AgentID handle. Issue an Agent Credential. Let any system resolve, verify, and trust your agent  -  without asking you first.
       </p>
 
       <div style={{

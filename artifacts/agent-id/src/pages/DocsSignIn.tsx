@@ -96,14 +96,14 @@ url.searchParams.set('code_challenge_method', 'S256');
 
 window.location.href = url.toString();`;
 
-const DELEGATED_STEP2 = `// /callback route — after user approves
+const DELEGATED_STEP2 = `// /callback route  -  after user approves
 const params = new URLSearchParams(window.location.search);
 const code  = params.get('code');
 const state = params.get('state');
 
 // Validate state
 if (state !== sessionStorage.getItem('oauth_state')) {
-  throw new Error('State mismatch — possible CSRF');
+  throw new Error('State mismatch  -  possible CSRF');
 }
 
 const codeVerifier = sessionStorage.getItem('pkce_verifier');
@@ -241,7 +241,7 @@ const BUTTON_EMBED = `import { SignInWithAgentID } from './SignInWithAgentID';
   size="lg"
 />
 
-// Headless — build the URL yourself
+// Headless  -  build the URL yourself
 import { buildAgentIDAuthUrl } from './SignInWithAgentID';
 
 const authUrl = buildAgentIDAuthUrl({
@@ -283,7 +283,7 @@ export function DocsSignIn() {
           Sign in with Agent ID <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '3px 10px', borderRadius: 6, verticalAlign: 'middle', letterSpacing: '0.04em' }}>BETA</span>
         </h1>
         <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, maxWidth: 620 }}>
-          Let your app authenticate AI agents — either through a human-delegated browser flow or fully autonomous machine-to-machine auth using signed assertions.
+          Let your app authenticate AI agents  -  either through a human-delegated browser flow or fully autonomous machine-to-machine auth using signed assertions.
         </p>
 
         {/* Mode cards */}
@@ -305,7 +305,7 @@ export function DocsSignIn() {
         </div>
       </div>
 
-      {/* Body — sidebar + content */}
+      {/* Body  -  sidebar + content */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: '200px 1fr', gap: 48 }}>
 
         {/* Sticky TOC */}
@@ -322,7 +322,7 @@ export function DocsSignIn() {
         <main>
 
           {/* Overview */}
-          <Section id="overview" title="How it works" subtitle="Agent ID is a standard OIDC/OAuth 2.0 provider — any compliant library integrates with zero customisation.">
+          <Section id="overview" title="How it works" subtitle="Agent ID is a standard OIDC/OAuth 2.0 provider  -  any compliant library integrates with zero customisation.">
             <div style={{ padding: '16px 20px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, marginBottom: 20 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Discovery document</p>
               <code style={{ fontSize: 13, color: '#7da5f5' }}>GET {BASE}/.well-known/openid-configuration</code>
@@ -344,7 +344,7 @@ export function DocsSignIn() {
               ))}
             </div>
             <Callout type="info">
-              Tokens are signed with <strong>EdDSA (Ed25519)</strong> and are short-lived (15 minutes). Verify them locally using the JWKS endpoint — no introspection call needed for typical auth checks.
+              Tokens are signed with <strong>EdDSA (Ed25519)</strong> and are short-lived (15 minutes). Verify them locally using the JWKS endpoint  -  no introspection call needed for typical auth checks.
             </Callout>
           </Section>
 
@@ -362,7 +362,7 @@ export function DocsSignIn() {
     "tokenEndpointAuthMethod": "none"
   }'`} />
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 10, lineHeight: 1.6 }}>
-                You'll receive a <code style={{ color: '#7da5f5' }}>client_id</code>. For public clients (SPAs, mobile apps) set <code style={{ color: '#7da5f5' }}>tokenEndpointAuthMethod: "none"</code> — PKCE is then required.
+                You'll receive a <code style={{ color: '#7da5f5' }}>client_id</code>. For public clients (SPAs, mobile apps) set <code style={{ color: '#7da5f5' }}>tokenEndpointAuthMethod: "none"</code>  -  PKCE is then required.
               </p>
             </Step>
             <Callout type="tip">
@@ -395,14 +395,14 @@ export function DocsSignIn() {
             <Step n={2} title="Sign the assertion with your private key">
               <CodeBlock code={AUTONOMOUS_ASSERTION} />
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 10, lineHeight: 1.6 }}>
-                The assertion is a compact JWT (<code style={{ color: '#7da5f5' }}>alg: "EdDSA"</code>). The <code style={{ color: '#7da5f5' }}>jti</code> must exactly match the nonce from step 1 — this is the replay-prevention binding.
+                The assertion is a compact JWT (<code style={{ color: '#7da5f5' }}>alg: "EdDSA"</code>). The <code style={{ color: '#7da5f5' }}>jti</code> must exactly match the nonce from step 1  -  this is the replay-prevention binding.
               </p>
             </Step>
             <Step n={3} title="Exchange for an access token">
               <CodeBlock code={AUTONOMOUS_TOKEN} />
             </Step>
             <Callout type="warn">
-              Nonces are single-use and expire quickly (default 5 minutes). Never reuse a nonce — the server will reject replayed assertions.
+              Nonces are single-use and expire quickly (default 5 minutes). Never reuse a nonce  -  the server will reject replayed assertions.
             </Callout>
           </Section>
 
@@ -425,7 +425,7 @@ export function DocsSignIn() {
           <Section id="claims" title="Token claims" subtitle="Every Agent ID access token includes these claims.">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
-                { claim: 'sub', desc: 'Agent DID — e.g. did:agentid:clawd', type: 'string' },
+                { claim: 'sub', desc: 'Agent DID  -  e.g. did:agentid:clawd', type: 'string' },
                 { claim: 'iss', desc: 'Token issuer (https://getagent.id)', type: 'string' },
                 { claim: 'aud', desc: 'Your client_id', type: 'string' },
                 { claim: 'agent_id', desc: 'Internal Agent ID (UUID)', type: 'string' },
@@ -460,7 +460,7 @@ export function DocsSignIn() {
                 { icon: '⏱', title: 'Short-lived tokens', body: 'Access tokens expire in 15 minutes. Build a refresh flow using the refresh_token for longer sessions.' },
                 { icon: '🔄', title: 'Validate trust freshness for sensitive ops', body: 'For financial or high-privilege actions, call /api/v1/auth/introspect to get live revocation and trust state rather than relying solely on the JWT.' },
                 { icon: '🚫', title: 'Revoked agents are hard-rejected', body: 'An agent with status revoked, suspended, or draft cannot obtain a token. Any attempt returns invalid_client immediately.' },
-                { icon: '🎯', title: 'Autonomous: nonces are single-use', body: 'Each nonce issued by /api/v1/auth/challenge can only be used once. The jti in your assertion must match the issued nonce — replays are rejected.' },
+                { icon: '🎯', title: 'Autonomous: nonces are single-use', body: 'Each nonce issued by /api/v1/auth/challenge can only be used once. The jti in your assertion must match the issued nonce  -  replays are rejected.' },
               ].map(({ icon, title, body }) => (
                 <div key={title} style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                   <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>

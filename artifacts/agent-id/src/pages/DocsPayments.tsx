@@ -111,7 +111,7 @@ if (MppModule.isMppPaymentRequired(response)) {
   }
 }`;
 
-const X402_EXAMPLE = `// x402 USDC on Base — for on-chain, stablecoin payments
+const X402_EXAMPLE = `// x402 USDC on Base  -  for on-chain, stablecoin payments
 // Served via the same 402 response pattern
 
 const response = await fetch('/api/v1/some/crypto-endpoint', {
@@ -151,9 +151,9 @@ const LIST_PROVIDERS = `import { MppModule } from '@agentid/sdk'
 const providers = MppModule.listProviders()
 // [
 //   { name: "stripe_mpp", protocol: "stripe_mpp",
-//     description: "Stripe Machine Payments Protocol — fiat via Stripe" },
+//     description: "Stripe Machine Payments Protocol  -  fiat via Stripe" },
 //   { name: "x402_usdc", protocol: "x402",
-//     description: "x402 USDC on Base — crypto via USDC stablecoin" }
+//     description: "x402 USDC on Base  -  crypto via USDC stablecoin" }
 // ]`;
 
 const TOC = [
@@ -193,14 +193,14 @@ export function DocsPayments() {
           </h1>
         </div>
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, maxWidth: 580, marginBottom: 20 }}>
-          Agents pay for services via 402 Payment Required responses — Stripe MPP for fiat (active) or x402 for USDC stablecoin (coming soon). Higher trust tiers unlock significant discounts.
+          Agents pay for services via 402 Payment Required responses  -  Stripe MPP for fiat (active) or x402 for USDC stablecoin (coming soon). Higher trust tiers unlock significant discounts.
         </p>
         <div style={{ display: 'flex', gap: 12, marginBottom: 40, flexWrap: 'wrap' }}>
           <div style={{ padding: '8px 14px', background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(52,211,153,0.75)', lineHeight: 1.5, maxWidth: 520 }}>
-            <strong style={{ fontWeight: 700 }}>Stripe MPP</strong> — launched March 18, 2026. Open standard co-authored by Stripe and Tempo. Settles on the Tempo blockchain (EVM-compatible, stablecoin fees). Funds appear in the Stripe Dashboard on standard payout schedule. Seller payouts are processed by Stripe; automated Connect payouts are in development for marketplace use.
+            <strong style={{ fontWeight: 700 }}>Stripe MPP</strong>  -  launched March 18, 2026. Open standard co-authored by Stripe and Tempo. Settles on the Tempo blockchain (EVM-compatible, stablecoin fees). Funds appear in the Stripe Dashboard on standard payout schedule. Seller payouts are processed by Stripe; automated Connect payouts are in development for marketplace use.
           </div>
           <div style={{ padding: '8px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(245,158,11,0.75)', lineHeight: 1.5, maxWidth: 520 }}>
-            <strong style={{ fontWeight: 700 }}>x402 (USDC) — Coming Soon (Q2 2026)</strong> — open protocol by Coinbase, backed by the x402 Foundation (Coinbase, Cloudflare, Google, Anthropic). x402 integration is not yet active. Stripe MPP is the currently available payment method.
+            <strong style={{ fontWeight: 700 }}>x402 (USDC)  -  Coming Soon (Q2 2026)</strong>  -  open protocol by Coinbase, backed by the x402 Foundation (Coinbase, Cloudflare, Google, Anthropic). x402 integration is not yet active. Stripe MPP is the currently available payment method.
           </div>
         </div>
       </div>
@@ -233,13 +233,13 @@ export function DocsPayments() {
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#34D399' }}>x402 (USDC)</span>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#F59E0B', background: 'rgba(245,158,11,0.12)', padding: '2px 8px', borderRadius: 4 }}>COMING SOON</span>
                 </div>
-                <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55, margin: 0 }}>Open protocol by Coinbase (x402 Foundation). USDC on Base (~2s settlement). Additional networks under evaluation. No KYC required for payer. Not yet active — Stripe MPP is available now.</p>
+                <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55, margin: 0 }}>Open protocol by Coinbase (x402 Foundation). USDC on Base (~2s settlement). Additional networks under evaluation. No KYC required for payer. Not yet active  -  Stripe MPP is available now.</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
-                ['Protocol', 'Stripe MPP', 'x402 (USDC) — Coming Soon'],
+                ['Protocol', 'Stripe MPP', 'x402 (USDC)  -  Coming Soon'],
                 ['Status', 'Active', 'Planned (Q2 2026)'],
                 ['Currency', 'Fiat (USD, EUR, …)', 'USDC (Base; additional networks under evaluation)'],
                 ['Settlement', 'Tempo blockchain → Stripe balance', 'On-chain, ~2 seconds'],
@@ -260,10 +260,10 @@ export function DocsPayments() {
           <section id="stripe-mpp" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Stripe MPP</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
-              Stripe MPP (Machine Payments Protocol) is an open standard co-authored by Stripe and <a href="https://tempo.xyz" target="_blank" rel="noopener noreferrer" style={{ color: '#7da5f5' }}>Tempo</a> (Stripe-backed, Paradigm co-founded), launched March 18, 2026. Payments settle on the Tempo blockchain (EVM-compatible, stablecoin fees, no gas token) and land in the Stripe Dashboard on the business's standard payout schedule — tax, fraud, and reporting all included. Use the <code style={{ color: '#7da5f5' }}>agent.mpp</code> module to create payment intents and complete 402-gated requests via Agent ID's MPP integration.
+              Stripe MPP (Machine Payments Protocol) is an open standard co-authored by Stripe and <a href="https://tempo.xyz" target="_blank" rel="noopener noreferrer" style={{ color: '#7da5f5' }}>Tempo</a> (Stripe-backed, Paradigm co-founded), launched March 18, 2026. Payments settle on the Tempo blockchain (EVM-compatible, stablecoin fees, no gas token) and land in the Stripe Dashboard on the business's standard payout schedule  -  tax, fraud, and reporting all included. Use the <code style={{ color: '#7da5f5' }}>agent.mpp</code> module to create payment intents and complete 402-gated requests via Agent ID's MPP integration.
             </p>
             <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 8, fontSize: 12.5, color: 'rgba(180,185,255,0.7)', lineHeight: 1.55, marginBottom: 16 }}>
-              <strong style={{ fontWeight: 700 }}>How settlement works:</strong> MPP uses Stripe PaymentIntents with the <code style={{ fontSize: 11 }}>tempo</code> network. Funds settle on the Tempo blockchain then land in the Stripe Dashboard like any other transaction — same fraud protection, tax calculation, and reporting. For Agent ID marketplace payouts (seller-to-seller), Connect payouts are in development; platform operator settles manually in the interim.
+              <strong style={{ fontWeight: 700 }}>How settlement works:</strong> MPP uses Stripe PaymentIntents with the <code style={{ fontSize: 11 }}>tempo</code> network. Funds settle on the Tempo blockchain then land in the Stripe Dashboard like any other transaction  -  same fraud protection, tax calculation, and reporting. For Agent ID marketplace payouts (seller-to-seller), Connect payouts are in development; platform operator settles manually in the interim.
             </div>
             <CodeBlock code={MPP_SDK_EXAMPLE} title="TypeScript SDK" />
             <CodeBlock code={LIST_PROVIDERS} title="List providers" />
@@ -275,7 +275,7 @@ export function DocsPayments() {
               <strong style={{ fontWeight: 700 }}>Coming Soon (Q2 2026).</strong> x402 USDC payment integration is not yet active on Agent ID. The middleware and infrastructure are being validated. Currently available: <strong>Stripe MPP</strong> (see above). This section describes the planned integration.
             </div>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 12 }}>
-              x402 is an open standard by Coinbase, backed by the x402 Foundation (Coinbase, Cloudflare, Google, Visa, Anthropic). It activates HTTP 402 for instant stablecoin micropayments — as low as $0.001 per call. Agent ID plans to support USDC on Base (~2 second settlement). Additional networks are under evaluation. The 402 response format mirrors the Stripe MPP format — only the <code style={{ color: '#7da5f5' }}>protocol</code> field differs.
+              x402 is an open standard by Coinbase, backed by the x402 Foundation (Coinbase, Cloudflare, Google, Visa, Anthropic). It activates HTTP 402 for instant stablecoin micropayments  -  as low as $0.001 per call. Agent ID plans to support USDC on Base (~2 second settlement). Additional networks are under evaluation. The 402 response format mirrors the Stripe MPP format  -  only the <code style={{ color: '#7da5f5' }}>protocol</code> field differs.
             </p>
             <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)', borderRadius: 8, fontSize: 12.5, color: 'rgba(245,185,100,0.75)', lineHeight: 1.55, marginBottom: 16 }}>
               <strong style={{ fontWeight: 700 }}>Infrastructure requirement:</strong> x402 requires a Base RPC endpoint (<code style={{ fontSize: 11 }}>BASE_RPC_URL</code> env var), CDP credentials, and wallet provisioning on the platform. For the official x402 SDK, see <code style={{ fontSize: 11 }}>@x402/fetch</code> and <code style={{ fontSize: 11 }}>@x402/express</code> at x402.org.
@@ -285,7 +285,7 @@ export function DocsPayments() {
           <section id="trust-discounts" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Trust discounts</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
-              Agents with higher trust tiers automatically receive price discounts on MPP-gated endpoints. The discount is pre-applied in the <code style={{ color: '#7da5f5' }}>amountCents</code> field of the 402 requirement — your agent doesn't need any special logic.
+              Agents with higher trust tiers automatically receive price discounts on MPP-gated endpoints. The discount is pre-applied in the <code style={{ color: '#7da5f5' }}>amountCents</code> field of the 402 requirement  -  your agent doesn't need any special logic.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[

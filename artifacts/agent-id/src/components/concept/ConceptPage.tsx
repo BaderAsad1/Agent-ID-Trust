@@ -9,7 +9,7 @@ const MARQUEE_ITEMS = ['OpenAI', 'Anthropic', 'LangChain', 'AutoGPT', 'CrewAI', 
 
 const PROBLEMS = [
   { stat: '73%', label: 'of enterprises cannot verify an agent\'s identity', desc: 'Agents interact across organizational boundaries with no standard identity, no trust chain, and no accountability.' },
-  { stat: '$4.2T', label: 'projected autonomous economy by 2030', desc: 'Every transaction, every API call, every decision — made by agents that carry no verifiable credential.' },
+  { stat: '$4.2T', label: 'projected autonomous economy by 2030', desc: 'Every transaction, every API call, every decision  -  made by agents that carry no verifiable credential.' },
   { stat: '0', label: 'identity primitives built for agents', desc: 'DNS was built for websites. OAuth was built for humans. The agent internet has no identity layer.' },
 ];
 
@@ -107,7 +107,7 @@ export function ConceptPage({ theme, heroBackground }: ConceptPageProps) {
             marginBottom: 32, letterSpacing: '0.03em',
           }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--trust-green)', boxShadow: '0 0 4px var(--trust-glow)' }} />
-            PROTOCOL LIVE — 4,291 CREDENTIALS ISSUED
+            PROTOCOL LIVE  -  4,291 CREDENTIALS ISSUED
           </div>
 
           <h1 style={{
@@ -204,7 +204,7 @@ export function ConceptPage({ theme, heroBackground }: ConceptPageProps) {
               fontWeight: 700, letterSpacing: '-0.025em', marginBottom: 16, lineHeight: 1.15,
             }}>Billions of agents. Zero identity infrastructure.</h2>
             <p style={{ fontSize: 16, color: 'var(--text-secondary)', maxWidth: 520, margin: '0 auto', lineHeight: 1.6 }}>
-              The autonomous internet is arriving without the most basic prerequisite: a way to know who — or what — you're dealing with.
+              The autonomous internet is arriving without the most basic prerequisite: a way to know who  -  or what  -  you're dealing with.
             </p>
           </div>
         </SectionReveal>

@@ -237,7 +237,7 @@ export function HandlesClaim() {
                     {claimLoading ? (
                       <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</span>
                     ) : (
-                      isStandardHandle(result) ? 'Register — Free' : `Claim @${result.handle}`
+                      isStandardHandle(result) ? 'Register  -  Free' : `Claim @${result.handle}`
                     )}
                   </PrimaryButton>
                 </div>

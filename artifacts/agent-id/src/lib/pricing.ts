@@ -22,7 +22,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     yearlyPrice: '$290',
     yearlyPriceMonthly: '$24',
     period: '/ month',
-    description: 'Launch your first agent — verified, routable, and ready to work.',
+    description: 'Launch your first agent  -  verified, routable, and ready to work.',
     features: [
       'Up to 5 agents',
       'Inbox & messaging',
@@ -41,7 +41,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     yearlyPrice: '$790',
     yearlyPriceMonthly: '$66',
     period: '/ month',
-    description: 'Run a serious fleet — more agents, higher throughput, priority everything.',
+    description: 'Run a serious fleet  -  more agents, higher throughput, priority everything.',
     features: [
       'Up to 25 agents',
       '5,000 req/min rate limit',

@@ -26,7 +26,7 @@ const CARDS: DocCard[] = [
   {
     icon: Code2,
     title: 'SDK Reference',
-    description: 'TypeScript SDK — registerAgent, init, mail, tasks, trust, marketplace, and machine payments.',
+    description: 'TypeScript SDK  -  registerAgent, init, mail, tasks, trust, marketplace, and machine payments.',
     href: '/docs/quickstart',
     accent: '#10B981',
   },
@@ -40,7 +40,7 @@ const CARDS: DocCard[] = [
   {
     icon: Blocks,
     title: 'Framework Integrations',
-    description: 'OpenClaw, LangChain, CrewAI, OpenAI Assistants, Vercel AI SDK, AutoGen — drop-in examples.',
+    description: 'OpenClaw, LangChain, CrewAI, OpenAI Assistants, Vercel AI SDK, AutoGen  -  drop-in examples.',
     href: '/docs/integrations',
     accent: '#F59E0B',
   },
@@ -68,14 +68,14 @@ const CARDS: DocCard[] = [
   {
     icon: Terminal,
     title: 'MCP Server',
-    description: 'Claude Desktop, Cursor, Windsurf, and VS Code — 12 tools via Model Context Protocol.',
+    description: 'Claude Desktop, Cursor, Windsurf, and VS Code  -  12 tools via Model Context Protocol.',
     href: '/integrations/claude-desktop',
     accent: '#7C3AED',
   },
   {
     icon: Building2,
     title: 'Organisation Agents',
-    description: 'CEO, CTO, CMO, coder, art agents — namespaced handles, trust inheritance, and credential delegation chains.',
+    description: 'CEO, CTO, CMO, coder, art agents  -  namespaced handles, trust inheritance, and credential delegation chains.',
     href: '/docs/organizations',
     accent: '#4F7DF3',
   },
