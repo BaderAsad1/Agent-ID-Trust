@@ -777,6 +777,18 @@ export async function createHandleCheckoutSession(
     },
   });
 
+  // Soft-fail: attempt to reserve the handle on-chain immediately after Stripe session
+  // creation so the registrar is aware of pending payment before the webhook fires.
+  // Failure here is non-blocking — the webhook path is the source of truth.
+  try {
+    const { reserveHandlesOnChain } = await import("./chains/base");
+    reserveHandlesOnChain([handle.toLowerCase()]).catch((err: unknown) => {
+      logger.warn({ handle, err: err instanceof Error ? err.message : String(err) }, "[billing] reserveHandlesOnChain soft-fail");
+    });
+  } catch {
+    // dynamic import failure — ignore
+  }
+
   return { url: session.url, priceCents };
 }
 

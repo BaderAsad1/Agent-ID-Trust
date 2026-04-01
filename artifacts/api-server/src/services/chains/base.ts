@@ -1,5 +1,5 @@
 import { createWalletClient, createPublicClient, http, parseAbi, type Address, type Hash } from "viem";
-import { base } from "viem/chains";
+import { base, baseSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { logger } from "../../middlewares/request-logger";
 
@@ -18,9 +18,12 @@ const AGENT_ID_HANDLE_ABI = parseAbi([
 ]);
 
 // ─── Canonical Registrar ABI (AgentIDRegistrar.sol v1.2.0) ───────────────────
-// Matches deployed contract:
-//   Mainnet: BASE_ERC8004_REGISTRY (0x8004A169FB4a3325136EB29fA0ceB6D2e539a432)
-//   Testnet: 0x8004A818BFB912233c491871b3d84c89A494BD9e
+// Proxy address (all write calls): BASE_AGENTID_REGISTRAR
+//   Testnet proxy:  0x1D592A07dF4aFd897D25d348e90389C494034110
+//   Mainnet proxy:  (set BASE_AGENTID_REGISTRAR)
+// Registry address (separate named value): BASE_ERC8004_REGISTRY
+//   Testnet registry: 0x8004A818BFB912233c491871b3d84c89A494BD9e
+//   Mainnet registry: 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432
 // Tier codes: premium_3 → 1, premium_4 → 2, standard_5plus → 3
 const REGISTRAR_ABI = parseAbi([
   "function registerHandle(string calldata handle, uint8 tier, uint256 expiresAt) external returns (uint256 agentId)",
@@ -29,6 +32,13 @@ const REGISTRAR_ABI = parseAbi([
   "function releaseHandle(string calldata handle) external",
   "function renewHandle(string calldata handle, uint256 newExpiry) external",
   "function handleRegistered(string calldata handle) external view returns (bool)",
+  "function reserveHandles(string[] calldata handles) external",
+  "function unreserveHandle(string calldata handle) external",
+  "function isHandleAvailable(string calldata handle) external view returns (bool)",
+  "function handleActive(string calldata handle) external view returns (bool)",
+  "function handleTier(string calldata handle) external view returns (uint8)",
+  "function handleExpiry(string calldata handle) external view returns (uint256)",
+  "function handleToAgentId(string calldata handle) external view returns (uint256)",
 ]);
 
 /**
@@ -63,16 +73,29 @@ function isOnchainMintingEnabled(): boolean {
   return v === "true" || v === "1";
 }
 
+/**
+ * Select the correct viem chain object based on BASE_CHAIN_ID env var.
+ * BASE_CHAIN_ID=84532 → baseSepolia (testnet)
+ * Anything else (or unset) → base (mainnet, chain ID 8453)
+ */
+function getViemChain() {
+  const chainId = process.env.BASE_CHAIN_ID;
+  if (chainId === "84532") return baseSepolia;
+  return base;
+}
+
 function getBaseConfig() {
   const rpcUrl = process.env.BASE_RPC_URL;
   const minterKey = process.env.BASE_MINTER_PRIVATE_KEY;
   // BASE_HANDLE_CONTRACT is deprecated from runtime use — kept for env reference only
   const contractAddress = process.env.BASE_HANDLE_CONTRACT as Address | undefined;
   const platformWallet = process.env.BASE_PLATFORM_WALLET as Address | undefined;
-  // BASE_ERC8004_REGISTRY is the canonical registrar address env var
-  const registrarAddress = (process.env.BASE_ERC8004_REGISTRY ?? process.env.BASE_AGENTID_REGISTRAR) as Address | undefined;
+  // BASE_AGENTID_REGISTRAR is the callable proxy for all write calls (primary).
+  // BASE_ERC8004_REGISTRY is the separate registry address (kept as named value for reference).
+  const registrarAddress = (process.env.BASE_AGENTID_REGISTRAR ?? process.env.BASE_ERC8004_REGISTRY) as Address | undefined;
+  const registryAddress = process.env.BASE_ERC8004_REGISTRY as Address | undefined;
 
-  return { rpcUrl, minterKey, contractAddress, platformWallet, registrarAddress };
+  return { rpcUrl, minterKey, contractAddress, platformWallet, registrarAddress, registryAddress };
 }
 
 function isChainEnabled(): boolean {
@@ -96,9 +119,10 @@ export interface ResolveOnChainResult {
 }
 
 function makeClients(rpcUrl: string, minterKey: string) {
+  const chain = getViemChain();
   const account = privateKeyToAccount(minterKey as `0x${string}`);
-  const publicClient = createPublicClient({ chain: base, transport: http(rpcUrl) });
-  const walletClient = createWalletClient({ account, chain: base, transport: http(rpcUrl) });
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
   return { account, publicClient, walletClient };
 }
 
@@ -166,6 +190,121 @@ export async function registerOnChain(
 }
 
 /**
+ * Reserve handles on-chain via AgentIDRegistrar.reserveHandles(string[]).
+ * Soft-fail: returns false if registrar is not configured or tx fails — never throws to caller.
+ * Called in the Stripe checkout path immediately after session creation to lock the handle
+ * in the registrar before payment completes.
+ */
+export async function reserveHandlesOnChain(handles: string[]): Promise<boolean> {
+  if (!isOnchainMintingEnabled()) {
+    logger.debug({ handles }, "[base] ONCHAIN_MINTING_ENABLED=false — skipping reserveHandlesOnChain");
+    return false;
+  }
+
+  const { rpcUrl, minterKey, registrarAddress } = getBaseConfig();
+
+  if (!rpcUrl || !minterKey || !registrarAddress) {
+    logger.debug({ handles }, "[base] reserveHandlesOnChain: registrar not configured — skipping");
+    return false;
+  }
+
+  try {
+    const { publicClient, walletClient } = makeClients(rpcUrl, minterKey);
+
+    const txHash = await walletClient.writeContract({
+      address: registrarAddress,
+      abi: REGISTRAR_ABI,
+      functionName: "reserveHandles",
+      args: [handles],
+    });
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: TX_RECEIPT_TIMEOUT_MS });
+
+    if (receipt.status !== "success") {
+      logger.warn({ handles, txHash }, "[base] reserveHandles tx reverted — soft-fail");
+      return false;
+    }
+
+    logger.info({ handles, txHash }, "[base] Handles reserved on-chain via AgentIDRegistrar.reserveHandles");
+    return true;
+  } catch (err) {
+    logger.warn({ handles, err: err instanceof Error ? err.message : String(err) }, "[base] reserveHandlesOnChain failed — soft-fail");
+    return false;
+  }
+}
+
+/**
+ * Unreserve a handle on-chain via AgentIDRegistrar.unreserveHandle(string).
+ * Soft-fail: returns false if registrar is not configured or tx fails — never throws to caller.
+ */
+export async function unreserveHandleOnChain(handle: string): Promise<boolean> {
+  if (!isOnchainMintingEnabled()) {
+    logger.debug({ handle }, "[base] ONCHAIN_MINTING_ENABLED=false — skipping unreserveHandleOnChain");
+    return false;
+  }
+
+  const { rpcUrl, minterKey, registrarAddress } = getBaseConfig();
+
+  if (!rpcUrl || !minterKey || !registrarAddress) {
+    logger.debug({ handle }, "[base] unreserveHandleOnChain: registrar not configured — skipping");
+    return false;
+  }
+
+  try {
+    const { publicClient, walletClient } = makeClients(rpcUrl, minterKey);
+
+    const txHash = await walletClient.writeContract({
+      address: registrarAddress,
+      abi: REGISTRAR_ABI,
+      functionName: "unreserveHandle",
+      args: [handle],
+    });
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: TX_RECEIPT_TIMEOUT_MS });
+
+    if (receipt.status !== "success") {
+      logger.warn({ handle, txHash }, "[base] unreserveHandle tx reverted — soft-fail");
+      return false;
+    }
+
+    logger.info({ handle, txHash }, "[base] Handle unreserved on-chain");
+    return true;
+  } catch (err) {
+    logger.warn({ handle, err: err instanceof Error ? err.message : String(err) }, "[base] unreserveHandleOnChain failed — soft-fail");
+    return false;
+  }
+}
+
+/**
+ * Check handle availability on-chain via AgentIDRegistrar.isHandleAvailable(string).
+ * Returns null if registrar is not configured or read fails.
+ */
+export async function isHandleAvailableOnChain(handle: string): Promise<boolean | null> {
+  const { rpcUrl, registrarAddress } = getBaseConfig();
+
+  if (!rpcUrl || !registrarAddress) {
+    return null;
+  }
+
+  try {
+    const chain = getViemChain();
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+
+    const available = await publicClient.readContract({
+      address: registrarAddress,
+      abi: REGISTRAR_ABI,
+      functionName: "isHandleAvailable",
+      args: [handle],
+    });
+
+    return available as boolean;
+  } catch (err) {
+    logger.warn({ handle, err: err instanceof Error ? err.message : String(err) }, "[base] isHandleAvailableOnChain failed");
+    return null;
+  }
+}
+
+/**
  * Transfer a handle from platform custody to a user's wallet via
  * AgentIDRegistrar.transferToUser(string, address).
  */
@@ -224,7 +363,8 @@ export async function resolveOnChain(
     return null;
   }
 
-  const publicClient = createPublicClient({ chain: base, transport: http(rpcUrl) });
+  const chain = getViemChain();
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
 
   const result = await publicClient.readContract({
     address: registrarAddress,
@@ -316,7 +456,7 @@ export async function getPlatformWallet(): Promise<Address | undefined> {
 }
 
 /**
- * Returns the canonical AgentIDRegistrar proxy address (BASE_ERC8004_REGISTRY or BASE_AGENTID_REGISTRAR).
+ * Returns the canonical AgentIDRegistrar proxy address (BASE_AGENTID_REGISTRAR).
  * This is the contract that /claim-nft and the idempotency path reference for metadata.
  */
 export async function getContractAddress(): Promise<Address | undefined> {

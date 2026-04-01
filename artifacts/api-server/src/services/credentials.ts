@@ -105,7 +105,7 @@ export async function issueCredential(agentId: string) {
     expirationDate: expiresAt.toISOString(),
     serialNumber,
     credentialSubject: {
-      id: `did:web:getagent.id:agents:${agent.handle}`,
+      id: `did:web:getagent.id:agents:${agent.id}`,
       handle: agent.handle,
       displayName: agent.displayName,
       agentId: agent.id,
