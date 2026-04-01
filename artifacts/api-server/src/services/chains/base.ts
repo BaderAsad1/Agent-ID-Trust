@@ -90,9 +90,11 @@ function getBaseConfig() {
   // BASE_HANDLE_CONTRACT is deprecated from runtime use — kept for env reference only
   const contractAddress = process.env.BASE_HANDLE_CONTRACT as Address | undefined;
   const platformWallet = process.env.BASE_PLATFORM_WALLET as Address | undefined;
-  // BASE_AGENTID_REGISTRAR is the callable proxy for all write calls (primary).
-  // BASE_ERC8004_REGISTRY is the separate registry address (kept as named value for reference).
-  const registrarAddress = (process.env.BASE_AGENTID_REGISTRAR ?? process.env.BASE_ERC8004_REGISTRY) as Address | undefined;
+  // BASE_AGENTID_REGISTRAR is the callable proxy — ONLY address used for write calls.
+  // No fallback to BASE_ERC8004_REGISTRY: the proxy and registry are separate contracts.
+  // Write calls (registerHandle, reserveHandles, transferToUser, etc.) MUST go through the proxy.
+  const registrarAddress = process.env.BASE_AGENTID_REGISTRAR as Address | undefined;
+  // BASE_ERC8004_REGISTRY is the ERC-8004 registry — kept for reference/read operations only.
   const registryAddress = process.env.BASE_ERC8004_REGISTRY as Address | undefined;
 
   return { rpcUrl, minterKey, contractAddress, platformWallet, registrarAddress, registryAddress };
@@ -427,6 +429,102 @@ export async function releaseHandleOnChain(
   logger.info({ handle, txHash }, "[base] Handle released on-chain");
 
   return { txHash };
+}
+
+// ─── View helpers for new ABI functions ─────────────────────────────────────
+
+/**
+ * Read whether a handle is active on-chain via AgentIDRegistrar.handleActive(string).
+ * Returns null if registrar is not configured or read fails.
+ */
+export async function getHandleActiveOnChain(handle: string): Promise<boolean | null> {
+  const { rpcUrl, registrarAddress } = getBaseConfig();
+  if (!rpcUrl || !registrarAddress) return null;
+  try {
+    const chain = getViemChain();
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+    const active = await publicClient.readContract({
+      address: registrarAddress,
+      abi: REGISTRAR_ABI,
+      functionName: "handleActive",
+      args: [handle],
+    });
+    return active as boolean;
+  } catch (err) {
+    logger.warn({ handle, err: err instanceof Error ? err.message : String(err) }, "[base] getHandleActiveOnChain failed");
+    return null;
+  }
+}
+
+/**
+ * Read the tier code for a handle on-chain via AgentIDRegistrar.handleTier(string).
+ * Returns null if registrar is not configured or read fails.
+ * Tier codes: 1=premium_3, 2=premium_4, 3=standard_5plus
+ */
+export async function getHandleTierOnChain(handle: string): Promise<number | null> {
+  const { rpcUrl, registrarAddress } = getBaseConfig();
+  if (!rpcUrl || !registrarAddress) return null;
+  try {
+    const chain = getViemChain();
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+    const tier = await publicClient.readContract({
+      address: registrarAddress,
+      abi: REGISTRAR_ABI,
+      functionName: "handleTier",
+      args: [handle],
+    });
+    return Number(tier);
+  } catch (err) {
+    logger.warn({ handle, err: err instanceof Error ? err.message : String(err) }, "[base] getHandleTierOnChain failed");
+    return null;
+  }
+}
+
+/**
+ * Read the expiry timestamp for a handle on-chain via AgentIDRegistrar.handleExpiry(string).
+ * Returns expiry as a Date, or null if registrar is not configured or read fails.
+ */
+export async function getHandleExpiryOnChain(handle: string): Promise<Date | null> {
+  const { rpcUrl, registrarAddress } = getBaseConfig();
+  if (!rpcUrl || !registrarAddress) return null;
+  try {
+    const chain = getViemChain();
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+    const expiry = await publicClient.readContract({
+      address: registrarAddress,
+      abi: REGISTRAR_ABI,
+      functionName: "handleExpiry",
+      args: [handle],
+    });
+    const expiryUnix = Number(expiry as bigint);
+    return expiryUnix > 0 ? new Date(expiryUnix * 1000) : null;
+  } catch (err) {
+    logger.warn({ handle, err: err instanceof Error ? err.message : String(err) }, "[base] getHandleExpiryOnChain failed");
+    return null;
+  }
+}
+
+/**
+ * Read the ERC-8004 agentId for a handle on-chain via AgentIDRegistrar.handleToAgentId(string).
+ * Returns agentId as string, or null if registrar is not configured or read fails.
+ */
+export async function getHandleToAgentIdOnChain(handle: string): Promise<string | null> {
+  const { rpcUrl, registrarAddress } = getBaseConfig();
+  if (!rpcUrl || !registrarAddress) return null;
+  try {
+    const chain = getViemChain();
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+    const agentId = await publicClient.readContract({
+      address: registrarAddress,
+      abi: REGISTRAR_ABI,
+      functionName: "handleToAgentId",
+      args: [handle],
+    });
+    return (agentId as bigint).toString();
+  } catch (err) {
+    logger.warn({ handle, err: err instanceof Error ? err.message : String(err) }, "[base] getHandleToAgentIdOnChain failed");
+    return null;
+  }
 }
 
 // ─── Legacy functions — NOT reachable from live code paths ──────────────────

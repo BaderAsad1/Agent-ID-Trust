@@ -93,6 +93,11 @@ const envSchema = z.object({
   BASE_AGENTID_REGISTRAR: z.string().optional(),
   BASE_ERC8004_REGISTRY: z.string().optional(),
   BASE_CHAIN_ID: z.string().optional(),
+  BASE_METADATA_URI: z.string().optional(),
+
+  HANDLE_CLAIM_SIGNING_PRIVATE_KEY: z.string().optional(),
+  HANDLE_CLAIM_ISSUER: z.string().default("agentid-api"),
+  HANDLE_CLAIM_MAX_AGE_SECONDS: z.string().default("300"),
 
   // CORS: comma-separated list of allowed origins in production.
   // Example: "https://getagent.id,https://app.getagent.id"

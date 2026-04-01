@@ -316,7 +316,8 @@ function toResolvedAgent(
     handle: agent.handle ?? null,
     domain: handle ? formatDomain(handle) : null,
     protocolAddress: handle ? formatHandle(handle) : null,
-    did: handle ? formatDID(handle) : `did:web:getagent.id:agents:${agent.id}`,
+    did: `did:web:getagent.id:agents:${agent.id}`,
+    handleDid: handle ? formatDID(handle) : null,
     resolverUrl: handle ? formatResolverUrl(handle) : `${APP_URL}/api/v1/resolve/id/${agent.id}`,
     displayName: agent.displayName,
     description: agent.description,
@@ -358,7 +359,7 @@ function toResolvedAgent(
     onchainStatus,
     credential: {
       namespace: ".agentid",
-      did: handle ? formatDID(handle) : `did:web:getagent.id:agents:${agent.id}`,
+      did: `did:web:getagent.id:agents:${agent.id}`,
       domain: handle ? formatDomain(handle) : null,
       anchoringMethod,
     },

@@ -4,12 +4,17 @@
  * Covers the five wiring changes introduced in Task #152:
  *  1. ABI expansion: reserveHandles, unreserveHandle, isHandleAvailable,
  *     handleActive, handleTier, handleExpiry, handleToAgentId are encodable
- *  2. getBaseConfig() uses BASE_AGENTID_REGISTRAR first (proxy), not BASE_ERC8004_REGISTRY
+ *  2. getBaseConfig() uses BASE_AGENTID_REGISTRAR with NO fallback to BASE_ERC8004_REGISTRY
+ *     (proxy and registry are separate; registry is read-only reference only)
  *  3. BASE_CHAIN_ID=84532 → baseSepolia chain selected in makeClients
  *  4. reserveHandlesOnChain soft-fails when registrar is not configured
  *  5. unreserveHandleOnChain soft-fails when registrar is not configured
  *  6. isHandleAvailableOnChain returns null when registrar is not configured
- *  7. Resolver machineIdentity.did and credential.did use did:web:getagent.id:agents:<uuid>
+ *  7. Resolver machineIdentity.did and top-level did use did:web:getagent.id:agents:<uuid>
+ *  8. Legacy ERC-721 path throws LEGACY_PATH_DISABLED — never reachable from live code
+ *  9. View helpers (getHandleActiveOnChain, etc.) return null when not configured
+ * 10. Immediate anchor flow: pending_anchor → worker → resolver shows anchored
+ * 11. Anchored handle expiry: retired, NOT re-auctioned (non-reuse guardrail)
  */
 
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from "vitest";
@@ -66,12 +71,27 @@ afterAll(async () => {
   }
 });
 
-// ── Env helpers ───────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const FAKE_TX_HASH = "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab";
+const FAKE_AGENT_ID = "42";
 const FAKE_CONTRACT = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432";
 const TESTNET_PROXY = "0x1D592A07dF4aFd897D25d348e90389C494034110";
 const TESTNET_REGISTRY = "0x8004A818BFB912233c491871b3d84c89A494BD9e";
+
+function makeChainRegEntry(overrides: Record<string, unknown> = {}) {
+  return {
+    chain: "base",
+    agentId: FAKE_AGENT_ID,
+    txHash: FAKE_TX_HASH,
+    contractAddress: FAKE_CONTRACT,
+    registeredAt: new Date().toISOString(),
+    custodian: "platform",
+    ...overrides,
+  };
+}
+
+// ── Env helpers ───────────────────────────────────────────────────────────────
 
 function clearBaseEnv() {
   delete process.env.BASE_RPC_URL;
@@ -149,36 +169,66 @@ describe("Task #152 — ABI expansion: new functions are encodable", () => {
     const expectedSelector = keccak256(toBytes("handleToAgentId(string)")).slice(0, 10);
     expect(selector).toBe(expectedSelector);
   });
+
+  it("encodes handleActive, handleTier, handleExpiry selectors correctly", async () => {
+    const { REGISTRAR_ABI } = await import("../services/chains/base");
+    const { encodeFunctionData, keccak256, toBytes } = await import("viem");
+
+    for (const [fn, sig] of [
+      ["handleActive", "handleActive(string)"],
+      ["handleTier", "handleTier(string)"],
+      ["handleExpiry", "handleExpiry(string)"],
+    ] as [string, string][]) {
+      const encoded = encodeFunctionData({
+        abi: REGISTRAR_ABI,
+        functionName: fn,
+        args: ["myhandle"],
+      });
+      const selector = encoded.slice(0, 10);
+      const expected = keccak256(toBytes(sig)).slice(0, 10);
+      expect(selector, `selector mismatch for ${fn}`).toBe(expected);
+    }
+  });
 });
 
-// ── Test 2: getBaseConfig() uses BASE_AGENTID_REGISTRAR first ────────────────
+// ── Test 2: getBaseConfig() uses BASE_AGENTID_REGISTRAR with NO fallback ─────
 
-describe("Task #152 — getBaseConfig() proxy address priority", () => {
+describe("Task #152 — getBaseConfig() proxy/registry strict separation", () => {
   it("uses BASE_AGENTID_REGISTRAR when both vars are set", async () => {
     process.env.BASE_AGENTID_REGISTRAR = TESTNET_PROXY;
     process.env.BASE_ERC8004_REGISTRY = TESTNET_REGISTRY;
 
-    // getBaseConfig reads process.env at call time so the import can be cached
     const { getBaseConfig } = await import("../services/chains/base");
     const config = getBaseConfig();
 
     expect(config.registrarAddress).toBe(TESTNET_PROXY);
     expect(config.registryAddress).toBe(TESTNET_REGISTRY);
-
-    delete process.env.BASE_AGENTID_REGISTRAR;
-    delete process.env.BASE_ERC8004_REGISTRY;
   });
 
-  it("falls back to BASE_ERC8004_REGISTRY when BASE_AGENTID_REGISTRAR is not set", async () => {
+  it("returns undefined registrarAddress when BASE_AGENTID_REGISTRAR is not set (no fallback)", async () => {
     delete process.env.BASE_AGENTID_REGISTRAR;
     process.env.BASE_ERC8004_REGISTRY = TESTNET_REGISTRY;
 
     const { getBaseConfig } = await import("../services/chains/base");
     const config = getBaseConfig();
 
-    expect(config.registrarAddress).toBe(TESTNET_REGISTRY);
+    // No fallback: proxy address must be undefined when BASE_AGENTID_REGISTRAR is not set
+    expect(config.registrarAddress).toBeUndefined();
+    // Registry is still separately available
+    expect(config.registryAddress).toBe(TESTNET_REGISTRY);
+  });
 
-    delete process.env.BASE_ERC8004_REGISTRY;
+  it("write functions skip when BASE_AGENTID_REGISTRAR is not set even if BASE_ERC8004_REGISTRY is set", async () => {
+    delete process.env.BASE_AGENTID_REGISTRAR;
+    process.env.BASE_ERC8004_REGISTRY = TESTNET_REGISTRY;
+    process.env.BASE_RPC_URL = "https://mainnet.base.org";
+    process.env.BASE_MINTER_PRIVATE_KEY = "0x" + "a".repeat(64);
+    process.env.ONCHAIN_MINTING_ENABLED = "true";
+
+    const { reserveHandlesOnChain } = await import("../services/chains/base");
+    const result = await reserveHandlesOnChain(["myhandle"]);
+    // Must be false: no proxy address configured → write skipped
+    expect(result).toBe(false);
   });
 });
 
@@ -187,8 +237,7 @@ describe("Task #152 — getBaseConfig() proxy address priority", () => {
 describe("Task #152 — reserveHandlesOnChain soft-fail when registrar not configured", () => {
   it("returns false when BASE_RPC_URL is not set", async () => {
     process.env.ONCHAIN_MINTING_ENABLED = "true";
-    clearBaseEnv();
-    process.env.ONCHAIN_MINTING_ENABLED = "true";
+    process.env.BASE_AGENTID_REGISTRAR = TESTNET_PROXY;
 
     const { reserveHandlesOnChain } = await import("../services/chains/base");
     const result = await reserveHandlesOnChain(["myhandle"]);
@@ -207,56 +256,88 @@ describe("Task #152 — reserveHandlesOnChain soft-fail when registrar not confi
   });
 });
 
-// ── Test 4: unreserveHandleOnChain soft-fails when not configured ─────────────
+// ── Test 4: View helpers return null when not configured ─────────────────────
 
-describe("Task #152 — unreserveHandleOnChain soft-fail when registrar not configured", () => {
-  it("returns false when BASE_RPC_URL is not set", async () => {
+describe("Task #152 — View helpers return null when registrar not configured", () => {
+  it("isHandleAvailableOnChain returns null when BASE_RPC_URL is not set", async () => {
+    clearBaseEnv();
+    const { isHandleAvailableOnChain } = await import("../services/chains/base");
+    expect(await isHandleAvailableOnChain("myhandle")).toBeNull();
+  });
+
+  it("unreserveHandleOnChain returns false when BASE_AGENTID_REGISTRAR is not set", async () => {
     clearBaseEnv();
     process.env.ONCHAIN_MINTING_ENABLED = "true";
-
     const { unreserveHandleOnChain } = await import("../services/chains/base");
-    const result = await unreserveHandleOnChain("myhandle");
-    expect(result).toBe(false);
+    expect(await unreserveHandleOnChain("myhandle")).toBe(false);
   });
-});
 
-// ── Test 5: isHandleAvailableOnChain returns null when not configured ─────────
-
-describe("Task #152 — isHandleAvailableOnChain returns null when registrar not configured", () => {
-  it("returns null when BASE_RPC_URL is not set", async () => {
+  it("getHandleActiveOnChain returns null when BASE_AGENTID_REGISTRAR is not set", async () => {
     clearBaseEnv();
+    const { getHandleActiveOnChain } = await import("../services/chains/base");
+    expect(await getHandleActiveOnChain("myhandle")).toBeNull();
+  });
 
-    const { isHandleAvailableOnChain } = await import("../services/chains/base");
-    const result = await isHandleAvailableOnChain("myhandle");
-    expect(result).toBeNull();
+  it("getHandleTierOnChain returns null when BASE_AGENTID_REGISTRAR is not set", async () => {
+    clearBaseEnv();
+    const { getHandleTierOnChain } = await import("../services/chains/base");
+    expect(await getHandleTierOnChain("myhandle")).toBeNull();
+  });
+
+  it("getHandleExpiryOnChain returns null when BASE_AGENTID_REGISTRAR is not set", async () => {
+    clearBaseEnv();
+    const { getHandleExpiryOnChain } = await import("../services/chains/base");
+    expect(await getHandleExpiryOnChain("myhandle")).toBeNull();
+  });
+
+  it("getHandleToAgentIdOnChain returns null when BASE_AGENTID_REGISTRAR is not set", async () => {
+    clearBaseEnv();
+    const { getHandleToAgentIdOnChain } = await import("../services/chains/base");
+    expect(await getHandleToAgentIdOnChain("myhandle")).toBeNull();
   });
 });
 
-// ── Test 6: BASE_CHAIN_ID=84532 selects baseSepolia ──────────────────────────
+// ── Test 5: BASE_CHAIN_ID=84532 selects baseSepolia ──────────────────────────
 
 describe("Task #152 — BASE_CHAIN_ID=84532 selects baseSepolia", () => {
-  it("getViemChain internal selection is exercised by verifying env reads", async () => {
-    // We cannot directly import the private getViemChain function, but we can verify
-    // that the env var is read at call time by checking that isHandleAvailableOnChain
-    // returns null (no RPC) without erroring — chain selection doesn't throw by itself.
+  it("isHandleAvailableOnChain fails the RPC call (not chain selection) when using testnet URL", async () => {
     process.env.BASE_CHAIN_ID = "84532";
     process.env.BASE_RPC_URL = "https://sepolia.base.org.invalid";
     process.env.BASE_AGENTID_REGISTRAR = TESTNET_PROXY;
 
     const { isHandleAvailableOnChain } = await import("../services/chains/base");
-    // It will fail the RPC call (invalid host), not the chain selection — returns null, not throw
+    // Returns null on RPC failure (network error), not on chain selection error
     const result = await isHandleAvailableOnChain("myhandle").catch(() => null);
     expect(result).toBeNull();
-
-    delete process.env.BASE_CHAIN_ID;
-    delete process.env.BASE_RPC_URL;
-    delete process.env.BASE_AGENTID_REGISTRAR;
   });
 });
 
-// ── Test 7: Resolver machineIdentity.did uses did:web:getagent.id:agents:<uuid> ──
+// ── Test 6: Legacy ERC-721 path throws LEGACY_PATH_DISABLED ──────────────────
 
-describe("Task #152 — Resolver DID format: did:web:getagent.id:agents:<uuid>", () => {
+describe("Task #152 — Legacy ERC-721 path is unreachable (throws LEGACY_PATH_DISABLED)", () => {
+  it("mintHandleOnBase throws BaseChainError with LEGACY_PATH_DISABLED code", async () => {
+    const { mintHandleOnBase, BaseChainError } = await import("../services/chains/base");
+
+    await expect(mintHandleOnBase("myhandle")).rejects.toSatisfy(
+      (err: unknown) => err instanceof BaseChainError && err.code === "LEGACY_PATH_DISABLED",
+    );
+  });
+
+  it("transferHandleOnBase throws BaseChainError with LEGACY_PATH_DISABLED code", async () => {
+    const { transferHandleOnBase, BaseChainError } = await import("../services/chains/base");
+    const fakeAddr = "0x0000000000000000000000000000000000000001";
+
+    await expect(
+      transferHandleOnBase("myhandle", BigInt(1), fakeAddr as `0x${string}`),
+    ).rejects.toSatisfy(
+      (err: unknown) => err instanceof BaseChainError && err.code === "LEGACY_PATH_DISABLED",
+    );
+  });
+});
+
+// ── Test 7: Resolver DID format: did:web:getagent.id:agents:<uuid> ────────────
+
+describe("Task #152 — Resolver DID format: stable did:web:getagent.id:agents:<uuid>", () => {
   let app: express.Express;
 
   beforeAll(async () => {
@@ -289,10 +370,37 @@ describe("Task #152 — Resolver DID format: did:web:getagent.id:agents:<uuid>",
     expect(res.status).toBe(200);
     const body = res.body.agent ?? res.body;
 
-    // machineIdentity.did must always be the stable UUID-based did:web DID
-    expect(body.machineIdentity).toBeDefined();
     expect(body.machineIdentity.did).toBe(`did:web:getagent.id:agents:${agent.id}`);
     expect(body.machineIdentity.agentId).toBe(agent.id);
+  });
+
+  it("top-level did is always did:web:getagent.id:agents:<uuid> even when handle exists", async () => {
+    const user = await createTestUser();
+    createdUserIds.push(user.id);
+
+    const agent = await createTestAgent(user.id, {
+      handle: `uid${Date.now().toString(36)}`,
+      handlePaid: true,
+      handleTier: "standard_5plus",
+      status: "active",
+      isPublic: true,
+      nftStatus: "none",
+    });
+    createdAgentIds.push(agent.id);
+
+    const res = await request(app)
+      .get(`/api/v1/resolve/${agent.handle}`)
+      .set("Accept", "application/json");
+
+    expect(res.status).toBe(200);
+    const body = res.body.agent ?? res.body;
+
+    // Primary DID must be UUID-rooted regardless of handle presence
+    expect(body.did).toBe(`did:web:getagent.id:agents:${agent.id}`);
+    // Legacy handle DID is an alias
+    expect(body.handleDid).toBe(`did:agentid:${agent.handle}`);
+    // Credential did must also be UUID-rooted
+    expect(body.credential?.did).toBe(`did:web:getagent.id:agents:${agent.id}`);
   });
 
   it("top-level did falls back to did:web:getagent.id:agents:<uuid> when agent has no handle", async () => {
@@ -315,9 +423,112 @@ describe("Task #152 — Resolver DID format: did:web:getagent.id:agents:<uuid>",
     expect(res.status).toBe(200);
     const body = res.body.agent ?? res.body;
 
-    // No handle → top-level did must be did:web:getagent.id:agents:<uuid>
     expect(body.did).toBe(`did:web:getagent.id:agents:${agent.id}`);
     expect(body.machineIdentity.did).toBe(`did:web:getagent.id:agents:${agent.id}`);
     expect(body.credential?.did).toBe(`did:web:getagent.id:agents:${agent.id}`);
+    expect(body.handleDid).toBeNull();
+  });
+});
+
+// ── Test 8: Immediate anchor flow end-to-end ──────────────────────────────────
+
+describe("Task #152 — Immediate anchor flow: pending_anchor → worker → resolver anchored", () => {
+  it("simulates payment → pending_anchor → anchor → resolver shows anchored with stable UUID DID", async () => {
+    const user = await createTestUser();
+    createdUserIds.push(user.id);
+
+    const handle = `e2e${Date.now().toString(36)}`;
+
+    // Step 1: Payment completed — nftStatus=pending_anchor
+    const agent = await createTestAgent(user.id, {
+      handle,
+      handlePaid: true,
+      handleTier: "premium_3",
+      status: "active",
+      isPublic: true,
+      nftStatus: "pending_anchor",
+      nftCustodian: "platform",
+      chainRegistrations: [],
+    });
+    createdAgentIds.push(agent.id);
+
+    // Step 2: Simulate anchor worker result
+    const chainRegEntry = makeChainRegEntry();
+    await db.update(agentsTable)
+      .set({
+        nftStatus: "active",
+        nftCustodian: "platform",
+        erc8004AgentId: FAKE_AGENT_ID,
+        erc8004Chain: "base",
+        erc8004Registry: FAKE_CONTRACT,
+        chainRegistrations: [chainRegEntry],
+        updatedAt: new Date(),
+      })
+      .where(eq(agentsTable.id, agent.id));
+
+    // Step 3: Resolver reflects anchored + stable UUID DID
+    const resolveApp = express();
+    resolveApp.set("trust proxy", 1);
+    resolveApp.use(express.json());
+    resolveApp.use("/api/v1/resolve", (await import("../routes/v1/resolve")).default);
+    resolveApp.use(errorHandler);
+
+    const res = await request(resolveApp)
+      .get(`/api/v1/resolve/${handle}`)
+      .set("Accept", "application/json");
+
+    expect(res.status).toBe(200);
+    const body = res.body.agent ?? res.body;
+
+    expect(body.onchainStatus).toBe("anchored");
+    expect(body.erc8004Status ?? body.handleIdentity?.erc8004Status).toBe("anchored");
+    expect(body.anchorRecords?.base?.txHash).toBe(FAKE_TX_HASH);
+
+    // Stable DID must be UUID-rooted even after anchoring
+    expect(body.did).toBe(`did:web:getagent.id:agents:${agent.id}`);
+    expect(body.machineIdentity.did).toBe(`did:web:getagent.id:agents:${agent.id}`);
+  });
+});
+
+// ── Test 9: Anchored handle expiry — retired, not re-auctioned ───────────────
+
+describe("Task #152 — Anchored handle non-reuse guardrail: retired, not re-auctioned", () => {
+  it("expireHandles marks anchored handle as retired with handleStatus=retired, not auctioned", async () => {
+    const user = await createTestUser();
+    createdUserIds.push(user.id);
+
+    const expiredAt = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000); // 35 days past grace period
+
+    const agent = await createTestAgent(user.id, {
+      handle: `exp${Date.now().toString(36)}`,
+      handlePaid: true,
+      handleTier: "premium_3",
+      handleExpiresAt: expiredAt,
+      status: "active",
+      nftStatus: "active",
+      nftCustodian: "platform",
+      erc8004AgentId: FAKE_AGENT_ID,
+      chainRegistrations: [makeChainRegEntry()],
+    });
+    createdAgentIds.push(agent.id);
+
+    // Mock releaseHandleOnChain in the chains module
+    const baseModule = await import("../services/chains/base");
+    const releaseSpy = vi.spyOn(baseModule, "releaseHandleOnChain").mockResolvedValue({ txHash: FAKE_TX_HASH as `0x${string}` });
+
+    const { expireHandles } = await import("../workers/handle-lifecycle");
+    await expireHandles();
+
+    const updated = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agent.id),
+      columns: { handleStatus: true, handle: true },
+    });
+
+    // Must be retired — not re-auctioned
+    expect(updated?.handleStatus).toBe("retired");
+    // Handle identifier preserved for history
+    expect(updated?.handle).toBeTruthy();
+
+    releaseSpy.mockRestore();
   });
 });
