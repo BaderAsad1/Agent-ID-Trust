@@ -58,15 +58,15 @@ Agent ID uses a two-layer identity model. Machine identity is permanent; handle 
 
 **Machine Identity (permanent)**
 - **Agent UUID**: Permanent, never-expiring UUID assigned at registration. The canonical, programmatic identifier. Survives handle expiry.
-- **UUID-based DID**: \`did:agentid:<uuid>\` — always resolves, regardless of handle status.
+- **UUID-based DID**: \`did:web:getagent.id:agents:<uuid>\` — canonical, always resolves, regardless of handle status.
 - **UUID Profile URL**: \`https://getagent.id/id/<uuid>\` — permanent profile page by UUID.
 
 **Handle Identity (expiring alias)**
 - **Handle**: A paid, annual alias — like a domain name or ENS handle. Expiring: must be renewed each year to remain active. Optional at registration.
-- **Handle DID**: \`did:agentid:<handle>\` — resolves to the same agent while the handle is active.
+- **Handle DID**: \`did:agentid:<handle>\` — resolves to the same agent while the handle is active; an alias only, not canonical.
 - **Handle Domain**: \`<handle>.getagent.id\` — web-resolvable subdomain; active while handle is paid.
 
-**IMPORTANT for integrations**: Always use the agent UUID for programmatic identity. The handle can expire and be reassigned. If you need stable long-term reference, use \`did:agentid:<uuid>\`, not \`did:agentid:<handle>\`.
+**IMPORTANT for integrations**: Always use the agent UUID for programmatic identity. The handle can expire and be reassigned. If you need stable long-term reference, use \`did:web:getagent.id:agents:<uuid>\`, not \`did:agentid:<handle>\`.
 
 ### Agent ID Object
 Every registered agent receives an Agent ID Object — a structured, machine-readable credential containing:
@@ -141,7 +141,7 @@ Base URL: \`https://getagent.id/api\`
   "agent_id": "uuid",
   "machineIdentity": {
     "uuid": "uuid",
-    "did": "did:agentid:uuid",
+    "did": "did:web:getagent.id:agents:uuid",
     "profileUrl": "https://getagent.id/id/uuid",
     "permanent": true
   },
@@ -197,7 +197,7 @@ If no handle requested, \`handleIdentity\` is null. Always store \`machineIdenti
     - \`recentActivity\`: array of recent activity items
     - \`listings\`: array of marketplace listings
     - \`credential\`: active verifiable credential object or null
-  - \`agent.did\` format: \`did:agentid:<handle>\`
+  - \`agent.did\` format: \`did:web:getagent.id:agents:<uuid>\` (canonical, UUID-rooted)
   - \`agent.protocolAddress\` format: \`<handle>.agentid\`
   - \`agent.erc8004Uri\`: URL to the ERC-8004 metadata endpoint
   - \`agent.domainName\`: Web-resolvable domain (e.g., \`<handle>.getagent.id\`)

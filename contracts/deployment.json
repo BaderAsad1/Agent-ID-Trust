@@ -1,6 +1,6 @@
 {
   "_comment": "Canonical deployment manifest for AgentIDRegistrar. Update after every deploy or upgrade.",
-  "_note": "erc8004Registry is the pre-deployed ERC-8004 IdentityRegistry (passed to initialize). proxy is the AgentIDRegistrar UUPS proxy (set as BASE_ERC8004_REGISTRY env var).",
+  "_note": "erc8004Registry is the pre-deployed ERC-8004 IdentityRegistry (passed to initialize as a dependency). proxy is the AgentIDRegistrar UUPS proxy — set this address as BASE_AGENTID_REGISTRAR env var for all write calls.",
   "base-mainnet": {
     "chainId": 8453,
     "network": "Base Mainnet",
@@ -14,7 +14,9 @@
     "lastUpgradeAt": null,
     "lastUpgradeTxHash": null,
     "envVars": {
-      "BASE_ERC8004_REGISTRY": "<AgentIDRegistrar proxy address — fill after deploy>",
+      "BASE_AGENTID_REGISTRAR": "<AgentIDRegistrar proxy address — fill after deploy>",
+      "BASE_ERC8004_REGISTRY": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      "BASE_CHAIN_ID": "8453",
       "HANDLE_CLAIM_ISSUER": "agentid-api",
       "HANDLE_CLAIM_MAX_AGE_SECONDS": "900"
     }
@@ -23,7 +25,7 @@
     "chainId": 84532,
     "network": "Base Sepolia Testnet",
     "erc8004Registry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
-    "proxy": "<fill-after-deploy>",
+    "proxy": "0x1D592A07dF4aFd897D25d348e90389C494034110",
     "implementation": "<fill-after-deploy>",
     "operator": "<BASE_MINTER_PRIVATE_KEY wallet>",
     "owner": "<deployer-address>",
@@ -32,7 +34,9 @@
     "lastUpgradeAt": null,
     "lastUpgradeTxHash": null,
     "envVars": {
-      "BASE_ERC8004_REGISTRY": "<AgentIDRegistrar proxy address — fill after deploy>",
+      "BASE_AGENTID_REGISTRAR": "0x1D592A07dF4aFd897D25d348e90389C494034110",
+      "BASE_ERC8004_REGISTRY": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+      "BASE_CHAIN_ID": "84532",
       "HANDLE_CLAIM_ISSUER": "agentid-api",
       "HANDLE_CLAIM_MAX_AGE_SECONDS": "900"
     }

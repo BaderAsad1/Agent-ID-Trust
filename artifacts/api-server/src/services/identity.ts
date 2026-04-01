@@ -55,7 +55,7 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
 
   const machineIdentity = {
     agentId: agent.id,
-    did: `did:agentid:${agent.id}`,
+    did: `did:web:getagent.id:agents:${agent.id}`,
     permanent: true,
     resolutionUrl: `${baseUrl}/api/v1/resolve/id/${agent.id}`,
     profileUrl: `${baseUrl}/id/${agent.id}`,
@@ -114,7 +114,8 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
     agent_id: agent.id,
     handle: agent.handle,
     display_name: agent.displayName,
-    did: handleIdentity ? `did:agentid:${agent.handle}` : `did:agentid:${agent.id}`,
+    did: `did:web:getagent.id:agents:${agent.id}`,
+    handleAliasDid: handleIdentity ? `did:agentid:${agent.handle}` : null,
     protocol_address: agent.handle ? `${agent.handle}.agentid` : `${agent.id}.agentid`,
     erc8004_uri: `${baseUrl}/api/v1/p/${agent.id}/erc8004`,
     erc8004Uri: `${baseUrl}/api/v1/p/${agent.id}/erc8004`,
@@ -191,7 +192,7 @@ export function buildPromptBlock(
 
   const machineIdentitySection = `Machine Identity (permanent, UUID-based):
   Agent ID:  ${agentId}
-  DID:       did:agentid:${agentId}
+  DID:       did:web:getagent.id:agents:${agentId}
   Profile:   ${baseUrl}/id/${agentId}
   Resolve:   GET ${baseUrl}/api/v1/resolve/id/${agentId}`;
 

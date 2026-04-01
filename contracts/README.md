@@ -9,6 +9,25 @@ Two contracts live here:
 AgentIDRegistrar v1.2.0 — UUPS-upgradeable .agentid namespace registrar for ERC-8004 Identity Registries.
 Built against IdentityRegistryUpgradeable v2.0.0 source code.
 
+### Architecture: Proxy vs Registry
+
+There are two separate contract addresses — do not conflate them:
+
+| Variable | Role | Description |
+|---|---|---|
+| `BASE_AGENTID_REGISTRAR` | **Proxy** (callable) | AgentIDRegistrar UUPS proxy. All write calls go through this address. Set this for `registerHandle`, `reserveHandles`, `transferToUser`, `releaseHandle`, etc. |
+| `BASE_ERC8004_REGISTRY` | **Registry** (dependency) | Pre-deployed ERC-8004 IdentityRegistry. Passed to `initialize(_registry, ...)`. Stored for reference — never used as the callable proxy. |
+
+> **Important**: `BASE_AGENTID_REGISTRAR` is the proxy address for all write calls and registrar reads.
+> `BASE_ERC8004_REGISTRY` is the underlying ERC-8004 registry dependency — do NOT document or use it as the proxy.
+
+### Deployed Addresses (Base Sepolia Testnet — Chain ID 84532)
+
+| Variable | Address |
+|---|---|
+| `BASE_AGENTID_REGISTRAR` (proxy) | `0x1D592A07dF4aFd897D25d348e90389C494034110` |
+| `BASE_ERC8004_REGISTRY` (registry) | `0x8004A818BFB912233c491871b3d84c89A494BD9e` |
+
 ### ERC-8004 Identity Registry Addresses
 
 The AgentIDRegistrar wraps the ERC-8004 IdentityRegistry. Pass these addresses to `initialize(_registry, ...)`.
@@ -20,17 +39,17 @@ The AgentIDRegistrar wraps the ERC-8004 IdentityRegistry. Pass these addresses t
 
 ### AgentIDRegistrar Proxy Addresses
 
-The AgentIDRegistrar proxy is deployed on top of the ERC-8004 registry.
-Set `BASE_ERC8004_REGISTRY` to the proxy address for the target network.
+The AgentIDRegistrar UUPS proxy is deployed on top of the ERC-8004 registry.
+Set `BASE_AGENTID_REGISTRAR` to the proxy address for the target network.
 
 | Network | Chain ID | Proxy Address |
 |---|---|---|
 | Base Mainnet | 8453 | `<fill-after-deploy>` |
-| Base Sepolia Testnet | 84532 | `<fill-after-deploy>` |
+| Base Sepolia Testnet | 84532 | `0x1D592A07dF4aFd897D25d348e90389C494034110` |
 
 > **Important**: Always use the proxy address (not the implementation directly).
 > The implementation can be upgraded without changing the proxy address.
-> Update `contracts/deployment.json` and `BASE_ERC8004_REGISTRY` after every deploy.
+> Update `contracts/deployment.json` and `BASE_AGENTID_REGISTRAR` after every deploy.
 
 ### Functions & ABI Selectors
 
@@ -62,12 +81,15 @@ Tier code mapping is defined in `artifacts/api-server/src/services/chains/base.t
 
 | Variable | Required | Description |
 |---|---|---|
-| `BASE_ERC8004_REGISTRY` | Yes (primary) | Deployed AgentIDRegistrar **proxy** address |
-| `BASE_AGENTID_REGISTRAR` | Fallback | Alias for `BASE_ERC8004_REGISTRY` |
+| `BASE_AGENTID_REGISTRAR` | **Yes (primary)** | AgentIDRegistrar **proxy** address — used for ALL write calls (`registerHandle`, `reserveHandles`, `transferToUser`, etc.) |
+| `BASE_ERC8004_REGISTRY` | Reference only | ERC-8004 IdentityRegistry address — stored separately, never used as the callable proxy |
+| `BASE_CHAIN_ID` | Yes | Chain ID: `84532` = Base Sepolia (testnet), `8453` = Base Mainnet |
 | `BASE_RPC_URL` | Yes | Base mainnet/testnet RPC endpoint |
 | `BASE_MINTER_PRIVATE_KEY` | Yes | Platform minter wallet private key (hex, `0x`-prefixed) |
 | `BASE_PLATFORM_WALLET` | Yes | Platform custody wallet address |
 | `ONCHAIN_MINTING_ENABLED` | Optional | Set `true` or `1` to enable live on-chain calls |
+
+> **Deprecated**: `BASE_HANDLE_CONTRACT` — Legacy ERC-721 contract address (not used at runtime).
 
 ### Claim Ticket Environment Variables
 
@@ -89,7 +111,7 @@ npm install
 # _baseAgentCardURI = "https://api.getagent.id/v1/agent-card/"
 npx hardhat run script/deploy.ts --network base
 # After deploy, record the proxy address in contracts/deployment.json
-# and set BASE_ERC8004_REGISTRY to that address.
+# and set BASE_AGENTID_REGISTRAR to that address.
 ```
 
 ### Upgrade (UUPS)

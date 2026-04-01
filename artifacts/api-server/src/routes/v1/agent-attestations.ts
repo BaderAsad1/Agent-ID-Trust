@@ -208,8 +208,9 @@ router.post("/:agentId/trust-attestation", requireAgentAuth, validateUuidParam("
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = now + 24 * 60 * 60;
 
+    const stableDid = `did:web:getagent.id:agents:${agent.id}`;
     const attestationPayload = {
-      sub: `did:agentid:${agent.handle}`,
+      sub: stableDid,
       agentId: agent.id,
       handle: agent.handle,
       trustScore: trust.trustScore,
@@ -223,7 +224,7 @@ router.post("/:agentId/trust-attestation", requireAgentAuth, validateUuidParam("
       new jose.SignJWT(attestationPayload)
         .setProtectedHeader({ alg: "EdDSA", kid: signer.kid, typ: "JWT" })
         .setIssuer(APP_URL)
-        .setSubject(`did:agentid:${agent.handle}`)
+        .setSubject(stableDid)
         .setIssuedAt(now)
         .setExpirationTime(expiresAt),
     );

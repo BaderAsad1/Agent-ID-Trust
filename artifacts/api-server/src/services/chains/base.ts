@@ -34,7 +34,7 @@ const REGISTRAR_ABI = parseAbi([
   "function handleRegistered(string calldata handle) external view returns (bool)",
   "function reserveHandles(string[] calldata handles) external",
   "function unreserveHandle(string calldata handle) external",
-  "function isHandleAvailable(string calldata handle) external view returns (bool)",
+  "function isHandleAvailable(string calldata handle) external view returns (bool available, string reason)",
   "function handleActive(string calldata handle) external view returns (bool)",
   "function handleTier(string calldata handle) external view returns (uint8)",
   "function handleExpiry(string calldata handle) external view returns (uint256)",
@@ -287,7 +287,9 @@ export async function unreserveHandleOnChain(handle: string): Promise<boolean> {
 
 /**
  * Check handle availability on-chain via AgentIDRegistrar.isHandleAvailable(string).
- * Returns null if registrar is not configured or read fails.
+ * The contract returns a tuple (bool available, string reason).
+ * Returns the `available` boolean, or null if registrar is not configured or read fails.
+ * The `reason` string is preserved in logs for diagnostics.
  */
 export async function isHandleAvailableOnChain(handle: string): Promise<boolean | null> {
   const { rpcUrl, registrarAddress } = getBaseConfig();
@@ -300,14 +302,19 @@ export async function isHandleAvailableOnChain(handle: string): Promise<boolean 
     const chain = getViemChain();
     const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
 
-    const available = await publicClient.readContract({
+    const result = await publicClient.readContract({
       address: registrarAddress,
       abi: REGISTRAR_ABI,
       functionName: "isHandleAvailable",
       args: [handle],
     });
 
-    return available as boolean;
+    // Contract returns (bool available, string reason) tuple
+    const [available, reason] = result as readonly [boolean, string];
+    if (!available && reason) {
+      logger.debug({ handle, reason }, "[base] isHandleAvailable: handle not available");
+    }
+    return available;
   } catch (err) {
     logger.warn({ handle, err: err instanceof Error ? err.message : String(err) }, "[base] isHandleAvailableOnChain failed");
     return null;

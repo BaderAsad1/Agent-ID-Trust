@@ -56,7 +56,8 @@ function buildAgentIdentityDocument(
   return {
     "@context": "https://getagent.id/ns/agent-identity/v1",
     "@type": "AgentIdentity",
-    id: formatDID(handle),
+    id: `did:web:getagent.id:agents:${agent.id}`,
+    handleDid: handle ? formatDID(handle) : null,
     handle: agent.handle,
     protocolAddress: formatHandle(handle),
     domain: formatDomain(handle),
@@ -130,7 +131,8 @@ async function agentIdentityDocumentHandler(req: Request, res: Response, next: N
           revokedAt: agent.revokedAt,
           reason: agent.revocationReason,
           statement: agent.revocationStatement,
-          did: `did:agentid:${revokedHandle}`,
+          did: `did:web:getagent.id:agents:${agent.id}`,
+          handleDid: revokedHandle ? `did:agentid:${revokedHandle}` : null,
         },
       });
       return;

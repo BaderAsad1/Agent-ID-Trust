@@ -103,7 +103,8 @@ export async function issueVerifiableCredential(agentId: string): Promise<string
     type: ["VerifiableCredential", "AgentIdentityCredential"],
     issuer: "did:web:getagent.id",
     credentialSubject: {
-      id: agent.handle ? `did:web:getagent.id:agents:${agent.handle}` : `did:agentid:${agent.id}`,
+      id: `did:web:getagent.id:agents:${agent.id}`,
+      aliases: agent.handle ? [`did:agentid:${agent.handle}`, `did:web:getagent.id:agents:${agent.handle}`] : [],
       handle: agent.handle,
       displayName: agent.displayName,
       agentId: agent.id,
@@ -129,9 +130,7 @@ export async function issueVerifiableCredential(agentId: string): Promise<string
     },
   };
 
-  const vcSubject = agent.handle
-    ? `did:web:getagent.id:agents:${agent.handle}`
-    : `did:agentid:${agent.id}`;
+  const vcSubject = `did:web:getagent.id:agents:${agent.id}`;
 
   const jwt = await signer.sign(
     new jose.SignJWT(vcPayload as unknown as Record<string, unknown>)

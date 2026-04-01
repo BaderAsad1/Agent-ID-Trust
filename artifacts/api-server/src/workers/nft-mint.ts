@@ -19,7 +19,7 @@ function isRegistrarConfigured(): boolean {
   return !!(
     process.env.BASE_RPC_URL &&
     process.env.BASE_MINTER_PRIVATE_KEY &&
-    (process.env.BASE_ERC8004_REGISTRY || process.env.BASE_AGENTID_REGISTRAR) &&
+    process.env.BASE_AGENTID_REGISTRAR &&
     process.env.BASE_PLATFORM_WALLET
   );
 }
@@ -135,6 +135,11 @@ export async function processPendingAnchors(): Promise<void> {
         custodian: "platform",
       };
 
+      // erc8004Registry should store the ERC-8004 registry address (BASE_ERC8004_REGISTRY),
+      // not the registrar proxy (BASE_AGENTID_REGISTRAR / result.contractAddress).
+      // The registrar proxy address is correctly recorded in chainRegistrations[].contractAddress.
+      const registryAddress = process.env.BASE_ERC8004_REGISTRY ?? null;
+
       await db
         .update(agentsTable)
         .set({
@@ -143,7 +148,7 @@ export async function processPendingAnchors(): Promise<void> {
           nftCustodian: "platform",
           erc8004AgentId: result.agentId,
           erc8004Chain: result.chain,
-          erc8004Registry: result.contractAddress,
+          erc8004Registry: registryAddress,
           chainRegistrations: [chainRegEntry],
           updatedAt: new Date(),
         })
