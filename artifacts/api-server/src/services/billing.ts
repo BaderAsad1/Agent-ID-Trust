@@ -987,6 +987,14 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       })
       .where(eq(agentsTable.id, agent.id));
 
+    // Post-persist: attempt on-chain reservation now that DB state is committed.
+    // This is the authoritative reserveHandles call — soft-fail, never blocks checkout completion.
+    import("./chains/base").then(({ reserveHandlesOnChain }) => {
+      reserveHandlesOnChain([handle.toLowerCase()]).catch((err: unknown) => {
+        logger.warn({ handle, agentId: agent.id, err: err instanceof Error ? err.message : String(err) }, "[billing] handle_mint_request: post-persist reserveHandlesOnChain soft-fail");
+      });
+    }).catch(() => {});
+
     try {
       const { nftAuditLogTable } = await import("@workspace/db/schema");
       await db.insert(nftAuditLogTable).values({
@@ -1156,6 +1164,13 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
                 updatedAt: new Date(),
               })
               .where(eq(agentsTable.id, agentRecord.id));
+
+            // Post-persist: reserve on-chain now that DB is committed. Authoritative call.
+            import("./chains/base").then(({ reserveHandlesOnChain }) => {
+              reserveHandlesOnChain([normalizedHandle]).catch((err: unknown) => {
+                logger.warn({ handle: normalizedHandle, agentId: agentRecord.id, err: err instanceof Error ? err.message : String(err) }, "[billing] handle_registration: post-persist reserveHandlesOnChain soft-fail");
+              });
+            }).catch(() => {});
 
             try {
               const { nftAuditLogTable } = await import("@workspace/db/schema");
@@ -1651,6 +1666,13 @@ export async function pollForCryptoPayment(
                 updatedAt: new Date(),
               })
               .where(eq(agentsTable.id, agentId));
+
+            // Post-persist: reserve on-chain now that DB is committed. Authoritative call.
+            import("./chains/base").then(({ reserveHandlesOnChain }) => {
+              reserveHandlesOnChain([handle.toLowerCase()]).catch((err: unknown) => {
+                logger.warn({ handle, agentId, err: err instanceof Error ? err.message : String(err) }, "[billing] crypto-payment: post-persist reserveHandlesOnChain soft-fail");
+              });
+            }).catch(() => {});
 
             logger.info({ handle, agentId, claimTicketIssued: !!cryptoClaimTicket }, "[billing] crypto-payment: on-chain anchoring not completed — queued as pending_anchor with claim ticket");
           }
