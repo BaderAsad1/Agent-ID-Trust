@@ -22,6 +22,20 @@ const ERROR_MESSAGES: Record<string, string> = {
   provider_not_configured: 'This sign-in method is not available yet.',
 };
 
+const STORAGE_KEY = 'agent-id-getstarted-draft';
+
+function getOnboardingContext(): { isOnboarding: boolean; intent: 'new' | 'claim' | null } {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return { isOnboarding: false, intent: null };
+    const draft = JSON.parse(raw);
+    if (draft.pendingAuth) {
+      return { isOnboarding: true, intent: draft.intent ?? null };
+    }
+  } catch {}
+  return { isOnboarding: false, intent: null };
+}
+
 export function SignIn() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -34,6 +48,9 @@ export function SignIn() {
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [isReturningUser, setIsReturningUser] = useState(false);
+
+  const { isOnboarding, intent } = getOnboardingContext();
 
   useEffect(() => {
     if (!loading && userId) {
@@ -67,6 +84,24 @@ export function SignIn() {
     } finally {
       setSending(false);
     }
+  }
+
+  function getHeading() {
+    if (isReturningUser) return 'Welcome back';
+    if (isOnboarding) {
+      if (intent === 'claim') return 'First, create your account';
+      return 'Create your account to get started';
+    }
+    return 'Create your account';
+  }
+
+  function getSubtext() {
+    if (isReturningUser) return 'Sign in to your Agent ID account.';
+    if (isOnboarding) {
+      if (intent === 'claim') return 'You need an account to link an agent to your profile.';
+      return 'You need an account to register your agent.';
+    }
+    return 'Get your agent a verified identity, wallet, and trust score.';
   }
 
   if (loading) {
@@ -118,10 +153,10 @@ export function SignIn() {
             </span>
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 600, color: '#f0f0f5', marginBottom: 8 }}>
-            Get started
+            {getHeading()}
           </h1>
           <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', margin: 0 }}>
-            Sign in or create your Agent ID account
+            {getSubtext()}
           </p>
         </div>
 
@@ -171,7 +206,7 @@ export function SignIn() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
           <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-          <span style={{ fontSize: 12, color: 'rgba(232,232,240,0.3)', whiteSpace: 'nowrap' }}>or sign in with email</span>
+          <span style={{ fontSize: 12, color: 'rgba(232,232,240,0.3)', whiteSpace: 'nowrap' }}>or continue with email</span>
           <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
         </div>
 
@@ -209,12 +244,42 @@ export function SignIn() {
               transition: 'background 0.15s',
             }}
           >
-            {sending ? 'Sending…' : 'Send sign-in link'}
+            {sending ? 'Sending…' : 'Send magic link'}
           </button>
         </form>
 
-        <p style={{ marginTop: 32, textAlign: 'center', fontSize: 12, color: 'rgba(232,232,240,0.25)', lineHeight: 1.6 }}>
-          By signing in, you agree to the{' '}
+        <div style={{ marginTop: 24, textAlign: 'center' }}>
+          {isReturningUser ? (
+            <button
+              onClick={() => setIsReturningUser(false)}
+              style={{
+                background: 'none', border: 'none', fontSize: 13,
+                color: 'rgba(232,232,240,0.4)', cursor: 'pointer',
+              }}
+            >
+              New here?{' '}
+              <span style={{ color: 'rgba(232,232,240,0.7)', textDecoration: 'underline' }}>
+                Create an account
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsReturningUser(true)}
+              style={{
+                background: 'none', border: 'none', fontSize: 13,
+                color: 'rgba(232,232,240,0.4)', cursor: 'pointer',
+              }}
+            >
+              Already have an account?{' '}
+              <span style={{ color: 'rgba(232,232,240,0.7)', textDecoration: 'underline' }}>
+                Sign in
+              </span>
+            </button>
+          )}
+        </div>
+
+        <p style={{ marginTop: 20, textAlign: 'center', fontSize: 12, color: 'rgba(232,232,240,0.25)', lineHeight: 1.6 }}>
+          By continuing, you agree to the{' '}
           <a href="/terms" style={{ color: 'rgba(232,232,240,0.4)', textDecoration: 'underline' }}>Terms</a>
           {' '}and{' '}
           <a href="/privacy" style={{ color: 'rgba(232,232,240,0.4)', textDecoration: 'underline' }}>Privacy Policy</a>.
