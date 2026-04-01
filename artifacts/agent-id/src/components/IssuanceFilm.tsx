@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback, type CSSProperties } from 'react';
 import '@/components/concept/hero.css';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Footer } from '@/components/Footer';
 
 interface ScrollState {
   progress: number;
@@ -2232,7 +2233,7 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
           </span>
           <span onClick={() => {
             const base = import.meta.env.BASE_URL || '/';
-            window.location.href = `${base}integrations`;
+            window.location.href = `${base}docs`;
           }} style={{
             fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
             color: 'rgba(232,232,240,0.55)',
@@ -2539,27 +2540,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      <footer className="film-footer" style={{
-        borderTop: '1px solid rgba(255,255,255,0.04)',
-        padding: 'clamp(24px, 4vh, 40px) clamp(20px, 5vw, 80px)',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        flexWrap: 'wrap', gap: 16,
-      }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <img src={`${import.meta.env.BASE_URL}app-icon.png`} alt="Agent ID" style={{ width: 20, height: 20, borderRadius: 4 }} />
-            <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 13, fontWeight: 700, color: '#e8e8f0' }}>Agent ID</span>
-          </div>
-          <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)' }}>Identity, Trust, and Routing for the Agent Internet.</div>
-        </div>
-        <div style={{ display: 'flex', gap: 'clamp(12px, 2vw, 20px)', flexWrap: 'wrap' }}>
-          {['Protocol', 'Registry', 'Documentation', 'GitHub'].map(link => (
-            <span key={link} style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)', cursor: 'pointer' }}>{link}</span>
-          ))}
-          <span onClick={() => onNavigate?.('/privacy')} style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)', cursor: 'pointer' }}>Privacy</span>
-          <span onClick={() => onNavigate?.('/terms')} style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)', cursor: 'pointer' }}>Terms</span>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
