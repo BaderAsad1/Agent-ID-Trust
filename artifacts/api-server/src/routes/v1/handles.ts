@@ -523,7 +523,10 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
     const isAnchored = (() => {
       if (!chainRegs) return false;
       if (Array.isArray(chainRegs)) {
-        return (chainRegs as Record<string, unknown>[]).some(e => e.chain === "base");
+        // Accept both "base" (mainnet) and "base-sepolia" (testnet) chain labels
+        return (chainRegs as Record<string, unknown>[]).some(
+          e => e.chain === "base" || e.chain === "base-sepolia",
+        );
       }
       return !!(chainRegs as Record<string, unknown>).base;
     })();
