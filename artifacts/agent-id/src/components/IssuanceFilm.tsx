@@ -1939,56 +1939,6 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
   );
 }
 
-interface NavProps {
-  opacity: number;
-  onNavigate?: (path: string) => void;
-}
-
-function NavBar({ opacity, onNavigate }: NavProps) {
-  const nav = (path: string) => onNavigate?.(path);
-  const bgAlpha = (0.7 * opacity).toFixed(2);
-  const borderAlpha = (0.04 * opacity).toFixed(3);
-  const hidden = opacity <= 0;
-  return (
-    <nav style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 clamp(16px, 4vw, 48px)', height: 56,
-      background: `rgba(5,7,17,${bgAlpha})`,
-      backdropFilter: 'blur(20px) saturate(1.8)',
-      borderBottom: `1px solid rgba(255,255,255,${borderAlpha})`,
-      transition: 'opacity 0.3s ease, transform 0.3s ease, background 0.3s ease, border-color 0.3s ease',
-      opacity,
-      transform: hidden ? 'translateY(-100%)' : 'translateY(0)',
-      pointerEvents: hidden ? 'none' : 'auto',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => nav('/')}>
-        <img
-          src={`${import.meta.env.BASE_URL}app-icon.png`}
-          alt="Agent ID"
-          style={{ width: 26, height: 26, borderRadius: 5 }}
-        />
-        <span style={{
-          fontFamily: "'Bricolage Grotesque', sans-serif",
-          fontSize: 15, fontWeight: 700, color: '#e8e8f0',
-          letterSpacing: '-0.01em',
-        }}>Agent ID</span>
-      </div>
-
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <span onClick={() => {
-          const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}sign-in`;
-        }} style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
-          color: '#fff', background: 'rgba(79,125,243,0.15)',
-          border: '1px solid rgba(79,125,243,0.25)',
-          borderRadius: 8, padding: '7px 18px', cursor: 'pointer',
-        }}>Get Started</span>
-      </div>
-    </nav>
-  );
-}
 
 function SystemResolvingText({ progress }: { progress: number }) {
   const phase1 = progress > 0.12 && progress < 0.50;
@@ -2373,8 +2323,6 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
   const heroScale = lerp(1, 1.06, scroll.heroProgress);
   const heroOpacity = scroll.heroProgress > 0.85 ? lerp(1, 0, (scroll.heroProgress - 0.85) / 0.15) : 1;
   const ceremonyState = getIssuanceCeremonyState(scroll.heroProgress);
-  const navOpacity = scroll.heroProgress < 0.01 ? 1 : Math.max(0, 1 - scroll.heroProgress / 0.04);
-
   const credentialScale = scroll.heroProgress < 0.12
     ? lerp(0.6, 1, easeOutCubic(scroll.heroProgress / 0.12))
     : 1;
@@ -2390,7 +2338,6 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
       WebkitFontSmoothing: 'antialiased',
     } as CSSProperties}>
       <GrainOverlay />
-      <NavBar opacity={navOpacity} onNavigate={onNavigate} />
 
       <section ref={sectionRefs.hero as React.RefObject<HTMLElement>} className="hero-section" style={{
         position: 'relative',

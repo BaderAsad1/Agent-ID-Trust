@@ -82,7 +82,14 @@ function AppContent() {
   const location = useLocation();
   const isLanding = location.pathname === '/' || location.pathname === '';
 
-  if (isLanding) return <><ScrollToTop /><LandingPage /></>;
+  if (isLanding) return (
+    <div id="agent-id-scroll-container" className="min-h-screen" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+      <a href="#main-content" className="skip-to-content">Skip to content</a>
+      <ScrollToTop />
+      <Nav />
+      <main id="main-content"><LandingPage /></main>
+    </div>
+  );
 
   // Fullscreen pages that don't render the Nav
   if (location.pathname === '/authorize') return <><ScrollToTop /><Authorize /></>;
