@@ -370,7 +370,7 @@ export function GetStarted() {
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
           <GhostBtn onClick={() => setStep('intent')}>Back</GhostBtn>
           <PrimaryBtn onClick={handleAuthContinue}>
-            Sign in with Replit <ArrowRight size={16} />
+            Sign in to continue <ArrowRight size={16} />
           </PrimaryBtn>
         </div>
       </div>
