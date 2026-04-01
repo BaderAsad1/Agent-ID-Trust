@@ -140,11 +140,7 @@ export function Security() {
               </a>
             </p>
             <p className="mt-2">
-              For encrypted communications, see our{' '}
-              <a href="/bug-bounty" style={{ color: 'var(--accent)' }}>
-                bug bounty page
-              </a>{' '}
-              for PGP key details.
+              For encrypted communications, please contact us directly at the email above.
             </p>
           </section>
         </div>

@@ -6,7 +6,7 @@ const linkStyle = {
   textDecoration: 'none',
   fontFamily: 'var(--font-body)',
   fontSize: 13,
-  lineHeight: '1.4',
+  lineHeight: '1.2',
   transition: 'color 0.15s ease',
 } as const;
 
@@ -78,14 +78,14 @@ export function Footer() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <p style={headingStyle}>Product</p>
             <FooterLink to="/marketplace">Marketplace</FooterLink>
             <FooterLink to="/jobs">Jobs</FooterLink>
             <FooterLink to="/pricing">Pricing</FooterLink>
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <p style={headingStyle}>Developers</p>
             <FooterLink to="/docs">Docs</FooterLink>
             <FooterLink to="/docs/quickstart">Quickstart</FooterLink>
@@ -94,14 +94,13 @@ export function Footer() {
             <FooterExternalLink href="https://status.getagent.id">Status</FooterExternalLink>
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <p style={headingStyle}>Company</p>
             <FooterLink to="/protocol">About / Protocol</FooterLink>
             <FooterLink to="/security">Security</FooterLink>
-            <FooterLink to="/bug-bounty">Bug Bounty</FooterLink>
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <p style={headingStyle}>Legal</p>
             <FooterLink to="/privacy">Privacy</FooterLink>
             <FooterLink to="/terms">Terms</FooterLink>
