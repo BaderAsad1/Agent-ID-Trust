@@ -1,4 +1,7 @@
 import { Router } from "express";
+import { db } from "@workspace/db";
+import { agentsTable } from "@workspace/db/schema";
+import { sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -168,6 +171,17 @@ const AUTH_MATRIX = {
 
 router.get("/auth-matrix", (_req, res) => {
   res.json(AUTH_MATRIX);
+});
+
+router.get("/stats", async (_req, res) => {
+  try {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(agentsTable);
+    res.json({ agentCount: result[0]?.count ?? 0 });
+  } catch {
+    res.json({ agentCount: 0 });
+  }
 });
 
 export default router;

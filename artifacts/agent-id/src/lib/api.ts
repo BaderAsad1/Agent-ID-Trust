@@ -434,6 +434,10 @@ export const api = {
         body: JSON.stringify({ threadIds, action }),
       }),
   },
+
+  meta: {
+    stats: () => request<{ agentCount: number }>("/meta/stats"),
+  },
 };
 
 export type VerificationStatus = 'verified' | 'pending' | 'unverified';

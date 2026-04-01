@@ -135,6 +135,7 @@ export function GetStarted() {
   const [ownerToken, setOwnerToken] = useState<string | null>(null);
   const [loadingOwnerToken, setLoadingOwnerToken] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'sdk' | 'api'>('chat');
+  const [agentCount, setAgentCount] = useState<number | null>(null);
 
   const STORAGE_KEY = 'agent-id-getstarted-draft';
 
@@ -173,6 +174,10 @@ export function GetStarted() {
     }, 400);
     return () => clearTimeout(t);
   }, [handle]);
+
+  useEffect(() => {
+    api.meta.stats().then(s => setAgentCount(s.agentCount)).catch(() => {});
+  }, []);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -310,50 +315,131 @@ export function GetStarted() {
 
   if (step === 'intent') {
     return (
-      <div style={pageStyle}>
-        <h1 style={titleStyle}>Get Started with Agent ID</h1>
-        <p style={subtitleStyle}>
-          Give your AI agent a verified identity, wallet, and trust score  -  ready for the open agent economy.
-        </p>
+      <div style={{
+        minHeight: 'calc(100vh - 56px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#0c0c14', padding: '40px 24px',
+      }}>
+        <div style={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Card onClick={() => handleIntentSelect('new')} selected={intent === 'new'} style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+          {/* Logo mark */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div style={{
-              width: 44, height: 44, borderRadius: 12,
-              background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              width: 40, height: 40,
+              background: 'linear-gradient(135deg, #3b82f6, #7c3aed)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
+            }} />
+            <div style={{
+              marginTop: 14, fontSize: 10, fontWeight: 600, letterSpacing: '0.2em',
+              color: 'rgba(232,232,240,0.3)', textTransform: 'uppercase',
             }}>
-              <Bot size={22} color="#fff" />
+              Agent ID
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#e8e8f0', marginBottom: 4 }}>
+          </div>
+
+          {/* Headline */}
+          <h1 style={{
+            marginTop: 24, fontSize: 32, fontWeight: 700, color: '#e8e8f0',
+            textAlign: 'center', lineHeight: 1.2, letterSpacing: '-0.02em',
+            fontFamily: 'var(--font-heading, inherit)',
+          }}>
+            Your agent needs an identity.
+          </h1>
+
+          {/* Subline */}
+          <p style={{ marginTop: 8, fontSize: 14, color: 'rgba(232,232,240,0.4)', textAlign: 'center' }}>
+            Register in 60 seconds. No credit card required.
+          </p>
+
+          {/* Cards */}
+          <div style={{ marginTop: 36, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, width: '100%' }}>
+            <div
+              onClick={() => handleIntentSelect('new')}
+              style={{
+                display: 'flex', flexDirection: 'column', borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'rgba(255,255,255,0.02)', padding: 20, cursor: 'pointer', transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(79,125,243,0.35)';
+                (e.currentTarget as HTMLDivElement).style.background = 'rgba(79,125,243,0.04)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)';
+                (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.02)';
+              }}
+            >
+              <div style={{
+                width: 36, height: 36, borderRadius: 8, background: 'rgba(79,125,243,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Bot size={18} color="#4f7df3" />
+              </div>
+              <div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>
                 Register a new agent
               </div>
-              <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
-                Choose a name and handle, then give your agent its claim token to self-activate.
+              <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5, flexGrow: 1 }}>
+                Pick a handle like acme.agentid and get your claim token.
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 600, color: '#4f7df3',
+                  background: 'rgba(79,125,243,0.1)', border: '1px solid rgba(79,125,243,0.2)',
+                  padding: '2px 8px', borderRadius: 100,
+                }}>
+                  Most popular
+                </span>
               </div>
             </div>
-            <ArrowRight size={18} style={{ color: 'rgba(232,232,240,0.2)', flexShrink: 0, marginTop: 4 }} />
-          </Card>
 
-          <Card onClick={() => handleIntentSelect('claim')} selected={intent === 'claim'} style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 12,
-              background: 'linear-gradient(135deg, #34d399, #4f7df3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <Link2 size={22} color="#fff" />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#e8e8f0', marginBottom: 4 }}>
+            <div
+              onClick={() => handleIntentSelect('claim')}
+              style={{
+                display: 'flex', flexDirection: 'column', borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'rgba(255,255,255,0.02)', padding: 20, cursor: 'pointer', transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(124,91,245,0.35)';
+                (e.currentTarget as HTMLDivElement).style.background = 'rgba(124,91,245,0.04)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)';
+                (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.02)';
+              }}
+            >
+              <div style={{
+                width: 36, height: 36, borderRadius: 8, background: 'rgba(124,91,245,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Link2 size={18} color="#7c5bf5" />
+              </div>
+              <div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>
                 Link an existing agent
               </div>
-              <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
-                Already have an AI agent running? Give it your owner token so it can register itself and link to your account.
+              <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
+                Already running an agent? Give it your owner token to self-register.
               </div>
             </div>
-            <ArrowRight size={18} style={{ color: 'rgba(232,232,240,0.2)', flexShrink: 0, marginTop: 4 }} />
-          </Card>
+          </div>
+
+          {/* Step indicator */}
+          <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 24, height: 6, borderRadius: 3, background: '#4f7df3' }} />
+              <div style={{ width: 6, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)' }} />
+              <div style={{ width: 6, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)' }} />
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)' }}>Step 1 of 4</div>
+          </div>
+
+          {/* Social proof */}
+          <div style={{ marginTop: 28, fontSize: 12, color: 'rgba(232,232,240,0.22)', textAlign: 'center' }}>
+            {agentCount !== null
+              ? `Join ${agentCount.toLocaleString()}+ agents already on the network`
+              : 'Join agents already on the network'}
+          </div>
         </div>
       </div>
     );
