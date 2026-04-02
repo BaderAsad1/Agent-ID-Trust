@@ -179,13 +179,6 @@ export function Pricing() {
                         </p>
                         <p style={{ fontSize: isH ? 17 : 14, fontWeight: 700, color: '#e8e8f0', margin: 0 }}>{plan.name}</p>
                       </div>
-                      {isH && (
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(79,125,243,0.1)', border: '1px solid rgba(79,125,243,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path d="M7 1.5l1.8 3.6L13 6l-3 2.9.7 4.1L7 11l-3.7 2 .7-4.1L1 6l4.2-.9L7 1.5Z" fill="#4f7df3" />
-                          </svg>
-                        </div>
-                      )}
                     </div>
 
                     {/* Price */}
