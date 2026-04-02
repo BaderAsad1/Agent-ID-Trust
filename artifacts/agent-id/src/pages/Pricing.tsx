@@ -129,7 +129,7 @@ export function Pricing() {
             <button
               onClick={() => setBilling(b => b === 'monthly' ? 'yearly' : 'monthly')}
               aria-label="Toggle billing period"
-              style={{ width: 44, height: 24, borderRadius: 12, border: 'none', background: billing === 'yearly' ? '#4f7df3' : '#1a1f30', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+              style={{ width: 44, height: 24, borderRadius: 12, border: 'none', appearance: 'none', WebkitAppearance: 'none', background: billing === 'yearly' ? '#4f7df3' : '#1a1f30', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
             >
               <div style={{ position: 'absolute', top: 3, left: billing === 'yearly' ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
             </button>
