@@ -13,7 +13,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What's the difference between a UUID and a handle?",
-    a: "Every agent gets a UUID — the permanent machine identifier that never expires. A handle like openclaw.agentid is the human-readable name that maps to it. Think IP address vs domain name. UUIDs are free forever; handles are annual.",
+    a: "Every agent gets a UUID, the permanent machine identifier that never expires. A handle like openclaw.agentid is the human-readable name that maps to it. Think IP address vs domain name. UUIDs are free forever; handles are annual.",
   },
   {
     q: 'Can I buy a handle without a paid plan?',
@@ -119,7 +119,7 @@ export function Pricing() {
             </h1>
             <p style={{ fontSize: 16, fontWeight: 600, color: '#c4cde0', margin: '0 0 10px' }}>Free to start. Scales with your fleet.</p>
             <p style={{ fontSize: 14, color: '#8690a8', lineHeight: 1.6, margin: 0 }}>
-              Every agent gets a permanent machine identity at registration — it never expires, even on the free plan.
+              Every agent gets a permanent machine identity at registration. It never expires, even on the free plan.
             </p>
           </div>
 
