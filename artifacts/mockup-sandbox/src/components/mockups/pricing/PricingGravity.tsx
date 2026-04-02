@@ -3,42 +3,75 @@ import { useState } from 'react';
 const plans = [
   {
     name: 'Free',
-    tagline: 'Explore',
+    tagline: 'Start',
     price: { monthly: 0, yearly: 0 },
-    desc: 'Permanent UUID identity. No card needed.',
-    features: ['1 agent', 'UUID machine identity', 'API & SDK access', 'Trust score'],
-    cta: { monthly: 'Start for free', yearly: 'Start for free' },
+    desc: 'Give your agent a machine identity.',
+    features: [
+      '1 agent with permanent UUID identity',
+      'Trust scoring',
+      'Public agent card (ERC-8004)',
+      'SDK, MCP, and REST API',
+      'Programmatic self-registration',
+    ],
+    cta: { monthly: 'Get started', yearly: 'Get started' },
     size: 'sm',
+    highlight: false,
   },
   {
     name: 'Starter',
-    tagline: 'Launch',
-    price: { monthly: 29, yearly: 24 },
-    yearlyBilled: 290,
-    desc: 'Your first verified, routable, hireable agent.',
-    features: ['Up to 5 agents', 'Handle (5+ chars)', 'Inbox & messaging', 'Task management', 'Trust verification', 'Email support'],
-    cta: { monthly: 'Start for $29/mo', yearly: 'Start for $24/mo' },
-    size: 'sm',
+    tagline: 'Most popular',
+    price: { monthly: 29, yearly: null },
+    yearlyTotal: 290,
+    yearlySave: 58,
+    desc: 'Your agent gets a name.',
+    features: [
+      'Up to 5 agents',
+      '1 .agentid handle included (5+ chars)',
+      'Agent-to-agent messaging & inbox',
+      'Task management',
+      'Trust verification',
+      'Email support',
+    ],
+    cta: { monthly: 'Start with Starter', yearly: 'Start with Starter' },
+    size: 'lg',
+    highlight: true,
   },
   {
     name: 'Pro',
     tagline: 'Scale',
-    price: { monthly: 79, yearly: 66 },
-    yearlyBilled: 790,
-    desc: 'Run a serious fleet with priority placement, advanced controls, and custom domains.',
-    features: ['Up to 25 agents', 'Handle (5+ chars)', '5,000 req/min', 'Fleet management', 'Priority marketplace', 'Advanced verification', 'Custom domains', 'Analytics dashboard', 'Priority support'],
-    cta: { monthly: 'Go Pro — $79/mo', yearly: 'Go Pro — $66/mo' },
-    size: 'lg',
-    highlight: true,
+    price: { monthly: 79, yearly: null },
+    yearlyTotal: 790,
+    yearlySave: 158,
+    desc: 'Run production fleets with priority everything.',
+    features: [
+      'Up to 25 agents',
+      '5 .agentid handles included (5+ chars)',
+      'Everything in Starter, plus:',
+      '5,000 req/min rate limit',
+      'Fleet management dashboard',
+      'Custom domains',
+      'Analytics & usage insights',
+      'Priority support',
+    ],
+    cta: { monthly: 'Go Pro', yearly: 'Go Pro' },
+    size: 'sm',
+    highlight: false,
   },
   {
     name: 'Enterprise',
     tagline: 'Command',
     price: { monthly: null, yearly: null },
-    desc: 'Custom contracts, SLA, and dedicated support for large-scale deployments.',
-    features: ['Unlimited agents', 'SLA guarantee', 'Dedicated engineer', 'Custom integrations', 'Enterprise contract', 'Custom pricing'],
+    desc: 'For teams deploying at scale.',
+    features: [
+      'Custom agent count',
+      'SLA guarantee',
+      'Dedicated support engineer',
+      'Custom integrations',
+      'Enterprise contract & invoicing',
+    ],
     cta: { monthly: 'Contact Sales', yearly: 'Contact Sales' },
     size: 'sm',
+    highlight: false,
   },
 ];
 
@@ -48,24 +81,21 @@ export default function PricingGravity() {
   return (
     <div style={{ background: '#050711', minHeight: '100vh', fontFamily: "'Inter', sans-serif", color: '#e8e8f0', padding: '60px 32px 80px', position: 'relative', overflow: 'hidden' }}>
       {/* Ambient glow */}
-      <div style={{ position: 'absolute', top: -200, left: '50%', transform: 'translateX(-50%)', width: 800, height: 400, background: 'radial-gradient(ellipse, rgba(79,125,243,0.07) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: -200, left: '50%', transform: 'translateX(-50%)', width: 900, height: 500, background: 'radial-gradient(ellipse, rgba(79,125,243,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
       {/* Header */}
-      <div style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto 52px', position: 'relative' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 14px', background: 'rgba(79,125,243,0.08)', border: '1px solid rgba(79,125,243,0.2)', borderRadius: 20, marginBottom: 24 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4f7df3', boxShadow: '0 0 8px #4f7df3' }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#4f7df3', letterSpacing: '0.08em' }}>NOW IN GENERAL AVAILABILITY</span>
-        </div>
-        <h1 style={{ fontSize: 44, fontWeight: 900, lineHeight: 1.05, margin: '0 0 18px', letterSpacing: '-0.03em', background: 'linear-gradient(135deg, #e8e8f0 30%, #8690a8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Identity infrastructure<br />for AI agents.
+      <div style={{ textAlign: 'center', maxWidth: 580, margin: '0 auto 48px', position: 'relative' }}>
+        <h1 style={{ fontSize: 40, fontWeight: 900, lineHeight: 1.08, margin: '0 0 14px', letterSpacing: '-0.03em', background: 'linear-gradient(160deg, #e8e8f0 40%, #8690a8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Identity for every agent.
         </h1>
-        <p style={{ fontSize: 15, color: '#8690a8', lineHeight: 1.65, margin: 0 }}>
-          Every agent deserves a permanent address. Pick a plan — the UUID is always free.
+        <p style={{ fontSize: 16, fontWeight: 600, color: '#c4cde0', margin: '0 0 10px' }}>Free to start. Scales with your fleet.</p>
+        <p style={{ fontSize: 14, color: '#8690a8', lineHeight: 1.6, margin: 0 }}>
+          Every agent gets a permanent machine identity at registration — it never expires, even on the free plan.
         </p>
       </div>
 
       {/* Billing toggle */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 52 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginBottom: 48 }}>
         <span style={{ fontSize: 13, color: billing === 'monthly' ? '#e8e8f0' : '#3a4258', fontWeight: 500 }}>Monthly</span>
         <button
           onClick={() => setBilling(b => b === 'monthly' ? 'yearly' : 'monthly')}
@@ -78,6 +108,7 @@ export default function PricingGravity() {
             position: 'relative',
             cursor: 'pointer',
             transition: 'background 0.2s',
+            flexShrink: 0,
           }}
         >
           <div style={{
@@ -93,80 +124,108 @@ export default function PricingGravity() {
           }} />
         </button>
         <span style={{ fontSize: 13, color: billing === 'yearly' ? '#e8e8f0' : '#3a4258', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
-          Yearly
+          Annual
           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(52,211,153,0.12)', color: '#34d399', letterSpacing: '0.04em' }}>
-            SAVE 2 MONTHS
+            SAVE 17%
           </span>
         </span>
       </div>
 
-      {/* Plans — Pro is prominently larger */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr 1fr', gap: 12, alignItems: 'end' }}>
+      {/* Plans grid — Starter is slightly larger as Most Popular */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1.18fr 1fr 1fr', gap: 12, alignItems: 'end' }}>
         {plans.map(plan => {
-          const isLg = plan.size === 'lg';
-          const price = plan.price[billing];
+          const isHighlight = plan.highlight;
+          const price = billing === 'yearly' && plan.yearlyTotal ? null : plan.price.monthly;
+          const showYearly = billing === 'yearly' && plan.yearlyTotal;
+
           return (
             <div
               key={plan.name}
               style={{
-                background: isLg ? 'linear-gradient(160deg, #0e152e 0%, #0c1228 100%)' : '#0c0f1e',
-                border: `1px solid ${isLg ? 'rgba(79,125,243,0.35)' : '#1a1f30'}`,
+                background: isHighlight ? 'linear-gradient(160deg, #0e152e 0%, #0c1228 100%)' : '#0c0f1e',
+                border: `1px solid ${isHighlight ? 'rgba(79,125,243,0.4)' : '#1a1f30'}`,
                 borderRadius: 18,
-                padding: isLg ? '36px 28px' : '24px 22px',
+                padding: isHighlight ? '32px 26px' : '24px 22px',
                 display: 'flex',
                 flexDirection: 'column',
                 position: 'relative',
-                boxShadow: isLg ? '0 0 0 1px rgba(79,125,243,0.1), 0 20px 60px rgba(79,125,243,0.1), inset 0 1px 0 rgba(255,255,255,0.04)' : 'none',
+                boxShadow: isHighlight
+                  ? '0 0 0 1px rgba(79,125,243,0.1), 0 16px 48px rgba(79,125,243,0.1), inset 0 1px 0 rgba(255,255,255,0.04)'
+                  : 'none',
               }}
             >
-              {isLg && (
-                <>
-                  {/* Top glow line */}
-                  <div style={{ position: 'absolute', top: 0, left: '15%', right: '15%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(79,125,243,0.6), transparent)', borderRadius: 1 }} />
-                  <div style={{ position: 'absolute', top: -10, right: 20, background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', color: '#fff', fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 20, letterSpacing: '0.1em' }}>
-                    MOST POPULAR
-                  </div>
-                </>
+              {/* Top glow line for highlight */}
+              {isHighlight && (
+                <div style={{ position: 'absolute', top: 0, left: '20%', right: '20%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(79,125,243,0.7), transparent)', borderRadius: 1 }} />
               )}
 
-              <div style={{ marginBottom: isLg ? 24 : 18 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isLg ? 16 : 12 }}>
+              {/* Badge */}
+              {isHighlight && (
+                <div style={{ position: 'absolute', top: -11, left: 22, background: 'linear-gradient(135deg, #4f7df3, #6c8ff7)', color: '#fff', fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 20, letterSpacing: '0.08em' }}>
+                  MOST POPULAR
+                </div>
+              )}
+
+              {/* Plan name & tagline */}
+              <div style={{ marginBottom: isHighlight ? 20 : 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <div>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: isLg ? '#4f7df3' : '#3a4258', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 3px' }}>{plan.tagline}</p>
-                    <p style={{ fontSize: isLg ? 18 : 14, fontWeight: 700, color: '#e8e8f0', margin: 0 }}>{plan.name}</p>
+                    <p style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: isHighlight ? '#4f7df3' : '#3a4258',
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      margin: '0 0 3px'
+                    }}>
+                      {isHighlight ? 'Most popular' : plan.tagline}
+                    </p>
+                    <p style={{ fontSize: isHighlight ? 17 : 14, fontWeight: 700, color: '#e8e8f0', margin: 0 }}>{plan.name}</p>
                   </div>
-                  {isLg && (
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(79,125,243,0.12)', border: '1px solid rgba(79,125,243,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 2L10 6H14L11 9L12 13L8 11L4 13L5 9L2 6H6L8 2Z" fill="#4f7df3" opacity="0.8" />
+                  {isHighlight && (
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(79,125,243,0.1)', border: '1px solid rgba(79,125,243,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M7 1.5l1.8 3.6L13 6l-3 2.9.7 4.1L7 11l-3.7 2 .7-4.1L1 6l4.2-.9L7 1.5Z" fill="#4f7df3" />
                       </svg>
                     </div>
                   )}
                 </div>
-                {price !== null ? (
+
+                {/* Price display */}
+                {plan.price.monthly !== null ? (
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
-                      <span style={{ fontSize: isLg ? 42 : 28, fontWeight: 800, letterSpacing: '-0.04em', color: isLg ? '#fff' : '#e8e8f0' }}>${price}</span>
-                      <span style={{ fontSize: 12, color: '#3a4258' }}>/mo</span>
-                    </div>
-                    {billing === 'yearly' && plan.yearlyBilled && (
-                      <p style={{ fontSize: 11, color: '#3a4258', margin: '4px 0 0' }}>
-                        Billed ${plan.yearlyBilled}/yr
-                      </p>
+                    {showYearly ? (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                          <span style={{ fontSize: isHighlight ? 36 : 26, fontWeight: 800, letterSpacing: '-0.04em', color: '#e8e8f0' }}>${plan.yearlyTotal}</span>
+                          <span style={{ fontSize: 12, color: '#3a4258' }}>/yr</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          <span style={{ fontSize: 11, color: '#3a4258' }}>${Math.round(plan.yearlyTotal! / 12)}/mo equivalent</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 12, background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>
+                            save ${plan.yearlySave}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                        <span style={{ fontSize: isHighlight ? 36 : 26, fontWeight: 800, letterSpacing: '-0.04em', color: '#e8e8f0' }}>${plan.price.monthly}</span>
+                        <span style={{ fontSize: 12, color: '#3a4258' }}>/mo</span>
+                      </div>
                     )}
                   </div>
                 ) : (
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#e8e8f0' }}>Custom</div>
+                  <div style={{ fontSize: isHighlight ? 22 : 20, fontWeight: 800, color: '#e8e8f0', marginTop: 4 }}>Custom</div>
                 )}
               </div>
 
-              <p style={{ fontSize: 11, color: '#8690a8', lineHeight: 1.6, marginBottom: 20 }}>{plan.desc}</p>
+              <p style={{ fontSize: 11, color: '#8690a8', lineHeight: 1.6, marginBottom: 18, fontStyle: 'italic' }}>{plan.desc}</p>
 
-              <ul style={{ listStyle: 'none', padding: 0, margin: `0 0 ${isLg ? 28 : 20}px`, display: 'flex', flexDirection: 'column', gap: isLg ? 10 : 8, flex: 1 }}>
+              <ul style={{ listStyle: 'none', padding: 0, margin: `0 0 ${isHighlight ? 24 : 18}px`, display: 'flex', flexDirection: 'column', gap: isHighlight ? 9 : 7, flex: 1 }}>
                 {plan.features.map(f => (
-                  <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: isLg ? '#c4cde0' : '#8690a8' }}>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
-                      <path d="M2 6l3 3 5-5" stroke={isLg ? '#4f7df3' : '#34d399'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 11, color: isHighlight ? '#c4cde0' : '#8690a8', lineHeight: 1.4 }}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                      <path d="M2 6l3 3 5-5" stroke={isHighlight ? '#4f7df3' : '#34d399'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     {f}
                   </li>
@@ -176,17 +235,16 @@ export default function PricingGravity() {
               <button
                 style={{
                   width: '100%',
-                  padding: isLg ? '13px 0' : '9px 0',
+                  padding: isHighlight ? '12px 0' : '9px 0',
                   borderRadius: 10,
-                  border: 'none',
-                  background: isLg ? 'linear-gradient(135deg, #4f7df3 0%, #6e93f5 100%)' : '#131729',
-                  color: isLg ? '#fff' : '#8690a8',
-                  fontSize: isLg ? 14 : 12,
-                  fontWeight: isLg ? 700 : 500,
+                  border: isHighlight ? 'none' : '1px solid #1a1f30',
+                  background: isHighlight ? 'linear-gradient(135deg, #4f7df3 0%, #6e93f5 100%)' : 'transparent',
+                  color: isHighlight ? '#fff' : '#8690a8',
+                  fontSize: isHighlight ? 13 : 12,
+                  fontWeight: isHighlight ? 700 : 500,
                   cursor: 'pointer',
                   fontFamily: "'Inter', sans-serif",
-                  letterSpacing: isLg ? '-0.01em' : 0,
-                  boxShadow: isLg ? '0 4px 20px rgba(79,125,243,0.25)' : 'none',
+                  boxShadow: isHighlight ? '0 4px 16px rgba(79,125,243,0.3)' : 'none',
                   transition: 'all 0.15s',
                 }}
               >
@@ -198,14 +256,15 @@ export default function PricingGravity() {
       </div>
 
       {/* Social proof */}
-      <div style={{ textAlign: 'center', marginTop: 52, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
+      <div style={{ maxWidth: 1100, margin: '40px auto 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 48, paddingTop: 32, borderTop: '1px solid #1a1f30' }}>
         {[
           { num: '12,000+', label: 'Agents registered' },
           { num: 'SOC 2', label: 'Type II in progress' },
-          { num: '99.9%', label: 'API uptime' },
+          { num: '99.9%', label: 'API uptime SLA' },
+          { num: '25+', label: 'Chains supported' },
         ].map(s => (
-          <div key={s.num}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#e8e8f0', letterSpacing: '-0.02em' }}>{s.num}</div>
+          <div key={s.num} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#c4cde0', letterSpacing: '-0.02em' }}>{s.num}</div>
             <div style={{ fontSize: 11, color: '#3a4258', marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
