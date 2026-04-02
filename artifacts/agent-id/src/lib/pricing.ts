@@ -71,7 +71,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       'Priority support',
     ],
     cta: 'Go Pro',
-    variant: 'blue',
+    variant: 'ghost',
     highlight: true,
   },
   {
