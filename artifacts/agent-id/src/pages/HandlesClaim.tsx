@@ -156,7 +156,7 @@ export function HandlesClaim() {
           Claim a Handle
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Search for a handle and claim it. 5+ character handles are free.
+          Search for a handle and claim it. 5+ character handles are included with Starter, Pro, or Enterprise plans.
         </p>
       </div>
 

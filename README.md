@@ -42,12 +42,16 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 | `STRIPE_SECRET_KEY` | Stripe secret key (`sk_live_...` or `sk_test_...`) |
 | `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (`whsec_...`) |
-| `STRIPE_PRICE_STARTER_MONTHLY` | Stripe Price ID for Starter monthly plan |
-| `STRIPE_PRICE_STARTER_YEARLY` | Stripe Price ID for Starter yearly plan |
-| `STRIPE_PRICE_PRO_MONTHLY` | Stripe Price ID for Pro monthly plan |
-| `STRIPE_PRICE_PRO_YEARLY` | Stripe Price ID for Pro yearly plan |
-| `STRIPE_PRICE_HANDLE_STANDARD` | Stripe Price ID for standard handle registration |
-| `STRIPE_PRICE_HANDLE_PREMIUM` | Stripe Price ID for premium handle registration |
+| `STRIPE_PRICE_STARTER_MONTHLY` | Stripe Price ID for Starter monthly plan ($29/mo) |
+| `STRIPE_PRICE_STARTER_YEARLY` | Stripe Price ID for Starter yearly plan ($290/yr) |
+| `STRIPE_PRICE_PRO_MONTHLY` | Stripe Price ID for Pro monthly plan ($79/mo) |
+| `STRIPE_PRICE_PRO_YEARLY` | Stripe Price ID for Pro yearly plan ($790/yr) |
+| `STRIPE_PRICE_HANDLE_3CHAR_YEARLY` | Stripe Price ID for 3-char handle annual renewal ($99/yr) |
+| `STRIPE_PRICE_HANDLE_4CHAR_YEARLY` | Stripe Price ID for 4-char handle annual renewal ($29/yr) |
+
+**Plans:** Free ($0, 1 agent, UUID identity only) · Starter ($29/mo, 5 agents) · Pro ($79/mo, 25 agents) · Enterprise (custom)
+
+**Handle pricing:** 1-2 chars reserved · 3 chars $99/yr (Stripe required) · 4 chars $29/yr (Stripe required) · 5+ chars included with Starter/Pro/Enterprise (no extra charge)
 
 ### Email
 

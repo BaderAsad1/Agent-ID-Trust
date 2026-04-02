@@ -9,6 +9,7 @@ import { logger } from "../middlewares/request-logger";
 import { getStripe } from "./stripe-client";
 import { activatePlanForAgent, activatePlanForUser, getHandlePriceCents } from "./billing";
 import { assignHandleToAgent, getHandleTier, checkHandleAvailability } from "./handle";
+import { HANDLE_PRICING_TIERS } from "@workspace/shared-pricing";
 
 export type AgentPaymentMethod = "stripe_preauth" | "usdc" | "card";
 
@@ -80,11 +81,15 @@ export async function getAgentPaymentOptions(agentId: string): Promise<AgentPaym
         features: ["Contact sales", "Custom limits", "SLA", "Dedicated support"],
       },
     ],
-    handlePricing: [
-      { tier: "premium_3", annualUsd: 640, annualCents: 64000, description: "3-character ultra-premium handle" },
-      { tier: "premium_4", annualUsd: 160, annualCents: 16000, description: "4-character premium handle" },
-      { tier: "standard_5plus", annualUsd: 5, annualCents: 500, description: "5+ character standard handle (free with active plan)" },
-    ],
+    handlePricing: HANDLE_PRICING_TIERS
+      .filter(t => !t.isReserved)
+      .map(t => ({
+        tier: t.tier,
+        annualUsd: t.annualPriceUsd,
+        annualCents: t.annualPriceCents,
+        description: t.description,
+        includedWithPaidPlan: t.includedWithPaidPlan,
+      })),
     upgradeUrl: `${APP_URL}/api/v1/pay/upgrade`,
   };
 }

@@ -22,7 +22,7 @@ import {
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
 import { checkRateLimit, checkHandleRegistrationLimits, recordHandleRegistration, isHandleReserved } from "../../services/handle";
-import { requirePlanFeature, getHandlePriceCents, getUserPlan, getPlanLimits } from "../../services/billing";
+import { requirePlanFeature, getHandlePriceCents, getUserPlan, getPlanLimits, isEligibleForIncludedHandle } from "../../services/billing";
 import {
   getActiveCredential,
   issueCredential,
@@ -143,34 +143,51 @@ router.post("/", requireAuth, async (req, res, next) => {
 
     const handlePriceCents = getHandlePriceCents(normalizedHandle);
     const handleLen = normalizedHandle.replace(/[^a-z0-9]/g, "").length;
-    const pricingTier = handleLen <= 3 ? "ultra_premium" : handleLen === 4 ? "premium" : "standard";
-    const isFreeHandle = handleLen >= 5;
+    const pricingTier = handleLen === 3 ? "premium_3" : handleLen === 4 ? "premium_4" : "standard_5plus";
+    const isStandardHandle = handleLen >= 5;
 
-    if (!isFreeHandle && !isSandbox) {
+    if (!isSandbox) {
+      const userPlan = await getUserPlan(req.userId!);
       const APP_URL = process.env.APP_URL ?? "https://getagent.id";
-      res.status(402).json({
-        code: "HANDLE_PAYMENT_REQUIRED",
-        message: `This handle requires payment of $${(handlePriceCents / 100).toFixed(2)}/year. Use POST /api/v1/billing/handle-checkout to start checkout.`,
-        handle: normalizedHandle,
-        priceCents: handlePriceCents,
-        priceDollars: handlePriceCents / 100,
-        tier: pricingTier,
-        characterLength: handleLen,
-        isFree: false,
-        includesOnChainMint: true,
-        checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
-        handlePricing: {
-          annualPriceCents: handlePriceCents,
-          annualPriceDollars: handlePriceCents / 100,
+
+      if (!isStandardHandle) {
+        res.status(402).json({
+          code: "HANDLE_PAYMENT_REQUIRED",
+          message: `This handle requires payment of $${(handlePriceCents / 100).toFixed(2)}/year. Use POST /api/v1/billing/handle-checkout to start checkout.`,
+          handle: normalizedHandle,
+          priceCents: handlePriceCents,
+          priceDollars: handlePriceCents / 100,
           tier: pricingTier,
           characterLength: handleLen,
-          isFree: false,
-          onChainMintPrice: 0,
-          onChainMintPriceDollars: 0,
+          includedWithPaidPlan: false,
           includesOnChainMint: true,
-        },
-      });
-      return;
+          checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
+          handlePricing: {
+            annualPriceCents: handlePriceCents,
+            annualPriceDollars: handlePriceCents / 100,
+            tier: pricingTier,
+            characterLength: handleLen,
+            includedWithPaidPlan: false,
+            onChainMintPrice: 0,
+            onChainMintPriceDollars: 0,
+            includesOnChainMint: true,
+          },
+        });
+        return;
+      }
+
+      if (!isEligibleForIncludedHandle(userPlan)) {
+        res.status(402).json({
+          code: "PLAN_REQUIRED",
+          message: "Standard handles (5+ characters) are included with Starter, Pro, or Enterprise plans. Upgrade at /pricing to register a handle.",
+          handle: normalizedHandle,
+          tier: pricingTier,
+          characterLength: handleLen,
+          includedWithPaidPlan: true,
+          upgradeUrl: `${APP_URL}/pricing`,
+        });
+        return;
+      }
     }
 
     const sandboxHandle = isSandbox ? `sandbox-${normalizedHandle}` : normalizedHandle;
@@ -189,8 +206,8 @@ router.post("/", requireAuth, async (req, res, next) => {
             annualPriceCents: handlePriceCents,
             tier: pricingTier,
             characterLength: handleLen,
-            paymentStatus: "paid",
-            isFree: true,
+            paymentStatus: isStandardHandle ? "included" : "paid",
+            includedWithPaidPlan: isStandardHandle,
             registeredAt: new Date().toISOString(),
           },
         },
@@ -218,7 +235,7 @@ router.post("/", requireAuth, async (req, res, next) => {
         handle: agent.handle,
         handlePriceCents,
         pricingTier,
-        isFreeHandle,
+        isStandardHandle,
       },
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
@@ -254,10 +271,10 @@ router.post("/", requireAuth, async (req, res, next) => {
           annualPriceDollars: handlePriceCents / 100,
           tier: pricingTier,
           characterLength: handleLen,
-          isFree: true,
-          onChainMintPrice: 500,
-          onChainMintPriceDollars: 5,
-          includesOnChainMint: false,
+          includedWithPaidPlan: isStandardHandle,
+          onChainMintPrice: isStandardHandle ? 500 : 0,
+          onChainMintPriceDollars: isStandardHandle ? 5 : 0,
+          includesOnChainMint: !isStandardHandle,
         },
       }),
     });

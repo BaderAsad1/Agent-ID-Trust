@@ -4,26 +4,21 @@ import { eq, and, sql } from "drizzle-orm";
 import { AppError } from "../../middlewares/error-handler";
 import { validateHandle, isHandleAvailable, getHandleReservation, isHandleReserved, agentOwnerFilter } from "../../services/agents";
 import { getHandleTier, isHandleReserved as isHandleTierReserved } from "../../services/handle";
+import { HANDLE_PRICING_TIERS, getHandlePricingTier } from "@workspace/shared-pricing";
 
-function legacyPricingShape(tier: ReturnType<typeof getHandleTier>) {
-  const isStandard = tier.tier === "standard_5plus";
+function legacyPricingShape(handle: string) {
+  const t = getHandlePricingTier(handle);
   return {
-    tier: tier.tier,
-    annualPriceUsd: tier.annualUsd,
-    annualPriceCents: tier.annualCents,
-    description: `${tier.tier === "premium_3" ? "Ultra-premium 3-char — includes on-chain mint" : tier.tier === "premium_4" ? "Premium 4-char — includes on-chain mint" : "Standard 5+ char handle — free"}`,
-    isFree: isStandard,
-    onChainMintPrice: isStandard ? 500 : 0,
-    onChainMintPriceDollars: isStandard ? 5 : 0,
-    includesOnChainMint: !isStandard && tier.tier !== "reserved_1_2",
+    tier: t.tier,
+    annualPriceUsd: t.annualPriceUsd,
+    annualPriceCents: t.annualPriceCents,
+    description: t.description,
+    includedWithPaidPlan: t.includedWithPaidPlan,
+    onChainMintPrice: t.onChainMintPrice,
+    onChainMintPriceDollars: t.onChainMintPriceDollars,
+    includesOnChainMint: t.includesOnChainMint,
   };
 }
-
-const HANDLE_PRICING_TIERS = [
-  { minLength: 3, maxLength: 3, tier: "premium_3", annualPriceUsd: 99, annualPriceCents: 9900, description: "Ultra-premium 3-char — includes on-chain mint", isFree: false, onChainMintPrice: 0, onChainMintPriceDollars: 0, includesOnChainMint: true },
-  { minLength: 4, maxLength: 4, tier: "premium_4", annualPriceUsd: 29, annualPriceCents: 2900, description: "Premium 4-char — includes on-chain mint", isFree: false, onChainMintPrice: 0, onChainMintPriceDollars: 0, includesOnChainMint: true },
-  { minLength: 5, maxLength: undefined, tier: "standard_5plus", annualPriceUsd: 0, annualPriceCents: 0, description: "Standard 5+ char handle — free", isFree: true, onChainMintPrice: 500, onChainMintPriceDollars: 5, includesOnChainMint: false },
-];
 import { requireAuth } from "../../middlewares/replit-auth";
 import { db } from "@workspace/db";
 import { agentsTable, handleAuctionsTable, handleTrademarkClaimsTable } from "@workspace/db/schema";
@@ -65,7 +60,7 @@ router.get("/check", async (req, res, next) => {
 
     const reservation = await getHandleReservation(normalized);
     if (reservation.isReserved) {
-      const pricing = legacyPricingShape(getHandleTier(normalized));
+      const pricing = legacyPricingShape(normalized);
       res.json({
         available: false,
         handle: normalized,
@@ -120,7 +115,7 @@ router.get("/check", async (req, res, next) => {
       return;
     }
 
-    const pricing = legacyPricingShape(getHandleTier(normalized));
+    const pricing = legacyPricingShape(normalized);
 
     const pendingClaim = await db
       .select({ id: handleTrademarkClaimsTable.id })
@@ -150,7 +145,7 @@ router.get("/check", async (req, res, next) => {
       tier: pricing.tier,
       annual: pricing.annualPriceCents,
       annualUsd: pricing.annualPriceUsd,
-      isFree: pricing.isFree,
+      includedWithPaidPlan: pricing.includedWithPaidPlan,
       onChainMintPrice: pricing.onChainMintPrice,
       onChainMintPriceDollars: pricing.onChainMintPriceDollars,
       includesOnChainMint: pricing.includesOnChainMint,

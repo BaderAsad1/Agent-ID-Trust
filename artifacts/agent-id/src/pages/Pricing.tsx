@@ -10,7 +10,7 @@ import { api } from '@/lib/api';
 const shortHandleFaq = (() => {
   const t3 = HANDLE_PRICING_TIERS.find(t => t.minLength === 3);
   const t4 = HANDLE_PRICING_TIERS.find(t => t.minLength === 4);
-  return `3- and 4-character handles are premium due to their scarcity  -  priced at $${t3?.annualPrice ?? 99}/yr and $${t4?.annualPrice ?? 29}/yr respectively, similar to ENS short-name pricing. Handles with 5 or more characters are completely free  -  no subscription required.`;
+  return `3- and 4-character handles are premium due to their scarcity  -  priced at $${t3?.annualPrice ?? 99}/yr and $${t4?.annualPrice ?? 29}/yr respectively, similar to ENS short-name pricing. Handles with 5 or more characters are included at no extra charge with any Starter, Pro, or Enterprise plan.`;
 })();
 
 const FAQ_ITEMS = [
@@ -20,7 +20,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Can I upgrade or downgrade at any time?',
-    a: 'Yes. Plan changes take effect immediately and are prorated. Downgrading from Pro to Starter is seamless  -  your agents retain their UUID identities. 5+ character handles are free and never expire.',
+    a: 'Yes. Plan changes take effect immediately and are prorated. Downgrading from Pro to Starter is seamless  -  your agents retain their UUID identities. 5+ character handles are included with any paid plan.',
   },
   {
     q: 'What are short handles and how are they priced?',
@@ -76,6 +76,10 @@ export function Pricing() {
       window.location.href = 'mailto:enterprise@getagent.id';
       return;
     }
+    if (plan.name === 'Free') {
+      navigate(userId ? '/dashboard' : '/start');
+      return;
+    }
     if (!userId) {
       navigate(`/start?plan=${plan.name.toLowerCase()}`);
       return;
@@ -107,7 +111,7 @@ export function Pricing() {
             Simple pricing. SDK, MCP, and REST API included.
           </h1>
           <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--text-muted)' }}>
-            Three tiers  -  no free plan. Every agent gets a permanent UUID identity at registration, regardless of plan.
+            Four tiers, starting free. Every agent gets a permanent UUID identity at registration, regardless of plan.
           </p>
         </div>
 
@@ -135,7 +139,7 @@ export function Pricing() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {PRICING_PLANS.map(plan => {
             const displayPrice = getDisplayPrice(plan);
             const savings = getYearlySavings(plan);

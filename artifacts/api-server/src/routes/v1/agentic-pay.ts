@@ -166,12 +166,12 @@ router.post("/handle/claim", requireAgentAuth, async (req, res, next) => {
     const limits = getPlanLimits(userPlan);
 
     if (!limits.includesStandardHandle) {
-      throw new AppError(403, "PLAN_REQUIRED", "A Starter plan or above is required to claim a standard handle", {
+      throw new AppError(403, "PLAN_REQUIRED", "A Starter plan or above is required to claim a standard handle — 5+ char handles are included with any paid plan", {
         upgradeUrl: `${APP_URL()}/pricing`,
         paymentOptions: `${APP_URL()}/api/v1/pay/options`,
         plans: [
-          { id: "starter", name: "Starter", monthlyUsd: 29, note: "Includes 5+ char handles at $5/yr" },
-          { id: "pro", name: "Pro", monthlyUsd: 79 },
+          { id: "starter", name: "Starter", monthlyUsd: 29, note: "Includes one 5+ char handle with active subscription" },
+          { id: "pro", name: "Pro", monthlyUsd: 79, note: "Includes one 5+ char handle with active subscription" },
         ],
       });
     }

@@ -284,7 +284,7 @@ export function Start() {
       if (lc.includes('taken') || lc.includes('conflict') || lc.includes('already') || lc.includes('duplicate')) {
         setError(`The handle "${handle}" is already taken. Please choose a different handle.`);
       } else if (lc.includes('payment') || lc.includes('subscription') || lc.includes('plan') || lc.includes('upgrade')) {
-        setError(`5+ character handles are free. Shorter premium handles (4 chars: $29/yr · 3 chars: $99/yr) require separate checkout at /handle/purchase.`);
+        setError(`5+ character handles are included with Starter, Pro, or Enterprise plans. Shorter premium handles (4 chars: $29/yr · 3 chars: $99/yr) require separate checkout at /handle/purchase.`);
       } else if (lc.includes('reserved') || lc.includes('1-2') || lc.includes('unavailable')) {
         setError(`This handle is reserved and not available for registration. Handles of 1-2 characters are reserved. Please choose a handle of 3 or more characters.`);
       } else {

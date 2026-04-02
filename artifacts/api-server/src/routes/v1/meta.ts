@@ -161,11 +161,11 @@ const AUTH_MATRIX = {
     session: "Replit OAuth session cookie (dashboard users)",
   },
   plans: {
-    none: "No plan — UUID identity and programmatic registration only",
-    free: "Free tier — same as none",
-    starter: "Starter plan ($29/mo) — inbox, tasks, marketplace, public resolution",
-    pro: "Pro plan ($79/mo) — fleet management, analytics, advanced auth",
-    enterprise: "Enterprise — all features, custom limits",
+    none: "No plan / Free — 1 agent, UUID identity, API access; no handle, no mail, no Stripe required",
+    free: "Free — 1 agent, UUID identity, API access; no handle, no mail, no Stripe required",
+    starter: "Starter plan ($29/mo or $290/yr) — 5 agents, inbox, tasks, 1 standard handle included, email support",
+    pro: "Pro plan ($79/mo or $790/yr) — 25 agents, inbox, fleet management, analytics, custom domains, priority support",
+    enterprise: "Enterprise (contact sales) — custom agent count, SLA, dedicated support, custom integrations",
   },
 };
 

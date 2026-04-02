@@ -13,8 +13,8 @@ const APP_URL = process.env.APP_URL || "https://getagent.id";
 console.log(`\nAgent ID — Stripe Product Setup`);
 console.log(`Mode: ${isLive ? "LIVE" : "TEST"}`);
 console.log(`App URL: ${APP_URL}\n`);
-console.log(`Plans: Starter ($29/mo), Pro ($79/mo), Enterprise (contact sales)`);
-console.log(`Handles: 3-char=$640/yr, 4-char=$160/yr, 5+=$10/yr (included with plan)\n`);
+console.log(`Plans: Free ($0), Starter ($29/mo), Pro ($79/mo), Enterprise (contact sales)`);
+console.log(`Handles: 3-char=$99/yr, 4-char=$29/yr, 5+=included with Starter/Pro/Enterprise\n`);
 
 async function setupProducts() {
   const starterProduct = await stripe.products.create({
@@ -79,48 +79,33 @@ async function setupProducts() {
 
   const handle3CharYearly = await stripe.prices.create({
     product: handle3CharProduct.id,
-    unit_amount: 64000,
+    unit_amount: 9900,
     currency: "usd",
     recurring: { interval: "year" },
-    metadata: { handleTier: "three_char", chars: "3", annualUsd: "640" },
+    metadata: { handleTier: "premium_3", chars: "3", annualUsd: "99" },
   });
 
   console.log(`\nHandle 3-char product: ${handle3CharProduct.id}`);
-  console.log(`  Annual ($640/yr): ${handle3CharYearly.id}`);
+  console.log(`  Annual ($99/yr): ${handle3CharYearly.id}`);
 
   const handle4CharProduct = await stripe.products.create({
     name: "Agent ID Handle — 4-Character",
-    description: "Standard 4-character handle registration (.agentid namespace), annual renewal",
-    metadata: { type: "handle", tier: "four_char", chars: "4" },
+    description: "Premium 4-character handle registration (.agentid namespace), annual renewal — includes on-chain mint",
+    metadata: { type: "handle", tier: "premium_4", chars: "4" },
   });
 
   const handle4CharYearly = await stripe.prices.create({
     product: handle4CharProduct.id,
-    unit_amount: 16000,
+    unit_amount: 2900,
     currency: "usd",
     recurring: { interval: "year" },
-    metadata: { handleTier: "four_char", chars: "4", annualUsd: "160" },
+    metadata: { handleTier: "premium_4", chars: "4", annualUsd: "29" },
   });
 
   console.log(`Handle 4-char product: ${handle4CharProduct.id}`);
-  console.log(`  Annual ($160/yr): ${handle4CharYearly.id}`);
+  console.log(`  Annual ($29/yr): ${handle4CharYearly.id}`);
 
-  const handle5PlusProduct = await stripe.products.create({
-    name: "Agent ID Handle — 5+ Characters",
-    description: "Standard 5+ character handle registration (.agentid namespace), included with active plan",
-    metadata: { type: "handle", tier: "standard_5plus", chars: "5+" },
-  });
-
-  const handle5PlusYearly = await stripe.prices.create({
-    product: handle5PlusProduct.id,
-    unit_amount: 1000,
-    currency: "usd",
-    recurring: { interval: "year" },
-    metadata: { handleTier: "standard_5plus", chars: "5+", annualUsd: "10" },
-  });
-
-  console.log(`Handle 5+ char product: ${handle5PlusProduct.id}`);
-  console.log(`  Annual ($10/yr, included with plan): ${handle5PlusYearly.id}`);
+  console.log(`\nHandle 5+ char: NO Stripe product — included with Starter, Pro, or Enterprise plan.`);
 
   console.log("\n=== ADD THESE TO REPLIT SECRETS ===");
   console.log(`STRIPE_PRICE_STARTER_MONTHLY=${starterMonthly.id}`);
@@ -129,9 +114,10 @@ async function setupProducts() {
   console.log(`STRIPE_PRICE_PRO_YEARLY=${proYearly.id}`);
   console.log(`STRIPE_PRICE_HANDLE_3CHAR_YEARLY=${handle3CharYearly.id}`);
   console.log(`STRIPE_PRICE_HANDLE_4CHAR_YEARLY=${handle4CharYearly.id}`);
-  console.log(`STRIPE_PRICE_HANDLE_5PLUS_YEARLY=${handle5PlusYearly.id}`);
   console.log("\nDone! Copy all STRIPE_PRICE_* values into Replit Secrets.");
-  console.log("\nNote: Enterprise plan is tailored — no Stripe product required.");
+  console.log("\nNote: Free plan requires no Stripe product — UUID identity only.");
+  console.log("Note: Enterprise plan is tailored — no Stripe product required.");
+  console.log("Note: 5+ char handles are included with plan — no Stripe product needed.");
   console.log("Note: 1-2 char handles are RESERVED — no Stripe product needed.");
 }
 

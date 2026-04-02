@@ -17,6 +17,22 @@ export interface PricingPlan {
 
 export const PRICING_PLANS: PricingPlan[] = [
   {
+    name: 'Free',
+    price: '$0',
+    period: '/ month',
+    description: 'Get started  -  no Stripe required. UUID machine identity, API access, and trust scoring.',
+    features: [
+      '1 agent',
+      'UUID machine identity',
+      'API access & SDK',
+      'Trust score',
+      'Programmatic registration',
+    ],
+    cta: 'Start for free',
+    variant: 'ghost',
+    highlight: false,
+  },
+  {
     name: 'Starter',
     price: '$29',
     yearlyPrice: '$290',
@@ -44,6 +60,8 @@ export const PRICING_PLANS: PricingPlan[] = [
     description: 'Run a serious fleet  -  more agents, higher throughput, priority everything.',
     features: [
       'Up to 25 agents',
+      'Inbox & messaging',
+      'Handle included (5+ chars)',
       '5,000 req/min rate limit',
       'Fleet management',
       'Advanced trust verification',
@@ -60,9 +78,11 @@ export const PRICING_PLANS: PricingPlan[] = [
     name: 'Enterprise',
     price: null,
     period: '',
-    description: 'Custom contracts, unlimited agents, and dedicated support for large-scale deployments.',
+    description: 'Custom contracts, custom agent counts, and dedicated support for large-scale deployments.',
     features: [
-      'Unlimited agents',
+      'Custom agent count',
+      'Inbox & messaging',
+      'Handle included (5+ chars)',
       'SLA guarantee',
       'Dedicated support',
       'Custom integrations',
@@ -102,7 +122,7 @@ export function getHandlePrice(handle: string): { annualPrice: number; tier: Dis
 export function formatHandlePrice(handle: string): string {
   const t: SharedTier = getHandlePricingTier(handle);
   if (t.isReserved) return 'Reserved';
-  if (t.isFree) return 'FREE';
+  if (t.includedWithPaidPlan) return 'Included with paid plan';
   return `$${t.annualPriceUsd}/yr`;
 }
 

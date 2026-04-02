@@ -525,7 +525,7 @@ export function GetStarted() {
               <div style={{ marginTop: 6, fontSize: 12, color: 'rgba(232,232,240,0.3)' }}>
                 {handlePrice.annualPrice > 0
                   ? `${handle.length <= 3 ? 'Premium' : handle.length === 4 ? 'Standard' : 'Basic'} handle  -  $${handlePrice.annualPrice}/yr`
-                  : 'FREE handle'}
+                  : 'Included with plan'}
               </div>
             )}
           </div>

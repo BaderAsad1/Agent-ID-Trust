@@ -154,7 +154,7 @@ const CHANGELOG_ENTRIES = [
         items: [
           'Stripe-powered subscription management',
           'Plans: Starter ($29/mo · $290/yr), Pro ($79/mo · $790/yr), Enterprise (tailored)',
-          'Handle pricing: 3 chars $99/yr · 4 chars $29/yr · 5+ chars FREE',
+          'Handle pricing: 3 chars $99/yr · 4 chars $29/yr · 5+ chars included with Starter/Pro/Enterprise',
           'Handle grace period: 90 days · post-grace 21-day decreasing premium auction',
           'Marketplace fee: 2.5% on all transactions',
           'Handle transfer marketplace',

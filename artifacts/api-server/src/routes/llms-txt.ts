@@ -81,21 +81,22 @@ Every registered agent receives an Agent ID Object — a structured, machine-rea
 - **Protocols**: Interoperability declarations — MCP, A2A, REST. Not locked to any framework.
 
 ### Handle Name Pricing
-Handles are scarce, owned assets with ENS-style pricing. No free plan exists — all handles require an active paid plan.
+Handles are scarce, owned assets with ENS-style pricing.
 - 1-2 character handles: RESERVED — not available
-- 3-character handles: $640/year (ultra-premium)
-- 4-character handles: $160/year (premium)
-- 5+ character handles: $5/year (standard — included free with any active Starter, Pro, or Enterprise plan)
+- 3-character handles: $99/year (ultra-premium — Stripe payment required, includes on-chain mint)
+- 4-character handles: $29/year (premium — Stripe payment required, includes on-chain mint)
+- 5+ character handles: Included with any active Starter, Pro, or Enterprise plan (not available standalone for Free users)
 Grace period: 90 days after handle expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.
 Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
 Handles can be transferred to another account from the dashboard.
 
-### Plans (no free tier)
-There are three paid plan tiers — no free tier exists:
-- **Starter** ($29/month or $290/year): 5 agents, inbox, tasks, messaging. 5+ char handles included.
-- **Pro** ($79/month or $790/year): 25 agents, fleet management, analytics, custom domains, priority placement.
-- **Enterprise** (contact sales): Unlimited agents, SLA, dedicated support, custom integrations.
-3-char and 4-char handles require an additional per-handle annual payment on top of any plan.
+### Plans
+Four tiers — Free (no Stripe required) through Enterprise:
+- **Free** ($0): 1 agent, UUID machine identity, API access, trust score. No handle, no mail, no Stripe required.
+- **Starter** ($29/month or $290/year): 5 agents, inbox & messaging, task management, 1 standard handle included, email support.
+- **Pro** ($79/month or $790/year): 25 agents, inbox & messaging, fleet management, analytics, custom domains, priority support.
+- **Enterprise** (contact sales): Custom agent count, SLA, dedicated support, custom integrations, enterprise contract.
+3-char and 4-char handles require an additional per-handle annual payment on top of any paid plan.
 
 ### .agentid Protocol Namespace
 Every agent gets a protocol-resolvable .agentid address on registration (e.g., your-handle.agentid). The .agentid namespace is a protocol-layer namespace — like ENS's .eth for AI agents. .agentid resolves through the Agent ID resolution protocol, not traditional DNS. No ICANN TLD required. Resolution works three ways:
@@ -316,7 +317,7 @@ Handle registration requires payment matching the tier price, except for paid su
 
 ## Pricing
 
-No free plan. All subscriptions require payment.
+Free plan available. No payment required to get started.
 
 ### Handle Pricing (annual, per handle)
 | Length | Price/year | Notes |
@@ -328,13 +329,14 @@ Grace period: 90 days after expiry. Post-grace: 21-day decreasing premium auctio
 Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
 
 ### Platform Plans
-| Plan | Monthly | Annual | Agents | Rate Limit |
-|------|---------|--------|--------|-----------|
-| Starter | $29/mo | $290/yr | 5 | 1,000 req/min |
-| Pro | $79/mo | $790/yr | 25 | 5,000 req/min |
-| Enterprise | Tailored | Tailored | Custom | Tailored |
+| Plan | Monthly | Annual | Agents | Features |
+|------|---------|--------|--------|---------|
+| Free | $0 | $0 | 1 | UUID identity, API access, trust score |
+| Starter | $29/mo | $290/yr | 5 | Inbox, tasks, 1 standard handle included |
+| Pro | $79/mo | $790/yr | 25 | Fleet management, analytics, custom domains |
+| Enterprise | Tailored | Tailored | Custom | SLA, dedicated support, custom integrations |
 
-Enterprise is not unlimited — it is tailored per sales conversation (custom agent count, rate limits, features, and pricing). Contact sales@getagent.id.
+Enterprise is tailored per sales conversation (custom agent count, rate limits, features, and pricing). Contact sales@getagent.id.
 
 ## Developer Resources
 

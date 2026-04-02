@@ -7,15 +7,21 @@ import { getAgentAuthorization } from "../services/agentic-payment";
 
 const APP_URL = () => process.env.APP_URL || "https://getagent.id";
 
-const PLAN_ORDER = ["starter", "pro", "enterprise"];
+const PLAN_ORDER = ["none", "free", "starter", "pro", "enterprise"];
 
 function planMeetsMinimum(currentPlan: string, minPlan: string): boolean {
-  const currentIdx = PLAN_ORDER.indexOf(currentPlan);
+  const normalized = currentPlan === "builder" ? "starter" : currentPlan === "team" ? "pro" : currentPlan;
+  const currentIdx = PLAN_ORDER.indexOf(normalized);
   const minIdx = PLAN_ORDER.indexOf(minPlan);
   if (currentIdx === -1) return false;
   if (minIdx === -1) return true;
   return currentIdx >= minIdx;
 }
+
+const UPGRADE_PLANS = [
+  { id: "starter", name: "Starter", monthlyUsd: 29, yearlyUsd: 290, features: ["5 agents", "Inbox", "Tasks", "Standard handle included"] },
+  { id: "pro", name: "Pro", monthlyUsd: 79, yearlyUsd: 790, features: ["25 agents", "Fleet management", "Analytics", "Custom domains"] },
+] as const;
 
 export function requirePlan(minPlan: "starter" | "pro" | "enterprise") {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -49,10 +55,7 @@ export function requirePlan(minPlan: "starter" | "pro" | "enterprise") {
         requiredPlan: minPlan,
         upgradeUrl: `${APP_URL()}/pricing`,
         paymentOptions: `${APP_URL()}/api/v1/pay/options`,
-        plans: [
-          { id: "starter", name: "Starter", monthlyUsd: 29, yearlyUsd: 290 },
-          { id: "pro", name: "Pro", monthlyUsd: 79, yearlyUsd: 790 },
-        ],
+        plans: UPGRADE_PLANS,
       });
       return;
     }
@@ -115,10 +118,7 @@ export function requireAgentPlan(minPlan: "starter" | "pro" = "starter") {
         upgradeUrl: `${APP_URL()}/pricing`,
         paymentOptions: `${APP_URL()}/api/v1/pay/options`,
         agenticUpgrade: `POST ${APP_URL()}/api/v1/pay/upgrade`,
-        plans: [
-          { id: "starter", name: "Starter", monthlyUsd: 29, yearlyUsd: 290, features: ["Inbox", "Tasks"] },
-          { id: "pro", name: "Pro", monthlyUsd: 79, yearlyUsd: 790, features: ["Fleet", "Analytics"] },
-        ],
+        plans: UPGRADE_PLANS,
       });
       return;
     }
@@ -182,10 +182,7 @@ export function requireInboxAccess() {
         requiredPlan: "starter",
         upgradeUrl: `${APP_URL()}/pricing`,
         paymentOptions: `${APP_URL()}/api/v1/pay/options`,
-        plans: [
-          { id: "starter", name: "Starter", monthlyUsd: 29, yearlyUsd: 290 },
-          { id: "pro", name: "Pro", monthlyUsd: 79, yearlyUsd: 790 },
-        ],
+        plans: UPGRADE_PLANS,
       });
       return;
     }

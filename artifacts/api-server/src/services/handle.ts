@@ -2,6 +2,7 @@ import { eq, and, isNull, sql, gte, count, lt } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, handleAuctionsTable, handlePaymentsTable, usersTable, handleRegistrationLogTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
+import { HANDLE_PRICING_TIERS as SHARED_TIERS, isEligibleForIncludedHandle } from "@workspace/shared-pricing";
 
 export type HandleTier = "reserved_1_2" | "premium_3" | "premium_4" | "standard_5plus";
 
@@ -11,43 +12,26 @@ export interface HandleTierInfo {
   annualUsd: number;
   label: string;
   requiresPayment: boolean;
-  freeWithPlan: boolean;
+  includedWithPaidPlan: boolean;
 }
 
-export const HANDLE_TIERS: Record<HandleTier, HandleTierInfo> = {
-  reserved_1_2: {
-    tier: "reserved_1_2",
-    annualCents: 0,
-    annualUsd: 0,
-    label: "Reserved (1-2 chars)",
-    requiresPayment: false,
-    freeWithPlan: false,
-  },
-  premium_3: {
-    tier: "premium_3",
-    annualCents: 9900,
-    annualUsd: 99,
-    label: "3-character premium",
-    requiresPayment: true,
-    freeWithPlan: false,
-  },
-  premium_4: {
-    tier: "premium_4",
-    annualCents: 2900,
-    annualUsd: 29,
-    label: "4-character premium",
-    requiresPayment: true,
-    freeWithPlan: false,
-  },
-  standard_5plus: {
-    tier: "standard_5plus",
-    annualCents: 0,
-    annualUsd: 0,
-    label: "5+ character standard",
-    requiresPayment: false,
-    freeWithPlan: false,
-  },
-};
+function buildHandleTiers(): Record<HandleTier, HandleTierInfo> {
+  const result = {} as Record<HandleTier, HandleTierInfo>;
+  for (const t of SHARED_TIERS) {
+    const tier = t.tier as HandleTier;
+    result[tier] = {
+      tier,
+      annualCents: t.annualPriceCents,
+      annualUsd: t.annualPriceUsd,
+      label: t.description,
+      requiresPayment: !t.isReserved && !t.includedWithPaidPlan && t.annualPriceUsd > 0,
+      includedWithPaidPlan: t.includedWithPaidPlan,
+    };
+  }
+  return result;
+}
+
+export const HANDLE_TIERS: Record<HandleTier, HandleTierInfo> = buildHandleTiers();
 
 export const RESERVED_HANDLES = new Set([
   "admin", "administrator", "root", "system", "support", "help", "info", "contact",
@@ -419,33 +403,15 @@ export async function checkHandleRegistrationLimits(
       where: eq(usersTable.id, userId),
       columns: { plan: true },
     });
-    const userPlan = (userPlanRow?.plan ?? "none") as string;
-    const isFreeTier = userPlan === "free" || userPlan === "none";
+    const rawPlan = (userPlanRow?.plan ?? "none") as string;
+    const normalizedPlan = rawPlan === "builder" ? "starter" : rawPlan === "team" ? "pro" : rawPlan;
 
-    if (isFreeTier) {
-      const standardLimit = 10;
-      const existingHandles = await db
-        .select({ handle: agentsTable.handle })
-        .from(agentsTable)
-        .where(
-          and(
-            eq(agentsTable.userId, userId),
-            isNull(agentsTable.revokedAt),
-            sql`${agentsTable.handle} IS NOT NULL`,
-          ),
-        );
-      const standardCount = existingHandles.filter((a) => {
-        if (!a.handle) return false;
-        const len = a.handle.replace(/[^a-z0-9]/g, "").length;
-        return len >= 5;
-      }).length;
-      if (standardCount >= standardLimit) {
-        return {
-          allowed: false,
-          status: 409,
-          message: `Maximum ${standardLimit} standard handles (5+ characters) per free account. Upgrade to a paid plan for more handles.`,
-        };
-      }
+    if (!isEligibleForIncludedHandle(normalizedPlan)) {
+      return {
+        allowed: false,
+        status: 402,
+        message: "Standard handles (5+ characters) are included with Starter, Pro, or Enterprise plans. Upgrade at /pricing to register a handle.",
+      };
     }
   }
 

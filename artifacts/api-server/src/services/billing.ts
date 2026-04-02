@@ -14,17 +14,24 @@ import {
   type Subscription,
   type AgentSubscription,
 } from "@workspace/db/schema";
+import { getHandlePricingTier as sharedGetHandlePricingTier, isEligibleForIncludedHandle } from "@workspace/shared-pricing";
+import { env } from "../lib/env";
+import { getStripe } from "./stripe-client";
+
+export { isEligibleForIncludedHandle } from "@workspace/shared-pricing";
 
 const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
 
 export const MARKETPLACE_FEE_BPS = 250;
 
 const PLAN_LIMITS: Record<string, { maxPublicAgents: number; maxPrivateAgents: number; agentLimit: number; maxSubagents: number }> = {
-  none: { maxPublicAgents: 10, maxPrivateAgents: 10, agentLimit: 10, maxSubagents: 0 },
-  starter: { maxPublicAgents: 20, maxPrivateAgents: 20, agentLimit: 20, maxSubagents: 25 },
-  pro: { maxPublicAgents: 100, maxPrivateAgents: 100, agentLimit: 100, maxSubagents: 100 },
-  enterprise: { maxPublicAgents: 999, maxPrivateAgents: 999, agentLimit: 999, maxSubagents: 9999 },
-  free: { maxPublicAgents: 10, maxPrivateAgents: 10, agentLimit: 10, maxSubagents: 0 },
+  none: { maxPublicAgents: 1, maxPrivateAgents: 1, agentLimit: 1, maxSubagents: 0 },
+  free: { maxPublicAgents: 1, maxPrivateAgents: 1, agentLimit: 1, maxSubagents: 0 },
+  starter: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
+  builder: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
+  pro: { maxPublicAgents: 25, maxPrivateAgents: 25, agentLimit: 25, maxSubagents: 100 },
+  team: { maxPublicAgents: 25, maxPrivateAgents: 25, agentLimit: 25, maxSubagents: 100 },
+  enterprise: { maxPublicAgents: 500, maxPrivateAgents: 500, agentLimit: 500, maxSubagents: 9999 },
 };
 
 const PLAN_PRICES: Record<string, Record<string, number>> = {
@@ -33,17 +40,8 @@ const PLAN_PRICES: Record<string, Record<string, number>> = {
   enterprise: { monthly: 0, yearly: 0 },
 };
 
-export const ENS_HANDLE_PRICING = [
-  { minLength: 3, maxLength: 3, tier: "premium_3", annualCents: 9900, annualUsd: 99, isFree: false, onChainMintPrice: 0, includesOnChainMint: true },
-  { minLength: 4, maxLength: 4, tier: "premium_4", annualCents: 2900, annualUsd: 29, isFree: false, onChainMintPrice: 0, includesOnChainMint: true },
-  { minLength: 5, maxLength: Infinity, tier: "standard_5plus", annualCents: 0, annualUsd: 0, isFree: true, onChainMintPrice: 500, includesOnChainMint: false },
-];
-
 export function getHandlePriceCents(handle: string): number {
-  const len = handle.replace(/[^a-z0-9]/g, "").length;
-  const tier = ENS_HANDLE_PRICING.find(t => len >= t.minLength && len <= t.maxLength)
-    ?? ENS_HANDLE_PRICING[ENS_HANDLE_PRICING.length - 1];
-  return tier.annualCents;
+  return sharedGetHandlePricingTier(handle).annualPriceCents;
 }
 
 type DbPlanType = "free" | "starter" | "builder" | "pro" | "team" | "enterprise";
@@ -51,9 +49,6 @@ type AppPlanType = "starter" | "pro" | "enterprise" | "none";
 type PlanType = DbPlanType | "none";
 type SubStatus = "active" | "past_due" | "cancelled" | "paused" | "trialing";
 type BillingInterval = "monthly" | "yearly";
-
-import { env } from "../lib/env";
-import { getStripe } from "./stripe-client";
 
 export function getPlanLimits(plan: string) {
   const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.none;
@@ -655,12 +650,12 @@ export async function createCheckoutSession(
   return { url: session.url };
 }
 
-export async function isEligibleForIncludedHandle(userId: string, handle: string): Promise<boolean> {
+export async function checkUserIncludedHandleEligibility(userId: string, handle: string): Promise<boolean> {
   const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
   if (handleLen < 5) return false;
 
   const userSub = await getActiveUserSubscription(userId);
-  if (!userSub || userSub.plan === "none") return false;
+  if (!userSub || !isEligibleForIncludedHandle(userSub.plan)) return false;
 
   // creator-attribution read: checks if the subscription owner has already used their one-time
   // included-handle benefit across any agent they originally provisioned. Intentionally uses
@@ -691,7 +686,7 @@ export async function createHandleCheckoutSession(
 ): Promise<{ url: string | null; error?: string; priceCents: number; included?: boolean }> {
   const priceCents = getHandlePriceCents(handle);
 
-  const included = await isEligibleForIncludedHandle(userId, handle);
+  const included = await checkUserIncludedHandleEligibility(userId, handle);
   if (included) {
     // creator-attribution read: marks the included-handle benefit as used on the provisioner's agent.
     // Intentionally uses userId (original creator) since the benefit is tied to the subscription owner.

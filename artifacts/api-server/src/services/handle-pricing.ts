@@ -8,7 +8,7 @@ export interface HandlePricingResult {
   annualPriceCents: number;
   description: string;
   isReserved: boolean;
-  isFreeWithPlan: boolean;
+  includedWithPaidPlan: boolean;
   isFree: boolean;
   onChainMintPrice: number;
   onChainMintPriceDollars: number;
@@ -23,7 +23,7 @@ export function getHandlePricing(handle: string): HandlePricingResult {
     annualPriceCents: t.annualPriceCents,
     description: t.description,
     isReserved: t.isReserved,
-    isFreeWithPlan: t.isFreeWithPlan,
+    includedWithPaidPlan: t.includedWithPaidPlan,
     isFree: t.isFree,
     onChainMintPrice: t.onChainMintPrice,
     onChainMintPriceDollars: t.onChainMintPriceDollars,

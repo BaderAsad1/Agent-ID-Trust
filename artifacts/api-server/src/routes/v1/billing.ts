@@ -23,60 +23,82 @@ import {
 import { logActivity } from "../../services/activity-logger";
 import { validateHandle } from "../../services/agents";
 import { isHandleReserved, checkRateLimit, checkHandleRegistrationLimits, recordHandleRegistration } from "../../services/handle";
+import { HANDLE_PRICING_TIERS } from "@workspace/shared-pricing";
 
 const router = Router();
 
+export const PLAN_DETAILS = [
+  {
+    id: "free",
+    name: "Free",
+    price: { monthly: 0, yearly: 0 },
+    agentLimit: 1,
+    features: ["1 agent", "UUID identity", "API access", "Trust score", "Community support"],
+    cta: "Sign up free",
+    popular: false,
+    requiresStripe: false,
+  },
+  {
+    id: "starter",
+    name: "Starter",
+    price: { monthly: 29, yearly: 290 },
+    agentLimit: 5,
+    features: ["5 agents", "Inbox & messaging", "Task management", "Standard handle included (5+ chars)", "Trust score", "Email support"],
+    cta: "Start for $29/mo",
+    popular: false,
+    requiresStripe: true,
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: { monthly: 79, yearly: 790 },
+    agentLimit: 25,
+    features: ["25 agents", "Inbox & messaging", "Fleet management", "Analytics dashboard", "Standard handle included (5+ chars)", "Custom domains", "Priority support"],
+    cta: "Go Pro",
+    popular: true,
+    requiresStripe: true,
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    price: { monthly: null, yearly: null },
+    agentLimit: null,
+    features: ["Custom agent count", "Inbox & messaging", "SLA guarantee", "Dedicated support", "Custom integrations", "Enterprise contract"],
+    cta: "Contact sales",
+    popular: false,
+    requiresStripe: false,
+    contactUrl: "mailto:enterprise@getagent.id",
+  },
+] as const;
+
 router.get("/plans", (req, res) => {
   const e = process.env;
+  const priceIds: Record<string, { monthly: string | null; yearly: string | null }> = {
+    starter: { monthly: e.STRIPE_PRICE_STARTER_MONTHLY ?? null, yearly: e.STRIPE_PRICE_STARTER_YEARLY ?? null },
+    pro: { monthly: e.STRIPE_PRICE_PRO_MONTHLY ?? null, yearly: e.STRIPE_PRICE_PRO_YEARLY ?? null },
+  };
+
+  const handlePricing = HANDLE_PRICING_TIERS.map(t => ({
+    tier: t.tier,
+    chars: t.maxLength === undefined ? `${t.minLength}+` : t.minLength === t.maxLength ? String(t.minLength) : `${t.minLength}-${t.maxLength}`,
+    annualUsd: t.isReserved ? null : t.annualPriceUsd,
+    annualCents: t.isReserved ? null : t.annualPriceCents,
+    includedWithPaidPlan: t.includedWithPaidPlan,
+    onChainMintPrice: t.onChainMintPrice,
+    onChainMintPriceDollars: t.onChainMintPriceDollars,
+    includesOnChainMint: t.includesOnChainMint,
+    description: t.description,
+  }));
+
   res.json({
     launchMode: e.LAUNCH_MODE === "true",
-    plans: ["starter", "pro", "enterprise"],
-    planDetails: [
-      {
-        id: "starter",
-        name: "Starter",
-        price: { monthly: 29, yearly: 290 },
-        priceIds: {
-          monthly: e.STRIPE_PRICE_STARTER_MONTHLY ?? null,
-          yearly: e.STRIPE_PRICE_STARTER_YEARLY ?? null,
-        },
-        agentLimit: 20,
-        features: ["20 agents", "Inbox access", "Tasks", "Handle (5+ chars, free)", "Trust score", "Email support"],
-        cta: "Start for $29/mo",
-        popular: false,
-      },
-      {
-        id: "pro",
-        name: "Pro",
-        price: { monthly: 79, yearly: 790 },
-        priceIds: {
-          monthly: e.STRIPE_PRICE_PRO_MONTHLY ?? null,
-          yearly: e.STRIPE_PRICE_PRO_YEARLY ?? null,
-        },
-        agentLimit: 100,
-        features: ["100 agents", "Fleet management", "Analytics dashboard", "Custom domains", "Priority support"],
-        cta: "Go Pro",
-        popular: true,
-      },
-      {
-        id: "enterprise",
-        name: "Enterprise",
-        price: { monthly: null, yearly: null },
-        priceIds: { monthly: null, yearly: null },
-        agentLimit: null,
-        features: ["Unlimited agents", "SLA guarantee", "Dedicated support", "Custom integrations", "Enterprise contract"],
-        cta: "Contact sales",
-        popular: false,
-        contactUrl: "mailto:enterprise@getagent.id",
-      },
-    ],
-    handlePricing: [
-      { tier: "reserved_1_2", chars: "1-2", annualUsd: null, annualCents: null, isFree: false, onChainMintPrice: null, includesOnChainMint: false, note: "Reserved — not available" },
-      { tier: "premium_3", chars: "3", annualUsd: 99, annualCents: 9900, isFree: false, onChainMintPrice: 0, includesOnChainMint: true, note: "Ultra-premium handle, Stripe payment required, includes on-chain mint" },
-      { tier: "premium_4", chars: "4", annualUsd: 29, annualCents: 2900, isFree: false, onChainMintPrice: 0, includesOnChainMint: true, note: "Premium handle, Stripe payment required, includes on-chain mint" },
-      { tier: "standard_5plus", chars: "5+", annualUsd: 0, annualCents: 0, isFree: true, onChainMintPrice: 500, onChainMintPriceDollars: 5, includesOnChainMint: false, note: "Free for any authenticated user — optional $5 on-chain mint" },
-    ],
-    freeTierAgentLimit: 10,
+    plans: ["free", "starter", "pro", "enterprise"],
+    planDetails: PLAN_DETAILS.map(p => ({
+      ...p,
+      priceIds: priceIds[p.id] ?? { monthly: null, yearly: null },
+    })),
+    handlePricing,
+    freeTierAgentLimit: 1,
   });
 });
 
