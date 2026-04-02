@@ -29,6 +29,7 @@ import {
 import { AppError } from "../../middlewares/error-handler";
 import { logger } from "../../middlewares/request-logger";
 import { writeAuditEvent } from "../../services/auth-session";
+import { env } from "../../lib/env";
 
 const router = Router();
 
@@ -71,7 +72,7 @@ function adminAuth(req: Request, res: Response, next: NextFunction): void {
   };
 
   const adminKey = req.headers["x-admin-key"] as string | undefined;
-  const expectedKey = process.env.ADMIN_SECRET_KEY;
+  const expectedKey = env().ADMIN_SECRET_KEY;
 
   // Fail closed: if env var is not set, no key can ever be valid.
   // Log a warning when the secret is absent so operators are alerted.

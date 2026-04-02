@@ -111,6 +111,16 @@ const envSchema = z.object({
   TRON_MINTER_PRIVATE_KEY: z.string().optional(),
   TRON_CONTRACT_ADDRESS: z.string().optional(),
   TRON_HANDLE_MINTED_TOPIC: z.string().optional(),
+
+  // DB pool size — read by lib/db/src/index.ts (defaults to 100 if unset).
+  // Set this explicitly in production to tune connection pool capacity.
+  DB_POOL_MAX: z.string().optional(),
+
+  // Admin secret — required in production. Used by /api/v1/admin/* routes.
+  // Must be a high-entropy random string (≥32 chars). All admin requests are
+  // denied if this is unset (fail-closed), but env.ts validation ensures an
+  // early startup failure in production rather than a silent runtime failure.
+  ADMIN_SECRET_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -169,6 +179,10 @@ export function validateEnv(): Env {
   }
   if (isProd && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) {
     envLogger.fatal("[env] JWT_SECRET is required in production and must be at least 32 characters.");
+    process.exit(1);
+  }
+  if (isProd && !env.ADMIN_SECRET_KEY) {
+    envLogger.fatal("[env] ADMIN_SECRET_KEY is required in production. All admin routes will deny all requests without it.");
     process.exit(1);
   }
 

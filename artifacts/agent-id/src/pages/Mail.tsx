@@ -1163,6 +1163,10 @@ export function Mail() {
         </div>
       </div>
 
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg mb-4 text-xs" style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.18)', color: 'rgba(245,158,11,0.85)' }}>
+        <span>Platform-internal messaging only. Receiving email from external addresses is not yet available — coming soon.</span>
+      </div>
+
       {selectMode && selectedThreadIds.size > 0 && (
         <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
           <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>{selectedThreadIds.size} selected</span>
