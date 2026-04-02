@@ -71,6 +71,15 @@ export function Pricing() {
     return monthly * 12 - yearly;
   };
 
+  const getCtaLabel = (plan: typeof PRICING_PLANS[number]) => {
+    if (plan.name === 'Free' || plan.contactOnly) return plan.cta;
+    if (billing === 'yearly' && plan.yearlyPriceMonthly) {
+      if (plan.name === 'Starter') return `Start for ${plan.yearlyPriceMonthly}/mo`;
+      if (plan.name === 'Pro') return `Go Pro — ${plan.yearlyPriceMonthly}/mo`;
+    }
+    return plan.cta;
+  };
+
   const handleCta = async (plan: typeof PRICING_PLANS[number]) => {
     if (plan.contactOnly) {
       window.location.href = 'mailto:enterprise@getagent.id';
@@ -192,7 +201,7 @@ export function Pricing() {
                   disabled={loadingPlan === plan.name}
                   onClick={() => handleCta(plan)}
                 >
-                  {loadingPlan === plan.name ? 'Redirecting…' : plan.cta}
+                  {loadingPlan === plan.name ? 'Redirecting…' : getCtaLabel(plan)}
                 </PrimaryButton>
               </GlassCard>
             );
