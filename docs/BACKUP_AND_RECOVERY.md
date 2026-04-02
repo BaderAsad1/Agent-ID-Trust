@@ -10,178 +10,160 @@ This document covers the backup strategy, recovery procedures, RTO/RPO targets, 
 
 | Component   | RPO (Recovery Point Objective) | RTO (Recovery Time Objective) |
 |-------------|-------------------------------|-------------------------------|
-| PostgreSQL  | 1 hour (WAL-based)            | 30 minutes                    |
-| Redis       | 0 (ephemeral cache — no data loss requirement) | 5 minutes (restart/provision) |
-| Application | N/A                           | 5 minutes (container restart) |
+| PostgreSQL  | 24 hours                      | 4 hours                       |
+| Redis       | 0 (ephemeral cache — no data loss requirement) | 30 minutes (restart/provision) |
+| Application | N/A                           | 30 minutes (container restart) |
 
 ---
 
 ## PostgreSQL Backup
 
-### Automated Backups (Replit Managed)
+### Automated Backup (pg_dump + S3 Upload)
 
-Replit provisions PostgreSQL with automated backups. Verify backup frequency in the Replit dashboard under your project's database settings.
-
-### Manual Backup (pg_dump)
+Run this script on a daily schedule (e.g., cron or CI):
 
 ```bash
-# Full database dump (compressed)
-pg_dump "$DATABASE_URL" -Fc -f backup-$(date +%Y%m%d-%H%M%S).dump
+# Full database dump with S3 upload
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+BACKUP_FILE="agentid-backup-${TIMESTAMP}.dump"
 
-# Restore from dump
-pg_restore -d "$DATABASE_URL" --clean --if-exists backup-YYYYMMDD-HHMMSS.dump
+# Dump compressed
+pg_dump "$DATABASE_URL" -Fc -f "/tmp/${BACKUP_FILE}"
+
+# Upload to S3
+aws s3 cp "/tmp/${BACKUP_FILE}" "s3://${BACKUP_BUCKET}/postgres/${BACKUP_FILE}"
+
+# Clean up local file
+rm -f "/tmp/${BACKUP_FILE}"
+
+echo "Backup complete: s3://${BACKUP_BUCKET}/postgres/${BACKUP_FILE}"
 ```
 
-### Continuous WAL Archiving (Recommended for Production)
+### 30-Day Retention Policy
 
-For production deployments with RPO < 1 hour:
+Apply an S3 lifecycle rule to expire backups after 30 days:
 
 ```bash
-# In postgresql.conf:
-wal_level = replica
-archive_mode = on
-archive_command = 'aws s3 cp %p s3://your-bucket/wal/%f'
+aws s3api put-bucket-lifecycle-configuration \
+  --bucket "${BACKUP_BUCKET}" \
+  --lifecycle-configuration '{
+    "Rules": [{
+      "ID": "expire-old-backups",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "postgres/" },
+      "Expiration": { "Days": 30 }
+    }]
+  }'
 ```
 
-Point-in-time recovery (PITR) allows restoring to any moment after base backup.
+### Restore from Backup
+
+```bash
+# List available backups
+aws s3 ls "s3://${BACKUP_BUCKET}/postgres/" --recursive
+
+# Download backup
+aws s3 cp "s3://${BACKUP_BUCKET}/postgres/agentid-backup-YYYYMMDD-HHMMSS.dump" /tmp/restore.dump
+
+# Restore (destructive — drops and recreates all objects)
+pg_restore -d "$DATABASE_URL" --clean --if-exists /tmp/restore.dump
+```
 
 ---
 
 ## Redis Configuration
 
-### No Persistence Required (Cache-Only)
+### Persistence (Append-Only File + RDB Snapshots)
 
-Redis in this project is used for:
-- Rate limiting counters (`rl:*` keys)
-- Resolution cache (`resolve:handle:*` keys)
-- Trust score cache (`trust:*` keys)
-- Credential cache (`credential:*` keys)
-- BullMQ job queues
-
-**All data is ephemeral.** Redis failure causes:
-- Rate limiters fall back to in-memory (per-process counters)
-- Caches regenerate from PostgreSQL on next request
-- BullMQ jobs replay from persisted queue state
-
-### Recommended `maxmemory-policy`
+Add to `redis.conf`:
 
 ```
-maxmemory-policy allkeys-lru
-```
-
-This evicts the least-recently-used keys when memory is full, preventing OOM. The application sets `noeviction` on startup (see `lib/redis.ts`), but for production shared Redis instances, `allkeys-lru` is safer to prevent unbounded memory growth.
-
-To update at runtime:
-```bash
-redis-cli CONFIG SET maxmemory-policy allkeys-lru
-redis-cli CONFIG SET maxmemory 512mb
-```
-
-### Redis Backup (Optional)
-
-If using Redis for persistent data (e.g. BullMQ job state you cannot lose):
-
-```bash
-# Enable RDB snapshots in redis.conf:
+# RDB snapshots: save every 900s if 1 key changed, 300s if 10 keys, 60s if 10000 keys
 save 900 1
 save 300 10
 save 60 10000
 
-# Or use AOF for stronger durability:
+# Append-only file for durability
 appendonly yes
 appendfsync everysec
 ```
 
----
+### Eviction Policy
 
-## Step-by-Step Recovery Procedures
+Configure `allkeys-lru` to evict the least-recently-used keys when memory is full:
 
-### Scenario 1: Database Corruption or Total Loss
+```bash
+redis-cli CONFIG SET maxmemory-policy allkeys-lru
+```
 
-1. **Stop the API server** to prevent writes to a corrupted DB.
-2. **Provision a new PostgreSQL database** (Replit dashboard or cloud provider).
-3. **Set `DATABASE_URL`** to the new database connection string.
-4. **Restore from backup**:
-   ```bash
-   pg_restore -d "$NEW_DATABASE_URL" --clean --if-exists latest.dump
-   ```
-5. **Run Drizzle migrations** against the restored database:
-   ```bash
-   pnpm --filter @workspace/db run db:migrate
-   ```
-6. **Restart the API server** and verify health endpoint (`/api/health`).
-7. **Validate** — run smoke tests:
-   ```bash
-   BASE_URL=https://your-app.replit.app/api/v1 k6 run scripts/load-test-smoke.js
-   ```
+Persist in `redis.conf`:
 
-### Scenario 2: Redis Failure
-
-1. Redis failure is **non-critical**. The application degrades gracefully.
-2. Rate limiting falls back to in-memory (per-process, not distributed).
-3. Resolution, trust, and credential caches regenerate from PostgreSQL automatically.
-4. To restore Redis:
-   - **Replit**: Redis restarts automatically.
-   - **Self-hosted**: `systemctl restart redis` or `docker restart redis`.
-5. Rate limiter Redis connection is re-established automatically via `getSharedRedis()` reconnect logic.
-
-### Scenario 3: Application Server Crash
-
-1. Replit auto-restarts the application workflow.
-2. No data loss — all state is in PostgreSQL and Redis.
-3. If workflow fails to restart, check logs:
-   ```bash
-   # Via Replit workflow console
-   # Or: pnpm --filter @workspace/api-server run dev
-   ```
-
-### Scenario 4: Handle Benefit Claim Stranded (Billing)
-
-If a user's included-handle benefit was claimed but agent creation failed and the claim was not released (look for `billing.included_handle_claim.stranded` audit events):
-
-1. Query audit events:
-   ```sql
-   SELECT * FROM audit_events
-   WHERE event_type = 'billing.included_handle_claim.stranded'
-   ORDER BY created_at DESC;
-   ```
-2. For each stranded claim, release it via:
-   ```sql
-   UPDATE subscriptions
-   SET included_handle_claimed = NULL,
-       included_handle_claimed_at = NULL,
-       updated_at = NOW()
-   WHERE id = '<subscriptionId>';
-   ```
-3. Notify the affected user.
+```
+maxmemory-policy allkeys-lru
+maxmemory 512mb
+```
 
 ---
 
-## Required Environment Variables
+## 6-Step Recovery Runbook
 
-The following environment variables are **required in production**. Loss of any of these causes service degradation or complete failure.
+### Step 1: Assess the Incident
 
-| Variable | Purpose | Impact if Missing |
-|----------|---------|-------------------|
-| `DATABASE_URL` | PostgreSQL connection | **Server crash on startup** |
-| `REDIS_URL` | Redis for caching/rate limiting | Rate limiting degrades to in-memory |
-| `JWT_SECRET` | Session authentication | **All auth fails** |
-| `CREDENTIAL_SIGNING_SECRET` | Agent credential HMAC | **Server crash in production** |
-| `VC_SIGNING_KEY` | W3C VC signing | VC issuance fails |
-| `WEBHOOK_SECRET_KEY` | Webhook payload encryption | Webhook delivery fails |
-| `STRIPE_SECRET_KEY` | Payment processing | All payments fail |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification | Stripe events ignored |
-| `APP_URL` | Base URL for links/redirects | Broken links in responses |
-| `ACTIVITY_HMAC_SECRET` | Activity log signing | Activity log integrity fails |
-| `DB_POOL_MAX` | PostgreSQL pool size (default: 100) | Optional — defaults to 100 |
+- Identify which components are affected (DB, Redis, application).
+- Check monitoring dashboards and recent deployment logs.
+- Declare incident severity and notify on-call team.
+
+### Step 2: Isolate and Stabilize
+
+- Route traffic to a static maintenance page or return 503 responses.
+- Prevent further writes to a corrupted database by disabling application pods.
+
+### Step 3: Restore PostgreSQL
+
+- Follow the restore procedure above using the most recent valid backup from S3.
+- Verify row counts and spot-check critical tables (`agents`, `users`, `marketplace_orders`).
+
+### Step 4: Restore Redis (if needed)
+
+- Redis is a cache layer — most data can be rebuilt from PostgreSQL.
+- If using AOF, restart Redis with the existing AOF file.
+- Otherwise, flush and let the application warm the cache naturally.
+
+### Step 5: Validate Application
+
+- Run smoke tests: `pnpm run load:smoke`
+- Verify critical endpoints: `/api/v1/resolve/:handle`, `/api/health`
+- Check error rates in logs and monitoring.
+
+### Step 6: Resume Traffic and Post-Mortem
+
+- Re-enable traffic routing.
+- Document the incident timeline, root cause, and corrective actions.
+- Update runbook if new failure modes were discovered.
 
 ---
 
-## Monitoring Checklist
+## Environment Variables (Store in Secrets Manager)
 
-- [ ] Database connection count < `DB_POOL_MAX` (default 100)
-- [ ] Redis memory usage < 80% of `maxmemory`
-- [ ] Resolution cache hit rate monitored via `X-Cache: HIT` response header
-- [ ] `[PAYOUT REQUIRED]` log lines monitored and actioned within 24h
-- [ ] Stranded handle claims (`billing.included_handle_claim.stranded`) reviewed daily
-- [ ] Smoke test run after every deployment: `pnpm load:smoke`
+The following environment variables must be stored in a secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault, or Replit Secrets) and rotated regularly:
+
+```
+DATABASE_URL                 # PostgreSQL connection string
+REDIS_URL                    # Redis connection string
+SESSION_SECRET               # Express session secret
+CREDENTIAL_SIGNING_SECRET    # HMAC signing secret for credentials
+JWT_SECRET                   # JWT signing secret
+STRIPE_SECRET_KEY            # Stripe API secret key
+STRIPE_WEBHOOK_SECRET        # Stripe webhook endpoint secret
+VC_PRIVATE_KEY               # Ed25519 private key for VC signing (JWK JSON)
+VC_PUBLIC_KEY                # Ed25519 public key for VC verification (JWK JSON)
+COINBASE_CDP_API_KEY         # Coinbase Developer Platform API key
+COINBASE_CDP_API_SECRET      # Coinbase Developer Platform API secret
+SENDGRID_API_KEY             # SendGrid transactional email API key
+APP_URL                      # Public application base URL
+API_BASE_URL                 # Public API base URL
+DB_POOL_MAX                  # PostgreSQL connection pool max size (default: 100)
+BACKUP_BUCKET                # S3 bucket name for database backups
+```
+
+All secrets must be rotated at least every 90 days. Access should be restricted to application service accounts using least-privilege IAM policies.

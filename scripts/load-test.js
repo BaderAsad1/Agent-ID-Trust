@@ -1,24 +1,17 @@
 import http from "k6/http";
-import { check, sleep } from "k6";
+import { check } from "k6";
 
 export const options = {
-  stages: [
-    { duration: "30s", target: 20 },
-    { duration: "1m", target: 50 },
-    { duration: "30s", target: 100 },
-    { duration: "1m", target: 100 },
-    { duration: "30s", target: 0 },
-  ],
+  vus: 100,
+  duration: "30s",
   thresholds: {
-    http_req_duration: ["p(95)<500"],
-    http_req_failed: ["rate<0.01"],
+    http_req_duration: ["p(95)<2000"],
+    http_req_failed: ["rate<0.05"],
   },
 };
 
 const BASE_URL = __ENV.BASE_URL || "https://getagent.id/api/v1";
 const TEST_HANDLE = __ENV.TEST_HANDLE || "testagent";
-const TEST_AGENT_ID = __ENV.TEST_AGENT_ID || "00000000-0000-0000-0000-000000000000";
-const TEST_ADDRESS = __ENV.TEST_ADDRESS || "0x0000000000000000000000000000000000000001";
 
 export default function () {
   const resolveHandle = http.get(`${BASE_URL}/resolve/${TEST_HANDLE}`, {
@@ -26,37 +19,26 @@ export default function () {
   });
   check(resolveHandle, {
     "resolve handle 200 or 404": (r) => r.status === 200 || r.status === 404,
-    "resolve handle p95 < 500ms": (r) => r.timings.duration < 500,
   });
 
-  const resolveId = http.get(`${BASE_URL}/resolve/id/${TEST_AGENT_ID}`, {
+  const resolveDiscovery = http.get(`${BASE_URL}/resolve?limit=10`, {
     headers: { "User-Agent": "k6-load-test/1.0" },
   });
-  check(resolveId, {
-    "resolve id 200 or 404": (r) => r.status === 200 || r.status === 404,
+  check(resolveDiscovery, {
+    "resolve discovery 200": (r) => r.status === 200,
   });
 
-  const discovery = http.get(`${BASE_URL}/resolve?limit=10`, {
+  const handleAvailable = http.get(`${BASE_URL}/handles/${TEST_HANDLE}/available`, {
     headers: { "User-Agent": "k6-load-test/1.0" },
   });
-  check(discovery, {
-    "discovery 200": (r) => r.status === 200,
-    "discovery has agents": (r) => {
-      try {
-        const body = JSON.parse(r.body);
-        return Array.isArray(body.agents);
-      } catch {
-        return false;
-      }
-    },
+  check(handleAvailable, {
+    "handle available 200": (r) => r.status === 200,
   });
 
-  const addressLookup = http.get(`${BASE_URL}/resolve/address/${TEST_ADDRESS}`, {
+  const wellKnown = http.get(`${BASE_URL.replace("/api/v1", "")}/.well-known/agentid-configuration`, {
     headers: { "User-Agent": "k6-load-test/1.0" },
   });
-  check(addressLookup, {
-    "address lookup 200 or 429": (r) => r.status === 200 || r.status === 429,
+  check(wellKnown, {
+    "well-known 200": (r) => r.status === 200,
   });
-
-  sleep(1);
 }

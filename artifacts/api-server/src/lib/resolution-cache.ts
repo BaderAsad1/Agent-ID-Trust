@@ -1,7 +1,7 @@
 import { isRedisConfigured, getSharedRedis } from "./redis";
 
 const CACHE_TTL_BASE = 300;
-const CACHE_TTL_JITTER = 16;
+const CACHE_TTL_JITTER = 30;
 const KEY_PREFIX = "resolve:handle:";
 
 function getClient(): import("ioredis").default | null {

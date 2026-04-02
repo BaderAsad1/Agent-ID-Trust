@@ -494,8 +494,7 @@ function isSolanaAddress(addr: string): boolean {
   return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr) && !isTronAddress(addr);
 }
 
-// Tight rate limit (10 req/min per IP): this route performs expensive full-table scans
-// on agentOwsWalletsTable and chainRegistrations. Tighten further if abuse is detected.
+// Tight rate limit: endpoint performs expensive wallet table scans
 router.get("/address/:address", addressLookupRateLimit, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const address = req.params.address as string;
@@ -588,9 +587,10 @@ router.get("/address/:address", addressLookupRateLimit, async (req: Request, res
 
     // TODO: Replace this in-process scan with a GIN-indexed JSONB query or
     // a dedicated ows_wallet_addresses table for sub-millisecond lookups at scale.
+    // TODO: Normalize agentOwsWallets.accounts into indexed table
     const owsRows = await db.query.agentOwsWalletsTable.findMany({
       columns: { agentId: true, accounts: true },
-      limit: 50,
+      limit: 100,
     });
 
     const matchedOwsAgentIds: string[] = [];

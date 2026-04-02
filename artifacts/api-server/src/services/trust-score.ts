@@ -611,7 +611,7 @@ export async function recomputeAndStore(agentId: string) {
     .returning({ id: agentsTable.id });
 
   if (result.length === 0) {
-    logger.warn({ agentId, previousScore, newScore: trustScore }, "[trust-score] Optimistic concurrency: trust score changed by another process, skipping update");
+    logger.warn({ agentId }, "Trust score update skipped: concurrent recomputation detected");
     // Return the current persisted values so callers get coherent data even when this update was skipped.
     return {
       trustScore: previousScore,

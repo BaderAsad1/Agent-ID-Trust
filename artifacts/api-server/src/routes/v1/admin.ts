@@ -243,7 +243,13 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
         }
 
         for (const { subjectId } of attestedAgents) {
-          try { await recomputeAndStore(subjectId); } catch (err) {
+          try {
+            const { isRedisConfigured, getSharedRedis } = await import("../../lib/redis");
+            if (isRedisConfigured()) {
+              await getSharedRedis().del(`trust:${subjectId}`);
+            }
+            await recomputeAndStore(subjectId);
+          } catch (err) {
             logger.warn({ err: (err as Error).message, subjectId }, "[admin] Failed to recompute trust score after revocation");
           }
         }

@@ -281,7 +281,7 @@ export async function completeOrder(
     },
   });
 
-  console.warn(`[PAYOUT REQUIRED] Order ${orderId} | Seller: ${order.sellerUserId} | Amount: ${order.sellerPayout} | Action needed: https://dashboard.stripe.com/transfers`);
+  console.warn(`[PAYOUT REQUIRED] Order ${orderId ?? "unknown"} | Action needed in Stripe Dashboard: https://dashboard.stripe.com/transfers`);
 
   const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
 
@@ -333,6 +333,7 @@ export async function completeOrder(
       },
     },
   ]);
+  console.warn(`[PAYOUT REQUIRED] Order ${orderId ?? "unknown"} | Action needed in Stripe Dashboard: https://dashboard.stripe.com/transfers`);
 
   await logActivity({
     agentId: order.agentId,
@@ -366,6 +367,7 @@ export async function completeOrder(
     logger.error({ err: err instanceof Error ? err.message : err }, "[orders] Failed to send order completed email");
   }
 
+  console.warn(`[PAYOUT REQUIRED] Order ${orderId ?? "unknown"} | Action needed in Stripe Dashboard: https://dashboard.stripe.com/transfers`);
   return {
     success: true,
     order: updated,

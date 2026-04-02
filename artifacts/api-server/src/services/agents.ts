@@ -390,6 +390,10 @@ export async function deleteAgent(
         // Now recompute trust for every subject whose attestor just got revoked.
         for (const { subjectId } of attestedAgents) {
           try {
+            const { isRedisConfigured, getSharedRedis } = await import("../lib/redis");
+            if (isRedisConfigured()) {
+              await getSharedRedis().del(`trust:${subjectId}`);
+            }
             await recomputeAndStore(subjectId);
           } catch (err) {
             logger.warn({ err, agentId, subjectId }, "[agents] Failed to recompute trust for attested subject");
