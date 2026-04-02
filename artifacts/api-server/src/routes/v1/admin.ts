@@ -196,6 +196,20 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
     }
 
     try {
+      const { invalidateTrustCache } = await import("../../services/trust-score");
+      await invalidateTrustCache(agentId);
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, agentId }, "[admin] Failed to invalidate trust cache during revocation");
+    }
+
+    try {
+      const { invalidateCredentialCache } = await import("../../services/credentials");
+      await invalidateCredentialCache(agentId);
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, agentId }, "[admin] Failed to invalidate credential cache during revocation");
+    }
+
+    try {
       if (agent.handle) {
         const { deleteResolutionCache } = await import("./resolve");
         const { normalizeHandle } = await import("../../utils/handle");

@@ -145,6 +145,10 @@ export const agentsTable = pgTable(
       .on(table.isReserved)
       .where(sql`is_reserved = true`),
     index("agents_handle_expires_at_idx").on(table.handleExpiresAt),
+    index("agents_wallet_address_lower_idx").on(sql`lower(${table.walletAddress})`).where(sql`wallet_address IS NOT NULL`),
+    index("agents_on_chain_owner_lower_idx").on(sql`lower(${table.onChainOwner})`).where(sql`on_chain_owner IS NOT NULL`),
+    index("agents_is_public_status_idx").on(table.isPublic, table.status),
+    index("agents_handle_status_is_public_idx").on(table.handle, table.status, table.isPublic).where(sql`handle IS NOT NULL`),
   ],
 );
 

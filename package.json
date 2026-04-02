@@ -9,7 +9,10 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test": "pnpm --filter ./artifacts/api-server run test",
-    "test:api": "pnpm --filter ./artifacts/api-server run test"
+    "test:api": "pnpm --filter ./artifacts/api-server run test",
+    "load:test": "k6 run scripts/load-test.js",
+    "load:smoke": "k6 run scripts/load-test-smoke.js",
+    "load:test:local": "BASE_URL=http://localhost:3001/api/v1 k6 run scripts/load-test.js"
   },
   "private": true,
   "devDependencies": {

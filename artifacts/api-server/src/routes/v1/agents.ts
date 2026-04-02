@@ -22,7 +22,7 @@ import {
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
 import { checkRateLimit, checkHandleRegistrationLimits, recordHandleRegistration, isHandleReserved } from "../../services/handle";
-import { requirePlanFeature, getHandlePriceCents, getUserPlan, getPlanLimits, isEligibleForIncludedHandle, claimIncludedHandleBenefit, releaseIncludedHandleClaim } from "../../services/billing";
+import { requirePlanFeature, getHandlePriceCents, getUserPlan, getPlanLimits, isEligibleForIncludedHandle, claimIncludedHandleBenefit, claimIncludedHandleBenefitTx, releaseIncludedHandleClaim } from "../../services/billing";
 import {
   getActiveCredential,
   issueCredential,
@@ -229,12 +229,33 @@ router.post("/", requireAuth, async (req, res, next) => {
           throw new AppError(503, "AUDIT_WRITE_FAILED", "Temporary system error — please retry your request");
         }
 
-        // Atomically claim the one-time included-handle benefit BEFORE creating the agent.
-        // Uses a conditional UPDATE (WHERE included_handle_claimed IS NULL) to eliminate
-        // the race-condition window that check-then-set would leave open.
-        // If the claim fails (benefit already used or concurrent request won first),
-        // we stop here — no agent is created and no compensation is needed.
-        const { claimed, subscriptionId } = await claimIncludedHandleBenefit(req.userId!, normalizedHandle);
+        // Acquire a Postgres session-level advisory lock keyed on the handle to prevent
+        // concurrent requests from racing through the availability re-check and claim.
+        // The lock is held until the transaction commits/rolls back (xact-level advisory).
+        // We then do a direct DB query (bypassing the in-process cache) to confirm the
+        // handle is still available before consuming the subscription entitlement.
+        let claimResult: { claimed: boolean; subscriptionId?: string } = { claimed: false };
+        claimResult = await db.transaction(async (tx) => {
+          // Derive a stable int64 lock key from the handle string via hashtext().
+          // pg_advisory_xact_lock blocks until all competing transactions release the same key.
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${normalizedHandle!}))`);
+
+          // Re-check availability inside the transaction with a direct DB query
+          // (not the cache-backed isHandleAvailable) to see the latest committed state.
+          const existingRow = await tx.query.agentsTable.findFirst({
+            where: sql`lower(${agentsTable.handle}) = lower(${normalizedHandle!})`,
+            columns: { id: true },
+          });
+          if (existingRow) {
+            throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
+          }
+
+          // With the advisory lock held and availability confirmed, claim the benefit
+          // using the transaction-scoped variant so all reads/writes share the same
+          // Postgres connection and are visible within this transaction boundary.
+          return claimIncludedHandleBenefitTx(tx, req.userId!, normalizedHandle!);
+        });
+        const { claimed, subscriptionId } = claimResult;
         if (!claimed) {
           res.status(402).json({
             code: "HANDLE_BENEFIT_ALREADY_USED",
@@ -340,6 +361,11 @@ router.post("/", requireAuth, async (req, res, next) => {
         }
       }
       if (err instanceof Error && err.message === "HANDLE_CONFLICT") {
+        throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
+      }
+      // Fallback: catch PostgreSQL unique constraint violation (code 23505) for handle uniqueness
+      const pgErr = err as { code?: string };
+      if (pgErr?.code === "23505") {
         throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
       }
       throw err;
@@ -1527,11 +1553,12 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
       : `${API_URL}/v1/agent-card/${agentId}`;
     const profileUrl = handle ? `${APP_URL}/${handle}` : `${APP_URL}/id/${agentId}`;
     const inboxUrl = agentId ? `${API_URL}/v1/mail/agents/${agentId}/inbox` : null;
-    const trustScore = (bundle.trust as { score?: number })?.score ?? 0;
-    const trustTier = bundle.trust?.tier ?? "unverified";
+    const bundleTrust = bundle.trust as { score?: number; tier?: string } | undefined;
+    const trustScore = bundleTrust?.score ?? 0;
+    const trustTier = bundleTrust?.tier ?? "unverified";
     const fqdn = handle ? `${handle}.agentid` : null;
     const did = `did:web:getagent.id:agents:${agentId}`;
-    const capabilities = bundle.capabilities || [];
+    const capabilities = (bundle.capabilities as string[]) || [];
 
     if (format === "json") {
       return res.json({
@@ -1645,9 +1672,9 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
       inboxUrl ? `You can receive and execute tasks via the Agent ID task system.` : null,
     ].filter(Boolean).join("\n");
 
-    res.type("text/markdown").send(lines);
+    return res.type("text/markdown").send(lines);
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 

@@ -215,3 +215,9 @@ export function challengeRateLimit(req: Request, res: Response, next: NextFuncti
 export function magicLinkSendRateLimit(req: Request, res: Response, next: NextFunction): void {
   void applyLimiter(5, "rl:magic:", 900_000, req, res, next);
 }
+
+// Tight rate limiter for the address reverse-lookup endpoint.
+// This endpoint performs full-table scans and is expensive — limit to 10 req/min per IP.
+export function addressLookupRateLimit(req: Request, res: Response, next: NextFunction): void {
+  void applyLimiter(10, "rl:addr:", 60_000, req, res, next);
+}

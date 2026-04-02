@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { isRedisConfigured, getSharedRedis } from "../lib/redis";
 import {
   agentsTable,
   agentCredentialsTable,
@@ -171,7 +172,42 @@ export async function issueCredential(agentId: string) {
   };
 }
 
+const CREDENTIAL_CACHE_TTL = 120;
+
+async function getCredentialFromCache(agentId: string): Promise<Record<string, unknown> | null> {
+  if (!isRedisConfigured()) return null;
+  try {
+    const redis = getSharedRedis();
+    const raw = await redis.get(`credential:${agentId}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function setCredentialCache(agentId: string, data: Record<string, unknown>): Promise<void> {
+  if (!isRedisConfigured()) return;
+  try {
+    const redis = getSharedRedis();
+    await redis.set(`credential:${agentId}`, JSON.stringify(data), "EX", CREDENTIAL_CACHE_TTL);
+  } catch {
+  }
+}
+
+export async function invalidateCredentialCache(agentId: string): Promise<void> {
+  if (!isRedisConfigured()) return;
+  try {
+    const redis = getSharedRedis();
+    await redis.del(`credential:${agentId}`);
+  } catch {
+  }
+}
+
 export async function getActiveCredential(agentId: string) {
+  const cached = await getCredentialFromCache(agentId);
+  if (cached) return cached;
+
   const credential = await db.query.agentCredentialsTable.findFirst({
     where: and(
       eq(agentCredentialsTable.agentId, agentId),
@@ -190,16 +226,20 @@ export async function getActiveCredential(agentId: string) {
   }
 
   const credJson = credential.credentialJson as Record<string, unknown>;
-  return {
+  const result = {
     ...credJson,
     proof: {
       ...((credJson.proof as Record<string, unknown>) || {}),
       signatureValue: credential.signature,
     },
   };
+
+  await setCredentialCache(agentId, result);
+  return result;
 }
 
 export async function reissueCredential(agentId: string) {
+  await invalidateCredentialCache(agentId);
   return issueCredential(agentId);
 }
 

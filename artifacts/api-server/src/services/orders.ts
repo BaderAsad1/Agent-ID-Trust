@@ -281,6 +281,8 @@ export async function completeOrder(
     },
   });
 
+  console.warn(`[PAYOUT REQUIRED] Order ${orderId} | Seller: ${order.sellerUserId} | Amount: ${order.sellerPayout} | Action needed: https://dashboard.stripe.com/transfers`);
+
   const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
 
   await db.insert(paymentLedgerTable).values([

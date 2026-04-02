@@ -55,6 +55,14 @@ export { RESERVED_HANDLES } from "./handle";
 const handleCache = new Map<string, { available: boolean; expiresAt: number }>();
 const HANDLE_CACHE_TTL_MS = 60_000;
 
+// TODO: Replace handleCache with Redis for distributed handle availability caching
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of handleCache) {
+    if (now > entry.expiresAt) handleCache.delete(key);
+  }
+}, 5 * 60 * 1000).unref();
+
 export async function isHandleAvailable(handle: string): Promise<boolean> {
   const cacheKey = handle.toLowerCase();
   const cached = handleCache.get(cacheKey);
@@ -340,6 +348,16 @@ export async function deleteAgent(
     try {
       const { clearVcCache } = await import("./verifiable-credential");
       clearVcCache(agentId);
+    } catch {}
+
+    try {
+      const { invalidateCredentialCache } = await import("./credentials");
+      await invalidateCredentialCache(agentId);
+    } catch {}
+
+    try {
+      const { invalidateTrustCache } = await import("./trust-score");
+      await invalidateTrustCache(agentId);
     } catch {}
 
     setImmediate(async () => {

@@ -1,6 +1,7 @@
 import { eq, sql, and, isNull, or, gte, gt } from "drizzle-orm";
 import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
+import { isRedisConfigured, getSharedRedis } from "../lib/redis";
 import {
   agentsTable,
   agentReputationEventsTable,
@@ -482,12 +483,26 @@ export function getTrustImprovementTips(
   return tips.slice(0, 3).map(t => t.tip);
 }
 
-export async function computeTrustScore(agentId: string): Promise<{
+export async function computeTrustScore(agentId: string, opts?: { skipCache?: boolean }): Promise<{
   trustScore: number;
   trustBreakdown: Record<string, number>;
   trustTier: TrustTier;
   signals: TrustSignal[];
+  fromCache?: boolean;
 }> {
+  if (!opts?.skipCache) {
+    const cached = await getTrustFromCache(agentId);
+    if (cached) {
+      return {
+        trustScore: cached.trustScore,
+        trustBreakdown: cached.trustBreakdown,
+        trustTier: cached.trustTier as TrustTier,
+        signals: [],
+        fromCache: true,
+      };
+    }
+  }
+
   const agent = await db.query.agentsTable.findFirst({
     where: eq(agentsTable.id, agentId),
   });
@@ -532,20 +547,54 @@ export async function computeTrustScore(agentId: string): Promise<{
   const isVerified = agent.verificationStatus === "verified";
   const trustTier = determineTier(totalScore, isVerified);
 
+  await setTrustCache(agentId, { trustScore: totalScore, trustTier, trustBreakdown });
+
   return { trustScore: totalScore, trustBreakdown, trustTier, signals };
+}
+
+const TRUST_CACHE_TTL = 300;
+
+async function getTrustFromCache(agentId: string): Promise<{ trustScore: number; trustTier: string; trustBreakdown: Record<string, number> } | null> {
+  if (!isRedisConfigured()) return null;
+  try {
+    const redis = getSharedRedis();
+    const raw = await redis.get(`trust:${agentId}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function setTrustCache(agentId: string, data: { trustScore: number; trustTier: string; trustBreakdown: Record<string, number> }): Promise<void> {
+  if (!isRedisConfigured()) return;
+  try {
+    const redis = getSharedRedis();
+    await redis.set(`trust:${agentId}`, JSON.stringify(data), "EX", TRUST_CACHE_TTL);
+  } catch {
+  }
+}
+
+export async function invalidateTrustCache(agentId: string): Promise<void> {
+  if (!isRedisConfigured()) return;
+  try {
+    const redis = getSharedRedis();
+    await redis.del(`trust:${agentId}`);
+  } catch {
+  }
 }
 
 export async function recomputeAndStore(agentId: string) {
   const agent = await db.query.agentsTable.findFirst({
     where: eq(agentsTable.id, agentId),
-    columns: { trustScore: true },
+    columns: { trustScore: true, trustBreakdown: true, trustTier: true },
   });
   const previousScore = agent?.trustScore ?? 0;
 
   const { trustScore, trustBreakdown, trustTier } =
-    await computeTrustScore(agentId);
+    await computeTrustScore(agentId, { skipCache: true });
 
-  await db
+  const result = await db
     .update(agentsTable)
     .set({
       trustScore,
@@ -553,7 +602,25 @@ export async function recomputeAndStore(agentId: string) {
       trustTier,
       updatedAt: new Date(),
     })
-    .where(eq(agentsTable.id, agentId));
+    .where(
+      and(
+        eq(agentsTable.id, agentId),
+        eq(agentsTable.trustScore, previousScore),
+      ),
+    )
+    .returning({ id: agentsTable.id });
+
+  if (result.length === 0) {
+    logger.warn({ agentId, previousScore, newScore: trustScore }, "[trust-score] Optimistic concurrency: trust score changed by another process, skipping update");
+    // Return the current persisted values so callers get coherent data even when this update was skipped.
+    return {
+      trustScore: previousScore,
+      trustBreakdown: (agent?.trustBreakdown ?? {}) as Record<string, number>,
+      trustTier: (agent?.trustTier ?? "unverified") as TrustTier,
+    };
+  }
+
+  await setTrustCache(agentId, { trustScore, trustTier, trustBreakdown });
 
   if (Math.abs(trustScore - previousScore) >= 5) {
     try {

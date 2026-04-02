@@ -6,11 +6,12 @@ import { assertSandboxIsolation } from "../../middlewares/sandbox";
 import { getAgentByHandle, getAgentById } from "../../services/agents";
 import { detectAgent } from "../../middlewares/cli-markdown";
 import { generateAgentProfileMarkdown } from "../../services/agent-markdown";
-import { eq, and, gte, desc as drizzleDesc, sql, or } from "drizzle-orm";
+import { eq, and, gte, desc as drizzleDesc, sql, or, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, agentKeysTable, marketplaceListingsTable, resolutionEventsTable, agentOwsWalletsTable } from "@workspace/db/schema";
 import { normalizeHandle, formatHandle, formatDomain, formatProfileUrl, formatDID, formatResolverUrl } from "../../utils/handle";
 import { getResolutionCache, setResolutionCache, deleteResolutionCache } from "../../lib/resolution-cache";
+import { addressLookupRateLimit } from "../../middlewares/rate-limit";
 
 async function getLineageBlock(agent: typeof agentsTable.$inferSelect): Promise<Record<string, unknown> | null> {
   if (!agent.parentAgentId) return null;
@@ -334,7 +335,7 @@ function toResolvedAgent(
     verificationStatus: agent.verificationStatus,
     verificationMethod: agent.verificationMethod,
     verifiedAt: agent.verifiedAt,
-    status: agent.handleStatus ?? agent.status,
+    status: agent.status === "revoked" ? "revoked" : (agent.handleStatus ?? agent.status),
     handleStatus: agent.handleStatus ?? null,
     avatarUrl: agent.avatarUrl,
     ownerKey,
@@ -428,6 +429,14 @@ const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const idRateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
+// TODO: Replace idRateLimitMap with Redis for distributed rate limiting across instances
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of idRateLimitMap) {
+    if (now > entry.resetAt) idRateLimitMap.delete(key);
+  }
+}, 5 * 60 * 1000).unref();
+
 function checkIdRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = idRateLimitMap.get(ip);
@@ -485,7 +494,9 @@ function isSolanaAddress(addr: string): boolean {
   return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr) && !isTronAddress(addr);
 }
 
-router.get("/address/:address", async (req: Request, res: Response, next: NextFunction) => {
+// Tight rate limit (10 req/min per IP): this route performs expensive full-table scans
+// on agentOwsWalletsTable and chainRegistrations. Tighten further if abuse is detected.
+router.get("/address/:address", addressLookupRateLimit, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const address = req.params.address as string;
 
@@ -575,10 +586,14 @@ router.get("/address/:address", async (req: Request, res: Response, next: NextFu
       }
     }
 
+    // TODO: Replace this in-process scan with a GIN-indexed JSONB query or
+    // a dedicated ows_wallet_addresses table for sub-millisecond lookups at scale.
     const owsRows = await db.query.agentOwsWalletsTable.findMany({
       columns: { agentId: true, accounts: true },
+      limit: 50,
     });
 
+    const matchedOwsAgentIds: string[] = [];
     for (const row of owsRows) {
       const accounts = row.accounts ?? [];
       const matched = accounts.some((acc: string) => {
@@ -594,11 +609,17 @@ router.get("/address/:address", async (req: Request, res: Response, next: NextFu
       });
 
       if (matched) {
-        const agent = await db.query.agentsTable.findFirst({
-          where: and(eq(agentsTable.id, row.agentId), eq(agentsTable.status, "active")),
-          columns: { handle: true, id: true },
-        });
-        if (agent?.handle) {
+        matchedOwsAgentIds.push(row.agentId);
+      }
+    }
+
+    if (matchedOwsAgentIds.length > 0) {
+      const owsAgents = await db.query.agentsTable.findMany({
+        where: and(inArray(agentsTable.id, matchedOwsAgentIds), eq(agentsTable.status, "active")),
+        columns: { handle: true, id: true },
+      });
+      for (const agent of owsAgents) {
+        if (agent.handle) {
           addMatch(agent.handle, agent.id, "ows_registered");
         }
       }

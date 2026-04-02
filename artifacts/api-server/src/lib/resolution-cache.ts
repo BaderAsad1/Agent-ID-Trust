@@ -1,6 +1,7 @@
 import { isRedisConfigured, getSharedRedis } from "./redis";
 
-const CACHE_TTL = 60;
+const CACHE_TTL_BASE = 300;
+const CACHE_TTL_JITTER = 16;
 const KEY_PREFIX = "resolve:handle:";
 
 function getClient(): import("ioredis").default | null {
@@ -28,7 +29,8 @@ export async function setResolutionCache(handle: string, data: unknown): Promise
   try {
     const client = getClient();
     if (!client) return;
-    await client.set(`${KEY_PREFIX}${handle}`, JSON.stringify(data), "EX", CACHE_TTL);
+    const ttl = CACHE_TTL_BASE + Math.floor(Math.random() * CACHE_TTL_JITTER);
+    await client.set(`${KEY_PREFIX}${handle}`, JSON.stringify(data), "EX", ttl);
   } catch {
   }
 }

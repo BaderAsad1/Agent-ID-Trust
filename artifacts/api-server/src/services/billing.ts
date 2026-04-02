@@ -1,5 +1,7 @@
 import Stripe from "stripe";
 import { eq, and, desc, sql, inArray, isNotNull, isNull } from "drizzle-orm";
+import type { PgDatabase } from "drizzle-orm/pg-core";
+import type { NodePgQueryResultHKT } from "drizzle-orm/node-postgres";
 import { getHandleTier } from "./handle";
 import { agentOwnerWhere } from "./agents";
 import { db } from "@workspace/db";
@@ -770,6 +772,64 @@ export async function claimIncludedHandleBenefit(
   }
 
   logger.info({ userId, handle, subscriptionId: userSub.id }, "[billing] Included handle benefit atomically claimed on subscription");
+  return { claimed: true, subscriptionId: userSub.id };
+}
+
+/**
+ * Transaction-scoped variant: performs all reads/writes on the provided `tx` client
+ * so that handle availability re-check and claim live inside a single transaction.
+ * Call only from within a db.transaction() callback.
+ */
+export async function claimIncludedHandleBenefitTx(
+  tx: PgDatabase<NodePgQueryResultHKT, Record<string, unknown>>,
+  userId: string,
+  handle: string,
+): Promise<{ claimed: boolean; subscriptionId?: string }> {
+  const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
+  if (handleLen < 5) return { claimed: false };
+
+  const subs = await tx
+    .select()
+    .from(subscriptionsTable)
+    .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+    .limit(1);
+  const userSub = subs[0] ?? null;
+  if (!userSub || !isEligibleForIncludedHandle(userSub.plan)) return { claimed: false };
+
+  const historicalClaim = await tx
+    .select({ id: subscriptionsTable.id })
+    .from(subscriptionsTable)
+    .where(and(eq(subscriptionsTable.userId, userId), isNotNull(subscriptionsTable.includedHandleClaimed)))
+    .limit(1);
+  if (historicalClaim.length > 0) {
+    logger.warn({ userId, handle }, "[billing] claimIncludedHandleBenefitTx: benefit used on a prior subscription row");
+    return { claimed: false };
+  }
+
+  const existingAgents = await tx
+    .select({ id: agentsTable.id, metadata: agentsTable.metadata })
+    .from(agentsTable)
+    .where(eq(agentsTable.userId, userId));
+
+  const hasLegacyClaim = existingAgents.some((a) => {
+    const meta = a.metadata as Record<string, unknown> | null;
+    const hp = meta?.handlePricing as Record<string, unknown> | undefined;
+    return hp?.paymentStatus === "included";
+  });
+  if (hasLegacyClaim) return { claimed: false };
+
+  const result = await tx
+    .update(subscriptionsTable)
+    .set({ includedHandleClaimed: handle.toLowerCase(), includedHandleClaimedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(subscriptionsTable.id, userSub.id), isNull(subscriptionsTable.includedHandleClaimed)));
+
+  const rowsAffected = result.rowCount ?? 0;
+  if (rowsAffected === 0) {
+    logger.warn({ userId, handle, subscriptionId: userSub.id }, "[billing] claimIncludedHandleBenefitTx: atomic claim failed: benefit already consumed");
+    return { claimed: false };
+  }
+
+  logger.info({ userId, handle, subscriptionId: userSub.id }, "[billing] claimIncludedHandleBenefitTx: benefit atomically claimed on subscription");
   return { claimed: true, subscriptionId: userSub.id };
 }
 

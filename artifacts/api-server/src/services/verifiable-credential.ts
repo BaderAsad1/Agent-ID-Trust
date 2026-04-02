@@ -58,6 +58,13 @@ export async function getSigningKeyPair() {
 const vcCache = new Map<string, { jwt: string; expiresAt: number }>();
 const VC_CACHE_TTL_MS = 60 * 60 * 1000;
 
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of vcCache) {
+    if (now > entry.expiresAt) vcCache.delete(key);
+  }
+}, 10 * 60 * 1000).unref();
+
 export async function issueVerifiableCredential(agentId: string): Promise<string> {
   const cached = vcCache.get(agentId);
   if (cached && cached.expiresAt > Date.now()) {
