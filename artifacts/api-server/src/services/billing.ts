@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNotNull } from "drizzle-orm";
 import { getHandleTier } from "./handle";
 import { agentOwnerWhere } from "./agents";
 import { db } from "@workspace/db";
@@ -657,9 +657,21 @@ export async function checkUserIncludedHandleEligibility(userId: string, handle:
   const userSub = await getActiveUserSubscription(userId);
   if (!userSub || !isEligibleForIncludedHandle(userSub.plan)) return false;
 
-  // creator-attribution read: checks if the subscription owner has already used their one-time
-  // included-handle benefit across any agent they originally provisioned. Intentionally uses
-  // userId (creator) rather than effective-owner helpers.
+  // Primary (durable) check: look across ALL subscription rows for a recorded claim.
+  // This is immune to agent deletion and cancel-and-resubscribe loops.
+  const claimedRows = await db
+    .select({ id: subscriptionsTable.id })
+    .from(subscriptionsTable)
+    .where(
+      and(
+        eq(subscriptionsTable.userId, userId),
+        isNotNull(subscriptionsTable.includedHandleClaimed),
+      ),
+    )
+    .limit(1);
+  if (claimedRows.length > 0) return false;
+
+  // Legacy fallback: honour claims recorded in agent metadata before this column existed.
   const existingAgents = await db
     .select({ id: agentsTable.id, metadata: agentsTable.metadata })
     .from(agentsTable)
@@ -668,13 +680,30 @@ export async function checkUserIncludedHandleEligibility(userId: string, handle:
   const alreadyUsedBenefit = existingAgents.some((a) => {
     const meta = a.metadata as Record<string, unknown> | null;
     const hp = meta?.handlePricing as Record<string, unknown> | undefined;
-    return hp?.paymentStatus === "paid" || hp?.paymentStatus === "included";
+    return hp?.paymentStatus === "included";
   });
   if (alreadyUsedBenefit) return false;
 
-  const subAge = Date.now() - new Date(userSub.createdAt).getTime();
-  const oneYear = 365 * 24 * 60 * 60 * 1000;
-  return subAge < oneYear;
+  return true;
+}
+
+/**
+ * Durably records that the included-handle benefit has been consumed for this user.
+ * Writes to the active subscription row so the record survives agent deletion and
+ * cancel-and-resubscribe cycles.
+ */
+export async function recordIncludedHandleClaimed(userId: string, handle: string): Promise<void> {
+  const userSub = await getActiveUserSubscription(userId);
+  if (!userSub) return;
+  await db
+    .update(subscriptionsTable)
+    .set({
+      includedHandleClaimed: handle.toLowerCase(),
+      includedHandleClaimedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(subscriptionsTable.id, userSub.id));
+  logger.info({ userId, handle, subscriptionId: userSub.id }, "[billing] Included handle benefit recorded on subscription");
 }
 
 export async function createHandleCheckoutSession(
@@ -688,23 +717,8 @@ export async function createHandleCheckoutSession(
 
   const included = await checkUserIncludedHandleEligibility(userId, handle);
   if (included) {
-    // creator-attribution read: marks the included-handle benefit as used on the provisioner's agent.
-    // Intentionally uses userId (original creator) since the benefit is tied to the subscription owner.
-    const agent = await db.query.agentsTable.findFirst({
-      where: and(eq(agentsTable.handle, handle.toLowerCase()), eq(agentsTable.userId, userId)),
-      columns: { id: true, metadata: true },
-    });
-    if (agent) {
-      const meta = (agent.metadata as Record<string, unknown>) || {};
-      const handlePricing = (meta.handlePricing as Record<string, unknown>) || {};
-      await db
-        .update(agentsTable)
-        .set({
-          metadata: { ...meta, handlePricing: { ...handlePricing, paymentStatus: "included", includedAt: new Date().toISOString() } },
-          updatedAt: new Date(),
-        })
-        .where(eq(agentsTable.id, agent.id));
-    }
+    // Durably record the benefit on the subscription row so it survives agent deletion.
+    await recordIncludedHandleClaimed(userId, handle);
     return { url: successUrl, priceCents: 0, included: true };
   }
 

@@ -32,6 +32,10 @@ export const subscriptionsTable = pgTable(
       withTimezone: true,
     }),
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    includedHandleClaimed: varchar("included_handle_claimed", { length: 64 }),
+    includedHandleClaimedAt: timestamp("included_handle_claimed_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
