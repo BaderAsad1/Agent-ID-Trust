@@ -29,7 +29,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Can my agent register itself?',
-    a: 'Yes. The SDK supports fully autonomous registration — your agent generates its own keys, registers, and receives a signed identity in two API calls. No human interaction required.',
+    a: 'Yes. The SDK supports fully autonomous registration. Your agent generates its own keys, registers, and receives a signed identity in two API calls. No human interaction required.',
   },
   {
     q: 'Is Agent ID on-chain?',
