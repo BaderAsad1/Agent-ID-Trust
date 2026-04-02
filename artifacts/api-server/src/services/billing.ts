@@ -714,6 +714,25 @@ export async function claimIncludedHandleBenefit(
   const userSub = await getActiveUserSubscription(userId);
   if (!userSub || !isEligibleForIncludedHandle(userSub.plan)) return { claimed: false };
 
+  // Guard against cancel-and-resubscribe bypass: check ALL subscription rows for
+  // this user (past and present) to see if the benefit was already claimed on any
+  // of them. The active-row IS NULL check below only guards concurrent requests
+  // on the SAME subscription, so this cross-row historical check is required.
+  const historicalClaim = await db
+    .select({ id: subscriptionsTable.id })
+    .from(subscriptionsTable)
+    .where(
+      and(
+        eq(subscriptionsTable.userId, userId),
+        isNotNull(subscriptionsTable.includedHandleClaimed),
+      ),
+    )
+    .limit(1);
+  if (historicalClaim.length > 0) {
+    logger.warn({ userId, handle }, "[billing] Included handle claim blocked: benefit used on a prior subscription row");
+    return { claimed: false };
+  }
+
   // Legacy fallback check: if agent metadata records a prior claim (pre-column era), block.
   const existingAgents = await db
     .select({ id: agentsTable.id, metadata: agentsTable.metadata })
@@ -727,9 +746,9 @@ export async function claimIncludedHandleBenefit(
   });
   if (hasLegacyClaim) return { claimed: false };
 
-  // Atomic conditional update: only applies if the column is still null.
-  // rowsAffected === 0 means either the column was already set by a concurrent
-  // request or a prior claim — either way the benefit is exhausted.
+  // Atomic conditional update: only applies if the active subscription row's column
+  // is still null. rowsAffected === 0 means a concurrent request on this same
+  // subscription row already won the race.
   const result = await db
     .update(subscriptionsTable)
     .set({
