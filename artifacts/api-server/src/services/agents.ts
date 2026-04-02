@@ -66,9 +66,33 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
     where: ilike(agentsTable.handle, handle),
     columns: { id: true },
   });
-  const available = !existing;
 
-  handleCache.set(cacheKey, { available, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
+  if (existing) {
+    handleCache.set(cacheKey, { available: false, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
+    return false;
+  }
+
+  // Consult the on-chain registrar when chain is configured.
+  // Registrar authority is final: null (unreachable) when configured → fail-closed → unavailable.
+  try {
+    const { isHandleAvailableOnChain, isRegistrarReadable } = await import("./chains/base");
+    if (isRegistrarReadable()) {
+      const onChainAvailable = await isHandleAvailableOnChain(handle.toLowerCase());
+      if (onChainAvailable === false) {
+        handleCache.set(cacheKey, { available: false, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
+        return false;
+      }
+      if (onChainAvailable === null) {
+        // Registrar configured but unreachable — fail-closed, do not cache
+        return false;
+      }
+    }
+  } catch {
+    // Unexpected error during import or registrar check — treat as unavailable
+    return false;
+  }
+
+  handleCache.set(cacheKey, { available: true, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
 
   if (handleCache.size > 10_000) {
     const now = Date.now();
@@ -77,7 +101,7 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
     }
   }
 
-  return available;
+  return true;
 }
 
 export function invalidateHandleCache(handle: string): void {
@@ -366,7 +390,7 @@ const APP_URL = process.env.APP_URL || 'https://getagent.id';
 
 export function toPublicProfile(agent: Agent, credential?: Record<string, unknown> | null) {
   const handle = agent.handle;
-  const did = `did:agentid:${handle}`;
+  const did = `did:web:getagent.id:agents:${agent.id}`;
   const protocolAddress = `${handle}.agentid`;
   const erc8004Uri = `${APP_URL}/api/v1/p/${handle}/erc8004`;
   const domainName = `${handle}.getagent.id`;

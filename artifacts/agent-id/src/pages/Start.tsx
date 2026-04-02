@@ -258,7 +258,7 @@ export function Start() {
     setError(null);
     try {
       const agent = await api.agents.create({
-        handle,
+        ...(handle ? { handle } : {}),
         displayName: agentName,
         description: description || undefined,
         capabilities: selectedCaps.length > 0 ? selectedCaps : undefined,
@@ -529,7 +529,7 @@ export function Start() {
                 const annualPrice = rawAnnualPrice ?? 0;
                 const isUltraPremium = annualPrice >= 99;
                 const isPremium = annualPrice >= 29 && annualPrice < 99;
-                const priceLabel = isUltraPremium ? `$${annualPrice}/yr  -  Premium` : isPremium ? `$${annualPrice}/yr  -  Standard` : 'FREE';
+                const priceLabel = isUltraPremium ? `$${annualPrice}/yr  -  Premium` : isPremium ? `$${annualPrice}/yr  -  Standard` : 'Included with paid plan';
                 const priceColor = isUltraPremium ? '#a78bfa' : isPremium ? '#f59e0b' : '#34d399';
                 const priceBg = isUltraPremium ? 'rgba(167,139,250,0.08)' : isPremium ? 'rgba(245,158,11,0.06)' : 'rgba(52,211,153,0.06)';
                 const priceBorder = isUltraPremium ? 'rgba(167,139,250,0.2)' : isPremium ? 'rgba(245,158,11,0.15)' : 'rgba(52,211,153,0.15)';
@@ -546,7 +546,7 @@ export function Start() {
               })()}
             </div>
 
-            <NavButtons onBack={goBack} onContinue={goNext} continueDisabled={!agentName || !handle || !available} />
+            <NavButtons onBack={goBack} onContinue={goNext} continueDisabled={!agentName || (!!handle && available === false)} />
           </>
         )}
 
@@ -603,30 +603,48 @@ export function Start() {
 
         {step === 3 && (
           <>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>Claim your addresses</h1>
-            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>Your agent gets two addresses  -  a web domain and a protocol namespace.</p>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.03em', margin: '0 0 8px', textAlign: 'center' }}>
+              {handle ? 'Claim your addresses' : 'Your permanent identity'}
+            </h1>
+            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6, margin: '0 0 28px', textAlign: 'center' }}>
+              {handle
+                ? 'Your agent gets two addresses  -  a web domain and a protocol namespace.'
+                : 'Your agent has a UUID-rooted DID. You can claim a handle address later from your dashboard.'}
+            </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {handle ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ padding: '22px 24px', background: 'rgba(79,125,243,0.04)', border: '1px solid rgba(79,125,243,0.15)', borderRadius: 14 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(79,125,243,0.6)', marginBottom: 10, textTransform: 'uppercase' }}>Web Domain</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 600, color: '#e8e8f0', marginBottom: 6 }}>
+                    {handle}<span style={{ color: '#4f7df3' }}>.getagent.id</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', lineHeight: 1.5 }}>
+                    Canonical web address. Resolves your .well-known identity document, agent profile, and API endpoints.
+                  </div>
+                </div>
+
+                <div style={{ padding: '22px 24px', background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.15)', borderRadius: 14 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(52,211,153,0.6)', marginBottom: 10, textTransform: 'uppercase' }}>Protocol Address</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 600, color: '#e8e8f0', marginBottom: 6 }}>
+                    {handle}<span style={{ color: '#34d399' }}>.agentid</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', lineHeight: 1.5 }}>
+                    Protocol namespace address. Used for agent-to-agent messaging, trust resolution, and marketplace discovery.
+                  </div>
+                </div>
+              </div>
+            ) : (
               <div style={{ padding: '22px 24px', background: 'rgba(79,125,243,0.04)', border: '1px solid rgba(79,125,243,0.15)', borderRadius: 14 }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(79,125,243,0.6)', marginBottom: 10, textTransform: 'uppercase' }}>Web Domain</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 600, color: '#e8e8f0', marginBottom: 6 }}>
-                  {handle}<span style={{ color: '#4f7df3' }}>.getagent.id</span>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(79,125,243,0.6)', marginBottom: 10, textTransform: 'uppercase' }}>Permanent DID</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: '#e8e8f0', marginBottom: 6 }}>
+                  did:web:getagent.id:agents:&lt;your-uuid&gt;
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', lineHeight: 1.5 }}>
-                  Canonical web address. Resolves your .well-known identity document, agent profile, and API endpoints.
+                  Your stable machine identity. Handle addresses are optional and can be added at any time from your dashboard (requires a paid plan).
                 </div>
               </div>
-
-              <div style={{ padding: '22px 24px', background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.15)', borderRadius: 14 }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(52,211,153,0.6)', marginBottom: 10, textTransform: 'uppercase' }}>Protocol Address</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 600, color: '#e8e8f0', marginBottom: 6 }}>
-                  {handle}<span style={{ color: '#34d399' }}>.agentid</span>
-                </div>
-                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', lineHeight: 1.5 }}>
-                  Protocol namespace address. Used for agent-to-agent messaging, trust resolution, and marketplace discovery.
-                </div>
-              </div>
-            </div>
+            )}
 
             <NavButtons onBack={goBack} onContinue={goNext} />
           </>

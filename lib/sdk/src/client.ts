@@ -102,8 +102,7 @@ export class AgentID {
 
   get did(): string {
     if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
-    const h = this.resolvedHandle();
-    return h ? `did:agentid:${h}` : `did:agentid:${this._agentId}`;
+    return `did:web:getagent.id:agents:${this._agentId}`;
   }
 
   get trustScore(): number {

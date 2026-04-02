@@ -113,6 +113,13 @@ function isChainEnabled(): boolean {
   return !!(rpcUrl && minterKey && registrarAddress && platformWallet);
 }
 
+/** True if the registrar contract is reachable for read-only availability checks.
+ *  Does NOT require write-side keys (minterKey, platformWallet). */
+function isRegistrarReadable(): boolean {
+  const { rpcUrl, registrarAddress } = getBaseConfig();
+  return !!(rpcUrl && registrarAddress);
+}
+
 export interface RegisterOnChainResult {
   agentId: string;
   txHash: Hash;
@@ -576,4 +583,4 @@ export async function getContractAddress(): Promise<Address | undefined> {
   return getBaseConfig().registrarAddress;
 }
 
-export { isOnchainMintingEnabled, isChainEnabled, AGENT_ID_HANDLE_ABI, getBaseConfig, REGISTRAR_ABI, tierToOnChainCode };
+export { isOnchainMintingEnabled, isChainEnabled, isRegistrarReadable, AGENT_ID_HANDLE_ABI, getBaseConfig, REGISTRAR_ABI, tierToOnChainCode };

@@ -165,7 +165,7 @@ function OnChainStatus({ agent }: { agent: Agent }) {
 
 function IdentityCard({ agent }: { agent: Agent }) {
   const initial = (agent.displayName || 'A').charAt(0).toUpperCase();
-  const did = `did:agentid:${agent.id}`;
+  const did = `did:web:getagent.id:agents:${agent.id}`;
   const inbox = agent.handle ? `${agent.handle}@agentid.dev` : `${agent.id}@agentid.dev`;
   const wallet = agent.walletAddress || 'Provisioning…';
   const tierBadge = getHandleTierBadge(agent);
@@ -446,7 +446,7 @@ function IdentityIntegration({ agent }: { agent: Agent }) {
     trustScore >= 20 ? 'basic' : 'unverified';
 
   const fqdn = handle ? `${handle}.agentid` : '(no handle)';
-  const did = `did:agentid:${handle || agentId}`;
+  const did = `did:web:getagent.id:agents:${agentId}`;
   const agentCardUrl = handle
     ? `https://api.getagent.id/v1/agent-card/${handle}`
     : `https://api.getagent.id/v1/agent-card/${agentId}`;

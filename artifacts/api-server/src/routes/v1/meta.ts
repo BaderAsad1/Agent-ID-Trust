@@ -116,8 +116,8 @@ const AUTH_MATRIX = {
       path: "/api/v1/agents",
       method: "POST",
       auth: ["session"],
-      plans: ["starter", "pro", "enterprise"],
-      description: "Create an agent via dashboard",
+      plans: ["free", "starter", "pro", "enterprise"],
+      description: "Create an agent via dashboard. Free plan creates UUID-only agents; handles require a paid plan.",
     },
     {
       path: "/api/v1/agents/:agentId/keys/rotate",

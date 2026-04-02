@@ -156,7 +156,7 @@ export function HandlesClaim() {
           Claim a Handle
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Search for a handle and claim it. 5+ character handles are included with Starter, Pro, or Enterprise plans.
+          Search for a handle and claim it. Handles are included with paid plans (Starter, Pro, or Enterprise).
         </p>
       </div>
 
@@ -217,7 +217,7 @@ export function HandlesClaim() {
                       )}
                       {isStandardHandle(result) ? (
                         <span className="font-semibold" style={{ color: 'var(--success)' }}>
-                          Free
+                          Included with paid plan
                         </span>
                       ) : (
                         getAnnualUsd(result) !== null && (
@@ -237,7 +237,7 @@ export function HandlesClaim() {
                     {claimLoading ? (
                       <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</span>
                     ) : (
-                      isStandardHandle(result) ? 'Register  -  Free' : `Claim @${result.handle}`
+                      isStandardHandle(result) ? `Register @${result.handle}` : `Claim @${result.handle}`
                     )}
                   </PrimaryButton>
                 </div>
@@ -317,7 +317,7 @@ export function HandlesClaim() {
             <div key={tier.label} className="flex items-center justify-between text-sm">
               <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{tier.label}</span>
               <span className="font-semibold" style={{ color: tier.annualPrice > 0 ? 'var(--text-primary)' : 'var(--success)' }}>
-                {tier.annualPrice === 0 ? 'FREE' : `$${tier.annualPrice}/yr`}
+                {tier.annualPrice === 0 ? 'Included with paid plan' : `$${tier.annualPrice}/yr`}
               </span>
             </div>
           ))}

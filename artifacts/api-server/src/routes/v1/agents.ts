@@ -34,7 +34,7 @@ import { verifyClaimToken, generateClaimToken } from "../../utils/claim-token";
 import { hashClaimToken } from "../../utils/crypto";
 import { desc, eq, and, gte, sql, count } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable, agentClaimHistoryTable } from "@workspace/db/schema";
+import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable, agentClaimHistoryTable, auditEventsTable } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -64,7 +64,7 @@ router.get("/whoami", requireAgentAuth, async (req, res, next) => {
 });
 
 const createAgentSchema = z.object({
-  handle: z.string().min(3).max(32),
+  handle: z.string().min(3).max(32).optional(),
   displayName: z.string().min(1).max(255),
   description: z.string().max(5000).optional(),
   endpointUrl: z.url().optional(),
@@ -101,148 +101,243 @@ router.post("/", requireAuth, async (req, res, next) => {
     }
 
     const { handle } = parsed.data;
-    const normalizedHandle = handle.toLowerCase();
     const isSandbox = req.isSandbox === true;
-
-    if (!isSandbox) {
-      const rateLimitCheck = await checkRateLimit(req.userId!);
-      if (rateLimitCheck) {
-        throw new AppError(rateLimitCheck.status, "RATE_LIMIT_EXCEEDED", rateLimitCheck.message);
-      }
-
-      try {
-        await recordHandleRegistration(req.userId!, normalizedHandle);
-      } catch (err) {
-        logger.warn({ err, handle: normalizedHandle }, "[agents] Failed to record handle registration attempt");
-      }
-    }
-
-    const handleError = validateHandle(normalizedHandle);
-    if (handleError) {
-      throw new AppError(400, "INVALID_HANDLE", handleError);
-    }
-
-    if (isHandleReserved(normalizedHandle)) {
-      throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
-    }
-
-    const reservation = await getHandleReservation(normalizedHandle);
-    if (reservation.isReserved) {
-      throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
-    }
-
-    const limitCheck = await checkHandleRegistrationLimits(req.userId!, normalizedHandle);
-    if (limitCheck) {
-      throw new AppError(limitCheck.status, "HANDLE_LIMIT_EXCEEDED", limitCheck.message);
-    }
-
-    const available = await isHandleAvailable(normalizedHandle);
-    if (!available) {
-      throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
-    }
-
-    const handlePriceCents = getHandlePriceCents(normalizedHandle);
-    const handleLen = normalizedHandle.replace(/[^a-z0-9]/g, "").length;
-    const pricingTier = handleLen === 3 ? "premium_3" : handleLen === 4 ? "premium_4" : "standard_5plus";
-    const isStandardHandle = handleLen >= 5;
 
     // Declared at outer scope so the compensation catch block can release it if
     // agent creation fails after an atomic benefit claim succeeds.
     let claimSubId: string | undefined = undefined;
+    // Outer-scope pending audit record ID so the catch block can update it on stranded/compensated outcome.
+    let agentPendingAuditId: string | null = null;
+    let handlePriceCents = 0;
+    let pricingTier: string | undefined;
+    let isStandardHandle = false;
+    let sandboxHandle: string | undefined;
+    let normalizedHandle: string | undefined;
 
-    if (!isSandbox) {
-      const userPlan = await getUserPlan(req.userId!);
-      const APP_URL = process.env.APP_URL ?? "https://getagent.id";
+    if (handle) {
+      normalizedHandle = handle.toLowerCase();
 
-      if (!isStandardHandle) {
-        res.status(402).json({
-          code: "HANDLE_PAYMENT_REQUIRED",
-          message: `This handle requires payment of $${(handlePriceCents / 100).toFixed(2)}/year. Use POST /api/v1/billing/handle-checkout to start checkout.`,
-          handle: normalizedHandle,
-          priceCents: handlePriceCents,
-          priceDollars: handlePriceCents / 100,
-          tier: pricingTier,
-          characterLength: handleLen,
-          includedWithPaidPlan: false,
-          includesOnChainMint: true,
-          checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
-          handlePricing: {
-            annualPriceCents: handlePriceCents,
-            annualPriceDollars: handlePriceCents / 100,
+      if (!isSandbox) {
+        const rateLimitCheck = await checkRateLimit(req.userId!);
+        if (rateLimitCheck) {
+          throw new AppError(rateLimitCheck.status, "RATE_LIMIT_EXCEEDED", rateLimitCheck.message);
+        }
+
+        try {
+          await recordHandleRegistration(req.userId!, normalizedHandle);
+        } catch (err) {
+          logger.warn({ err, handle: normalizedHandle }, "[agents] Failed to record handle registration attempt");
+        }
+      }
+
+      const handleError = validateHandle(normalizedHandle);
+      if (handleError) {
+        throw new AppError(400, "INVALID_HANDLE", handleError);
+      }
+
+      if (isHandleReserved(normalizedHandle)) {
+        throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
+      }
+
+      const reservation = await getHandleReservation(normalizedHandle);
+      if (reservation.isReserved) {
+        throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
+      }
+
+      const limitCheck = await checkHandleRegistrationLimits(req.userId!, normalizedHandle);
+      if (limitCheck) {
+        throw new AppError(limitCheck.status, "HANDLE_LIMIT_EXCEEDED", limitCheck.message);
+      }
+
+      const available = await isHandleAvailable(normalizedHandle);
+      if (!available) {
+        throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
+      }
+
+      handlePriceCents = getHandlePriceCents(normalizedHandle);
+      const handleLen = normalizedHandle.replace(/[^a-z0-9]/g, "").length;
+      pricingTier = handleLen === 3 ? "premium_3" : handleLen === 4 ? "premium_4" : "standard_5plus";
+      isStandardHandle = handleLen >= 5;
+
+      if (!isSandbox) {
+        const userPlan = await getUserPlan(req.userId!);
+        const APP_URL = process.env.APP_URL ?? "https://getagent.id";
+
+        if (!isStandardHandle) {
+          res.status(402).json({
+            code: "HANDLE_PAYMENT_REQUIRED",
+            message: `This handle requires payment of $${(handlePriceCents / 100).toFixed(2)}/year. Use POST /api/v1/billing/handle-checkout to start checkout.`,
+            handle: normalizedHandle,
+            priceCents: handlePriceCents,
+            priceDollars: handlePriceCents / 100,
             tier: pricingTier,
             characterLength: handleLen,
             includedWithPaidPlan: false,
-            onChainMintPrice: 0,
-            onChainMintPriceDollars: 0,
             includesOnChainMint: true,
-          },
-        });
-        return;
+            checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
+            handlePricing: {
+              annualPriceCents: handlePriceCents,
+              annualPriceDollars: handlePriceCents / 100,
+              tier: pricingTier,
+              characterLength: handleLen,
+              includedWithPaidPlan: false,
+              onChainMintPrice: 0,
+              onChainMintPriceDollars: 0,
+              includesOnChainMint: true,
+            },
+          });
+          return;
+        }
+
+        if (!isEligibleForIncludedHandle(userPlan)) {
+          res.status(402).json({
+            code: "PLAN_REQUIRED",
+            message: "Standard handles (5+ characters) are included with Starter, Pro, or Enterprise plans. Upgrade at /pricing to register a handle.",
+            handle: normalizedHandle,
+            tier: pricingTier,
+            characterLength: handleLen,
+            includedWithPaidPlan: true,
+            upgradeUrl: `${APP_URL}/pricing`,
+          });
+          return;
+        }
+
+        // Write durable pending intent before consuming the entitlement.
+        // Abort if this fails — without a pending marker the claim has no crash-recovery artifact.
+        try {
+          const agentPendingResult = await db.insert(auditEventsTable).values({
+            actorType: "user",
+            actorId: req.userId!,
+            eventType: "billing.included_handle_claim.pending",
+            targetType: "agent",
+            targetId: null,
+            payload: {
+              handle: normalizedHandle,
+              state: "pending",
+              requiredAction: "claim_and_create_agent",
+            },
+          }).returning({ id: auditEventsTable.id });
+          agentPendingAuditId = agentPendingResult[0]?.id ?? null;
+          if (!agentPendingAuditId) {
+            throw new Error("Pending audit record insert returned no ID");
+          }
+        } catch (pendingErr) {
+          // Fail the request — cannot consume entitlement without a durable pending marker.
+          // A missing pending record would leave no recovery artifact if the process crashes
+          // between claim and agent creation, permanently stranding the benefit.
+          logger.error({ handle: normalizedHandle, userId: req.userId, pendingErr }, "[agents] pending audit write failed — aborting claim (no recovery artifact)");
+          throw new AppError(503, "AUDIT_WRITE_FAILED", "Temporary system error — please retry your request");
+        }
+
+        // Atomically claim the one-time included-handle benefit BEFORE creating the agent.
+        // Uses a conditional UPDATE (WHERE included_handle_claimed IS NULL) to eliminate
+        // the race-condition window that check-then-set would leave open.
+        // If the claim fails (benefit already used or concurrent request won first),
+        // we stop here — no agent is created and no compensation is needed.
+        const { claimed, subscriptionId } = await claimIncludedHandleBenefit(req.userId!, normalizedHandle);
+        if (!claimed) {
+          res.status(402).json({
+            code: "HANDLE_BENEFIT_ALREADY_USED",
+            message: "The one included handle benefit for your plan has already been used. Additional handles can be purchased via the handle checkout.",
+            handle: normalizedHandle,
+            tier: pricingTier,
+            characterLength: handleLen,
+            checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
+          });
+          return;
+        }
+        // Store subscriptionId so we can release the claim if agent creation fails below.
+        claimSubId = subscriptionId;
       }
 
-      if (!isEligibleForIncludedHandle(userPlan)) {
-        res.status(402).json({
-          code: "PLAN_REQUIRED",
-          message: "Standard handles (5+ characters) are included with Starter, Pro, or Enterprise plans. Upgrade at /pricing to register a handle.",
-          handle: normalizedHandle,
-          tier: pricingTier,
-          characterLength: handleLen,
-          includedWithPaidPlan: true,
-          upgradeUrl: `${APP_URL}/pricing`,
-        });
-        return;
-      }
-
-      // Atomically claim the one-time included-handle benefit BEFORE creating the agent.
-      // Uses a conditional UPDATE (WHERE included_handle_claimed IS NULL) to eliminate
-      // the race-condition window that check-then-set would leave open.
-      // If the claim fails (benefit already used or concurrent request won first),
-      // we stop here — no agent is created and no compensation is needed.
-      const { claimed, subscriptionId } = await claimIncludedHandleBenefit(req.userId!, normalizedHandle);
-      if (!claimed) {
-        res.status(402).json({
-          code: "HANDLE_BENEFIT_ALREADY_USED",
-          message: "The one included handle benefit for your plan has already been used. Additional handles can be purchased via the handle checkout.",
-          handle: normalizedHandle,
-          tier: pricingTier,
-          characterLength: handleLen,
-          checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
-        });
-        return;
-      }
-      // Store subscriptionId so we can release the claim if agent creation fails below.
-      claimSubId = subscriptionId;
+      sandboxHandle = isSandbox ? `sandbox-${normalizedHandle}` : normalizedHandle;
     }
 
-    const sandboxHandle = isSandbox ? `sandbox-${normalizedHandle}` : normalizedHandle;
+    const resolvedHandleLen = normalizedHandle ? normalizedHandle.replace(/[^a-z0-9]/g, "").length : null;
 
     let agent;
     try {
       agent = await createAgent({
         userId: req.userId!,
         ...parsed.data,
-        handle: sandboxHandle,
+        handle: sandboxHandle ?? null,
         _skipHandleValidation: isSandbox,
         metadata: {
           ...(parsed.data.metadata || {}),
           ...(isSandbox ? { isSandbox: true, sandboxCreatedAt: new Date().toISOString() } : {}),
-          handlePricing: isSandbox ? undefined : {
-            annualPriceCents: handlePriceCents,
-            tier: pricingTier,
-            characterLength: handleLen,
-            paymentStatus: isStandardHandle ? "included" : "paid",
-            includedWithPaidPlan: isStandardHandle,
-            registeredAt: new Date().toISOString(),
-          },
+          ...(sandboxHandle ? {
+            handlePricing: {
+              annualPriceCents: handlePriceCents,
+              tier: pricingTier,
+              characterLength: resolvedHandleLen,
+              paymentStatus: isStandardHandle ? "included" : "paid",
+              includedWithPaidPlan: isStandardHandle,
+              registeredAt: new Date().toISOString(),
+            },
+          } : {}),
         },
       });
     } catch (err) {
       // If we atomically claimed the included-handle benefit above and agent creation
       // now fails, release the claim so the user can retry.
+      // If the release itself fails (DB transient failure), record a durable stranded-claim
+      // audit event so recovery tooling can detect and replay it.
       if (claimSubId) {
-        await releaseIncludedHandleClaim(claimSubId).catch((releaseErr) => {
-          logger.error({ releaseErr, claimSubId }, "[agents] Failed to release included handle claim during compensation");
-        });
+        let releaseSucceeded = false;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            await releaseIncludedHandleClaim(claimSubId);
+            releaseSucceeded = true;
+            break;
+          } catch {
+            if (attempt === 0) await new Promise((r) => setTimeout(r, 200));
+          }
+        }
+        if (!releaseSucceeded) {
+          logger.error(
+            { claimSubId, handle: normalizedHandle, userId: req.userId },
+            "[agents] compensation failed after agent creation failure — recorded for recovery",
+          );
+          const strandedPayload = {
+            handle: normalizedHandle ?? null,
+            agentId: null,
+            subscriptionId: claimSubId,
+            state: "stranded",
+            assignError: err instanceof Error ? err.message : String(err),
+            requiredAction: "release_claim_and_retry_assignment",
+          };
+          if (agentPendingAuditId) {
+            db.update(auditEventsTable)
+              .set({ payload: strandedPayload })
+              .where(eq(auditEventsTable.id, agentPendingAuditId))
+              .catch((auditErr: unknown) => {
+                logger.error({ auditErr, claimSubId }, "[agents] stranded-claim audit update failed");
+                db.insert(auditEventsTable).values({
+                  actorType: "user",
+                  actorId: req.userId!,
+                  eventType: "billing.included_handle_claim.stranded",
+                  payload: strandedPayload,
+                }).catch(() => {});
+              });
+          } else {
+            db.insert(auditEventsTable).values({
+              actorType: "user",
+              actorId: req.userId!,
+              eventType: "billing.included_handle_claim.stranded",
+              payload: strandedPayload,
+            }).catch((auditErr: unknown) => {
+              logger.error({ auditErr, claimSubId }, "[agents] stranded-claim audit write failed");
+            });
+          }
+        } else {
+          // Release succeeded: update pending audit record to compensated state
+          if (agentPendingAuditId) {
+            db.update(auditEventsTable)
+              .set({ payload: { handle: normalizedHandle ?? null, agentId: null, subscriptionId: claimSubId, state: "compensated", reason: "agent_creation_failure_claim_released" } })
+              .where(eq(auditEventsTable.id, agentPendingAuditId))
+              .catch(() => { /* best-effort */ });
+          }
+        }
       }
       if (err instanceof Error && err.message === "HANDLE_CONFLICT") {
         throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
@@ -250,13 +345,21 @@ router.post("/", requireAuth, async (req, res, next) => {
       throw err;
     }
 
-    if (!isSandbox) {
+    if (!isSandbox && sandboxHandle) {
       await db.update(agentsTable).set({
         handleStatus: "active",
         nftStatus: "none",
         paidThrough: null,
         updatedAt: new Date(),
       }).where(eq(agentsTable.id, agent.id));
+    }
+
+    // Update pending audit record to completed state after successful agent creation
+    if (agentPendingAuditId) {
+      db.update(auditEventsTable)
+        .set({ payload: { handle: normalizedHandle ?? null, agentId: agent.id, subscriptionId: claimSubId ?? null, state: "completed" } })
+        .where(eq(auditEventsTable.id, agentPendingAuditId))
+        .catch(() => { /* best-effort */ });
     }
 
     await logActivity({
@@ -277,7 +380,7 @@ router.post("/", requireAuth, async (req, res, next) => {
       await logSignedActivity({
         agentId: agent.id,
         eventType: "agent.created",
-        payload: { handle: agent.handle },
+        payload: { handle: agent.handle ?? null },
         isPublic: true,
       });
     } catch {}
@@ -296,18 +399,19 @@ router.post("/", requireAuth, async (req, res, next) => {
       ...agent,
       claimToken: claimTokenValue,
       isSandbox,
-      ...(isSandbox ? { sandboxRef: `sandbox_${agent.id}` } : {
+      ...(isSandbox ? { sandboxRef: `sandbox_${agent.id}` } : {}),
+      ...(sandboxHandle ? {
         handlePricing: {
           annualPriceCents: handlePriceCents,
           annualPriceDollars: handlePriceCents / 100,
           tier: pricingTier,
-          characterLength: handleLen,
+          characterLength: resolvedHandleLen,
           includedWithPaidPlan: isStandardHandle,
           onChainMintPrice: isStandardHandle ? 500 : 0,
           onChainMintPriceDollars: isStandardHandle ? 5 : 0,
           includesOnChainMint: !isStandardHandle,
         },
-      }),
+      } : {}),
     });
   } catch (err) {
     next(err);
@@ -1426,7 +1530,7 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
     const trustScore = (bundle.trust as { score?: number })?.score ?? 0;
     const trustTier = bundle.trust?.tier ?? "unverified";
     const fqdn = handle ? `${handle}.agentid` : null;
-    const did = `did:agentid:${handle || agentId}`;
+    const did = `did:web:getagent.id:agents:${agentId}`;
     const capabilities = bundle.capabilities || [];
 
     if (format === "json") {

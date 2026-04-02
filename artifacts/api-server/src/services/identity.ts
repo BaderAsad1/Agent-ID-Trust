@@ -64,7 +64,7 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
 
   const handleIdentity = agent.handle && agent.handleExpiresAt ? {
     handle: agent.handle,
-    did: `did:agentid:${agent.handle}`,
+    did: `did:web:getagent.id:agents:${agent.id}`,
     tier: agent.handleTier ?? null,
     expiresAt: agent.handleExpiresAt,
     paid: agent.handlePaid ?? false,
@@ -115,7 +115,7 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
     handle: agent.handle,
     display_name: agent.displayName,
     did: `did:web:getagent.id:agents:${agent.id}`,
-    handleAliasDid: handleIdentity ? `did:agentid:${agent.handle}` : null,
+    handleAliasDid: null,
     protocol_address: agent.handle ? `${agent.handle}.agentid` : `${agent.id}.agentid`,
     erc8004_uri: `${baseUrl}/api/v1/p/${agent.id}/erc8004`,
     erc8004Uri: `${baseUrl}/api/v1/p/${agent.id}/erc8004`,
@@ -199,13 +199,13 @@ export function buildPromptBlock(
   const handleSection = handle && agent.handleExpiresAt
     ? `Handle Identity (paid alias, expiring):
   Handle:    ${handle}.agentid
-  DID:       did:agentid:${handle}
+  DID:       did:web:getagent.id:agents:${agentId}
   Profile:   ${baseUrl}/${handle}
   Resolve:   GET ${baseUrl}/api/v1/resolve/${handle}
   Expires:   ${agent.handleExpiresAt.toISOString()}
   Note:      Handle is a paid alias (like ENS). Renew before expiry to keep it.`
     : `Handle Identity: none — agent resolves by UUID only
-  Register a handle at: ${baseUrl}/api/v1/pay/handle/claim (5+ chars, $5/yr with active plan)`;
+  Register a handle at: ${baseUrl}/api/v1/pay/handle/claim (5+ chars, included with Starter/Pro/Enterprise plans)`;
 
   const inboxSection = inbox?.address
     ? `Your inbox address: ${inbox.address}

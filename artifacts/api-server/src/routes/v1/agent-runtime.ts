@@ -75,7 +75,7 @@ Handle expires:   ${agent.handleExpiresAt ? agent.handleExpiresAt.toISOString().
   return `=== AGENT ID IDENTITY ===
 Name:             ${agent.displayName}
 Machine ID:       ${agent.id}  (permanent, never expires)
-DID:              did:agentid:${agent.id}
+DID:              did:web:getagent.id:agents:${agent.id}
 Trust Score:      ${trust.trustScore} / 100
 Trust Tier:       ${trust.trustTier}
 Verification:     ${agent.verificationStatus}
@@ -155,7 +155,7 @@ function buildPromptBlockJson(
     agent_name: agent.displayName,
     agent_id: agent.id,
     machine_identity: {
-      did: `did:agentid:${agent.id}`,
+      did: `did:web:getagent.id:agents:${agent.id}`,
       uuid: agent.id,
     },
     handle_identity: hasHandleJson
@@ -349,7 +349,7 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
       next_expected_heartbeat: new Date(now.getTime() + HEARTBEAT_INTERVAL_SECONDS * 1000).toISOString(),
       identity: {
         agent_id: current.id,
-        did: `did:agentid:${current.id}`,
+        did: `did:web:getagent.id:agents:${current.id}`,
         handle: current.handlePaid && current.handle
           ? `${current.handle}.agentID`
           : null,

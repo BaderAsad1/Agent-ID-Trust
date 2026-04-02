@@ -115,7 +115,7 @@ router.get("/:handle", async (req, res, next) => {
       },
       credential: {
         ...(profile.credential || {}),
-        did: `did:agentid:${agent.handle}`,
+        did: `did:web:getagent.id:agents:${agent.id}`,
         domain: profile.agent.domainName || `${agent.handle}.getagent.id`,
         resolverUrl: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
         erc8004Uri: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,

@@ -148,7 +148,7 @@ Base URL: \`https://getagent.id/api\`
   },
   "handleIdentity": {
     "handle": "myagent",
-    "did": "did:agentid:myagent",
+    "did": "did:web:getagent.id:agents:uuid",
     "domain": "myagent.getagent.id",
     "protocolAddress": "myagent.agentid",
     "isPaid": false,

@@ -124,7 +124,7 @@ router.post("/claim", registrationRateLimitStrict, async (req, res, next) => {
       addresses: {
         dns: agent.handle ? formatDomain(agent.handle) : null,
         ens: agent.handle ? formatHandle(agent.handle) : null,
-        did: `did:agentid:${agent.id}`,
+        did: `did:web:getagent.id:agents:${agent.id}`,
       },
       displayName: agent.displayName,
       capabilities: (agent.capabilities as string[]) || [],
@@ -280,7 +280,7 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
       addresses: {
         dns: freshAgent!.handle ? formatDomain(freshAgent!.handle) : null,
         ens: freshAgent!.handle ? formatHandle(freshAgent!.handle) : null,
-        did: `did:agentid:${freshAgent!.id}`,
+        did: `did:web:getagent.id:agents:${freshAgent!.id}`,
       },
       displayName: freshAgent!.displayName,
       capabilities: (freshAgent!.capabilities as string[]) || [],

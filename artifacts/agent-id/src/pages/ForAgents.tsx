@@ -70,7 +70,7 @@ const REGISTER_RESPONSE = `HTTP/1.1 201 Created
 
 {
   "agentId": "3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-  "did": "did:agentid:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
+  "did": "did:web:getagent.id:agents:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
   "resolutionUrl": "https://getagent.id/api/v1/resolve/id/3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
   "permanent": true,
   "handle": null,
@@ -135,7 +135,7 @@ const VERIFY_RESPONSE = `HTTP/1.1 200 OK
 {
   "verified": true,
   "agentId": "3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
-  "did": "did:agentid:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
+  "did": "did:web:getagent.id:agents:3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
   "resolutionUrl": "https://getagent.id/api/v1/resolve/id/3f8a1c2d-9b47-4e6f-a5d2-8c1e3f7b9a4d",
   "handle": null,
   "domain": null,
@@ -352,7 +352,7 @@ export function ForAgents() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5, fontFamily: 'var(--font-mono)', lineHeight: 1.7 }}>
               {[
-                ['Permanent DID', 'did:agentid:<your-uuid> (off-chain)'],
+                ['Permanent DID', 'did:web:getagent.id:agents:<your-uuid>'],
                 ['API key', 'agk_live_...  -  use as X-Agent-Key header'],
                 ['Resolution', 'GET /api/v1/resolve/id/<your-uuid> (off-chain API)'],
                 ['Trust score', '~25 at registration → grows with verified activity'],

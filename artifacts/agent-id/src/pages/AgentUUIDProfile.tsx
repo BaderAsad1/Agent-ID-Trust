@@ -48,7 +48,7 @@ export function AgentUUIDProfile() {
             verificationStatus: a.verificationStatus ?? a.verification_status,
             status: a.status,
             capabilities: a.capabilities ?? [],
-            did: a.did ?? `did:agentid:${agentId}`,
+            did: a.did ?? `did:web:getagent.id:agents:${agentId}`,
             createdAt: a.createdAt,
           });
         }
@@ -98,7 +98,7 @@ export function AgentUUIDProfile() {
     );
   }
 
-  const permanentDid = `did:agentid:${agentId}`;
+  const permanentDid = `did:web:getagent.id:agents:${agentId}`;
   const handleDid = agent.handle ? `did:agentid:${agent.handle}` : null;
   const APP_URL = window.location.origin;
 

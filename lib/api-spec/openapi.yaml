@@ -3350,20 +3350,30 @@ components:
         agentId:
           type: string
           format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        did:
+          type: string
+          description: "Canonical UUID-rooted DID for this agent. Format: did:web:getagent.id:agents:<uuid>"
+          example: "did:web:getagent.id:agents:550e8400-e29b-41d4-a716-446655440000"
         handle:
           type: string
-        domain:
+          nullable: true
+        challenge:
           type: string
-        verificationChallenge:
-          type: string
-        challengeExpiresAt:
+          description: "Verification challenge string for agent key proof"
+        expiresAt:
           type: string
           format: date-time
-        registrationStatus:
+          description: "Challenge expiry timestamp"
+        kid:
           type: string
+          description: "Key ID of the agent's registered public key"
+        note:
+          type: string
+          description: "Human-readable instructions for next steps"
         profileUrl:
           type: string
-      required: [agentId, handle, verificationChallenge, challengeExpiresAt, registrationStatus]
+      required: [agentId, did, challenge, expiresAt, kid]
 
     ProgrammaticVerifyInput:
       type: object
@@ -3392,6 +3402,11 @@ components:
         agentId:
           type: string
           format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        did:
+          type: string
+          description: "Canonical UUID-rooted DID for this agent. Format: did:web:getagent.id:agents:<uuid>"
+          example: "did:web:getagent.id:agents:550e8400-e29b-41d4-a716-446655440000"
         handle:
           type: string
         domain:
@@ -3404,7 +3419,7 @@ components:
           type: string
         domainStatus:
           type: string
-      required: [status, agentId, handle, trustScore, trustTier]
+      required: [agentId, did, trustScore, trustTier]
 
     HandleCheckResult:
       type: object
@@ -3491,7 +3506,8 @@ components:
               type: string
             did:
               type: string
-              description: "DID identifier, format: did:agentid:<handle>"
+              description: "Canonical UUID-rooted DID. Format: did:web:getagent.id:agents:<uuid>"
+              example: "did:web:getagent.id:agents:550e8400-e29b-41d4-a716-446655440000"
             protocolAddress:
               type: string
               description: "Protocol address, format: <handle>.agentid"
@@ -4633,6 +4649,8 @@ components:
           type: string
         did:
           type: string
+          description: "Canonical UUID-rooted DID. Format: did:web:getagent.id:agents:<uuid>"
+          example: "did:web:getagent.id:agents:550e8400-e29b-41d4-a716-446655440000"
         resolverUrl:
           type: string
         displayName:

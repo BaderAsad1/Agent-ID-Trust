@@ -521,7 +521,7 @@ export interface SpendingRules {
 }
 
 export interface CreateAgentInput {
-  handle: string;
+  handle?: string;
   displayName: string;
   description?: string;
   capabilities?: string[];

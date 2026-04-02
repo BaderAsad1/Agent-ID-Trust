@@ -426,18 +426,20 @@ router.post("/agents/register", registrationRateLimitStrict, async (req, res, ne
     }, `[programmatic] register completed in ${Math.round(totalMs)}ms`);
 
     const handleExpiresAt = agent.handleExpiresAt ?? null;
+    const canonicalDid = `did:web:getagent.id:agents:${agent.id}`;
     res.status(201).json({
       agentId: agent.id,
+      did: canonicalDid,
       machineIdentity: {
         agentId: agent.id,
-        did: `did:agentid:${agent.id}`,
+        did: canonicalDid,
         permanent: true,
         resolutionUrl: `${APP_URL}/api/v1/resolve/id/${agent.id}`,
         profileUrl: `${APP_URL}/id/${agent.id}`,
       },
       handleIdentity: requestedHandle ? {
         handle: requestedHandle,
-        did: `did:agentid:${requestedHandle}`,
+        did: canonicalDid,
         tier: handleTierInfo?.tier ?? null,
         expiresAt: handleExpiresAt,
         renewalUrl: `${APP_URL}/api/v1/pay/handle/renew`,
@@ -451,7 +453,7 @@ router.post("/agents/register", registrationRateLimitStrict, async (req, res, ne
       protocolAddress: requestedHandle ? formatHandle(requestedHandle) : null,
       note: requestedHandle
         ? "Handle alias registered. Complete verification to activate. Handle renewal required annually."
-        : `No handle alias requested. Your permanent machine identity is did:agentid:${agent.id}. Claim a handle alias at ${APP_URL}/handle/purchase after verification.`,
+        : `No handle alias requested. Your permanent machine identity is ${canonicalDid}. Claim a handle alias at ${APP_URL}/handle/purchase after verification.`,
     });
   } catch (err) {
     next(err);
@@ -633,12 +635,14 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
     const APP_URL = process.env.APP_URL || "https://getagent.id";
     const claimUrl = `${APP_URL}/claim?token=${encodeURIComponent(claimToken)}`;
 
+    const verifyCanonicalDid = `did:web:getagent.id:agents:${agentId}`;
     res.json({
       verified: true,
       agentId,
+      did: verifyCanonicalDid,
       machineIdentity: {
         agentId,
-        did: `did:agentid:${agentId}`,
+        did: verifyCanonicalDid,
         resolutionUrl: `${APP_URL}/api/v1/resolve/id/${agentId}`,
       },
       handle: agent.handle ?? null,

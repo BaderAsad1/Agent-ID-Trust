@@ -190,7 +190,7 @@ curl -X POST https://getagent.id/api/v1/programmatic/agents/verify \\
     "kid": "<kid from step 1>"
   }'
 
-# Returns: { apiKey: "agk_...", did: "did:agentid:my-agent", ... }`;
+# Returns: { apiKey: "agk_...", did: "did:web:getagent.id:agents:<uuid>", ... }`;
 
 const API_WHOAMI = `# 3. Use the agent key for all agent operations
 curl https://getagent.id/api/v1/agents/whoami \\
@@ -280,7 +280,7 @@ export function DocsQuickstart() {
             </div>
 
             <div style={{ padding: '16px 20px', background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 10, fontSize: 13, color: 'rgba(52,211,153,0.9)', lineHeight: 1.6, marginBottom: 20 }}>
-              <strong>You're done.</strong> Your agent now has a DID (<code>did:agentid:my-agent</code>), a trust score, and an inbox at <code>my-agent@getagent.id</code>. Explore the SDK docs for tasks, mail, marketplace, and machine payments.
+              <strong>You're done.</strong> Your agent now has a DID (<code>did:web:getagent.id:agents:&lt;uuid&gt;</code>), a trust score, and an inbox at <code>my-agent@getagent.id</code>. Explore the SDK docs for tasks, mail, marketplace, and machine payments.
             </div>
 
             <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden' }}>

@@ -309,7 +309,7 @@ function toResolvedAgent(
       handle: agent.handle,
       domain: formatDomain(handle),
       protocolAddress: formatHandle(handle),
-      did: formatDID(handle),
+      did: `did:web:getagent.id:agents:${agent.id}`,
       resolverUrl: formatResolverUrl(handle),
       profileUrl: formatProfileUrl(handle),
       erc8004Uri: `${APP_URL}/api/v1/p/${handle}/erc8004`,
@@ -544,23 +544,26 @@ router.get("/address/:address", async (req: Request, res: Response, next: NextFu
       }
     }
 
-    const chainMintsAgents = await db.query.agentsTable.findMany({
+    // Use chainRegistrations (canonical registrar-backed path) instead of legacy chainMints.
+    const chainRegAgents = await db.query.agentsTable.findMany({
       where: and(
-        sql`${agentsTable.chainMints} IS NOT NULL AND ${agentsTable.chainMints}::text != '{}'`,
+        sql`${agentsTable.chainRegistrations} IS NOT NULL AND ${agentsTable.chainRegistrations}::text != '[]' AND ${agentsTable.chainRegistrations}::text != '{}'`,
         eq(agentsTable.status, "active"),
       ),
-      columns: { handle: true, id: true, chainMints: true },
+      columns: { handle: true, id: true, chainRegistrations: true },
     });
 
-    for (const a of chainMintsAgents) {
+    for (const a of chainRegAgents) {
       if (!a.handle) continue;
-      const mints = (a.chainMints as Record<string, unknown>) ?? {};
-      for (const [chain, chainData] of Object.entries(mints)) {
-        if (!chainData || typeof chainData !== "object") continue;
-        const mintEntry = chainData as Record<string, unknown>;
-        const ownerAddr = typeof mintEntry.owner === "string" ? mintEntry.owner : null;
+      const regs = (a.chainRegistrations as unknown[]) ?? [];
+      const regsArr = Array.isArray(regs) ? regs : Object.values(regs as Record<string, unknown>);
+      for (const reg of regsArr) {
+        if (!reg || typeof reg !== "object") continue;
+        const regEntry = reg as Record<string, unknown>;
+        const ownerAddr = typeof regEntry.owner === "string" ? regEntry.owner : null;
         if (!ownerAddr) continue;
 
+        const chain = typeof regEntry.chain === "string" ? regEntry.chain : "";
         const isEvmChain = chain === "base" || chain === "ethereum" || chain === "polygon";
         const addressMatch = isEvmChain
           ? ownerAddr.toLowerCase() === addressLower
@@ -661,7 +664,8 @@ router.get("/:handle", async (req: Request, res: Response, next: NextFunction) =
           revokedAt: agent.revokedAt,
           reason: agent.revocationReason,
           statement: agent.revocationStatement,
-          did: `did:agentid:${revokedHandle}`,
+          did: agent.id ? `did:web:getagent.id:agents:${agent.id}` : null,
+          handleAlias: revokedHandle ? `did:agentid:${revokedHandle}` : null,
           recordUrl: `${(process.env.APP_URL || "https://getagent.id")}/api/v1/resolve/${revokedHandle}`,
         },
       });

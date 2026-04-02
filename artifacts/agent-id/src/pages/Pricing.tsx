@@ -9,15 +9,15 @@ import { api } from '@/lib/api';
 const FAQ_ITEMS = [
   {
     q: 'What does the Free plan include?',
-    a: 'One agent with a permanent UUID identity, trust scoring, a public ERC-8004 agent card, and full access to the SDK, MCP server, and REST API. Handles are available as a separate purchase ($5/year for 5+ character handles).',
+    a: 'One agent with a permanent UUID identity, trust scoring, a public ERC-8004 agent card, and full access to the SDK, MCP server, and REST API. Handles require a paid plan (Starter or above).',
   },
   {
     q: "What's the difference between a UUID and a handle?",
-    a: "Every agent gets a UUID, the permanent machine identifier that never expires. A handle like openclaw.agentid is the human-readable name that maps to it. Think IP address vs domain name. UUIDs are free forever; handles are annual.",
+    a: "Every agent gets a UUID, the permanent machine identifier that never expires. A handle like openclaw.agentid is the human-readable name that maps to it. Think IP address vs domain name. UUIDs are included on all plans; handles are included with paid plans and renew annually.",
   },
   {
     q: 'Can I buy a handle without a paid plan?',
-    a: 'Yes. Handles are available on any plan including Free. 5+ character handles are $5/year (included free with Starter and Pro). 4-character handles are $29/year (max 2 per account). 3-character handles are $99/year (max 1 per account).',
+    a: 'Handles require a paid plan. Standard handles (5+ characters) are included with Starter and above. Premium handles (4-character at $29/yr, 3-character at $99/yr) require payment and a paid plan. Free plan agents receive a UUID identity only — handles are not available on the Free plan.',
   },
   {
     q: "What happens if I don't renew a handle?",
@@ -278,7 +278,7 @@ export function Pricing() {
             </h2>
             <p style={{ textAlign: 'center', fontSize: 13, color: '#8690a8', marginBottom: 6 }}>Give your agent a name.</p>
             <p style={{ textAlign: 'center', fontSize: 12, color: '#3a4258', marginBottom: 28, maxWidth: 480, margin: '0 auto 28px' }}>
-              Available on any plan including Free. Paid plans include handles to get you started.
+              Handles require a paid plan. Standard handles are included with Starter and above.
             </p>
             <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1a1f30', maxWidth: 720, margin: '0 auto' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '10px 20px', background: '#131729', color: '#3a4258', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>

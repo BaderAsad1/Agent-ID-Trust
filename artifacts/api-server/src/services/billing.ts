@@ -795,11 +795,222 @@ export async function createHandleCheckoutSession(
 ): Promise<{ url: string | null; error?: string; priceCents: number; included?: boolean }> {
   const priceCents = getHandlePriceCents(handle);
 
-  // Atomically claim the benefit. If the user is ineligible or it has already been used,
-  // claimed will be false and we fall through to Stripe checkout.
-  const { claimed } = await claimIncludedHandleBenefit(userId, handle);
-  if (claimed) {
-    return { url: successUrl, priceCents: 0, included: true };
+  // Policy gate: all handles (standard and premium) require a paid plan.
+  // Free and unauthenticated users can only have UUID-based identity.
+  // Use canonical subscription-backed plan state (not denormalized users.plan).
+  const normalizedUserPlan = await getUserPlan(userId);
+  if (normalizedUserPlan === "none" || normalizedUserPlan === "free") {
+    return {
+      url: null,
+      error: "PLAN_REQUIRED_FOR_HANDLE",
+      priceCents,
+    };
+  }
+
+  // Included-handle entitlement path: check eligibility first (read-only).
+  // If the user is eligible for a free included handle but has not provided an agentId,
+  // we must return an explicit error rather than silently charging them via Stripe.
+  // Delivering a free included handle requires a known agentId to complete assignment
+  // durably — benefit-consumed and handle-delivered must be inseparable.
+  const isEligible = await checkUserIncludedHandleEligibility(userId, handle);
+  if (isEligible && !agentId) {
+    return {
+      url: null,
+      error: "AGENT_REQUIRED_FOR_INCLUDED_HANDLE",
+      priceCents: 0,
+    };
+  }
+  // Guard: if the user's included benefit is already exhausted AND the handle has no paid tier
+  // (standard 5+ handles have priceCents=0), there is no valid checkout path — surface an error
+  // rather than attempting a 0-amount Stripe subscription (which would fail at runtime).
+  if (!isEligible && priceCents === 0) {
+    return {
+      url: null,
+      error: "HANDLE_BENEFIT_ALREADY_USED",
+      priceCents: 0,
+    };
+  }
+  if (agentId) {
+    if (isEligible) {
+      // Registrar-authoritative availability gate: consult the on-chain registrar
+      // before claiming the benefit. Fail-closed if registrar is configured but unreachable.
+      const { checkHandleAvailability } = await import("./handle");
+      const availability = await checkHandleAvailability(handle);
+      if (!availability.available) {
+        return {
+          url: null,
+          error: "HANDLE_NOT_AVAILABLE",
+          priceCents: 0,
+        };
+      }
+      // Durable state machine: PENDING → (claim) → COMPLETED | COMPENSATED | STRANDED.
+      // Write durable pending intent before consuming the entitlement.
+      // Abort if this fails — without a pending marker the claim has no crash-recovery artifact.
+      let pendingAuditId: string | null = null;
+      try {
+        const pendingResult = await db.insert(auditEventsTable).values({
+          actorType: "user",
+          actorId: userId,
+          eventType: "billing.included_handle_claim.pending",
+          targetType: "agent",
+          targetId: agentId,
+          payload: {
+            handle,
+            agentId,
+            state: "pending",
+            requiredAction: "claim_and_assign",
+          },
+        }).returning({ id: auditEventsTable.id });
+        pendingAuditId = pendingResult[0]?.id ?? null;
+        if (!pendingAuditId) {
+          // Insert returned no ID — treat as failure to ensure durability guarantee
+          throw new Error("Pending audit record insert returned no ID");
+        }
+      } catch (pendingErr) {
+        // Fail the request if we cannot write the pending record.
+        // Allowing the claim to proceed without a durable pending marker would risk
+        // permanently stranding the entitlement if the process crashes before assignment.
+        logger.error({ handle, agentId, pendingErr }, "[billing] pending audit write failed — aborting claim (no recovery artifact)");
+        return {
+          url: null,
+          error: "AUDIT_WRITE_FAILED",
+          priceCents: 0,
+        };
+      }
+
+      const { claimed, subscriptionId: claimedSubId } = await claimIncludedHandleBenefit(userId, handle);
+      if (!claimed) {
+        // Benefit already used (concurrent claim or prior redemption). Route to paid checkout
+        // only if this handle tier has a non-zero price. Standard (5+) handles have 0 priceCents
+        // and cannot be created as a Stripe subscription — surface an explicit error.
+        if (pendingAuditId) {
+          db.update(auditEventsTable)
+            .set({ payload: { handle, agentId, state: "no_claim", reason: "benefit_already_used" } })
+            .where(eq(auditEventsTable.id, pendingAuditId))
+            .catch(() => { /* best-effort */ });
+        }
+        if (priceCents === 0) {
+          logger.warn({ userId, handle }, "[billing] Included handle benefit already used and no paid tier available");
+          return {
+            url: null,
+            error: "HANDLE_BENEFIT_ALREADY_USED",
+            priceCents: 0,
+          };
+        }
+        // For premium handles: fall through to paid Stripe checkout (benefit exhausted, pay full price).
+        logger.info({ userId, handle }, "[billing] Included handle benefit already used — routing to paid checkout");
+      }
+      if (claimed) {
+        try {
+          const { assignHandleToAgent, getHandleTier } = await import("./handle");
+          const tierInfo = getHandleTier(handle);
+          const expiresAt = new Date();
+          expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+          await assignHandleToAgent(agentId, handle, {
+            tier: tierInfo.tier,
+            paid: true,
+            expiresAt,
+          });
+          // Mark audit record as COMPLETED — durable proof of successful delivery
+          if (pendingAuditId) {
+            db.update(auditEventsTable)
+              .set({ payload: { handle, agentId, subscriptionId: claimedSubId, state: "completed" } })
+              .where(eq(auditEventsTable.id, pendingAuditId))
+              .catch(() => { /* best-effort */ });
+          }
+          logger.info({ userId, handle, agentId, subscriptionId: claimedSubId }, "[billing] Included handle benefit claimed and assigned durably");
+          return { url: successUrl, priceCents: 0, included: true };
+        } catch (assignErr) {
+          // Compensate: release the benefit claim so the user can retry.
+          // If the release itself fails (DB down), record the stranded claim in
+          // the audit log so an operator / recovery job can replay it.
+          if (claimedSubId) {
+            let releaseSucceeded = false;
+            // Attempt release with one retry on transient failure
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try {
+                await releaseIncludedHandleClaim(claimedSubId);
+                releaseSucceeded = true;
+                break;
+              } catch {
+                if (attempt === 0) await new Promise((r) => setTimeout(r, 200));
+              }
+            }
+            if (!releaseSucceeded) {
+              // Record stranded claim in audit log for recovery
+              logger.error(
+                { handle, agentId, subscriptionId: claimedSubId, userId },
+                "[billing] compensation failed after assignment failure — recorded for recovery",
+              );
+              // Update the pending audit record to STRANDED state for operator/recovery-worker detection
+              const strandedPayload = {
+                handle,
+                agentId: agentId ?? null,
+                subscriptionId: claimedSubId,
+                state: "stranded",
+                assignError: assignErr instanceof Error ? assignErr.message : String(assignErr),
+                requiredAction: "release_claim_and_retry_assignment",
+              };
+              if (pendingAuditId) {
+                db.update(auditEventsTable)
+                  .set({ eventType: "billing.included_handle_claim.stranded", payload: strandedPayload })
+                  .where(eq(auditEventsTable.id, pendingAuditId))
+                  .catch(() => {
+                    // If update fails, insert a fresh record as fallback
+                    db.insert(auditEventsTable).values({
+                      actorType: "user",
+                      actorId: userId,
+                      eventType: "billing.included_handle_claim.stranded",
+                      payload: strandedPayload,
+                    }).catch((auditErr: unknown) => {
+                      logger.error({ auditErr, handle, agentId, subscriptionId: claimedSubId }, "[billing] stranded-claim audit write failed");
+                    });
+                  });
+              } else {
+                // No pending audit record existed — insert fresh stranded record
+                db.insert(auditEventsTable).values({
+                  actorType: "user",
+                  actorId: userId,
+                  eventType: "billing.included_handle_claim.stranded",
+                  payload: strandedPayload,
+                }).catch((auditErr: unknown) => {
+                  logger.error({ auditErr, handle, agentId, subscriptionId: claimedSubId }, "[billing] stranded-claim audit write failed");
+                });
+              }
+            } else {
+              // Release succeeded: update audit record to compensation-complete state
+              if (pendingAuditId) {
+                db.update(auditEventsTable)
+                  .set({ payload: { handle, agentId, subscriptionId: claimedSubId, state: "compensated", reason: "assignment_failure_claim_released" } })
+                  .where(eq(auditEventsTable.id, pendingAuditId))
+                  .catch(() => { /* best-effort */ });
+              }
+            }
+          }
+          logger.error(
+            { handle, agentId, err: assignErr instanceof Error ? assignErr.message : String(assignErr) },
+            "[billing] Included handle assignment to agent failed — benefit claim released for retry",
+          );
+          throw assignErr;
+        }
+      }
+    }
+  }
+
+  // Registrar availability gate for paid Stripe checkout:
+  // Even when the user is paying full price (no included benefit), the registrar
+  // must confirm the handle is available before we create a Stripe session.
+  // Fail-closed when registrar is configured but unreachable.
+  {
+    const { checkHandleAvailability } = await import("./handle");
+    const paidAvailability = await checkHandleAvailability(handle);
+    if (!paidAvailability.available) {
+      return {
+        url: null,
+        error: "HANDLE_NOT_AVAILABLE",
+        priceCents,
+      };
+    }
   }
 
   const stripe = getStripe();

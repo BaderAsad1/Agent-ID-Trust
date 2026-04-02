@@ -49,9 +49,17 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 | `STRIPE_PRICE_HANDLE_3CHAR_YEARLY` | Stripe Price ID for 3-char handle annual renewal ($99/yr) |
 | `STRIPE_PRICE_HANDLE_4CHAR_YEARLY` | Stripe Price ID for 4-char handle annual renewal ($29/yr) |
 
-**Plans:** Free ($0, 1 agent, UUID identity only) · Starter ($29/mo, 5 agents) · Pro ($79/mo, 25 agents) · Enterprise (custom)
+**Plans:**
+- **Free** ($0): 1 agent, UUID identity only (`did:web:getagent.id:agents:<uuid>`), no handle, no mail/inbox
+- **Starter** ($29/mo): 5 agents, 1 included standard handle (5+ chars), inbox and mail enabled
+- **Pro** ($79/mo): 25 agents, 1 included standard handle, all Starter features + advanced routing
+- **Enterprise** (custom): unlimited agents, all Pro features + SLA support
 
-**Handle pricing:** 1-2 chars reserved · 3 chars $99/yr (Stripe required) · 4 chars $29/yr (Stripe required) · 5+ chars included with Starter/Pro/Enterprise (no extra charge)
+**Handle pricing:** 1-2 chars reserved · 3 chars $99/yr · 4 chars $29/yr · 5+ chars included with Starter/Pro/Enterprise
+
+**Handle registrar:** Base chain (`BASE_AGENTID_REGISTRAR`) is the sole active registrar. `BASE_HANDLE_CONTRACT` is kept for env reference only (deprecated from runtime write paths). Registrar availability checks run on read config (`BASE_RPC_URL` + `BASE_AGENTID_REGISTRAR`) and do not require write keys.
+
+**Canonical DID:** `did:web:getagent.id:agents:<uuid>` (UUID-rooted, permanent). Handle alias (if claimed): `did:agentid:<handle>` (secondary, revocable).
 
 ### Email
 

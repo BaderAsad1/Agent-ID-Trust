@@ -315,6 +315,9 @@ export async function buildErc8004(handle: string) {
   const baseUrl = env().API_BASE_URL;
   const appUrl = env().APP_URL;
 
+  // Canonical DID is UUID-rooted. Handle alias is `did:agentid:<handle>` (secondary).
+  const canonicalDid = `did:web:getagent.id:agents:${agent.id}`;
+
   const services: Array<{
     id: string;
     type: string;
@@ -323,27 +326,27 @@ export async function buildErc8004(handle: string) {
 
   if (agent.endpointUrl) {
     services.push({
-      id: `did:web:getagent.id:agents:${agent.handle}#agent-endpoint`,
+      id: `${canonicalDid}#agent-endpoint`,
       type: "AgentEndpoint",
       serviceEndpoint: agent.endpointUrl,
     });
   }
 
   services.push({
-    id: `did:web:getagent.id:agents:${agent.handle}#credential`,
+    id: `${canonicalDid}#credential`,
     type: "AgentCredential",
     serviceEndpoint: `${baseUrl}/p/${agent.handle}/credential`,
   });
 
   services.push({
-    id: `did:web:getagent.id:agents:${agent.handle}#profile`,
+    id: `${canonicalDid}#profile`,
     type: "AgentProfile",
     serviceEndpoint: `${appUrl}/p/${agent.handle}`,
   });
 
   if (activeDomain) {
     services.push({
-      id: `did:web:getagent.id:agents:${agent.handle}#domain`,
+      id: `${canonicalDid}#domain`,
       type: "AgentDomain",
       serviceEndpoint: `https://${activeDomain.domain}`,
     });
@@ -351,13 +354,13 @@ export async function buildErc8004(handle: string) {
 
   if (agent.walletAddress) {
     services.push({
-      id: `did:web:getagent.id:agents:${agent.handle}#wallet`,
+      id: `${canonicalDid}#wallet`,
       type: "EVMPaymentMethod",
       serviceEndpoint: `ethereum:${agent.walletAddress}@8453`,
     });
 
     services.push({
-      id: `did:web:getagent.id:agents:${agent.handle}#x402`,
+      id: `${canonicalDid}#x402`,
       type: "X402PaymentEndpoint",
       serviceEndpoint: `${baseUrl}/pay/upgrade/x402`,
     });
@@ -365,16 +368,16 @@ export async function buildErc8004(handle: string) {
 
   if (agent.paymentAuthorized) {
     services.push({
-      id: `did:web:getagent.id:agents:${agent.handle}#mpp`,
+      id: `${canonicalDid}#mpp`,
       type: "StripeMppPaymentEndpoint",
       serviceEndpoint: `${baseUrl}/mpp/premium-resolve/${agent.handle}`,
     });
   }
 
   const verificationMethod = keys.map((k) => ({
-    id: `did:web:getagent.id:agents:${agent.handle}#${k.kid}`,
+    id: `${canonicalDid}#${k.kid}`,
     type: k.keyType === "ed25519" ? "Ed25519VerificationKey2020" : "JsonWebKey2020",
-    controller: `did:web:getagent.id:agents:${agent.handle}`,
+    controller: canonicalDid,
     publicKeyBase64: k.publicKey || undefined,
     publicKeyJwk: k.jwk || undefined,
   }));
@@ -406,8 +409,9 @@ export async function buildErc8004(handle: string) {
     ],
     spec: "registration-v1",
     type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
-    id: `did:web:getagent.id:agents:${agent.handle}`,
+    id: canonicalDid,
     controller: "did:web:getagent.id",
+    alsoKnownAs: agent.handle ? [`did:agentid:${agent.handle}`] : undefined,
     name: agent.displayName,
     description: agent.description || null,
     image: agent.avatarUrl || `${APP_URL}/api/v1/agents/${agent.id}/nft-image`,
@@ -420,7 +424,8 @@ export async function buildErc8004(handle: string) {
     services,
     agentid: {
       handle: agent.handle,
-      did: `did:web:getagent.id:agents:${agent.handle}`,
+      did: canonicalDid,
+      handleAlias: agent.handle ? `did:agentid:${agent.handle}` : undefined,
       trustScore: agent.trustScore,
       trustTier: agent.trustTier,
       owsWallets: {

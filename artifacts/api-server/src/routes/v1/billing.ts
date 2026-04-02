@@ -21,7 +21,7 @@ import {
   pollForCryptoPayment,
 } from "../../services/billing";
 import { logActivity } from "../../services/activity-logger";
-import { validateHandle } from "../../services/agents";
+import { validateHandle, agentOwnerWhere } from "../../services/agents";
 import { isHandleReserved, checkRateLimit, checkHandleRegistrationLimits, recordHandleRegistration } from "../../services/handle";
 import { HANDLE_PRICING_TIERS } from "@workspace/shared-pricing";
 
@@ -293,6 +293,20 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
       throw new AppError(limitCheck.status, "HANDLE_LIMIT_EXCEEDED", limitCheck.message);
     }
 
+    // Ownership check: if an agentId is provided, verify it belongs to the authenticated user
+    // before passing it into the checkout flow where it may receive a handle assignment.
+    if (body.agentId) {
+      const { db } = await import("@workspace/db");
+      const { agentsTable } = await import("@workspace/db/schema");
+      const owned = await db.query.agentsTable.findFirst({
+        where: agentOwnerWhere(body.agentId, req.userId!),
+        columns: { id: true },
+      });
+      if (!owned) {
+        throw new AppError(403, "FORBIDDEN", "agentId does not belong to the authenticated user");
+      }
+    }
+
     const result = await createHandleCheckoutSession(
       req.userId!,
       normalizedHandle,
@@ -302,7 +316,12 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
     );
 
     if (result.error) {
-      throw new AppError(400, result.error, `Handle checkout failed: ${result.error}`);
+      // Map entitlement errors to intentional status codes for contract clarity.
+      let statusCode = 400;
+      if (result.error === "PLAN_REQUIRED_FOR_HANDLE") statusCode = 402;
+      else if (result.error === "HANDLE_BENEFIT_ALREADY_USED") statusCode = 409;
+      else if (result.error === "AGENT_REQUIRED_FOR_INCLUDED_HANDLE") statusCode = 422;
+      throw new AppError(statusCode, result.error, `Handle checkout failed: ${result.error}`);
     }
 
     const effectivePrice = result.priceCents;
@@ -363,6 +382,13 @@ router.post("/crypto-checkout", async (req, res, next) => {
     const body = cryptoCheckoutSchema.parse(req.body);
     const normalizedHandle = body.handle.toLowerCase();
 
+    // Plan gate: all handle acquisitions require a paid plan — Free plan users get UUID-only identity.
+    const userPlan = await getUserPlan(userId);
+    const normalizedPlan = userPlan === "builder" ? "starter" : userPlan === "team" ? "pro" : userPlan;
+    if (normalizedPlan === "none" || normalizedPlan === "free") {
+      throw new AppError(402, "PLAN_REQUIRED_FOR_HANDLE", "Handles require a paid plan (Starter, Pro, or Enterprise). Free plan agents use UUID-only identity. Upgrade at /pricing.");
+    }
+
     const handleError = validateHandle(normalizedHandle);
     if (handleError) {
       throw new AppError(400, "INVALID_HANDLE", handleError);
@@ -406,6 +432,20 @@ router.post("/crypto-payment-status", requireAuth, async (req, res, next) => {
     const body = cryptoPaymentStatusSchema.parse(req.body);
     const normalizedHandle = body.handle.toLowerCase();
     const priceCents = getHandlePriceCents(normalizedHandle);
+
+    // Ownership check: if an agentId is provided, verify it belongs to the authenticated user
+    // before passing it into the payment confirmation flow where it may receive a handle assignment.
+    if (body.agentId) {
+      const { db } = await import("@workspace/db");
+      const { agentsTable } = await import("@workspace/db/schema");
+      const owned = await db.query.agentsTable.findFirst({
+        where: agentOwnerWhere(body.agentId, req.userId!),
+        columns: { id: true },
+      });
+      if (!owned) {
+        throw new AppError(403, "FORBIDDEN", "agentId does not belong to the authenticated user");
+      }
+    }
 
     const result = await pollForCryptoPayment(
       normalizedHandle,

@@ -104,12 +104,36 @@ export function HandlePurchase() {
     setPurchasing(true);
     setCheckError(null);
     try {
-      await api.agents.create({
-        handle: h,
-        displayName: displayName.trim() || h,
+      // Use the durable billing endpoint for included-handle claims.
+      // If no agentId is provided in URL params, create the agent first (without handle),
+      // then pass the new agentId to handle-checkout for atomic claim + assignment.
+      let targetAgentId = agentId;
+      if (!targetAgentId) {
+        const newAgent = await api.agents.create({
+          displayName: displayName.trim() || h,
+        });
+        targetAgentId = newAgent.id;
+      }
+      const successUrl = `${window.location.origin}${BASE_URL}/dashboard?handle_claimed=${encodeURIComponent(h)}`;
+      const cancelUrl = `${window.location.origin}${BASE_URL}/handle/purchase?handle=${encodeURIComponent(h)}&agentId=${encodeURIComponent(targetAgentId)}`;
+      const res = await fetch(`${BASE_URL}/api/v1/billing/handle-checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle: h, agentId: targetAgentId, successUrl, cancelUrl }),
+        credentials: 'include',
       });
-      setSuccessHandle(h);
-      setTimeout(() => navigate('/dashboard'), 2500);
+      const data = await res.json() as { url?: string; error?: string; included?: boolean };
+      if (!res.ok) {
+        setCheckError(data.error ?? 'Failed to claim handle');
+        return;
+      }
+      if (data.included && data.url) {
+        // Included handles complete synchronously — the backend assigned the handle.
+        setSuccessHandle(h);
+        setTimeout(() => navigate('/dashboard'), 2500);
+      } else if (data.url) {
+        window.location.href = data.url;
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to register handle';
       setCheckError(msg);

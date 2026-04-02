@@ -220,7 +220,7 @@ describe("Resolver — revoked agent returns 410", () => {
     expect(res.body.revocation.revokedAt).toBeDefined();
     expect(res.body.revocation.reason).toBe(reason);
     expect(res.body.revocation.statement).toBe(statement);
-    expect(res.body.revocation.did).toMatch(/^did:agentid:/);
+    expect(res.body.revocation.did).toMatch(/^did:web:getagent\.id:agents:/);
   });
 });
 
@@ -564,8 +564,8 @@ describe("Resolver — claimed vs unclaimed agent output contract", () => {
       request(app).get(`/api/v1/resolve/${claimedHandle}`).set("User-Agent", "curl/7.88.1").set("Accept", "application/json"),
     ]);
 
-    expect(unclaimed.body.agent.did).toMatch(/^did:agentid:/);
-    expect(claimed.body.agent.did).toMatch(/^did:agentid:/);
+    expect(unclaimed.body.agent.did).toMatch(/^did:web:getagent\.id:agents:/);
+    expect(claimed.body.agent.did).toMatch(/^did:web:getagent\.id:agents:/);
     expect(unclaimed.body.agent.machineIdentity.agentId).toBe(unclaimedAgentId);
     expect(claimed.body.agent.machineIdentity.agentId).toBe(claimedAgentId);
   });

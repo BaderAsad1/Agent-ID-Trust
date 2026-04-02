@@ -26,7 +26,7 @@ export async function handleDomainVerification(
         handle: true,
         displayName: true,
         endpointUrl: true,
-        chainMints: true,
+        chainRegistrations: true,
         trustScore: true,
         trustTier: true,
       },
@@ -46,16 +46,23 @@ export async function handleDomainVerification(
     });
 
     const registrations = hostedAgents.map(a => {
-      const chainMints = a.chainMints as Record<string, unknown> | null;
-      const chainRegistrations = chainMints
-        ? Object.entries(chainMints)
+      const chainRegs = a.chainRegistrations as Record<string, unknown> | unknown[] | null;
+      let chainRegistrations: Record<string, unknown>[] = [];
+      if (chainRegs && typeof chainRegs === "object") {
+        if (Array.isArray(chainRegs)) {
+          chainRegistrations = (chainRegs as Record<string, unknown>[]).filter(
+            e => e && typeof e === "object" && e.chain,
+          );
+        } else {
+          chainRegistrations = Object.entries(chainRegs as Record<string, unknown>)
             .filter(([, v]) => v && typeof v === "object")
-            .map(([chain, v]) => ({ chain, ...(v as Record<string, unknown>) }))
-        : [];
+            .map(([chain, v]) => ({ chain, ...(v as Record<string, unknown>) }));
+        }
+      }
 
       return {
         handle: a.handle,
-        did: `did:web:getagent.id:agents:${a.handle}`,
+        did: `did:web:getagent.id:agents:${a.id}`,
         trustScore: a.trustScore,
         trustTier: a.trustTier,
         registrations: chainRegistrations,

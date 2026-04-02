@@ -1,6 +1,6 @@
 import { eq, and, isNull, sql, gte, count, lt } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, handleAuctionsTable, handlePaymentsTable, usersTable, handleRegistrationLogTable } from "@workspace/db/schema";
+import { agentsTable, handleAuctionsTable, handlePaymentsTable, usersTable, handleRegistrationLogTable, subscriptionsTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { HANDLE_PRICING_TIERS as SHARED_TIERS, isEligibleForIncludedHandle } from "@workspace/shared-pricing";
 
@@ -138,8 +138,65 @@ export async function checkHandleAvailability(handle: string): Promise<{
     columns: { id: true, handle: true },
   });
 
+  if (existing) {
+    return {
+      available: false,
+      handle: normalized,
+      tier: tierInfo.tier,
+      annual: tierInfo.annualCents,
+      annualUsd: tierInfo.annualUsd,
+    };
+  }
+
+  // Also check on-chain registrar.
+  // If the registrar is configured (chain enabled), its answer is authoritative:
+  //   - available=false → reject immediately
+  //   - null (unreachable but configured) → fail-closed: reject to prevent
+  //     registering a handle that may already exist on-chain
+  // If the registrar is not configured at all (null returned without error), allow DB result.
+  try {
+    const { isHandleAvailableOnChain, isRegistrarReadable } = await import("./chains/base");
+    const chainEnabled = isRegistrarReadable();
+    if (chainEnabled) {
+      const onChainAvailable = await isHandleAvailableOnChain(normalized);
+      if (onChainAvailable === false) {
+        return {
+          available: false,
+          handle: normalized,
+          tier: tierInfo.tier,
+          annual: tierInfo.annualCents,
+          annualUsd: tierInfo.annualUsd,
+          reason: "Handle is registered on-chain",
+        };
+      }
+      if (onChainAvailable === null) {
+        // Registrar configured but unreachable — fail-closed
+        return {
+          available: false,
+          handle: normalized,
+          tier: tierInfo.tier,
+          annual: tierInfo.annualCents,
+          annualUsd: tierInfo.annualUsd,
+          reason: "On-chain availability could not be confirmed — try again shortly",
+        };
+      }
+    }
+  } catch {
+    // Dynamic import failure or unexpected error — if chain enabled, fail-closed
+    // For robustness we do not throw here but return unavailable to be safe
+    logger.warn({ handle: normalized }, "[handle] On-chain availability check threw unexpectedly — treating as unavailable");
+    return {
+      available: false,
+      handle: normalized,
+      tier: tierInfo.tier,
+      annual: tierInfo.annualCents,
+      annualUsd: tierInfo.annualUsd,
+      reason: "On-chain availability check failed — try again shortly",
+    };
+  }
+
   return {
-    available: !existing,
+    available: true,
     handle: normalized,
     tier: tierInfo.tier,
     annual: tierInfo.annualCents,
@@ -360,6 +417,24 @@ export async function checkHandleRegistrationLimits(
 
   if (!user) return { allowed: false, status: 404, message: "User not found" };
 
+  // All handle tiers (standard and premium) require a paid plan.
+  // Free and none plan users can only have UUID-based identity — no handles.
+  // Use subscription-backed plan state (canonical) — not denormalized users.plan.
+  const activeSub = await db
+    .select({ plan: subscriptionsTable.plan })
+    .from(subscriptionsTable)
+    .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+    .limit(1);
+  const rawPlanForGate = (activeSub[0]?.plan ?? "none") as string;
+  const normalizedPlanForGate = rawPlanForGate === "builder" ? "starter" : rawPlanForGate === "team" ? "pro" : rawPlanForGate === "free" ? "none" : rawPlanForGate;
+  if (normalizedPlanForGate === "none") {
+    return {
+      allowed: false,
+      status: 402,
+      message: "Handles require a paid plan (Starter, Pro, or Enterprise). Free plan agents use UUID-only identity. Upgrade at /pricing.",
+    };
+  }
+
   const accountAgeMs = Date.now() - new Date(user.createdAt).getTime();
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -399,14 +474,16 @@ export async function checkHandleRegistrationLimits(
   }
 
   if (tier.tier === "standard_5plus") {
-    const userPlanRow = await db.query.usersTable.findFirst({
-      where: eq(usersTable.id, userId),
-      columns: { plan: true },
-    });
-    const rawPlan = (userPlanRow?.plan ?? "none") as string;
-    const normalizedPlan = rawPlan === "builder" ? "starter" : rawPlan === "team" ? "pro" : rawPlan;
+    // Use subscription-backed plan state (canonical) — not the denormalized users.plan column
+    const activeSubForStandard = await db
+      .select({ plan: subscriptionsTable.plan })
+      .from(subscriptionsTable)
+      .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+      .limit(1);
+    const rawPlanStandard = (activeSubForStandard[0]?.plan ?? "none") as string;
+    const normalizedPlanStandard = rawPlanStandard === "builder" ? "starter" : rawPlanStandard === "team" ? "pro" : rawPlanStandard === "free" ? "none" : rawPlanStandard;
 
-    if (!isEligibleForIncludedHandle(normalizedPlan)) {
+    if (!isEligibleForIncludedHandle(normalizedPlanStandard)) {
       return {
         allowed: false,
         status: 402,
