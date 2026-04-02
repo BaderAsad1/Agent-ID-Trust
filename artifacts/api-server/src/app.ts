@@ -16,7 +16,7 @@ import { replitAuth } from "./middlewares/replit-auth";
 import { apiKeyAuth } from "./middlewares/api-key-auth";
 import { errorHandler } from "./middlewares/error-handler";
 import { cliDetect, cliMarkdownRoot } from "./middlewares/cli-markdown";
-import { apiRateLimiter } from "./middlewares/rate-limit";
+import { apiRateLimiter, handleCheckRateLimit } from "./middlewares/rate-limit";
 import { agentUserAgentMiddleware } from "./middlewares/agent-ua";
 import { csrfProtection } from "./middlewares/csrf";
 import { generateAgentRegistrationMarkdown } from "./services/agent-markdown";
@@ -136,7 +136,16 @@ app.use(express.urlencoded({ extended: true }));
 app.use(replitAuth);
 app.use(apiKeyAuth);
 app.use("/api", csrfProtection);
-app.use("/api", apiRateLimiter);
+app.use("/api", (req: Request, res: Response, next: NextFunction) => {
+  const p = req.path;
+  if (p.startsWith("/v1/resolve") || p.startsWith("/.well-known/")) {
+    return next();
+  }
+  if (p === "/v1/handles/check") {
+    return handleCheckRateLimit(req, res, next);
+  }
+  return apiRateLimiter(req, res, next);
+});
 app.use("/api/v1", agentUserAgentMiddleware);
 
 app.get("/sitemap.xml", (_req, res) => {

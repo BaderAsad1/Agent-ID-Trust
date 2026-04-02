@@ -10,33 +10,40 @@ export const options = {
   },
 };
 
+http.setResponseCallback(http.expectedStatuses({ min: 200, max: 299 }, 404));
+
 const BASE_URL = __ENV.BASE_URL || "https://getagent.id/api/v1";
 const TEST_HANDLE = __ENV.TEST_HANDLE || "testagent";
 
+const machineHeaders = {
+  "User-Agent": "k6-load-test/1.0 (+https://k6.io)",
+  "Accept": "application/json",
+};
+
 export default function () {
   const resolveHandle = http.get(`${BASE_URL}/resolve/${TEST_HANDLE}`, {
-    headers: { "User-Agent": "k6-load-test/1.0 (+https://k6.io)" },
+    headers: machineHeaders,
   });
   check(resolveHandle, {
     "resolve handle 200 or 404": (r) => r.status === 200 || r.status === 404,
   });
 
   const resolveDiscovery = http.get(`${BASE_URL}/resolve?limit=10`, {
-    headers: { "User-Agent": "k6-load-test/1.0" },
+    headers: machineHeaders,
   });
   check(resolveDiscovery, {
     "resolve discovery 200": (r) => r.status === 200,
   });
 
-  const handleAvailable = http.get(`${BASE_URL}/handles/${TEST_HANDLE}/available`, {
-    headers: { "User-Agent": "k6-load-test/1.0" },
+  const handleAvailable = http.get(`${BASE_URL}/handles/check?handle=${TEST_HANDLE}`, {
+    headers: machineHeaders,
   });
   check(handleAvailable, {
-    "handle available 200": (r) => r.status === 200,
+    "handle check 200": (r) => r.status === 200,
   });
 
-  const wellKnown = http.get(`${BASE_URL.replace("/api/v1", "")}/.well-known/agentid-configuration`, {
-    headers: { "User-Agent": "k6-load-test/1.0" },
+  const wellKnown = http.get(`${BASE_URL.replace("/v1", "")}/.well-known/agentid-configuration`, {
+    headers: machineHeaders,
   });
   check(wellKnown, {
     "well-known 200": (r) => r.status === 200,

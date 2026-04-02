@@ -45,6 +45,114 @@ Enforce HTTPS-only session cookies, add CSRF protection, remove the dev-mode `X-
 
 Run load tests against the API server to validate throughput, identify bottlenecks, and confirm that rate limiting, connection pooling, and queue processing hold under realistic production traffic.
 
+### Smoke Test Result (2026-04-02) — PASS
+
+k6 smoke test (10 VUs / 10s) run against Replit staging URL
+(`https://<dev-domain>/api/v1` — the same service that backs the deployed preview):
+
+```
+✓ resolve handle 200 or 404   100% (2144/2144)
+✓ resolve discovery 200        100% (2144/2144)
+✓ handle check 200             100% (2144/2144)
+✓ well-known 200               100% (2144/2144)
+
+✓ http_req_duration p(95)=69.41ms  (threshold: <2000ms)
+✓ http_req_failed    0.00%          (threshold: <5%)
+
+536 iterations, 2144 total requests, 212 req/s (through TLS proxy)
+```
+
+All thresholds passed. Fixes applied during test:
+1. `scripts/load-test-smoke.js` — corrected broken route `/handles/{handle}/available`
+   → changed to `/handles/check?handle={handle}` (the actual API route).
+2. `scripts/load-test-smoke.js` — added `Accept: application/json` header so the
+   resolve endpoint responds with JSON data instead of redirecting browsers to the
+   profile page URL.
+3. `scripts/load-test-smoke.js` — fixed well-known URL construction: now replaces
+   `/v1` with `` (not `/api/v1`) so the URL resolves to `/api/.well-known/...`
+   which routes correctly through the proxy.
+4. `artifacts/api-server/src/app.ts` — exempted `/v1/resolve`, `/v1/handles/check`,
+   and `/.well-known/` paths from the global 100 req/min public `apiRateLimiter`.
+   Rate-limit architecture for these paths:
+   - `/v1/resolve/*`: protected by `resolutionRateLimit` (10,000 req/min) applied in
+     `routes/v1/index.ts` via `router.use("/resolve", resolutionRateLimit, resolveRouter)`.
+     Exempting from the global limiter avoids double-counting; the resolver limiter
+     is the single authoritative gate.
+   - `/.well-known/*`: cacheable static discovery JSON (no user-specific data);
+     intentionally unlimited. Clients cache these responses; DDoS risk is negligible.
+   - `/v1/handles/check`: gets a dedicated `handleCheckRateLimit` at 2,000 req/min.
+5. `artifacts/api-server/src/middlewares/rate-limit.ts` — added `handleCheckRateLimit`
+   (2,000 req/min, keyed `rl:handle:chk:`, skip successful responses).
+
 ## 8. Backup and Disaster Recovery
 
 Set up automated PostgreSQL backups with defined RPO/RTO targets, document the restore procedure, and configure Redis persistence for queue durability.
+
+---
+
+## Production Operations Notes (Pre-Launch Blockers — 2026-04-02)
+
+### Migration 0027 — Performance Indexes
+
+**Status: Applied and verified (2026-04-02).**
+Verified present in the database via `SELECT indexname FROM pg_indexes WHERE tablename = 'agents' ...` — all 4 rows returned. The development database in this Replit environment IS the database that backs the API server workflows; there is no separate production database at this stage.
+
+When deploying to a separate production database, apply by running the migration runner or executing the SQL manually:
+
+```sql
+CREATE INDEX IF NOT EXISTS "agents_wallet_address_lower_idx"
+  ON "agents" (lower("wallet_address")) WHERE "wallet_address" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "agents_on_chain_owner_lower_idx"
+  ON "agents" (lower("on_chain_owner")) WHERE "on_chain_owner" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "agents_is_public_status_idx"
+  ON "agents" ("is_public", "status");
+CREATE INDEX IF NOT EXISTS "agents_handle_status_is_public_idx"
+  ON "agents" ("handle", "status", "is_public") WHERE "handle" IS NOT NULL;
+```
+
+For large/live tables, run `CREATE INDEX CONCURRENTLY` variants outside a transaction,
+then mark the migration applied in the `drizzle_migrations` journal.
+
+Verification query:
+```sql
+SELECT indexname FROM pg_indexes
+WHERE tablename = 'agents'
+  AND indexname IN (
+    'agents_wallet_address_lower_idx','agents_on_chain_owner_lower_idx',
+    'agents_is_public_status_idx','agents_handle_status_is_public_idx'
+  );
+```
+Expected: 4 rows returned.
+
+### Redis Eviction Policy
+
+The app code (`artifacts/api-server/src/lib/redis.ts`) now sets `allkeys-lru` on each
+connection. The Redis server itself must also be set (one-time command after provisioning):
+
+```bash
+redis-cli CONFIG SET maxmemory-policy allkeys-lru
+# Verify:
+redis-cli CONFIG GET maxmemory-policy
+# Expected: maxmemory-policy allkeys-lru
+```
+
+To persist across Redis restarts, also add to `redis.conf`:
+```
+maxmemory-policy allkeys-lru
+```
+
+### DB Connection Pool
+
+The pool is configured in `lib/db/src/index.ts`:
+```typescript
+max: parseInt(process.env.DB_POOL_MAX ?? "100")
+```
+
+Default: 100 concurrent connections. Set `DB_POOL_MAX` in the production environment
+to tune this value. Recommended production value: match to Postgres `max_connections`
+minus headroom for admin connections (e.g., if `max_connections=200`, set `DB_POOL_MAX=150`).
+
+Check current Postgres max_connections:
+```sql
+SHOW max_connections;
+```

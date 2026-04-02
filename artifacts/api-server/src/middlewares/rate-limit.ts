@@ -221,3 +221,10 @@ export function magicLinkSendRateLimit(req: Request, res: Response, next: NextFu
 export function addressLookupRateLimit(req: Request, res: Response, next: NextFunction): void {
   void applyLimiter(10, "rl:resolve:addr", 60_000, req, res, next);
 }
+
+// Rate limiter for the public handle-check endpoint (/handles/check).
+// This endpoint is high-traffic but cheap (indexed lookup + reserved list check).
+// Set at 2,000 req/min per IP — generous for legitimate use, protective against scraping.
+export function handleCheckRateLimit(req: Request, res: Response, next: NextFunction): void {
+  void applyLimiter(2_000, "rl:handle:chk:", 60_000, req, res, next);
+}

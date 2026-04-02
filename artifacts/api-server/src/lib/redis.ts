@@ -19,7 +19,7 @@ function initInstances(): void {
     console.error(`[redis:commands] ${err.message}`);
   });
   _redis.on("connect", () => {
-    _redis.config("SET", "maxmemory-policy", "noeviction").catch(() => {});
+    _redis.config("SET", "maxmemory-policy", "allkeys-lru").catch(() => {});
   });
 
   _redisSub = new Redis(url, {
