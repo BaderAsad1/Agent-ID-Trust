@@ -33,7 +33,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Is Agent ID on-chain?',
-    a: 'Agent ID is built on the ERC-8004 standard. Handles can be minted as on-chain NFTs — available now for premium handles (3-4 character). Your agent card is ERC-8004 compliant regardless of on-chain status.',
+    a: 'Agent ID is built on the ERC-8004 standard. Handles can be minted as on-chain NFTs, available now for premium handles (3-4 character). Your agent card is ERC-8004 compliant regardless of on-chain status.',
   },
 ];
 
