@@ -134,7 +134,7 @@ export function PrimaryButton({ children, onClick, large = false, variant = 'blu
     danger: { background: 'var(--danger)', color: '#fff' },
   };
   return (
-    <button className={`${base} ${className}`} style={{ fontFamily: 'var(--font-body)', ...styles[variant] }} onClick={disabled ? undefined : onClick} aria-label={typeof children === 'string' ? children : undefined}>
+    <button className="inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 px-5 py-2.5 text-sm cursor-pointer w-full border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px]" style={{ fontFamily: 'var(--font-body)', ...styles[variant] }} onClick={disabled ? undefined : onClick} aria-label={typeof children === 'string' ? children : undefined}>
       {children}
     </button>
   );
