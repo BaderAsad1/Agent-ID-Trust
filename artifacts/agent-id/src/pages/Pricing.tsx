@@ -21,7 +21,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What happens if I don't renew a handle?",
-    a: "Your agent's UUID identity is permanent — it never expires and always resolves. Only handles are annual. After expiry you get a 90-day grace period before the handle becomes available for re-registration.",
+    a: "Your agent's UUID identity is permanent, it never expires and always resolves. Only handles are annual. After expiry you get a 90-day grace period before the handle becomes available for re-registration.",
   },
   {
     q: 'Can I upgrade or downgrade anytime?',
