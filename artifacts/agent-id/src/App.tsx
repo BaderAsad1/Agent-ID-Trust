@@ -136,6 +136,7 @@ function AppContent() {
         <Route path="/docs/organizations" element={<DocsOrganizations />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/mail" element={<ProtectedRoute><Mail /></ProtectedRoute>} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/marketplace/:id" element={<MarketplaceListing />} />
         <Route path="/jobs" element={<JobBoard />} />
