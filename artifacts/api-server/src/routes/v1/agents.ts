@@ -22,7 +22,7 @@ import {
 import { logActivity } from "../../services/activity-logger";
 import { recomputeAndStore } from "../../services/trust-score";
 import { checkRateLimit, checkHandleRegistrationLimits, recordHandleRegistration, isHandleReserved } from "../../services/handle";
-import { requirePlanFeature, getHandlePriceCents, getUserPlan, getPlanLimits, isEligibleForIncludedHandle, checkUserIncludedHandleEligibility, recordIncludedHandleClaimed } from "../../services/billing";
+import { requirePlanFeature, getHandlePriceCents, getUserPlan, getPlanLimits, isEligibleForIncludedHandle, claimIncludedHandleBenefit, releaseIncludedHandleClaim } from "../../services/billing";
 import {
   getActiveCredential,
   issueCredential,
@@ -146,6 +146,10 @@ router.post("/", requireAuth, async (req, res, next) => {
     const pricingTier = handleLen === 3 ? "premium_3" : handleLen === 4 ? "premium_4" : "standard_5plus";
     const isStandardHandle = handleLen >= 5;
 
+    // Declared at outer scope so the compensation catch block can release it if
+    // agent creation fails after an atomic benefit claim succeeds.
+    let claimSubId: string | undefined = undefined;
+
     if (!isSandbox) {
       const userPlan = await getUserPlan(req.userId!);
       const APP_URL = process.env.APP_URL ?? "https://getagent.id";
@@ -189,10 +193,13 @@ router.post("/", requireAuth, async (req, res, next) => {
         return;
       }
 
-      // Durable benefit check: ensure the one-time included-handle benefit has not already been
-      // used, even if the user deleted their previous agent or resubscribed.
-      const benefitAvailable = await checkUserIncludedHandleEligibility(req.userId!, normalizedHandle);
-      if (!benefitAvailable) {
+      // Atomically claim the one-time included-handle benefit BEFORE creating the agent.
+      // Uses a conditional UPDATE (WHERE included_handle_claimed IS NULL) to eliminate
+      // the race-condition window that check-then-set would leave open.
+      // If the claim fails (benefit already used or concurrent request won first),
+      // we stop here — no agent is created and no compensation is needed.
+      const { claimed, subscriptionId } = await claimIncludedHandleBenefit(req.userId!, normalizedHandle);
+      if (!claimed) {
         res.status(402).json({
           code: "HANDLE_BENEFIT_ALREADY_USED",
           message: "The one included handle benefit for your plan has already been used. Additional handles can be purchased via the handle checkout.",
@@ -203,6 +210,8 @@ router.post("/", requireAuth, async (req, res, next) => {
         });
         return;
       }
+      // Store subscriptionId so we can release the claim if agent creation fails below.
+      claimSubId = subscriptionId;
     }
 
     const sandboxHandle = isSandbox ? `sandbox-${normalizedHandle}` : normalizedHandle;
@@ -228,6 +237,13 @@ router.post("/", requireAuth, async (req, res, next) => {
         },
       });
     } catch (err) {
+      // If we atomically claimed the included-handle benefit above and agent creation
+      // now fails, release the claim so the user can retry.
+      if (claimSubId) {
+        await releaseIncludedHandleClaim(claimSubId).catch((releaseErr) => {
+          logger.error({ releaseErr, claimSubId }, "[agents] Failed to release included handle claim during compensation");
+        });
+      }
       if (err instanceof Error && err.message === "HANDLE_CONFLICT") {
         throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
       }
@@ -241,16 +257,6 @@ router.post("/", requireAuth, async (req, res, next) => {
         paidThrough: null,
         updatedAt: new Date(),
       }).where(eq(agentsTable.id, agent.id));
-
-      if (isStandardHandle) {
-        // Durably record the included-handle benefit on the subscription row.
-        // A failure here is non-fatal — the agent was already created successfully.
-        try {
-          await recordIncludedHandleClaimed(req.userId!, normalizedHandle);
-        } catch (err) {
-          logger.error({ err, userId: req.userId, handle: normalizedHandle }, "[agents] Failed to record included handle claim on subscription");
-        }
-      }
     }
 
     await logActivity({

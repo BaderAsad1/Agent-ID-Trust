@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { eq, and, desc, sql, inArray, isNotNull } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNotNull, isNull } from "drizzle-orm";
 import { getHandleTier } from "./handle";
 import { agentOwnerWhere } from "./agents";
 import { db } from "@workspace/db";
@@ -650,6 +650,10 @@ export async function createCheckoutSession(
   return { url: session.url };
 }
 
+/**
+ * Read-only eligibility check used by tests and UI pre-checks.
+ * Does NOT consume the benefit. Use claimIncludedHandleBenefit() for the actual atomic claim.
+ */
 export async function checkUserIncludedHandleEligibility(userId: string, handle: string): Promise<boolean> {
   const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
   if (handleLen < 5) return false;
@@ -657,8 +661,7 @@ export async function checkUserIncludedHandleEligibility(userId: string, handle:
   const userSub = await getActiveUserSubscription(userId);
   if (!userSub || !isEligibleForIncludedHandle(userSub.plan)) return false;
 
-  // Primary (durable) check: look across ALL subscription rows for a recorded claim.
-  // This is immune to agent deletion and cancel-and-resubscribe loops.
+  // Primary (durable) check: any subscription row with the column set means benefit is used.
   const claimedRows = await db
     .select({ id: subscriptionsTable.id })
     .from(subscriptionsTable)
@@ -688,22 +691,80 @@ export async function checkUserIncludedHandleEligibility(userId: string, handle:
 }
 
 /**
- * Durably records that the included-handle benefit has been consumed for this user.
- * Writes to the active subscription row so the record survives agent deletion and
- * cancel-and-resubscribe cycles.
+ * Atomically claims the one-time included-handle benefit for a user.
+ * Uses a conditional UPDATE (WHERE included_handle_claimed IS NULL) to prevent
+ * race conditions between concurrent requests.
+ *
+ * Prerequisite: caller must have already verified plan eligibility via
+ * isEligibleForIncludedHandle(). This function also re-checks to be safe.
+ *
+ * Returns { claimed: true, subscriptionId } on success.
+ * Returns { claimed: false } if already used or not eligible.
+ *
+ * On success, call releaseIncludedHandleClaim(subscriptionId) to compensate
+ * if the operation that depends on the claim subsequently fails.
  */
-export async function recordIncludedHandleClaimed(userId: string, handle: string): Promise<void> {
+export async function claimIncludedHandleBenefit(
+  userId: string,
+  handle: string,
+): Promise<{ claimed: boolean; subscriptionId?: string }> {
+  const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
+  if (handleLen < 5) return { claimed: false };
+
   const userSub = await getActiveUserSubscription(userId);
-  if (!userSub) return;
-  await db
+  if (!userSub || !isEligibleForIncludedHandle(userSub.plan)) return { claimed: false };
+
+  // Legacy fallback check: if agent metadata records a prior claim (pre-column era), block.
+  const existingAgents = await db
+    .select({ id: agentsTable.id, metadata: agentsTable.metadata })
+    .from(agentsTable)
+    .where(eq(agentsTable.userId, userId));
+
+  const hasLegacyClaim = existingAgents.some((a) => {
+    const meta = a.metadata as Record<string, unknown> | null;
+    const hp = meta?.handlePricing as Record<string, unknown> | undefined;
+    return hp?.paymentStatus === "included";
+  });
+  if (hasLegacyClaim) return { claimed: false };
+
+  // Atomic conditional update: only applies if the column is still null.
+  // rowsAffected === 0 means either the column was already set by a concurrent
+  // request or a prior claim — either way the benefit is exhausted.
+  const result = await db
     .update(subscriptionsTable)
     .set({
       includedHandleClaimed: handle.toLowerCase(),
       includedHandleClaimedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(subscriptionsTable.id, userSub.id));
-  logger.info({ userId, handle, subscriptionId: userSub.id }, "[billing] Included handle benefit recorded on subscription");
+    .where(
+      and(
+        eq(subscriptionsTable.id, userSub.id),
+        isNull(subscriptionsTable.includedHandleClaimed),
+      ),
+    );
+
+  const rowsAffected = result.rowCount ?? 0;
+  if (rowsAffected === 0) {
+    logger.warn({ userId, handle, subscriptionId: userSub.id }, "[billing] Included handle atomic claim failed: benefit already consumed");
+    return { claimed: false };
+  }
+
+  logger.info({ userId, handle, subscriptionId: userSub.id }, "[billing] Included handle benefit atomically claimed on subscription");
+  return { claimed: true, subscriptionId: userSub.id };
+}
+
+/**
+ * Compensating action: releases a claim made by claimIncludedHandleBenefit()
+ * if the operation that depended on it (e.g. agent creation) subsequently fails.
+ * Only call this when you know for certain the claim should be undone.
+ */
+export async function releaseIncludedHandleClaim(subscriptionId: string): Promise<void> {
+  await db
+    .update(subscriptionsTable)
+    .set({ includedHandleClaimed: null, includedHandleClaimedAt: null, updatedAt: new Date() })
+    .where(eq(subscriptionsTable.id, subscriptionId));
+  logger.info({ subscriptionId }, "[billing] Included handle claim released (compensation)");
 }
 
 export async function createHandleCheckoutSession(
@@ -715,10 +776,10 @@ export async function createHandleCheckoutSession(
 ): Promise<{ url: string | null; error?: string; priceCents: number; included?: boolean }> {
   const priceCents = getHandlePriceCents(handle);
 
-  const included = await checkUserIncludedHandleEligibility(userId, handle);
-  if (included) {
-    // Durably record the benefit on the subscription row so it survives agent deletion.
-    await recordIncludedHandleClaimed(userId, handle);
+  // Atomically claim the benefit. If the user is ineligible or it has already been used,
+  // claimed will be false and we fall through to Stripe checkout.
+  const { claimed } = await claimIncludedHandleBenefit(userId, handle);
+  if (claimed) {
     return { url: successUrl, priceCents: 0, included: true };
   }
 
