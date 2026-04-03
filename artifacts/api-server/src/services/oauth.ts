@@ -22,7 +22,6 @@ import {
 } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { env } from "../lib/env";
-import { formatDID } from "../utils/handle";
 import { writeAuditEvent } from "./auth-session";
 
 const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
@@ -107,6 +106,10 @@ async function buildTrustContext(agent: typeof agentsTable.$inferSelect): Promis
   };
 }
 
+function buildWebDID(agentId: string): string {
+  return `did:web:getagent.id:agents:${agentId}`;
+}
+
 function buildAccessTokenPayload(
   agent: typeof agentsTable.$inferSelect,
   clientId: string | null | undefined,
@@ -117,12 +120,11 @@ function buildAccessTokenPayload(
 ): Record<string, unknown> {
   const now = Math.floor(Date.now() / 1000);
   const exp = now + 900; // 15 min
-  const handle = agent.handle ?? agent.id;
-  const did = formatDID(handle);
+  const sub = buildWebDID(agent.id);
 
-  return {
+  const payload: Record<string, unknown> = {
     iss: env().APP_URL || "https://getagent.id",
-    sub: did,
+    sub,
     aud: clientId || "agentid",
     iat: now,
     exp,
@@ -139,6 +141,12 @@ function buildAccessTokenPayload(
     session_type: sessionType,
     trust_context: trustContext,
   };
+
+  if (agent.handle) {
+    payload.aliases = [`did:agentid:${agent.handle}`];
+  }
+
+  return payload;
 }
 
 export async function createAuthorizationCode(
@@ -513,8 +521,7 @@ export async function introspectOAuthToken(token: string): Promise<{
   });
   if (!agent || agent.status === "revoked") return { active: false };
 
-  const handle = agent.handle ?? agent.id;
-  const did = formatDID(handle);
+  const did = buildWebDID(agent.id);
   const trustContext = await buildTrustContext(agent);
 
   await writeAuditEvent("system", tokenRecord.agentId, "auth.introspect", "token", tokenRecord.tokenId, {

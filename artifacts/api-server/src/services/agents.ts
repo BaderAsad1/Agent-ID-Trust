@@ -85,13 +85,13 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
   try {
     const { isHandleAvailableOnChain, isRegistrarReadable } = await import("./chains/base");
     if (isRegistrarReadable()) {
-      const onChainAvailable = await isHandleAvailableOnChain(handle.toLowerCase());
-      if (onChainAvailable === false) {
-        handleCache.set(cacheKey, { available: false, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
+      const onChainResult = await isHandleAvailableOnChain(handle.toLowerCase());
+      if (onChainResult === null) {
+        // Registrar configured but unreachable — fail-closed, do not cache
         return false;
       }
-      if (onChainAvailable === null) {
-        // Registrar configured but unreachable — fail-closed, do not cache
+      if (!onChainResult.available) {
+        handleCache.set(cacheKey, { available: false, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
         return false;
       }
     }

@@ -157,6 +157,7 @@ router.get("/metadata/:handle", async (req, res, next) => {
         handleRegisteredAt: true,
         nftStatus: true,
         onChainTokenId: true,
+        chainRegistrations: true,
         chainMints: true,
         createdAt: true,
       },
@@ -167,7 +168,14 @@ router.get("/metadata/:handle", async (req, res, next) => {
     }
 
     const handleLen = handle.replace(/[^a-z0-9]/gi, "").length;
-    const chains = agent.nftStatus === "minted" || agent.nftStatus === "pending_claim" ? ["Base"] : [];
+
+    const chainRegs = Array.isArray(agent.chainRegistrations)
+      ? (agent.chainRegistrations as Array<Record<string, unknown>>)
+      : [];
+    const isBaseAnchored = chainRegs.some(
+      (r) => typeof r.chain === "string" && r.chain.toLowerCase().startsWith("base"),
+    ) || agent.nftStatus === "active" || agent.nftStatus === "minted" || agent.nftStatus === "pending_claim";
+    const chains = isBaseAnchored ? ["Base"] : [];
     const registeredDate = agent.handleRegisteredAt
       ? new Date(agent.handleRegisteredAt).toISOString().split("T")[0]
       : new Date(agent.createdAt).toISOString().split("T")[0];

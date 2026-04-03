@@ -26,7 +26,6 @@ import {
 } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { env } from "../lib/env";
-import { formatDID } from "../utils/handle";
 
 const SESSION_TTL_MS = 15 * 60 * 1000;
 const NONCE_TTL_MS = 5 * 60 * 1000;
@@ -172,8 +171,7 @@ export async function verifyAndIssueSession(
 
   const sessionId = randomBytes(24).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  const handle = agent.handle ?? agent.id;
-  const did = formatDID(handle);
+  const did = `did:web:getagent.id:agents:${agent.id}`;
   const ownerType = determineOwnerType(agent);
 
   const grantedScopes = requestedScopes && requestedScopes.length > 0

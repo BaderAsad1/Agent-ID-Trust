@@ -78,7 +78,7 @@ Set `ONCHAIN_MINTING_ENABLED=true` to enable on-chain handle registration.
 | `ONCHAIN_MINTING_ENABLED` | `true` to enable on-chain registration (default: disabled) |
 | `BASE_RPC_URL` | Base chain RPC endpoint |
 | `BASE_MINTER_PRIVATE_KEY` | Private key for the minter account (hex, `0x`-prefixed) |
-| `BASE_HANDLE_CONTRACT` | Deployed AgentIDHandle contract address on Base |
+| `BASE_HANDLE_CONTRACT` | **Deprecated (migration-only).** Legacy AgentIDHandle contract address. Not used in any active read/write path. `BASE_AGENTID_REGISTRAR` is the only callable contract for current registrar flows. |
 | `BASE_PLATFORM_WALLET` | Platform treasury wallet address on Base |
 | `BASE_AGENTID_REGISTRAR` | Deployed AgentIDRegistrar contract address on Base |
 

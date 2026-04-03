@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { eq, and, sql } from "drizzle-orm";
 import { AppError } from "../../middlewares/error-handler";
 import { validateHandle, isHandleAvailable, getHandleReservation, isHandleReserved, agentOwnerFilter } from "../../services/agents";
+import { isHandleAvailableOnChain, isRegistrarReadable } from "../../services/chains/base";
 import { getHandleTier, isHandleReserved as isHandleTierReserved } from "../../services/handle";
 import { HANDLE_PRICING_TIERS, getHandlePricingTier } from "@workspace/shared-pricing";
 
@@ -136,6 +137,28 @@ router.get("/check", async (req, res, next) => {
         reason: "This handle has a pending trademark claim",
       });
       return;
+    }
+
+    if (isRegistrarReadable()) {
+      const onChainResult = await isHandleAvailableOnChain(normalized);
+      if (onChainResult === null) {
+        res.json({
+          available: false,
+          handle: normalized,
+          status: "unavailable",
+          reason: "registrar_unreachable",
+        });
+        return;
+      }
+      if (!onChainResult.available) {
+        res.json({
+          available: false,
+          handle: normalized,
+          status: "taken",
+          reason: onChainResult.reason || "on_chain_unavailable",
+        });
+        return;
+      }
     }
 
     res.json({

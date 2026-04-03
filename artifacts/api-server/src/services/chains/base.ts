@@ -295,10 +295,11 @@ export async function unreserveHandleOnChain(handle: string): Promise<boolean> {
 /**
  * Check handle availability on-chain via AgentIDRegistrar.isHandleAvailable(string).
  * The contract returns a tuple (bool available, string reason).
- * Returns the `available` boolean, or null if registrar is not configured or read fails.
- * The `reason` string is preserved in logs for diagnostics.
+ * Returns { available, reason } on success, or null if registrar is not configured or read fails (fail-closed).
  */
-export async function isHandleAvailableOnChain(handle: string): Promise<boolean | null> {
+export async function isHandleAvailableOnChain(
+  handle: string,
+): Promise<{ available: boolean; reason: string } | null> {
   const { rpcUrl, registrarAddress } = getBaseConfig();
 
   if (!rpcUrl || !registrarAddress) {
@@ -321,7 +322,7 @@ export async function isHandleAvailableOnChain(handle: string): Promise<boolean 
     if (!available && reason) {
       logger.debug({ handle, reason }, "[base] isHandleAvailable: handle not available");
     }
-    return available;
+    return { available, reason: reason || "" };
   } catch (err) {
     logger.warn({ handle, err: err instanceof Error ? err.message : String(err) }, "[base] isHandleAvailableOnChain failed");
     return null;

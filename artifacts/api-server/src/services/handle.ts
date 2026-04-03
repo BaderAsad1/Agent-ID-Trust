@@ -158,18 +158,8 @@ export async function checkHandleAvailability(handle: string): Promise<{
     const { isHandleAvailableOnChain, isRegistrarReadable } = await import("./chains/base");
     const chainEnabled = isRegistrarReadable();
     if (chainEnabled) {
-      const onChainAvailable = await isHandleAvailableOnChain(normalized);
-      if (onChainAvailable === false) {
-        return {
-          available: false,
-          handle: normalized,
-          tier: tierInfo.tier,
-          annual: tierInfo.annualCents,
-          annualUsd: tierInfo.annualUsd,
-          reason: "Handle is registered on-chain",
-        };
-      }
-      if (onChainAvailable === null) {
+      const onChainResult = await isHandleAvailableOnChain(normalized);
+      if (onChainResult === null) {
         // Registrar configured but unreachable — fail-closed
         return {
           available: false,
@@ -178,6 +168,16 @@ export async function checkHandleAvailability(handle: string): Promise<{
           annual: tierInfo.annualCents,
           annualUsd: tierInfo.annualUsd,
           reason: "On-chain availability could not be confirmed — try again shortly",
+        };
+      }
+      if (!onChainResult.available) {
+        return {
+          available: false,
+          handle: normalized,
+          tier: tierInfo.tier,
+          annual: tierInfo.annualCents,
+          annualUsd: tierInfo.annualUsd,
+          reason: onChainResult.reason || "Handle is registered on-chain",
         };
       }
     }
