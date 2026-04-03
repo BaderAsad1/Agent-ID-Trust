@@ -1,18 +1,29 @@
 {
-  "name": "@agentid/contracts",
+  "name": "agentid-contracts",
   "version": "1.0.0",
-  "description": "AgentIDHandle ERC-721 smart contracts for Base deployment",
+  "description": "AgentIDRegistrar — .agentid namespace registrar for ERC-8004",
   "scripts": {
-    "compile": "hardhat compile",
-    "deploy:base": "hardhat run script/deploy.ts --network base",
-    "deploy:base-sepolia": "hardhat run script/deploy.ts --network base-sepolia",
-    "test": "hardhat test"
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "deploy:testnet": "npx hardhat run scripts/deploy.js --network baseSepolia",
+    "deploy:mainnet": "npx hardhat run scripts/deploy.js --network base",
+    "reserve:testnet": "npx hardhat run scripts/reserveHandles.js --network baseSepolia",
+    "reserve:mainnet": "npx hardhat run scripts/reserveHandles.js --network base",
+    "approve:testnet": "npx hardhat run scripts/setupApproval.js --network baseSepolia",
+    "approve:mainnet": "npx hardhat run scripts/setupApproval.js --network base",
+    "custody:testnet": "npx hardhat run scripts/setCustodyWallet.js --network baseSepolia",
+    "custody:mainnet": "npx hardhat run scripts/setCustodyWallet.js --network base",
+    "upgrade:testnet": "npx hardhat run scripts/upgrade.js --network baseSepolia",
+    "upgrade:mainnet": "npx hardhat run scripts/upgrade.js --network base"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@openzeppelin/contracts": "^5.0.0",
-    "hardhat": "^2.22.0",
-    "typescript": "^5.0.0",
-    "ts-node": "^10.9.0"
+    "@nomicfoundation/hardhat-toolbox": "4.0.0",
+    "@openzeppelin/hardhat-upgrades": "3.0.0",
+    "dotenv": "16.4.0",
+    "hardhat": "2.28.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.1.0",
+    "@openzeppelin/contracts-upgradeable": "5.1.0"
   }
 }
