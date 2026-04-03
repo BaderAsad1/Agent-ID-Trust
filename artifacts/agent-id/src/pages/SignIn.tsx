@@ -198,13 +198,6 @@ export function SignIn() {
               alt="Agent ID"
               style={{ width: 28, height: 28, borderRadius: 6, display: 'block' }}
             />
-            <span style={{
-              fontFamily: 'var(--font-display, "Bricolage Grotesque", sans-serif)',
-              fontWeight: 700, fontSize: 16, color: 'var(--text-primary, #f0f0f5)',
-              letterSpacing: '-0.01em',
-            }}>
-              Agent ID
-            </span>
           </div>
         </div>
 
