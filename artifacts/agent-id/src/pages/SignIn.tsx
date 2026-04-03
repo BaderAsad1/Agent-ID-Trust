@@ -171,7 +171,6 @@ export function SignIn() {
           <rect width="100%" height="100%" fill="url(#grid)" />
         </svg>
       </div>
-
       {/* LEFT PANEL — value prop */}
       <div style={{
         flex: '0 0 520px',
@@ -311,7 +310,6 @@ export function SignIn() {
           </span>
         </div>
       </div>
-
       {/* RIGHT PANEL — auth form */}
       <div style={{
         flex: 1,
@@ -337,12 +335,14 @@ export function SignIn() {
 
           {/* Heading */}
           <div style={{ marginBottom: 36 }}>
-            <h2 style={{
-              fontFamily: "'Bricolage Grotesque', 'Inter', sans-serif",
-              fontSize: 26, fontWeight: 700, color: '#ffffff',
-              margin: '0 0 8px',
-              letterSpacing: '-0.02em',
-            }}>
+            <h2
+              style={{
+                fontFamily: "'Bricolage Grotesque', 'Inter', sans-serif",
+                fontSize: 26, fontWeight: 700, color: '#ffffff',
+                margin: '0 0 8px',
+                letterSpacing: '-0.02em',
+              }}
+              className="text-center">
               {isSignIn ? 'Welcome back' : 'Create your account'}
             </h2>
           </div>
@@ -538,7 +538,6 @@ export function SignIn() {
           </p>
         </div>
       </div>
-
       <style>{`
         @media (max-width: 768px) {
           .signin-left-panel { display: none !important; }
