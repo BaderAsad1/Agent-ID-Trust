@@ -11,6 +11,7 @@
  * GET  /v1/admin/audit-log               — Paginated audit log with filters
  * GET  /v1/admin/audit-log/export        — CSV export of audit log
  * POST /v1/admin/claims/:agentId/resolve — Adjudicate a dispute claim
+ * POST /v1/admin/reconcile-handle        — Backfill/reconcile on-chain handle to DB
  */
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { timingSafeEqual } from "crypto";
@@ -486,6 +487,45 @@ router.post("/process-pending-mints", async (req: Request, res: Response, next: 
       triggered: true,
       message: "Pending mint processing has been triggered. Check logs for results.",
       triggeredAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const reconcileHandleSchema = z.object({
+  handle: z.string().min(1).max(64),
+});
+
+router.post("/reconcile-handle", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = reconcileHandleSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(400, "VALIDATION_ERROR", "Invalid input: handle is required", parsed.error.issues);
+
+    const { handle } = parsed.data;
+
+    const { reconcileOnChainHandle } = await import("../../services/reconcile-handle");
+    const result = await reconcileOnChainHandle(handle);
+
+    await writeAuditEvent("admin", "system", "admin.handle.reconciled", "agent", result.agentId,
+      adminAuditMeta(req, {
+        handle: result.handle,
+        action: result.action,
+        onChainAgentId: result.onChainAgentId,
+        onChainOwner: result.onChainOwner,
+        signal: "admin_reconcile_handle",
+      }),
+      getRequestorIp(req),
+    );
+
+    logger.info(
+      { ip: getRequestorIp(req), handle: result.handle, agentId: result.agentId, action: result.action },
+      "[admin] Handle reconciliation complete",
+    );
+
+    res.json({
+      success: true,
+      ...result,
     });
   } catch (err) {
     next(err);
