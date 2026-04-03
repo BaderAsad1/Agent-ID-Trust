@@ -247,51 +247,44 @@ router.get("/handles/:handle/image.svg", async (req, res, next) => {
     const hasAgent = !!agent;
     const displayName = hasAgent ? (agent.displayName || null) : null;
     const trustScore = agent?.trustScore ?? 0;
-    const tier = getTierFromHandle(handle);
     const skills: string[] = (agent?.capabilities as string[] | null) ?? [];
 
     const [accentA, accentB] = handlePalette(handle);
-    const tierShort = tier === "premium" ? (handle.replace(/[^a-z0-9]/gi, "").length <= 3 ? "ULTRA RARE" : "RARE") : "STANDARD";
-    const tierColor = tier === "premium" ? "#f59e0b" : accentA;
-    const tierBg = tier === "premium" ? "rgba(245,158,11,0.1)" : "rgba(79,125,243,0.08)";
-    const tierBorder = tier === "premium" ? "rgba(245,158,11,0.25)" : "rgba(79,125,243,0.2)";
 
     const hl = handle.length;
-    const handleFontSize = hl <= 2 ? 88 : hl <= 3 ? 80 : hl <= 5 ? 66 : hl <= 8 ? 54 : hl <= 12 ? 42 : 32;
+    // Font size for handle name — safe range that always fits inside x=22..300
+    const handleFontSize = hl <= 2 ? 82 : hl <= 3 ? 72 : hl <= 5 ? 60 : hl <= 8 ? 48 : hl <= 12 ? 38 : 28;
     const handleDisplay = handle.length > 17 ? handle.slice(0, 15) + "…" : handle;
-    const displayNameTrunc = displayName ? (displayName.length > 28 ? displayName.slice(0, 26) + "…" : displayName) : null;
+    const displayNameTrunc = displayName ? (displayName.length > 30 ? displayName.slice(0, 28) + "…" : displayName) : null;
 
     const trustPct = Math.min(100, Math.max(0, trustScore));
     const trustColor = trustPct >= 80 ? "#34d399" : trustPct >= 50 ? "#f59e0b" : "#ef4444";
-
     const barFill = (trustPct / 100) * 300;
-    // 15×15 identicon: cell=11, gap=1 → 179px. x=308, y=22
+
+    // Identicon: 15×15 grid, cell=11 gap=1 → 179px square. Anchored top-right at x=308 y=22.
     const identicon = renderIdenticon15x15(handle, 308, 22, 11, 1, "id-grad");
     const traces = generateTraces(handle);
-    const arc = trustArcSvg(trustPct, 58, 418, 30, trustColor);
+    // Ring: cx=56, cy=392, r=28
+    const arc = trustArcSvg(trustPct, 56, 392, 28, trustColor);
 
-    // .agentid sits inline beside the handle on the same baseline.
-    // Estimate handle text pixel width using Bricolage Grotesque Bold ≈ 0.48× fontSize per char.
-    const handleY = 198 + Math.round((80 - handleFontSize) * 0.5);
-    const handleTextWidth = Math.round(handleDisplay.length * handleFontSize * 0.48);
-    const domainAvailPx = 278 - handleTextWidth - 6;
-    const domainFontSize = Math.min(28, Math.max(16, Math.floor(domainAvailPx / 5.0)));
-    const domainX = 22 + handleTextWidth + 6;
-    const nameY = displayNameTrunc ? handleY + Math.round(handleFontSize * 0.38) + 10 : null;
+    // All y-positions are FIXED — nothing shifts based on handle length.
+    // Top section fits in y=20..258; bottom section y=258..500.
+    const handleY    = 190;   // handle name baseline (font fills upward from here)
+    const domainY    = 218;   // .agentid — always 20px bold accent, always visible
+    const nameY      = 242;   // display name — 13px muted, only rendered if linked
+    const divider1Y  = 260;
+    const divider2Y  = 326;
 
     const displayNameSvg = displayNameTrunc
-      ? `<text x="24" y="${nameY}" font-family="Segoe UI, system-ui, sans-serif" font-size="14" fill="rgba(230,232,255,0.42)">${displayNameTrunc}</text>`
+      ? `<text x="24" y="${nameY}" font-family="Segoe UI, system-ui, sans-serif" font-size="13" fill="rgba(230,232,255,0.38)">${displayNameTrunc}</text>`
       : "";
 
     const skillsSvg = hasAgent
       ? skills.length > 0
-        ? `<text x="112" y="356" font-family="JetBrains Mono, Courier New, monospace" font-size="9" fill="rgba(230,232,255,0.22)" font-weight="700" letter-spacing="2">AGENT SKILLS</text>
-  ${renderSkillPills(skills, accentA, 112, 366, 472)}`
-        : `<text x="112" y="380" font-family="JetBrains Mono, Courier New, monospace" font-size="10" fill="rgba(230,232,255,0.14)">No skills listed</text>`
+        ? `<text x="104" y="344" font-family="JetBrains Mono, Courier New, monospace" font-size="9" fill="rgba(230,232,255,0.22)" font-weight="700" letter-spacing="2">AGENT SKILLS</text>
+  ${renderSkillPills(skills, accentA, 104, 356, 468)}`
+        : `<text x="104" y="372" font-family="JetBrains Mono, Courier New, monospace" font-size="10" fill="rgba(230,232,255,0.14)">No skills listed</text>`
       : "";
-
-    const tierBadgeSvg = `<rect x="24" y="450" width="${tierShort.length * 7.2 + 26}" height="24" rx="7" fill="${tierBg}" stroke="${tierBorder}" stroke-width="1"/>
-  <text x="37" y="466" font-family="JetBrains Mono, Courier New, monospace" font-size="10" fill="${tierColor}" font-weight="700">${tierShort}</text>`;
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">
   <defs>
@@ -333,38 +326,38 @@ router.get("/handles/:handle/image.svg", async (req, res, next) => {
   <!-- 15×15 identicon (top-right) -->
   ${identicon}
 
-  <!-- Handle name + .agentid inline on same baseline -->
-  <text x="22" y="${handleY}" font-family="Bricolage Grotesque, Segoe UI, system-ui, sans-serif" font-size="${handleFontSize}" font-weight="800" fill="#ecedff" letter-spacing="-2">${handleDisplay}</text>
-  <text x="${domainX}" y="${handleY}" font-family="JetBrains Mono, Courier New, monospace" font-size="${domainFontSize}" fill="${accentA}" opacity="0.85" font-weight="500">.agentid</text>
+  <!-- Handle name (left column, fixed baseline y=190) -->
+  <text x="22" y="${handleY}" font-family="Bricolage Grotesque, Segoe UI, system-ui, sans-serif" font-size="${handleFontSize}" font-weight="800" fill="#ecedff" letter-spacing="-1.5">${handleDisplay}</text>
 
-  <!-- Display name (only if agent linked) -->
+  <!-- .agentid (fixed y=218, 20px bold accent — always prominent) -->
+  <text x="24" y="${domainY}" font-family="JetBrains Mono, Courier New, monospace" font-size="20" fill="${accentA}" font-weight="600" opacity="0.9">.agentid</text>
+
+  <!-- Display name (fixed y=242, only if agent linked) -->
   ${displayNameSvg}
 
-  <!-- Divider -->
-  <rect x="22" y="258" width="456" height="1" fill="rgba(255,255,255,0.06)"/>
+  <!-- Divider 1 -->
+  <rect x="22" y="${divider1Y}" width="456" height="1" fill="rgba(255,255,255,0.06)"/>
 
   <!-- TRUST SCORE -->
-  <text x="22" y="290" font-family="JetBrains Mono, Courier New, monospace" font-size="9.5" fill="rgba(230,232,255,0.22)" font-weight="700" letter-spacing="2.5">TRUST SCORE</text>
-  <rect x="22" y="298" width="300" height="7" rx="3.5" fill="rgba(255,255,255,0.05)"/>
-  <rect x="22" y="298" width="${barFill.toFixed(1)}" height="7" rx="3.5" fill="url(#bar-grad)"/>
-  <text x="334" y="308" font-family="JetBrains Mono, Courier New, monospace" font-size="19" fill="${trustColor}" font-weight="800">${trustScore}</text>
+  <text x="22" y="286" font-family="JetBrains Mono, Courier New, monospace" font-size="9" fill="rgba(230,232,255,0.22)" font-weight="700" letter-spacing="2.5">TRUST SCORE</text>
+  <rect x="22" y="294" width="300" height="6" rx="3" fill="rgba(255,255,255,0.05)"/>
+  <rect x="22" y="294" width="${barFill.toFixed(1)}" height="6" rx="3" fill="url(#bar-grad)"/>
+  <text x="334" y="303" font-family="JetBrains Mono, Courier New, monospace" font-size="18" fill="${trustColor}" font-weight="800">${trustScore}</text>
 
-  <!-- Divider -->
-  <rect x="22" y="334" width="456" height="1" fill="rgba(255,255,255,0.04)"/>
+  <!-- Divider 2 -->
+  <rect x="22" y="${divider2Y}" width="456" height="1" fill="rgba(255,255,255,0.04)"/>
 
-  <!-- Trust ring (left) -->
+  <!-- Trust ring (fixed: cx=56 cy=392 r=28) -->
   ${arc}
-  <text x="58" y="423" font-family="JetBrains Mono, Courier New, monospace" font-size="13" fill="${trustColor}" font-weight="800" text-anchor="middle">${trustScore}</text>
-  <text x="58" y="438" font-family="JetBrains Mono, Courier New, monospace" font-size="8" fill="rgba(230,232,255,0.2)" text-anchor="middle" letter-spacing="1">/100</text>
+  <text x="56" y="397" font-family="JetBrains Mono, Courier New, monospace" font-size="13" fill="${trustColor}" font-weight="800" text-anchor="middle">${trustScore}</text>
+  <text x="56" y="412" font-family="JetBrains Mono, Courier New, monospace" font-size="8" fill="rgba(230,232,255,0.2)" text-anchor="middle" letter-spacing="1">/100</text>
 
-  <!-- Agent Skills (right of ring) -->
+  <!-- Agent Skills (right of ring, fixed start x=104) -->
   ${skillsSvg}
 
-  <!-- Bottom rule + tier -->
-  <rect x="22" y="444" width="456" height="1" fill="rgba(255,255,255,0.04)"/>
-  ${tierBadgeSvg}
-
-  <text x="478" y="487" font-family="JetBrains Mono, Courier New, monospace" font-size="9" fill="rgba(230,232,255,0.09)" text-anchor="end" letter-spacing="0.5">getagent.id</text>
+  <!-- Bottom rule -->
+  <rect x="22" y="438" width="456" height="1" fill="rgba(255,255,255,0.04)"/>
+  <text x="478" y="476" font-family="JetBrains Mono, Courier New, monospace" font-size="9" fill="rgba(230,232,255,0.09)" text-anchor="end" letter-spacing="0.5">getagent.id</text>
 </svg>`;
 
     res.setHeader("Content-Type", "image/svg+xml");

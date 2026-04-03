@@ -124,33 +124,26 @@ function SkillPills({ skills, accentA, startX, startY, maxX }: {
   return <>{items}</>;
 }
 
-function NFTCard({ handle, displayName, trustScore, tier, skills }: {
-  handle: string; displayName?: string | null; trustScore: number;
-  tier: 'premium' | 'standard'; skills: string[];
+function NFTCard({ handle, displayName, trustScore, skills }: {
+  handle: string; displayName?: string | null; trustScore: number; skills: string[];
 }) {
   const [accentA, accentB] = handlePalette(handle);
-  const handleLen = handle.replace(/[^a-z0-9]/gi, '').length;
-  const tierShort = tier === 'premium' ? (handleLen <= 3 ? 'ULTRA RARE' : 'RARE') : 'STANDARD';
-  const tierColor = tier === 'premium' ? '#f59e0b' : accentA;
-  const tierBg = tier === 'premium' ? 'rgba(245,158,11,0.1)' : 'rgba(79,125,243,0.08)';
-  const tierBorder = tier === 'premium' ? 'rgba(245,158,11,0.25)' : 'rgba(79,125,243,0.2)';
 
   const trustPct = Math.min(100, Math.max(0, trustScore));
   const trustColor = trustPct >= 80 ? '#34d399' : trustPct >= 50 ? '#f59e0b' : '#ef4444';
   const barFill = (trustPct / 100) * 300;
 
   const hl = handle.length;
-  const handleFontSize = hl <= 2 ? 88 : hl <= 3 ? 80 : hl <= 5 ? 66 : hl <= 8 ? 54 : hl <= 12 ? 42 : 32;
+  const handleFontSize = hl <= 2 ? 82 : hl <= 3 ? 72 : hl <= 5 ? 60 : hl <= 8 ? 48 : hl <= 12 ? 38 : 28;
   const handleDisplay = handle.length > 17 ? handle.slice(0, 15) + '…' : handle;
-  const displayNameTrunc = displayName ? (displayName.length > 28 ? displayName.slice(0, 26) + '…' : displayName) : null;
+  const displayNameTrunc = displayName ? (displayName.length > 30 ? displayName.slice(0, 28) + '…' : displayName) : null;
 
-  const handleY = 198 + Math.round((80 - handleFontSize) * 0.5);
-  // .agentid inline beside handle — same baseline, proportional size
-  const handleTextWidth = Math.round(handleDisplay.length * handleFontSize * 0.48);
-  const domainAvailPx = 278 - handleTextWidth - 6;
-  const domainFontSize = Math.min(28, Math.max(16, Math.floor(domainAvailPx / 5.0)));
-  const domainX = 22 + handleTextWidth + 6;
-  const nameY = displayNameTrunc ? handleY + Math.round(handleFontSize * 0.38) + 10 : null;
+  // All y-positions fixed — no dynamic shifts
+  const handleY   = 190;
+  const domainY   = 218;
+  const nameY     = 242;
+  const divider1Y = 260;
+  const divider2Y = 326;
 
   const uid = `nft-${handle}`;
 
@@ -195,41 +188,47 @@ function NFTCard({ handle, displayName, trustScore, tier, skills }: {
 
         <Identicon15x15 handle={handle} x={308} y={22} cellSize={11} gap={1} gradId={`id-grad-${uid}`} />
 
-        {/* Handle + .agentid inline on the same baseline */}
-        <text x="22" y={handleY} fontFamily="Bricolage Grotesque, system-ui, sans-serif" fontSize={handleFontSize} fontWeight={800} fill="#ecedff" letterSpacing="-2">{handleDisplay}</text>
-        <text x={domainX} y={handleY} fontFamily="JetBrains Mono, monospace" fontSize={domainFontSize} fill={accentA} opacity={0.85} fontWeight={500}>.agentid</text>
+        {/* Handle name — fixed baseline y=190 */}
+        <text x="22" y={handleY} fontFamily="Bricolage Grotesque, system-ui, sans-serif" fontSize={handleFontSize} fontWeight={800} fill="#ecedff" letterSpacing="-1.5">{handleDisplay}</text>
 
+        {/* .agentid — fixed y=218, always 20px bold accent */}
+        <text x="24" y={domainY} fontFamily="JetBrains Mono, monospace" fontSize={20} fill={accentA} fontWeight={600} opacity={0.9}>.agentid</text>
+
+        {/* Display name — fixed y=242, only if linked */}
         {displayNameTrunc && (
-          <text x="24" y={nameY!} fontFamily="system-ui, sans-serif" fontSize={14} fill="rgba(230,232,255,0.42)">{displayNameTrunc}</text>
+          <text x="24" y={nameY} fontFamily="system-ui, sans-serif" fontSize={13} fill="rgba(230,232,255,0.38)">{displayNameTrunc}</text>
         )}
 
-        <rect x="22" y="258" width="456" height="1" fill="rgba(255,255,255,0.06)" />
+        {/* Divider 1 */}
+        <rect x="22" y={divider1Y} width="456" height="1" fill="rgba(255,255,255,0.06)" />
 
-        <text x="22" y="290" fontFamily="JetBrains Mono, monospace" fontSize={9.5} fill="rgba(230,232,255,0.22)" fontWeight={700} letterSpacing="2.5">TRUST SCORE</text>
-        <rect x="22" y="298" width="300" height="7" rx="3.5" fill="rgba(255,255,255,0.05)" />
-        <rect x="22" y="298" width={barFill} height="7" rx="3.5" fill={`url(#bar-${uid})`} />
-        <text x="334" y="308" fontFamily="JetBrains Mono, monospace" fontSize={19} fill={trustColor} fontWeight={800}>{trustScore}</text>
+        {/* Trust score */}
+        <text x="22" y="286" fontFamily="JetBrains Mono, monospace" fontSize={9} fill="rgba(230,232,255,0.22)" fontWeight={700} letterSpacing="2.5">TRUST SCORE</text>
+        <rect x="22" y="294" width="300" height="6" rx="3" fill="rgba(255,255,255,0.05)" />
+        <rect x="22" y="294" width={barFill} height="6" rx="3" fill={`url(#bar-${uid})`} />
+        <text x="334" y="303" fontFamily="JetBrains Mono, monospace" fontSize={18} fill={trustColor} fontWeight={800}>{trustScore}</text>
 
-        <rect x="22" y="334" width="456" height="1" fill="rgba(255,255,255,0.04)" />
+        {/* Divider 2 */}
+        <rect x="22" y={divider2Y} width="456" height="1" fill="rgba(255,255,255,0.04)" />
 
-        <TrustArc pct={trustPct} cx={58} cy={418} r={30} color={trustColor} />
-        <text x="58" y="423" fontFamily="JetBrains Mono, monospace" fontSize={13} fill={trustColor} fontWeight={800} textAnchor="middle">{trustScore}</text>
-        <text x="58" y="438" fontFamily="JetBrains Mono, monospace" fontSize={8} fill="rgba(230,232,255,0.2)" textAnchor="middle" letterSpacing="1">/100</text>
+        {/* Trust ring — fixed cx=56 cy=392 r=28 */}
+        <TrustArc pct={trustPct} cx={56} cy={392} r={28} color={trustColor} />
+        <text x="56" y="397" fontFamily="JetBrains Mono, monospace" fontSize={13} fill={trustColor} fontWeight={800} textAnchor="middle">{trustScore}</text>
+        <text x="56" y="412" fontFamily="JetBrains Mono, monospace" fontSize={8} fill="rgba(230,232,255,0.2)" textAnchor="middle" letterSpacing="1">/100</text>
 
+        {/* Agent Skills — fixed x=104, to the right of the ring */}
         {skills.length > 0 ? (
           <>
-            <text x="112" y="356" fontFamily="JetBrains Mono, monospace" fontSize={9} fill="rgba(230,232,255,0.22)" fontWeight={700} letterSpacing="2">AGENT SKILLS</text>
-            <SkillPills skills={skills} accentA={accentA} startX={112} startY={366} maxX={472} />
+            <text x="104" y="344" fontFamily="JetBrains Mono, monospace" fontSize={9} fill="rgba(230,232,255,0.22)" fontWeight={700} letterSpacing="2">AGENT SKILLS</text>
+            <SkillPills skills={skills} accentA={accentA} startX={104} startY={356} maxX={468} />
           </>
-        ) : displayName ? (
-          <text x="112" y="380" fontFamily="JetBrains Mono, monospace" fontSize={10} fill="rgba(230,232,255,0.14)">No skills listed</text>
+        ) : displayNameTrunc ? (
+          <text x="104" y="372" fontFamily="JetBrains Mono, monospace" fontSize={10} fill="rgba(230,232,255,0.14)">No skills listed</text>
         ) : null}
 
-        <rect x="22" y="444" width="456" height="1" fill="rgba(255,255,255,0.04)" />
-        <rect x="24" y="450" width={tierShort.length * 7.2 + 26} height="24" rx="7" fill={tierBg} stroke={tierBorder} strokeWidth={1} />
-        <text x="37" y="466" fontFamily="JetBrains Mono, monospace" fontSize={10} fill={tierColor} fontWeight={700}>{tierShort}</text>
-
-        <text x="478" y="487" fontFamily="JetBrains Mono, monospace" fontSize={9} fill="rgba(230,232,255,0.09)" textAnchor="end" letterSpacing="0.5">getagent.id</text>
+        {/* Bottom rule */}
+        <rect x="22" y="438" width="456" height="1" fill="rgba(255,255,255,0.04)" />
+        <text x="478" y="476" fontFamily="JetBrains Mono, monospace" fontSize={9} fill="rgba(230,232,255,0.09)" textAnchor="end" letterSpacing="0.5">getagent.id</text>
       </svg>
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'rgba(232,232,240,0.18)', letterSpacing: '0.05em' }}>
         /api/v1/handles/{handle}/image.svg
@@ -240,30 +239,12 @@ function NFTCard({ handle, displayName, trustScore, tier, skills }: {
 
 export default function HandleNFT() {
   const examples = [
-    {
-      handle: 'ai', displayName: 'AI Agent', trustScore: 98, tier: 'premium' as const,
-      skills: ['web-search', 'code-execution', 'data-analysis', 'summarization', 'image-analysis', 'email-drafting'],
-    },
-    {
-      handle: 'nova', displayName: 'Nova Research Bot', trustScore: 91, tier: 'premium' as const,
-      skills: ['web-search', 'document-parsing', 'citation-extraction', 'summarization'],
-    },
-    {
-      handle: 'atlas', displayName: 'Atlas-7 Navigation', trustScore: 86, tier: 'standard' as const,
-      skills: ['routing', 'maps-api', 'traffic-prediction'],
-    },
-    {
-      handle: 'support', displayName: 'Customer Support Agent', trustScore: 62, tier: 'standard' as const,
-      skills: ['ticket-triage', 'faq-lookup', 'escalation-routing', 'sentiment-analysis'],
-    },
-    {
-      handle: 'scraper', displayName: null, trustScore: 24, tier: 'standard' as const,
-      skills: [],
-    },
-    {
-      handle: 'x', displayName: 'Agent X', trustScore: 100, tier: 'premium' as const,
-      skills: ['all-tools'],
-    },
+    { handle: 'ai', displayName: 'AI Agent', trustScore: 98, skills: ['web-search', 'code-execution', 'data-analysis', 'summarization', 'image-analysis', 'email-drafting'] },
+    { handle: 'nova', displayName: 'Nova Research Bot', trustScore: 91, skills: ['web-search', 'document-parsing', 'citation-extraction', 'summarization'] },
+    { handle: 'atlas', displayName: 'Atlas-7 Navigation', trustScore: 86, skills: ['routing', 'maps-api', 'traffic-prediction'] },
+    { handle: 'support', displayName: 'Customer Support Agent', trustScore: 62, skills: ['ticket-triage', 'faq-lookup', 'escalation-routing', 'sentiment-analysis'] },
+    { handle: 'scraper', displayName: null, trustScore: 24, skills: [] },
+    { handle: 'x', displayName: 'Agent X', trustScore: 100, skills: ['all-tools'] },
   ];
 
   return (
