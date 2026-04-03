@@ -30,6 +30,46 @@ function isValidEvmAddress(address: string): boolean {
   return /^0x[0-9a-fA-F]{40}$/.test(address);
 }
 
+function handleToIdenticon(handle: string): boolean[][] {
+  let hash = 5381;
+  for (const c of handle) {
+    hash = ((hash << 5) + hash) ^ c.charCodeAt(0);
+  }
+  hash = Math.abs(hash);
+  const cells: boolean[][] = [];
+  for (let row = 0; row < 5; row++) {
+    const rowCells: boolean[] = [];
+    for (let col = 0; col < 3; col++) {
+      rowCells.push(((hash >> (row * 3 + col)) & 1) === 1);
+    }
+    cells.push([rowCells[0], rowCells[1], rowCells[2], rowCells[1], rowCells[0]]);
+  }
+  return cells;
+}
+
+function renderIdenticon(handle: string, x: number, y: number, cellSize: number, gap: number): string {
+  const cells = handleToIdenticon(handle);
+  const parts: string[] = [];
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 5; col++) {
+      const cx = x + col * (cellSize + gap);
+      const cy = y + row * (cellSize + gap);
+      const fill = cells[row][col] ? 'url(#id-grad)' : 'rgba(255,255,255,0.04)';
+      parts.push(`<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="3" fill="${fill}"/>`);
+    }
+  }
+  return parts.join('\n  ');
+}
+
+function trustArc(trustPct: number, cx: number, cy: number, r: number, color: string): string {
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (trustPct / 100) * circ;
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+  <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="5"
+    stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"
+    stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>`;
+}
+
 router.get("/metadata/:handle", async (req, res, next) => {
   try {
     const handle = (req.params.handle as string).toLowerCase();
@@ -126,66 +166,125 @@ router.get("/handles/:handle/image.svg", async (req, res, next) => {
     const displayName = agent?.displayName || handle;
     const trustScore = agent?.trustScore ?? 0;
     const tier = getTierFromHandle(handle);
-    const tierLabel = getTierLabel(handle);
     const nftStatus = agent?.nftStatus ?? "none";
 
+    const isMinted = nftStatus === "minted" || nftStatus === "pending_claim" || nftStatus === "active";
+    const tierShort = tier === "premium" ? (handle.replace(/[^a-z0-9]/gi, "").length <= 3 ? "ULTRA RARE" : "RARE") : "STANDARD";
+    const handleDisplay16 = handle.length > 16 ? handle.slice(0, 14) + "…" : handle;
+    const displayNameTrunc = displayName.length > 24 ? displayName.slice(0, 22) + "…" : displayName;
+
     const tierColor = tier === "premium" ? "#f59e0b" : "#4f7df3";
-    const tierBg = tier === "premium" ? "rgba(245,158,11,0.12)" : "rgba(79,125,243,0.12)";
-    const tierBorder = tier === "premium" ? "rgba(245,158,11,0.3)" : "rgba(79,125,243,0.3)";
+    const tierBg = tier === "premium" ? "rgba(245,158,11,0.1)" : "rgba(79,125,243,0.1)";
+    const tierBorder = tier === "premium" ? "rgba(245,158,11,0.25)" : "rgba(79,125,243,0.25)";
 
     const trustPct = Math.min(100, Math.max(0, trustScore));
     const trustColor = trustPct >= 80 ? "#34d399" : trustPct >= 50 ? "#f59e0b" : "#ef4444";
+    const trustGlow = trustPct >= 80 ? "rgba(52,211,153,0.25)" : trustPct >= 50 ? "rgba(245,158,11,0.25)" : "rgba(239,68,68,0.25)";
 
-    const handleDisplay = handle.length > 16 ? handle.slice(0, 14) + "…" : handle;
-    const displayNameTrunc = displayName.length > 22 ? displayName.slice(0, 20) + "…" : displayName;
+    const identicon = renderIdenticon(handle, 388, 24, 14, 2);
+    const arc = trustArc(trustPct, 60, 395, 32, trustColor);
+    const barFill = (trustPct / 100) * 280;
 
-    const onChainBadge = nftStatus === "minted" || nftStatus === "pending_claim"
-      ? `<rect x="16" y="180" width="96" height="20" rx="6" fill="rgba(52,211,153,0.12)" stroke="rgba(52,211,153,0.3)" stroke-width="1"/>
-         <text x="64" y="194" font-family="'JetBrains Mono', monospace" font-size="9" fill="#34d399" text-anchor="middle" font-weight="600">⬡ BASE NFT</text>`
+    const baseBadge = isMinted
+      ? `<rect x="318" y="448" width="100" height="22" rx="7" fill="rgba(52,211,153,0.08)" stroke="rgba(52,211,153,0.2)" stroke-width="1"/>
+  <text x="368" y="463" font-family="JetBrains Mono, monospace" font-size="9" fill="#34d399" text-anchor="middle" font-weight="600">&#x2B21; BASE NFT</text>`
       : "";
 
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220" viewBox="0 0 400 220">
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#07091a"/>
-      <stop offset="100%" style="stop-color:#0a0d22"/>
+    <radialGradient id="bg" cx="25%" cy="20%" r="90%">
+      <stop offset="0%" stop-color="#0e1535"/>
+      <stop offset="60%" stop-color="#080c1f"/>
+      <stop offset="100%" stop-color="#05071a"/>
+    </radialGradient>
+    <linearGradient id="top-line" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4f7df3"/>
+      <stop offset="50%" stop-color="#7c5bf5"/>
+      <stop offset="100%" stop-color="#4f7df3" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#4f7df3;stop-opacity:0.5"/>
-      <stop offset="100%" style="stop-color:#7c5bf5;stop-opacity:0"/>
+    <linearGradient id="id-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f7df3"/>
+      <stop offset="100%" stop-color="#7c5bf5"/>
     </linearGradient>
-    <clipPath id="card-clip">
-      <rect width="400" height="220" rx="16"/>
-    </clipPath>
+    <linearGradient id="trust-bg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.04)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <filter id="glow-${handle}">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft-${handle}">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+    </filter>
+    <pattern id="dots-${handle}" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.035)"/>
+    </pattern>
+    <clipPath id="clip-${handle}"><rect width="500" height="500" rx="24"/></clipPath>
   </defs>
 
-  <rect width="400" height="220" rx="16" fill="url(#bg)"/>
-  <rect width="400" height="220" rx="16" fill="none" stroke="rgba(79,125,243,0.2)" stroke-width="1"/>
+  <rect width="500" height="500" rx="24" fill="url(#bg)"/>
+  <rect width="500" height="500" rx="24" fill="url(#dots-${handle})" clip-path="url(#clip-${handle})"/>
 
-  <rect x="0" y="0" width="400" height="2" rx="1" fill="url(#accent)"/>
-  <rect x="0" y="0" width="3" height="220" rx="1.5" fill="rgba(79,125,243,0.4)"/>
+  <!-- Subtle radial glow top-left -->
+  <ellipse cx="80" cy="80" rx="160" ry="140" fill="${trustGlow}" filter="url(#soft-${handle})" opacity="0.5"/>
 
-  <rect x="16" y="14" width="130" height="16" rx="4" fill="rgba(79,125,243,0.08)"/>
-  <text x="24" y="25" font-family="'JetBrains Mono', monospace" font-size="9" fill="rgba(232,232,240,0.35)" font-weight="600" letter-spacing="2">AGENT ID CREDENTIAL</text>
+  <!-- Border -->
+  <rect width="500" height="500" rx="24" fill="none" stroke="rgba(79,125,243,0.18)" stroke-width="1.5"/>
 
-  <text x="16" y="58" font-family="'Bricolage Grotesque', 'Inter', sans-serif" font-size="26" font-weight="700" fill="#e8e8f0" letter-spacing="-0.5">${handleDisplay}</text>
-  <text x="16" y="74" font-family="'JetBrains Mono', monospace" font-size="11" fill="rgba(79,125,243,0.7)">.agentid</text>
+  <!-- Top accent line -->
+  <rect x="0" y="0" width="500" height="3" rx="1.5" fill="url(#top-line)"/>
 
-  <text x="16" y="102" font-family="'Inter', sans-serif" font-size="13" fill="rgba(232,232,240,0.55)">${displayNameTrunc}</text>
+  <!-- Left accent bar -->
+  <rect x="0" y="0" width="3" height="500" rx="1.5" fill="rgba(79,125,243,0.45)"/>
 
-  <rect x="16" y="114" width="368" height="1" fill="rgba(255,255,255,0.05)"/>
+  <!-- AGENT ID CREDENTIAL pill -->
+  <rect x="24" y="24" width="192" height="24" rx="7" fill="rgba(79,125,243,0.07)" stroke="rgba(79,125,243,0.14)" stroke-width="1"/>
+  <text x="36" y="40" font-family="JetBrains Mono, monospace" font-size="10" fill="rgba(79,125,243,0.65)" font-weight="700" letter-spacing="2.5">AGENT ID CREDENTIAL</text>
 
-  <text x="16" y="136" font-family="'JetBrains Mono', monospace" font-size="8.5" fill="rgba(232,232,240,0.25)" letter-spacing="1" font-weight="600">TRUST SCORE</text>
-  <rect x="16" y="142" width="200" height="4" rx="2" fill="rgba(255,255,255,0.05)"/>
-  <rect x="16" y="142" width="${(trustPct / 100) * 200}" height="4" rx="2" fill="${trustColor}"/>
-  <text x="224" y="147" font-family="'JetBrains Mono', monospace" font-size="11" fill="${trustColor}" font-weight="700">${trustScore}</text>
+  <!-- Identicon (5x5 symmetric, top-right) -->
+  ${identicon}
 
-  <rect x="16" y="156" width="${tierLabel.length * 5.8 + 16}" height="20" rx="6" fill="${tierBg}" stroke="${tierBorder}" stroke-width="1"/>
-  <text x="24" y="170" font-family="'JetBrains Mono', monospace" font-size="9" fill="${tierColor}" font-weight="600">${tierLabel}</text>
+  <!-- Handle name -->
+  <text x="24" y="150" font-family="Bricolage Grotesque, Inter, sans-serif" font-size="60" font-weight="800" fill="#eaeaf5" letter-spacing="-2.5">${handleDisplay16}</text>
 
-  ${onChainBadge}
+  <!-- .agentid domain -->
+  <text x="26" y="180" font-family="JetBrains Mono, monospace" font-size="15" fill="#4f7df3" opacity="0.75">.agentid</text>
 
-  <text x="384" y="210" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(232,232,240,0.15)" text-anchor="end">getagent.id</text>
+  <!-- Display name -->
+  <text x="26" y="218" font-family="Inter, sans-serif" font-size="15" fill="rgba(234,234,245,0.45)">${displayNameTrunc}</text>
+
+  <!-- Divider -->
+  <rect x="24" y="238" width="452" height="1" fill="rgba(255,255,255,0.05)"/>
+
+  <!-- Trust score label -->
+  <text x="24" y="275" font-family="JetBrains Mono, monospace" font-size="10" fill="rgba(234,234,245,0.25)" font-weight="700" letter-spacing="2">TRUST SCORE</text>
+
+  <!-- Trust bar track -->
+  <rect x="24" y="284" width="280" height="6" rx="3" fill="rgba(255,255,255,0.05)"/>
+  <!-- Trust bar fill -->
+  <rect x="24" y="284" width="${barFill.toFixed(1)}" height="6" rx="3" fill="${trustColor}" opacity="0.85"/>
+
+  <!-- Trust number -->
+  <text x="316" y="291" font-family="JetBrains Mono, monospace" font-size="20" fill="${trustColor}" font-weight="800">${trustScore}</text>
+
+  <!-- Trust arc (decorative ring bottom-left) -->
+  ${arc}
+  <text x="60" y="401" font-family="JetBrains Mono, monospace" font-size="13" fill="${trustColor}" font-weight="800" text-anchor="middle">${trustScore}</text>
+  <text x="60" y="416" font-family="JetBrains Mono, monospace" font-size="8" fill="rgba(234,234,245,0.25)" text-anchor="middle" letter-spacing="1">TRUST</text>
+
+  <!-- Tier badge -->
+  <rect x="110" y="376" width="${tierShort.length * 7 + 30}" height="26" rx="8" fill="${tierBg}" stroke="${tierBorder}" stroke-width="1"/>
+  <text x="125" y="393" font-family="JetBrains Mono, monospace" font-size="10.5" fill="${tierColor}" font-weight="700">${tierShort}</text>
+
+  <!-- Horizontal divider above bottom row -->
+  <rect x="24" y="438" width="452" height="1" fill="rgba(255,255,255,0.04)"/>
+
+  <!-- Base badge (conditional) -->
+  ${baseBadge}
+
+  <!-- getagent.id watermark -->
+  <text x="476" y="484" font-family="JetBrains Mono, monospace" font-size="9" fill="rgba(234,234,245,0.12)" text-anchor="end" letter-spacing="0.5">getagent.id</text>
 </svg>`;
 
     res.setHeader("Content-Type", "image/svg+xml");
