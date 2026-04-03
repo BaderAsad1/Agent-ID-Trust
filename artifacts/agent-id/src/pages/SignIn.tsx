@@ -345,9 +345,6 @@ export function SignIn() {
             }}>
               {isSignIn ? 'Welcome back' : 'Create your account'}
             </h2>
-            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.4)', margin: 0 }}>
-              {isSignIn ? 'Sign in to your Agent ID account.' : 'Free forever. No credit card required.'}
-            </p>
           </div>
 
           {/* OAuth Buttons */}
