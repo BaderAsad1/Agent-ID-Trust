@@ -203,7 +203,20 @@ export async function sendMagicLinkEmail(
   recipientEmail: string,
   magicUrl: string,
 ): Promise<void> {
-  await sendEmail({ type: "magic_link", data: { magicUrl } }, recipientEmail);
+  // Magic link emails must NOT go through the retry queue.
+  // A failed first attempt is safer than retrying and delivering duplicates —
+  // each duplicate is a confusing extra email with a one-time token.
+  try {
+    if (!env().RESEND_API_KEY) {
+      logger.warn({ recipient: recipientEmail, reason: "RESEND_API_KEY not set" }, "[email] Skipping magic link email");
+      return;
+    }
+    const { subject, html } = renderTemplate({ type: "magic_link", data: { magicUrl } });
+    await deliverEmail(recipientEmail, subject, html);
+  } catch (err) {
+    logger.error({ recipient: recipientEmail, error: err instanceof Error ? err.message : String(err) }, "[email] Failed to send magic link email");
+    throw err;
+  }
 }
 
 export async function sendRenewalReminderEmail(
