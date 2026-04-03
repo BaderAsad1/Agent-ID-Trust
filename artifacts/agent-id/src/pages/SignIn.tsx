@@ -49,8 +49,26 @@ export function SignIn() {
   const [sending, setSending] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [isReturningUser, setIsReturningUser] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldownSecs, setCooldownSecs] = useState(0);
 
   const { isOnboarding, intent } = getOnboardingContext();
+
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const tick = () => {
+      const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setCooldownSecs(0);
+        setCooldownUntil(null);
+      } else {
+        setCooldownSecs(remaining);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [cooldownUntil]);
 
   useEffect(() => {
     if (!loading && userId) {
@@ -76,6 +94,7 @@ export function SignIn() {
       });
       if (res.ok) {
         setSent(true);
+        setCooldownUntil(Date.now() + 60_000);
       } else {
         setEmailError('Something went wrong. Please try again.');
       }
@@ -130,13 +149,16 @@ export function SignIn() {
             It expires in 15 minutes.
           </p>
           <button
-            onClick={() => { setSent(false); setEmail(''); }}
+            onClick={() => { if (cooldownSecs > 0) return; setSent(false); setEmail(''); }}
+            disabled={cooldownSecs > 0}
             style={{
-              background: 'none', border: 'none', color: 'rgba(232,232,240,0.4)',
-              fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
+              background: 'none', border: 'none',
+              color: cooldownSecs > 0 ? 'rgba(232,232,240,0.2)' : 'rgba(232,232,240,0.4)',
+              fontSize: 13, cursor: cooldownSecs > 0 ? 'default' : 'pointer',
+              textDecoration: cooldownSecs > 0 ? 'none' : 'underline',
             }}
           >
-            Use a different email
+            {cooldownSecs > 0 ? `Resend available in ${cooldownSecs}s` : 'Use a different email'}
           </button>
         </div>
       </div>

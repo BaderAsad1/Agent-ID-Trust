@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, Loader2, Copy, AlertCircle, ArrowRight, Bot, Link2 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
@@ -114,9 +114,13 @@ function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick: (
 
 export function GetStarted() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { userId, loading: authLoading, login, refreshAgents } = useAuth();
 
-  const [intent, setIntent] = useState<Intent>(null);
+  const [intent, setIntent] = useState<Intent>(() => {
+    const p = new URLSearchParams(window.location.search).get('intent');
+    return (p === 'new' || p === 'claim') ? p : null;
+  });
   const [step, setStep] = useState<FlowStep>('intent');
   const [error, setError] = useState<string | null>(null);
 
@@ -173,6 +177,19 @@ export function GetStarted() {
       }
     }
   }, [step, authLoading, userId, intent]);
+
+  // When a user returns via magic link with ?intent=new|claim in the URL,
+  // sessionStorage is gone (new tab) but the URL param survives.
+  // Auto-advance them straight to the wizard rather than showing the intent cards.
+  useEffect(() => {
+    if (authLoading) return;
+    if (!userId) return;
+    const urlIntent = searchParams.get('intent');
+    if (step === 'intent' && (urlIntent === 'new' || urlIntent === 'claim')) {
+      setIntent(urlIntent);
+      setStep(urlIntent === 'claim' ? 'claim-existing' : 'wizard-identity');
+    }
+  }, [authLoading, userId, step, searchParams]);
 
   useEffect(() => {
     if (!handle) { setAvailable(null); return; }
@@ -246,13 +263,10 @@ export function GetStarted() {
   };
 
   const handleAuthContinue = () => {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-      intent,
-      agentName, handle, description, selectedCaps,
-      pendingAuth: true,
-      returnStep: intent === 'claim' ? 'claim-existing' : 'wizard-identity',
-    }));
-    login();
+    // Encode intent in the returnTo URL so it survives magic link clicks
+    // that open in a new tab (sessionStorage does not cross tabs).
+    const returnTo = `/get-started?intent=${intent ?? 'new'}`;
+    window.location.href = `/sign-in?returnTo=${encodeURIComponent(returnTo)}`;
   };
 
   const handleCreateAgent = async () => {
