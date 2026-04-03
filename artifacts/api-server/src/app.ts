@@ -8,6 +8,11 @@ import router from "./routes";
 import wellKnownRouter from "./routes/well-known";
 import authOidcRouter from "./routes/auth-oidc";
 import oauthRouter from "./routes/oauth";
+import seoRouter from "./routes/seo";
+import { GLOSSARY_TERMS } from "./seo/glossary";
+import { GUIDES } from "./seo/guides";
+import { USE_CASES } from "./seo/use-cases";
+import { COMPARISONS } from "./seo/comparisons";
 import { securityHeaders } from "./middlewares/security-headers";
 import { sandboxMiddleware } from "./middlewares/sandbox";
 import { requestIdMiddleware } from "./middlewares/request-id";
@@ -152,6 +157,30 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
 app.use("/api/v1", agentUserAgentMiddleware);
 
 app.get("/sitemap.xml", (_req, res) => {
+  const glossaryUrls = GLOSSARY_TERMS.map((t) => `  <url>
+    <loc>${APP_URL}/glossary/${t.slug}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>`).join("\n");
+
+  const guideUrls = GUIDES.map((g) => `  <url>
+    <loc>${APP_URL}/guides/${g.slug}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>`).join("\n");
+
+  const useCaseUrls = USE_CASES.map((u) => `  <url>
+    <loc>${APP_URL}/use-cases/${u.slug}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>`).join("\n");
+
+  const compareUrls = COMPARISONS.map((c) => `  <url>
+    <loc>${APP_URL}/compare/${c.slug}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>`).join("\n");
+
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -229,6 +258,30 @@ app.get("/sitemap.xml", (_req, res) => {
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
+  <url>
+    <loc>${APP_URL}/glossary</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+${glossaryUrls}
+  <url>
+    <loc>${APP_URL}/guides</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+${guideUrls}
+  <url>
+    <loc>${APP_URL}/use-cases</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+${useCaseUrls}
+  <url>
+    <loc>${APP_URL}/compare</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+${compareUrls}
 </urlset>`;
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=3600");
@@ -264,6 +317,7 @@ app.use("/api", authOidcRouter);
 app.use("/oauth", oauthRouter);
 app.use("/api/oauth", oauthRouter);
 app.use("/api", router);
+app.use(seoRouter);
 
 const MCP_PORT = Number(process.env.MCP_PORT || 3001);
 
@@ -481,7 +535,7 @@ if (fs.existsSync(frontendDist)) {
   // SPA fallback — serve index.html for any non-API, non-asset route (Express 5 compatible)
   app.get("/{*path}", async (req: Request, res: Response, next: NextFunction) => {
     const p = req.path;
-    if (/^\/(api|mcp|well-known|sitemap\.xml|agent|oauth|auth|llms\.txt)(\/|$)/.test(p)) {
+    if (/^\/(api|mcp|well-known|sitemap\.xml|agent|oauth|auth|llms\.txt|glossary|guides|use-cases|compare)(\/|$)/.test(p)) {
       return next();
     }
 
@@ -507,6 +561,7 @@ if (fs.existsSync(frontendDist)) {
         "terms", "privacy", "changelog", "security", "org", "u", "id",
         "handle", "authorize", "api", "mcp", "oauth", "auth", "well-known",
         "sitemap.xml", "agent", "llms.txt", "robots.txt",
+        "glossary", "guides", "use-cases", "compare",
       ]);
       if (!reservedPaths.has(handle)) {
         try {

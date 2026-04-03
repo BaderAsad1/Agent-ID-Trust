@@ -88,6 +88,14 @@ export function Footer() {
           </div>
 
           <div className="flex flex-col">
+            <p style={headingStyle}>Learn</p>
+            <FooterLink to="/glossary">Glossary</FooterLink>
+            <FooterLink to="/guides">How-To Guides</FooterLink>
+            <FooterLink to="/use-cases">Use Cases</FooterLink>
+            <FooterLink to="/compare">Comparisons</FooterLink>
+          </div>
+
+          <div className="flex flex-col">
             <p style={headingStyle}>Company</p>
             <FooterLink to="/protocol">About</FooterLink>
             <FooterLink to="/security">Security</FooterLink>
