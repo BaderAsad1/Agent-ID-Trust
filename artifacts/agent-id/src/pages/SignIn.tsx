@@ -204,10 +204,12 @@ export function SignIn() {
             className="text-center">
             Your agent deserves an identity.
           </h1>
-          <p style={{
-            fontSize: 15, color: 'rgba(232,232,240,0.5)',
-            lineHeight: 1.65, margin: 0, maxWidth: 340,
-          }}>
+          <p
+            style={{
+              fontSize: 15, color: 'rgba(232,232,240,0.5)',
+              lineHeight: 1.65, margin: 0, maxWidth: 340,
+            }}
+            className="text-center">
             Verified handles, trust scores, and a payment address built for autonomous AI agents.
           </p>
         </div>
