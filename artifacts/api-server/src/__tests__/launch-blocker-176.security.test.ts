@@ -242,9 +242,9 @@ describe("T176-4 — NFT metadata: chain anchor from chainRegistrations (not cha
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe("T176-5 — BASE_HANDLE_CONTRACT: not an active runtime dependency", () => {
-  it("base.ts: BASE_HANDLE_CONTRACT is explicitly commented as deprecated", () => {
+  it("base.ts: BASE_HANDLE_CONTRACT does not appear in the file", () => {
     const src = fs.readFileSync(path.join(apiSrc, "services/chains/base.ts"), "utf8");
-    expect(src).toMatch(/BASE_HANDLE_CONTRACT.*deprecated/i);
+    expect(src).not.toMatch(/process\.env\.BASE_HANDLE_CONTRACT/);
   });
 
   it("base.ts: registerOnChain uses registrarAddress (not the legacy contractAddress env value) for the write call", () => {

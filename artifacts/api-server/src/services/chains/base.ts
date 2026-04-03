@@ -95,8 +95,6 @@ function getNetworkLabel(): "base-sepolia" | "base" {
 function getBaseConfig() {
   const rpcUrl = process.env.BASE_RPC_URL;
   const minterKey = process.env.BASE_MINTER_PRIVATE_KEY;
-  // BASE_HANDLE_CONTRACT is deprecated from runtime use — kept for env reference only
-  const contractAddress = process.env.BASE_HANDLE_CONTRACT as Address | undefined;
   const platformWallet = process.env.BASE_PLATFORM_WALLET as Address | undefined;
   // BASE_AGENTID_REGISTRAR is the callable proxy — ONLY address used for write calls.
   // No fallback to BASE_ERC8004_REGISTRY: the proxy and registry are separate contracts.
@@ -105,7 +103,7 @@ function getBaseConfig() {
   // BASE_ERC8004_REGISTRY is the ERC-8004 registry — kept for reference/read operations only.
   const registryAddress = process.env.BASE_ERC8004_REGISTRY as Address | undefined;
 
-  return { rpcUrl, minterKey, contractAddress, platformWallet, registrarAddress, registryAddress };
+  return { rpcUrl, minterKey, platformWallet, registrarAddress, registryAddress };
 }
 
 function isChainEnabled(): boolean {

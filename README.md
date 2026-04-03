@@ -57,7 +57,7 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 
 **Handle pricing:** 1-2 chars reserved · 3 chars $99/yr · 4 chars $29/yr · 5+ chars included with Starter/Pro/Enterprise
 
-**Handle registrar:** Base chain (`BASE_AGENTID_REGISTRAR`) is the sole active registrar. `BASE_HANDLE_CONTRACT` is kept for env reference only (deprecated from runtime write paths). Registrar availability checks run on read config (`BASE_RPC_URL` + `BASE_AGENTID_REGISTRAR`) and do not require write keys.
+**Handle registrar:** Base chain (`BASE_AGENTID_REGISTRAR`) is the sole active registrar. Registrar availability checks run on read config (`BASE_RPC_URL` + `BASE_AGENTID_REGISTRAR`) and do not require write keys.
 
 **Canonical DID:** `did:web:getagent.id:agents:<uuid>` (UUID-rooted, permanent). Handle alias (if claimed): `did:agentid:<handle>` (secondary, revocable).
 
@@ -78,9 +78,10 @@ Set `ONCHAIN_MINTING_ENABLED=true` to enable on-chain handle registration.
 | `ONCHAIN_MINTING_ENABLED` | `true` to enable on-chain registration (default: disabled) |
 | `BASE_RPC_URL` | Base chain RPC endpoint |
 | `BASE_MINTER_PRIVATE_KEY` | Private key for the minter account (hex, `0x`-prefixed) |
-| `BASE_HANDLE_CONTRACT` | **Deprecated (migration-only).** Legacy AgentIDHandle contract address. Not used in any active read/write path. `BASE_AGENTID_REGISTRAR` is the only callable contract for current registrar flows. |
 | `BASE_PLATFORM_WALLET` | Platform treasury wallet address on Base |
 | `BASE_AGENTID_REGISTRAR` | Deployed AgentIDRegistrar contract address on Base |
+
+> **Migration note:** `BASE_HANDLE_CONTRACT` — deprecated. No longer used at runtime and not read by any active code path. `BASE_AGENTID_REGISTRAR` is the only active callable contract address.
 
 ### Infrastructure
 
