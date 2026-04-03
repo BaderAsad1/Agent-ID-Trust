@@ -161,6 +161,19 @@ export function GetStarted() {
     } catch {}
   }, [authLoading, userId]);
 
+  // If auth resolved and the user is already signed in but ended up on the
+  // 'auth' step (race: authLoading was true when they clicked an intent),
+  // advance them to the correct wizard step automatically.
+  useEffect(() => {
+    if (step === 'auth' && !authLoading && userId) {
+      if (intent === 'claim') {
+        setStep('claim-existing');
+      } else {
+        setStep('wizard-identity');
+      }
+    }
+  }, [step, authLoading, userId, intent]);
+
   useEffect(() => {
     if (!handle) { setAvailable(null); return; }
     setAvailable(null);
@@ -353,7 +366,7 @@ export function GetStarted() {
           </p>
 
           {/* Cards */}
-          <div style={{ marginTop: 36, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, width: '100%' }}>
+          <div style={{ marginTop: 36, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, width: '100%', opacity: authLoading ? 0.5 : 1, pointerEvents: authLoading ? 'none' : undefined, transition: 'opacity 0.2s' }}>
             <div
               onClick={() => handleIntentSelect('new')}
               style={{
