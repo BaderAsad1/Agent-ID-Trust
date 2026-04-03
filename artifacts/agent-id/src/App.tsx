@@ -11,6 +11,7 @@ import { Dashboard } from '@/pages/Dashboard';
 import { AgentProfile } from '@/pages/AgentProfile';
 import { Marketplace } from '@/pages/Marketplace';
 import { MarketplaceListing } from '@/pages/MarketplaceListing';
+import { A2AMarketplace } from '@/pages/A2AMarketplace';
 import { JobBoard, JobDetail } from '@/pages/Jobs';
 import { ForAgents } from '@/pages/ForAgents';
 import { Pricing } from '@/pages/Pricing';
@@ -153,6 +154,7 @@ function AppContent() {
         <Route path="/mail" element={<ProtectedRoute><Mail /></ProtectedRoute>} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/marketplace/:id" element={<MarketplaceListing />} />
+        <Route path="/a2a" element={<A2AMarketplace />} />
         <Route path="/jobs" element={<JobBoard />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/org/:slug" element={<OrgProfile />} />

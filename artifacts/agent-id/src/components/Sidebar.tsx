@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bot, Inbox, Mail, Activity, ShoppingBag, Globe, Network, Settings, ArrowUpRight, ArrowRightLeft, ShieldCheck, Wallet, Lock, X, AtSign } from 'lucide-react';
+import { LayoutDashboard, Bot, Inbox, Mail, Activity, ShoppingBag, Globe, Network, Settings, ArrowUpRight, ArrowRightLeft, ShieldCheck, Wallet, Lock, X, AtSign, PackageOpen } from 'lucide-react';
 import { Identicon } from '@/components/shared';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
@@ -68,6 +68,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     { path: '/dashboard/mail', icon: Mail, label: 'Agent Mail', dot: 'cyan' as const, minPlan: 2 },
     { path: '/dashboard/log', icon: Activity, label: 'Activity Log', minPlan: 0 },
     { path: '/dashboard/marketplace', icon: ShoppingBag, label: 'Marketplace', dot: 'purple' as const, minPlan: 0 },
+    { path: '/dashboard/orders', icon: PackageOpen, label: 'My Orders', minPlan: 0 },
     { path: '/dashboard/credential', icon: ShieldCheck, label: 'Credential', minPlan: 2 },
     { path: '/dashboard/wallet', icon: Wallet, label: 'Wallet', minPlan: 0 },
     { path: '/dashboard/transfers', icon: ArrowRightLeft, label: 'Transfers', minPlan: 0 },

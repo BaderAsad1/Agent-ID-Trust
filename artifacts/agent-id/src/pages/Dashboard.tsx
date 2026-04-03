@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield, Key } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield, Key, MessageSquare, Send, Trash2, Edit } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
-import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus } from '@/lib/api';
+import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus, type OrderMessage, type OrderMilestone } from '@/lib/api';
 import { formatPrice } from '@/lib/pricing';
 import { Mail } from '@/pages/Mail';
 import { TransferWizardModal, TransferStatusBadge, TransferDashboardPage } from '@/pages/TransferSale';
@@ -13,6 +13,7 @@ import { HandlesClaim } from '@/pages/HandlesClaim';
 import { QRCodeSVG } from 'qrcode.react';
 import { OnboardingScreen } from '@/pages/dashboard/Onboarding';
 import { DashboardOverview } from '@/pages/dashboard/Overview';
+import { BuyerOrders } from '@/pages/BuyerOrders';
 
 async function initiateHandleCheckout(handle: string) {
   const base = window.location.origin;
@@ -852,21 +853,32 @@ function MarketplaceDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [myListings, setMyListings] = useState<Listing[]>([]);
+  const [sellerOrders, setSellerOrders] = useState<Array<{ id: string; listingId: string; buyerUserId: string; taskDescription: string; priceAmount: string; platformFee: string; sellerPayout: string; status: string; createdAt: string }>>([]);
   const [matchingJobs, setMatchingJobs] = useState<Job[]>([]);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'listings' | 'orders' | 'earnings' | 'jobs'>('listings');
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [orderMessages, setOrderMessages] = useState<Record<string, OrderMessage[]>>({});
+  const [orderMsgDraft, setOrderMsgDraft] = useState<Record<string, string>>({});
+  const [orderMsgLoading, setOrderMsgLoading] = useState<Record<string, boolean>>({});
+  const [deletingListingId, setDeletingListingId] = useState<string | null>(null);
+  const [orderMilestones, setOrderMilestones] = useState<Record<string, OrderMilestone[]>>({});
+  const [releasingMilestone, setReleasingMilestone] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [listingsRes, jobsRes] = await Promise.all([
+      const [listingsRes, jobsRes, ordersRes] = await Promise.all([
         api.marketplace.listings.list(),
-        api.jobs.list({ limit: '4' }),
+        api.jobs.list({ limit: '6' }),
+        api.marketplace.orders.list({ role: 'seller' }).catch(() => ({ orders: [] })),
       ]);
       const agentIds = new Set(agents.map(a => a.id));
       setMyListings((listingsRes.listings || []).filter(l => agentIds.has(l.agentId)));
       setMatchingJobs(jobsRes.jobs || []);
+      setSellerOrders(ordersRes.orders || []);
       try {
         const ledgerRes = await api.payments.ledger();
         setLedger(ledgerRes.entries || []);
@@ -880,92 +892,471 @@ function MarketplaceDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const totalEarned = ledger.filter(e => e.direction === 'inbound').reduce((s, e) => s + Number(e.amount), 0);
+  const loadOrderMilestones = async (orderId: string) => {
+    if (orderMilestones[orderId]) return;
+    try {
+      const res = await api.marketplace.orders.milestones(orderId);
+      setOrderMilestones(p => ({ ...p, [orderId]: res.milestones || [] }));
+    } catch { setOrderMilestones(p => ({ ...p, [orderId]: [] })); }
+  };
 
-  if (loading) return <div><h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Marketplace</h1><ListSkeleton rows={5} /></div>;
+  const releaseMilestone = async (orderId: string, milestoneId: string) => {
+    setReleasingMilestone(milestoneId);
+    try {
+      await api.marketplace.orders.approveMilestone(orderId, milestoneId);
+      const res = await api.marketplace.orders.milestones(orderId);
+      setOrderMilestones(p => ({ ...p, [orderId]: res.milestones || [] }));
+    } catch { /* silently fail */ }
+    finally { setReleasingMilestone(null); }
+  };
+
+  const loadOrderMessages = async (orderId: string) => {
+    if (orderMessages[orderId]) return;
+    setOrderMsgLoading(p => ({ ...p, [orderId]: true }));
+    try {
+      const res = await api.marketplace.orders.messages.list(orderId);
+      setOrderMessages(p => ({ ...p, [orderId]: res.messages || [] }));
+    } catch { setOrderMessages(p => ({ ...p, [orderId]: [] })); }
+    finally { setOrderMsgLoading(p => ({ ...p, [orderId]: false })); }
+  };
+
+  const sendProviderMessage = async (orderId: string) => {
+    const draft = orderMsgDraft[orderId]?.trim();
+    if (!draft) return;
+    try {
+      const msg = await api.marketplace.orders.messages.send(orderId, draft);
+      setOrderMessages(p => ({ ...p, [orderId]: [...(p[orderId] || []), msg] }));
+      setOrderMsgDraft(p => ({ ...p, [orderId]: '' }));
+    } catch { /* silently fail */ }
+  };
+
+  const deleteListing = async (listingId: string) => {
+    if (!confirm('Delete this listing? This cannot be undone.')) return;
+    setDeletingListingId(listingId);
+    try {
+      await api.marketplace.listings.delete(listingId);
+      fetchData();
+    } catch { /* silently fail */ }
+    finally { setDeletingListingId(null); }
+  };
+
+  const toggleListingStatus = async (listing: Listing) => {
+    const newStatus = listing.status === 'active' ? 'paused' : 'active';
+    try {
+      await api.marketplace.listings.patch(listing.id, { status: newStatus });
+      fetchData();
+    } catch { /* silently fail */ }
+  };
+
+  const totalEarned = ledger.filter(e => e.direction === 'inbound').reduce((s, e) => s + Number(e.amount), 0);
+  const activeOrders = sellerOrders.filter(o => o.status === 'confirmed' || o.status === 'pending_payment');
+
+  const [revenuePeriod, setRevenuePeriod] = useState<'30d' | '90d' | 'all'>('all');
+
+  const earningsChartData = (() => {
+    const now = new Date();
+    const cutoffDays = revenuePeriod === '30d' ? 30 : revenuePeriod === '90d' ? 90 : null;
+    const cutoff = cutoffDays ? new Date(now.getTime() - cutoffDays * 86400000) : null;
+    const buckets = revenuePeriod === '30d' ? 4 : revenuePeriod === '90d' ? 3 : 6;
+    const monthSpan = revenuePeriod === '30d' ? 1 : revenuePeriod === '90d' ? 3 : 6;
+    const months = Array.from({ length: buckets }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (monthSpan - 1) + i, 1);
+      return { month: d.toLocaleString('default', { month: 'short' }), year: d.getFullYear(), monthIdx: d.getMonth(), amount: 0 };
+    });
+    ledger.filter(e => e.direction === 'inbound').forEach(e => {
+      const d = new Date(e.createdAt);
+      if (cutoff && d < cutoff) return;
+      const slot = months.find(m => m.monthIdx === d.getMonth() && m.year === d.getFullYear());
+      if (slot) slot.amount += Number(e.amount);
+    });
+    return months;
+  })();
+
+  const TABS = [
+    { key: 'listings' as const, label: 'My Listings' },
+    { key: 'orders' as const, label: `Active Orders${activeOrders.length > 0 ? ` (${activeOrders.length})` : ''}` },
+    { key: 'earnings' as const, label: 'Earnings' },
+    { key: 'jobs' as const, label: 'Job Matches' },
+  ];
+
+  if (loading) return <div><h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Provider Dashboard</h1><ListSkeleton rows={5} /></div>;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Marketplace</h1>
-      <div className="space-y-8">
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>My Listings</h2>
-            <PrimaryButton variant="purple" onClick={() => setShowCreateForm(true)} disabled={agents.length === 0}>Create New Listing</PrimaryButton>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Provider Dashboard</h1>
+        <PrimaryButton variant="purple" onClick={() => setShowCreateForm(true)} disabled={agents.length === 0}>+ New Listing</PrimaryButton>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Total Earned', value: `$${totalEarned.toFixed(2)}`, color: 'var(--marketplace)' },
+          { label: 'Active Listings', value: myListings.filter(l => l.status === 'active').length.toString(), color: 'var(--success)' },
+          { label: 'Active Orders', value: activeOrders.length.toString(), color: 'var(--accent)' },
+          { label: 'Avg Rating', value: myListings.length > 0 ? (myListings.reduce((s, l) => s + Number(l.avgRating || 0), 0) / myListings.length).toFixed(1) : '—', color: 'var(--warning)' },
+        ].map(stat => (
+          <GlassCard key={stat.label} className="!p-4">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>{stat.label}</div>
+            <div className="text-xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
+          </GlassCard>
+        ))}
+      </div>
+
+      {showCreateForm && (
+        <div className="mb-6">
+          <CreateListingForm agents={agents} onCreated={() => { setShowCreateForm(false); fetchData(); }} onCancel={() => setShowCreateForm(false)} />
+        </div>
+      )}
+
+      <div className="flex gap-4 mb-6 border-b" style={{ borderColor: 'var(--border-color)' }}>
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className="pb-3 text-sm font-medium cursor-pointer whitespace-nowrap"
+            style={{ color: activeTab === t.key ? 'var(--marketplace)' : 'var(--text-muted)', background: 'none', border: 'none', borderBottomWidth: '2px', borderBottomStyle: 'solid', borderBottomColor: activeTab === t.key ? 'var(--marketplace)' : 'transparent' }}
+          >{t.label}</button>
+        ))}
+      </div>
+
+      {activeTab === 'listings' && (
+        myListings.length === 0 ? (
+          <EmptyState icon={<DollarSign className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No listings yet" description="Create a marketplace listing to start earning." action={<PrimaryButton variant="ghost" onClick={() => navigate('/marketplace')}>Browse Marketplace</PrimaryButton>} />
+        ) : (
+          <GlassCard>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b" style={{ borderColor: 'var(--border-color)' }}>
+                    {['Listing', 'Price', 'Category', 'Rating', 'Status', 'Actions'].map(h => (
+                      <th key={h} className="text-left py-2 px-3 text-xs font-medium" style={{ color: 'var(--text-dim)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {myListings.map(l => (
+                    <tr key={l.id} className="border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
+                      <td className="py-3 px-3">
+                        <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{l.title}</div>
+                        <div className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>{l.reviewCount || 0} orders</div>
+                      </td>
+                      <td className="py-3 px-3" style={{ color: 'var(--text-primary)' }}>{formatPrice(l.priceAmount, l.priceType)}</td>
+                      <td className="py-3 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>{l.category || '—'}</span></td>
+                      <td className="py-3 px-3"><StarRating rating={Number(l.avgRating || 0)} count={l.reviewCount || 0} /></td>
+                      <td className="py-3 px-3">
+                        <button
+                          onClick={() => toggleListingStatus(l)}
+                          className="text-xs px-2 py-0.5 rounded-full cursor-pointer"
+                          style={{ background: l.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: l.status === 'active' ? 'var(--success)' : 'var(--warning)', border: 'none' }}
+                        >{l.status}</button>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => navigate(`/marketplace/${l.id}`)} className="text-xs cursor-pointer" style={{ color: 'var(--accent)', background: 'none', border: 'none' }}>View</button>
+                          <button
+                            onClick={() => navigate(`/marketplace/${l.id}`)}
+                            className="cursor-pointer"
+                            title="Edit listing"
+                            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}
+                          ><Edit className="w-3.5 h-3.5" /></button>
+                          <button
+                            onClick={() => deleteListing(l.id)}
+                            disabled={deletingListingId === l.id}
+                            className="cursor-pointer"
+                            title="Delete listing"
+                            style={{ background: 'none', border: 'none', color: deletingListingId === l.id ? 'var(--text-dim)' : 'var(--error, #ef4444)', display: 'flex', alignItems: 'center' }}
+                          ><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </GlassCard>
+        )
+      )}
+
+      {activeTab === 'orders' && (
+        activeOrders.length === 0 ? (
+          <EmptyState icon={<CheckCircle className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No active orders" description="Your active orders from buyers will appear here." />
+        ) : (
+          <div className="space-y-3">
+            {activeOrders.map(order => {
+              const isExpanded = expandedOrderId === order.id;
+              const msgs = orderMessages[order.id] || [];
+              const msgLoading = orderMsgLoading[order.id];
+              return (
+                <GlassCard key={order.id} className="!p-4">
+                  <div className="flex flex-col md:flex-row md:items-start gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Order #{order.id.slice(0, 8)}</h3>
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.1)', color: 'var(--accent)' }}>
+                          {order.status === 'confirmed' ? 'In Progress' : 'Awaiting Payment'}
+                        </span>
+                      </div>
+                      {order.taskDescription && (
+                        <p className="text-xs mb-2 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{order.taskDescription}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-dim)' }}>
+                        <span>Payout: <span style={{ color: 'var(--success)' }}>${Number(order.sellerPayout || 0).toFixed(2)}</span></span>
+                        <span>{new Date(order.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-xs mb-1" style={{ color: 'var(--text-dim)' }}>
+                          <span>Progress</span>
+                          <span>{order.status === 'confirmed' ? '50%' : '10%'}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full" style={{ background: 'var(--bg-elevated)' }}>
+                          <div className="h-full rounded-full" style={{ width: order.status === 'confirmed' ? '50%' : '10%', background: 'var(--marketplace)' }} />
+                        </div>
+                      </div>
+
+                      {isExpanded && (() => {
+                        const milestones = (orderMilestones[order.id] || []).sort((a, b) => a.order - b.order);
+                        return milestones.length > 0 ? (
+                          <div className="mt-4 border-t pt-4" style={{ borderColor: 'var(--border-color)' }}>
+                            <div className="text-xs font-medium mb-2" style={{ color: 'var(--text-dim)' }}>Milestones & Payment Release</div>
+                            <div className="space-y-2 mb-4">
+                              {milestones.map(m => {
+                                const isCompleted = m.status === 'completed';
+                                const isInProgress = m.status === 'in_progress';
+                                const isPending = m.status === 'pending';
+                                return (
+                                  <div key={m.id} className="flex items-center gap-3 rounded-lg px-3 py-2" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-color)' }}>
+                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0" style={{ background: isCompleted ? 'rgba(16,185,129,0.15)' : isInProgress ? 'rgba(139,92,246,0.15)' : 'var(--bg-elevated)', border: `1.5px solid ${isCompleted ? 'var(--success)' : isInProgress ? 'var(--marketplace)' : 'var(--border-color)'}`, color: isCompleted ? 'var(--success)' : isInProgress ? 'var(--marketplace)' : 'var(--text-dim)' }}>
+                                      {isCompleted ? '✓' : m.order}
+                                    </div>
+                                    <span className="flex-1 text-xs" style={{ color: 'var(--text-primary)' }}>{m.label}</span>
+                                    <span className="text-xs" style={{ color: isCompleted ? 'var(--success)' : isInProgress ? 'var(--marketplace)' : 'var(--text-dim)' }}>{m.status.replace('_', ' ')}</span>
+                                    {(isInProgress || isPending) && (
+                                      <button
+                                        onClick={() => releaseMilestone(order.id, m.id)}
+                                        disabled={releasingMilestone === m.id}
+                                        className="text-xs px-2 py-0.5 rounded cursor-pointer"
+                                        style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.2)' }}
+                                      >{releasingMilestone === m.id ? '…' : 'Release'}</button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
+
+                      {isExpanded && (
+                        <div className="mt-4 border-t pt-4" style={{ borderColor: 'var(--border-color)' }}>
+                          <div className="text-xs font-medium mb-2" style={{ color: 'var(--text-dim)' }}>Order Messages</div>
+                          <div className="space-y-2 max-h-48 overflow-y-auto mb-3 pr-1">
+                            {msgLoading && <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Loading messages…</p>}
+                            {!msgLoading && msgs.length === 0 && <p className="text-xs" style={{ color: 'var(--text-dim)' }}>No messages yet. Send the buyer an update.</p>}
+                            {msgs.map((m, i) => (
+                              <div key={i} className="rounded-lg px-3 py-2 text-xs" style={{ background: m.senderRole === 'seller' ? 'rgba(139,92,246,0.12)' : 'var(--bg-elevated)', color: 'var(--text-primary)', maxWidth: '85%', marginLeft: m.senderRole === 'seller' ? 'auto' : '0' }}>
+                                <p>{m.body}</p>
+                                <p className="mt-0.5 opacity-60">{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              value={orderMsgDraft[order.id] || ''}
+                              onChange={e => setOrderMsgDraft(p => ({ ...p, [order.id]: e.target.value }))}
+                              onKeyDown={e => e.key === 'Enter' && sendProviderMessage(order.id)}
+                              placeholder="Send buyer an update…"
+                              className="flex-1 rounded-lg border px-3 py-2 text-xs outline-none"
+                              style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                            />
+                            <button
+                              onClick={() => sendProviderMessage(order.id)}
+                              className="rounded-lg px-3 py-2 cursor-pointer"
+                              style={{ background: 'var(--marketplace)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center' }}
+                            ><Send className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!isExpanded) {
+                          loadOrderMessages(order.id);
+                          loadOrderMilestones(order.id);
+                        }
+                        setExpandedOrderId(isExpanded ? null : order.id);
+                      }}
+                      className="flex items-center gap-1.5 text-xs cursor-pointer rounded-lg px-3 py-1.5"
+                      style={{ background: 'var(--bg-elevated)', border: 'none', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      {isExpanded ? 'Hide thread' : 'Message buyer'}
+                    </button>
+                  </div>
+                </GlassCard>
+              );
+            })}
           </div>
-          {showCreateForm && <CreateListingForm agents={agents} onCreated={() => { setShowCreateForm(false); fetchData(); }} onCancel={() => setShowCreateForm(false)} />}
-          {myListings.length === 0 ? (
-            <EmptyState icon={<DollarSign className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No listings yet" description="Create a marketplace listing to start earning." action={<PrimaryButton variant="ghost" onClick={() => navigate('/marketplace')}>Go to Marketplace</PrimaryButton>} />
+        )
+      )}
+
+      {activeTab === 'earnings' && (
+        <div className="space-y-6">
+          <GlassCard>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Revenue Chart</h3>
+              <div className="flex gap-2">
+                {(['30d', '90d', 'all'] as const).map(p => {
+                  const label = p === 'all' ? 'All' : p;
+                  const isActive = revenuePeriod === p;
+                  return (
+                    <button key={p} onClick={() => setRevenuePeriod(p)} className="text-xs px-2 py-1 rounded cursor-pointer" style={{ background: isActive ? 'rgba(139,92,246,0.15)' : 'transparent', color: isActive ? 'var(--marketplace)' : 'var(--text-dim)', border: 'none' }}>{label}</button>
+                  );
+                })}
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={earningsChartData}>
+                <XAxis dataKey="month" tick={{ fill: 'var(--text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis hide />
+                <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)', borderRadius: 8 }} labelStyle={{ color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--marketplace)' }} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Revenue']} />
+                <Bar dataKey="amount" fill="var(--marketplace)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </GlassCard>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <GlassCard>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Order Pipeline</h3>
+              {(() => {
+                const totalOrders = sellerOrders.length;
+                const completedOrders = sellerOrders.filter(o => o.status === 'completed').length;
+                const inProgress = sellerOrders.filter(o => o.status === 'confirmed').length;
+                const pending = sellerOrders.filter(o => o.status === 'pending_payment').length;
+                const steps = [
+                  { label: 'Total Orders', value: totalOrders, color: 'var(--accent)', pct: 100 },
+                  { label: 'In Progress', value: inProgress, color: 'var(--marketplace)', pct: totalOrders > 0 ? Math.round((inProgress / totalOrders) * 100) : 0 },
+                  { label: 'Awaiting Payment', value: pending, color: 'var(--warning)', pct: totalOrders > 0 ? Math.round((pending / totalOrders) * 100) : 0 },
+                  { label: 'Completed', value: completedOrders, color: 'var(--success)', pct: totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0 },
+                ];
+                return (
+                  <>
+                    {steps.map((step) => (
+                      <div key={step.label} className="mb-3">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span style={{ color: 'var(--text-muted)' }}>{step.label}</span>
+                          <span style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{step.value}</span>
+                        </div>
+                        <div className="h-2 rounded-full" style={{ background: 'var(--bg-elevated)' }}>
+                          <div className="h-full rounded-full transition-all" style={{ width: `${step.pct}%`, background: step.color }} />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="mt-3 pt-3 border-t text-xs" style={{ borderColor: 'var(--border-color)', color: 'var(--text-dim)' }}>
+                      Completion rate: <span style={{ color: 'var(--success)' }}>{totalOrders > 0 ? ((completedOrders / totalOrders) * 100).toFixed(1) : '0.0'}%</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </GlassCard>
+
+            <GlassCard>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Listing Performance</h3>
+              {myListings.length === 0 ? (
+                <div className="text-sm text-center py-8" style={{ color: 'var(--text-dim)' }}>No listings yet</div>
+              ) : (
+                <div className="space-y-3">
+                  {myListings.slice(0, 4).map(l => {
+                    const orderCount = sellerOrders.filter(o => o.listingId === l.id).length;
+                    const completedCount = sellerOrders.filter(o => o.listingId === l.id && o.status === 'completed').length;
+                    const maxOrders = Math.max(1, ...myListings.map(ml => sellerOrders.filter(o => o.listingId === ml.id).length));
+                    return (
+                      <div key={l.id} className="text-xs">
+                        <div className="flex justify-between mb-1">
+                          <span className="truncate max-w-32" style={{ color: 'var(--text-muted)' }}>{l.title}</span>
+                          <div className="flex gap-3">
+                            <span style={{ color: 'var(--text-dim)' }}>{orderCount} orders</span>
+                            <span style={{ color: 'var(--success)' }}>{completedCount} done</span>
+                          </div>
+                        </div>
+                        <div className="h-1.5 rounded-full" style={{ background: 'var(--bg-elevated)' }}>
+                          <div className="h-full rounded-full" style={{ width: `${Math.round((orderCount / maxOrders) * 100)}%`, background: 'var(--marketplace)' }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </GlassCard>
+          </div>
+
+          {ledger.length === 0 ? (
+            <EmptyState icon={<DollarSign className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No payouts yet" description="Complete orders to start accumulating earnings." />
           ) : (
             <GlassCard>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Payout History</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b" style={{ borderColor: 'var(--border-color)' }}>
-                      {['Title', 'Price', 'Status', 'Rating', 'Actions'].map(h => (
+                      {['Date', 'Amount', 'Provider', 'Currency', 'Status'].map(h => (
                         <th key={h} className="text-left py-2 px-3 text-xs font-medium" style={{ color: 'var(--text-dim)' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {myListings.map(l => (
-                      <tr key={l.id} className="border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-                        <td className="py-3 px-3" style={{ color: 'var(--text-primary)' }}>{l.title}</td>
-                        <td className="py-3 px-3" style={{ color: 'var(--text-primary)' }}>{formatPrice(l.priceAmount, l.priceType)}</td>
-                        <td className="py-3 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: l.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: l.status === 'active' ? 'var(--success)' : 'var(--warning)' }}>{l.status}</span></td>
-                        <td className="py-3 px-3"><StarRating rating={Number(l.avgRating || 0)} /></td>
-                        <td className="py-3 px-3">
-                          <button onClick={() => navigate(`/marketplace/${l.id}`)} className="text-xs cursor-pointer" style={{ color: 'var(--accent)', background: 'none', border: 'none' }}>View</button>
-                        </td>
-                      </tr>
-                    ))}
+                    {ledger.map((entry, i) => {
+                      const isUsdc = entry.currency?.toUpperCase() === 'USDC' || entry.currency?.toUpperCase() === 'SOL';
+                      const providerLabel = isUsdc ? 'USDC / On-chain' : (entry.provider || 'Stripe');
+                      const currencyLabel = isUsdc ? 'USDC' : (entry.currency?.toUpperCase() || 'USD');
+                      return (
+                        <tr key={i} className="border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
+                          <td className="py-2 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(entry.createdAt).toLocaleDateString()}</td>
+                          <td className="py-2 px-3 text-xs font-medium" style={{ color: entry.direction === 'inbound' ? 'var(--success)' : 'var(--danger)' }}>
+                            {entry.direction === 'inbound' ? '+' : '-'}${Number(entry.amount).toFixed(2)}
+                          </td>
+                          <td className="py-2 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{providerLabel}</td>
+                          <td className="py-2 px-3">
+                            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: isUsdc ? 'rgba(59,130,246,0.1)' : 'rgba(139,92,246,0.1)', color: isUsdc ? 'var(--accent)' : 'var(--marketplace)' }}>{currencyLabel}</span>
+                          </td>
+                          <td className="py-2 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Settled</span></td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </GlassCard>
           )}
         </div>
+      )}
 
-        <div>
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Open Jobs</h2>
-          {matchingJobs.length === 0 ? (
-            <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No open jobs" description="Check back later for new job postings." />
-          ) : (
-            <div className="space-y-3">
-              {matchingJobs.map(j => (
-                <GlassCard key={j.id} hover className="!p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
+      {activeTab === 'jobs' && (
+        matchingJobs.length === 0 ? (
+          <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No matching jobs" description="No open jobs match your agent capabilities right now." action={<PrimaryButton variant="ghost" onClick={() => navigate('/jobs')}>Browse All Jobs</PrimaryButton>} />
+        ) : (
+          <div className="space-y-3">
+            {matchingJobs.map(j => (
+              <GlassCard key={j.id} hover className="!p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{j.title}</span>
-                      <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: 'var(--text-dim)' }}>
-                        <span>{j.budgetFixed ? `$${j.budgetFixed}` : `$${j.budgetMin}–$${j.budgetMax}`}</span>
-                        {j.deadlineHours && <span>Due in {j.deadlineHours}h</span>}
-                        <span>{j.proposalsCount} proposals</span>
-                      </div>
+                      {j.category && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.1)', color: 'var(--accent)' }}>{j.category}</span>}
                     </div>
-                    <PrimaryButton variant="purple" onClick={() => navigate(`/jobs/${j.id}`)}>Submit Proposal</PrimaryButton>
+                    <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-dim)' }}>
+                      <span>{j.budgetFixed ? `$${j.budgetFixed}` : j.budgetMin && j.budgetMax ? `$${j.budgetMin}–$${j.budgetMax}` : 'Budget TBD'}</span>
+                      {j.deadlineHours && <span>Due in {j.deadlineHours}h</span>}
+                      <span>{j.proposalsCount} proposals</span>
+                    </div>
                   </div>
-                </GlassCard>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Earnings</h2>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <GlassCard className="!p-4">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Total earned</div>
-              <div className="text-xl font-bold" style={{ color: 'var(--marketplace)' }}>${totalEarned.toFixed(2)}</div>
-            </GlassCard>
-            <GlassCard className="!p-4">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Transactions</div>
-              <div className="text-xl font-bold" style={{ color: 'var(--marketplace)' }}>{ledger.length}</div>
-            </GlassCard>
+                  <PrimaryButton variant="purple" onClick={() => navigate(`/jobs/${j.id}`)}>Submit Proposal</PrimaryButton>
+                </div>
+              </GlassCard>
+            ))}
           </div>
-        </div>
-      </div>
+        )
+      )}
     </div>
   );
 }
@@ -2078,6 +2469,7 @@ export function Dashboard() {
   else if (path === '/dashboard/mail') content = <Mail />;
   else if (path === '/dashboard/log') content = <ActivityLogPage />;
   else if (path === '/dashboard/marketplace') content = <MarketplaceDashboard />;
+  else if (path === '/dashboard/orders') content = <BuyerOrders />;
   else if (path === '/dashboard/credential') content = <CredentialDashboard />;
   else if (path === '/dashboard/wallet') content = <WalletDashboard />;
   else if (path === '/dashboard/domain' || path === '/dashboard/handles') content = <DomainDashboard />;

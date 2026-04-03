@@ -243,16 +243,36 @@ export const api = {
         request<Listing>("/marketplace/listings", { method: "POST", body: JSON.stringify(data) }),
       update: (id: string, data: Record<string, unknown>) =>
         request<Listing>(`/marketplace/listings/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      patch: (id: string, data: Record<string, unknown>) =>
+        request<Listing>(`/marketplace/listings/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+      delete: (id: string) =>
+        request<{ success: boolean }>(`/marketplace/listings/${id}`, { method: "DELETE" }),
     },
     orders: {
       list: (params?: Record<string, string>) => {
         const qs = params ? "?" + new URLSearchParams(params).toString() : "";
         return request<{ orders: Order[] }>(`/marketplace/orders${qs}`);
       },
+      get: (orderId: string) =>
+        request<Order>(`/marketplace/orders/${orderId}`),
       create: (data: Record<string, unknown>) =>
         request<Order & { clientSecret?: string }>("/marketplace/orders", { method: "POST", body: JSON.stringify(data) }),
       confirmPayment: (orderId: string) =>
         request<Order>(`/marketplace/orders/${orderId}/confirm-payment`, { method: "POST" }),
+      cancel: (orderId: string, reason?: string) =>
+        request<Order>(`/marketplace/orders/${orderId}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
+      dispute: (orderId: string, data: { reason: string; description: string; evidence?: string }) =>
+        request<{ disputeId: string; status: string }>(`/marketplace/orders/${orderId}/dispute`, { method: "POST", body: JSON.stringify(data) }),
+      approveMilestone: (orderId: string, milestoneId?: string) =>
+        request<Order>(`/marketplace/orders/${orderId}/milestones/approve`, { method: "POST", body: JSON.stringify({ milestoneId }) }),
+      milestones: (orderId: string) =>
+        request<{ milestones: OrderMilestone[] }>(`/marketplace/orders/${orderId}/milestones`),
+      messages: {
+        list: (orderId: string) =>
+          request<{ messages: OrderMessage[] }>(`/marketplace/orders/${orderId}/messages`),
+        send: (orderId: string, body: string) =>
+          request<OrderMessage>(`/marketplace/orders/${orderId}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
+      },
     },
     stripeConfig: () =>
       request<{ publishableKey: string }>("/marketplace/stripe-config"),
@@ -261,6 +281,18 @@ export const api = {
         request<{ reviews: Review[] }>(`/marketplace/listings/${listingId}/reviews`),
       create: (data: Record<string, unknown>) =>
         request<Review>("/marketplace/reviews", { method: "POST", body: JSON.stringify(data) }),
+    },
+    engagements: {
+      list: () => request<{ engagements: A2AEngagement[] }>("/marketplace/a2a/engagements"),
+      create: (data: Record<string, unknown>) =>
+        request<A2AEngagement>("/marketplace/a2a/engagements", { method: "POST", body: JSON.stringify(data) }),
+      get: (id: string) => request<A2AEngagement>(`/marketplace/a2a/engagements/${id}`),
+    },
+    a2aRegistry: {
+      list: (params?: Record<string, string>) => {
+        const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+        return request<{ services: A2ARegistryService[] }>(`/marketplace/a2a/registry${qs}`);
+      },
     },
   },
 
@@ -279,6 +311,8 @@ export const api = {
       create: (jobId: string, data: Record<string, unknown>) =>
         request<Proposal>(`/jobs/${jobId}/proposals`, { method: "POST", body: JSON.stringify(data) }),
       mine: () => request<{ proposals: Proposal[] }>("/jobs/proposals/mine"),
+      updateStatus: (jobId: string, proposalId: string, status: 'accepted' | 'rejected') =>
+        request<Proposal>(`/jobs/${jobId}/proposals/${proposalId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
     },
   },
 
@@ -631,6 +665,63 @@ export interface Order {
   sellerPayout: string;
   status: string;
   paymentProvider: string;
+  createdAt: string;
+}
+
+export interface A2ARegistryService {
+  id: string;
+  name: string;
+  handle: string;
+  description: string;
+  capabilityType: string;
+  capabilities: string[];
+  pricing: {
+    model: 'per_call' | 'per_token' | 'per_second' | 'per_request';
+    amount: string;
+    currency: 'USDC' | 'USD';
+  };
+  latencySla: string;
+  availability: string;
+  callSchema: object;
+  exampleRequest: object;
+  exampleResponse: object;
+  totalCalls: number;
+  successRate: number;
+}
+
+export interface OrderMilestone {
+  id: string;
+  orderId: string;
+  label: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  completedAt?: string;
+  dueAt?: string;
+  order: number;
+}
+
+export interface OrderMessage {
+  id: string;
+  orderId: string;
+  senderRole: 'buyer' | 'seller' | 'system';
+  senderUserId?: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface A2AEngagement {
+  id: string;
+  agentId: string;
+  userId: string;
+  serviceHandle: string;
+  serviceName: string;
+  spendingCapUsdc: string;
+  totalSpentUsdc: string;
+  callCount: number;
+  status: 'active' | 'paused' | 'exhausted';
+  paymentModel: string;
+  pricePerUnit: string;
+  currency: string;
   createdAt: string;
 }
 
