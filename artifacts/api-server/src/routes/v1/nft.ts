@@ -89,33 +89,6 @@ function renderIdenticon15x15(handle: string, x: number, y: number, cellSize: nu
   return parts.join("\n  ");
 }
 
-function renderSkillPills(skills: string[], accentA: string, startX: number, startY: number, maxX: number): string {
-  if (skills.length === 0) return "";
-  const parts: string[] = [];
-  let cx = startX, cy = startY;
-  const rowH = 30, gap = 6, maxDisplay = 6;
-  const displayed = skills.slice(0, maxDisplay);
-  for (const skill of displayed) {
-    const label = skill.length > 15 ? skill.slice(0, 13) + "…" : skill;
-    const w = Math.ceil(label.length * 6.8 + 18);
-    if (cx + w > maxX && cx > startX) { cx = startX; cy += rowH; }
-    parts.push(
-      `<rect x="${cx}" y="${cy}" width="${w}" height="22" rx="6" fill="${accentA}" fill-opacity="0.09" stroke="${accentA}" stroke-opacity="0.22" stroke-width="1"/>`,
-      `<text x="${cx + 9}" y="${cy + 15}" font-family="JetBrains Mono, Courier New, monospace" font-size="9.5" fill="${accentA}" font-weight="600">${label}</text>`,
-    );
-    cx += w + gap;
-  }
-  if (skills.length > maxDisplay) {
-    const more = `+${skills.length - maxDisplay}`;
-    const w = more.length * 7 + 14;
-    if (cx + w > maxX) { cx = startX; cy += rowH; }
-    parts.push(
-      `<rect x="${cx}" y="${cy}" width="${w}" height="22" rx="6" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`,
-      `<text x="${cx + 7}" y="${cy + 15}" font-family="JetBrains Mono, Courier New, monospace" font-size="9.5" fill="rgba(234,234,245,0.35)">${more}</text>`,
-    );
-  }
-  return parts.join("\n  ");
-}
 
 function generateTraces(handle: string): string {
   let seed = 0x6d2b4e1a;
@@ -133,14 +106,6 @@ function generateTraces(handle: string): string {
   return traces.join("\n  ");
 }
 
-function trustArcSvg(trustPct: number, cx: number, cy: number, r: number, color: string): string {
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (trustPct / 100) * circ;
-  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="5.5"/>
-  <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="5.5"
-    stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"
-    stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>`;
-}
 
 router.get("/metadata/:handle", async (req, res, next) => {
   try {
@@ -230,81 +195,35 @@ router.get("/metadata/:handle", async (req, res, next) => {
 router.get("/handles/:handle/image.svg", async (req, res, next) => {
   try {
     const handle = (req.params.handle as string).toLowerCase();
-
-    const agent = await db.query.agentsTable.findFirst({
-      where: eq(agentsTable.handle, handle),
-      columns: {
-        id: true,
-        handle: true,
-        displayName: true,
-        trustScore: true,
-        handleTier: true,
-        nftStatus: true,
-        capabilities: true,
-      },
-    });
-
-    const hasAgent = !!agent;
-    const displayName = hasAgent ? (agent.displayName || null) : null;
-    const trustScore = agent?.trustScore ?? 0;
-    const skills: string[] = (agent?.capabilities as string[] | null) ?? [];
+    const handleDisplay = handle.length > 17 ? handle.slice(0, 15) + "…" : handle;
 
     const [accentA, accentB] = handlePalette(handle);
 
+    // Font size scales with handle length — handle is the hero of the card
     const hl = handle.length;
-    // Font size — fits inside x=22..390 (identicon starts at x=400)
-    const handleFontSize = hl <= 2 ? 68 : hl <= 3 ? 58 : hl <= 5 ? 48 : hl <= 8 ? 40 : hl <= 12 ? 32 : 24;
-    const handleDisplay = handle.length > 17 ? handle.slice(0, 15) + "…" : handle;
-    const displayNameTrunc = displayName ? (displayName.length > 30 ? displayName.slice(0, 28) + "…" : displayName) : null;
+    const handleFontSize = hl <= 2 ? 84 : hl <= 3 ? 74 : hl <= 4 ? 64 : hl <= 6 ? 54 : hl <= 9 ? 44 : 34;
 
-    const trustPct = Math.min(100, Math.max(0, trustScore));
-    const trustColor = trustPct >= 80 ? "#34d399" : trustPct >= 50 ? "#f59e0b" : "#ef4444";
-    const barFill = (trustPct / 100) * 320;
-
-    // Identicon: 15×15, cell=5 gap=1 → 89px (≈50% of original 179px). Top-right at x=400, y=14.
     const identicon = renderIdenticon15x15(handle, 400, 14, 5, 1, "id-grad");
     const traces = generateTraces(handle);
 
-    // All y-positions FIXED — card height is 380px.
-    const handleY    = 122;
-    const domainY    = 144;  // .agentid — 17px bold accent
-    const nameY      = 162;  // display name — 12px muted, only if linked
-    const divider1Y  = 180;
-    const divider2Y  = 226;
-
-    const displayNameSvg = displayNameTrunc
-      ? `<text x="24" y="${nameY}" font-family="Segoe UI, system-ui, sans-serif" font-size="12" fill="rgba(230,232,255,0.38)">${displayNameTrunc}</text>`
-      : "";
-
-    const skillsSvg = hasAgent
-      ? skills.length > 0
-        ? `<text x="22" y="242" font-family="JetBrains Mono, Courier New, monospace" font-size="9" fill="rgba(230,232,255,0.22)" font-weight="700" letter-spacing="2">AGENT SKILLS</text>
-  ${renderSkillPills(skills, accentA, 22, 253, 472)}`
-        : `<text x="22" y="260" font-family="JetBrains Mono, Courier New, monospace" font-size="10" fill="rgba(230,232,255,0.14)">No skills listed</text>`
-      : "";
-
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="380" viewBox="0 0 500 380">
   <defs>
-    <radialGradient id="bg-r" cx="26%" cy="18%" r="90%">
-      <stop offset="0%" stop-color="#0c1228"/>
-      <stop offset="50%" stop-color="#07091a"/>
+    <radialGradient id="bg-r" cx="24%" cy="18%" r="90%">
+      <stop offset="0%" stop-color="#0d1530"/>
+      <stop offset="52%" stop-color="#07091c"/>
       <stop offset="100%" stop-color="#040610"/>
     </radialGradient>
     <linearGradient id="top-line" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="${accentA}"/>
-      <stop offset="45%" stop-color="${accentB}"/>
+      <stop offset="48%" stop-color="${accentB}"/>
       <stop offset="100%" stop-color="${accentA}" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="id-grad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="${accentA}"/>
       <stop offset="100%" stop-color="${accentB}"/>
     </linearGradient>
-    <linearGradient id="bar-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="${trustColor}" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="${trustColor}" stop-opacity="0.45"/>
-    </linearGradient>
     <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-      <circle cx="1" cy="1" r="0.9" fill="rgba(255,255,255,0.028)"/>
+      <circle cx="1" cy="1" r="0.85" fill="rgba(255,255,255,0.022)"/>
     </pattern>
     <clipPath id="card-clip"><rect width="500" height="380" rx="18"/></clipPath>
   </defs>
@@ -312,44 +231,26 @@ router.get("/handles/:handle/image.svg", async (req, res, next) => {
   <rect width="500" height="380" rx="18" fill="url(#bg-r)"/>
   <rect width="500" height="380" rx="18" fill="url(#dots)" clip-path="url(#card-clip)"/>
   ${traces}
-  <rect width="500" height="380" rx="18" fill="none" stroke="${accentA}" stroke-opacity="0.16" stroke-width="1.5"/>
+  <rect width="500" height="380" rx="18" fill="none" stroke="${accentA}" stroke-opacity="0.2" stroke-width="1.5"/>
   <rect x="0" y="0" width="500" height="3" rx="1.5" fill="url(#top-line)"/>
-  <rect x="0" y="0" width="3" height="380" rx="1.5" fill="${accentA}" opacity="0.55"/>
+  <rect x="0" y="0" width="2.5" height="380" rx="1.25" fill="${accentA}" opacity="0.55"/>
 
   <!-- AGENT ID CREDENTIAL badge -->
-  <rect x="20" y="16" width="186" height="22" rx="6" fill="${accentA}" fill-opacity="0.07" stroke="${accentA}" stroke-opacity="0.15" stroke-width="1"/>
-  <text x="30" y="31" font-family="JetBrains Mono, Courier New, monospace" font-size="9" fill="${accentA}" opacity="0.65" font-weight="700" letter-spacing="2.5">AGENT ID CREDENTIAL</text>
+  <rect x="20" y="16" width="183" height="21" rx="5.5" fill="${accentA}" fill-opacity="0.07" stroke="${accentA}" stroke-opacity="0.14" stroke-width="1"/>
+  <text x="30" y="30.5" font-family="JetBrains Mono, Courier New, monospace" font-size="8.5" fill="${accentA}" opacity="0.6" font-weight="700" letter-spacing="2.4">AGENT ID CREDENTIAL</text>
 
-  <!-- 15×15 identicon — cell=5 gap=1 → 89px (50% scale). x=400 y=14 -->
+  <!-- 15x15 identicon — cell=5 gap=1 (89px). x=400 y=14 -->
   ${identicon}
 
-  <!-- Handle name — fixed baseline y=122 -->
-  <text x="22" y="${handleY}" font-family="Bricolage Grotesque, Segoe UI, system-ui, sans-serif" font-size="${handleFontSize}" font-weight="800" fill="#ecedff" letter-spacing="-1.5">${handleDisplay}</text>
+  <!-- Handle — the hero -->
+  <text x="24" y="228" font-family="Bricolage Grotesque, Segoe UI, system-ui, sans-serif" font-size="${handleFontSize}" font-weight="800" fill="#eef0ff" letter-spacing="-1.5">${handleDisplay}</text>
 
-  <!-- .agentid — fixed y=144, 17px bold accent -->
-  <text x="24" y="${domainY}" font-family="JetBrains Mono, Courier New, monospace" font-size="17" fill="${accentA}" font-weight="600" opacity="0.9">.agentid</text>
+  <!-- .agentid -->
+  <text x="26" y="258" font-family="JetBrains Mono, Courier New, monospace" font-size="20" font-weight="600" fill="${accentA}" opacity="0.88">.agentid</text>
 
-  <!-- Display name — fixed y=162, only if linked -->
-  ${displayNameSvg}
-
-  <!-- Divider 1 -->
-  <rect x="20" y="${divider1Y}" width="460" height="1" fill="rgba(255,255,255,0.06)"/>
-
-  <!-- TRUST SCORE -->
-  <text x="22" y="196" font-family="JetBrains Mono, Courier New, monospace" font-size="8.5" fill="rgba(230,232,255,0.22)" font-weight="700" letter-spacing="2.5">TRUST SCORE</text>
-  <rect x="22" y="202" width="320" height="5" rx="2.5" fill="rgba(255,255,255,0.05)"/>
-  <rect x="22" y="202" width="${barFill.toFixed(1)}" height="5" rx="2.5" fill="url(#bar-grad)"/>
-  <text x="354" y="210" font-family="JetBrains Mono, Courier New, monospace" font-size="16" fill="${trustColor}" font-weight="800">${trustScore}</text>
-
-  <!-- Divider 2 -->
-  <rect x="20" y="${divider2Y}" width="460" height="1" fill="rgba(255,255,255,0.04)"/>
-
-  <!-- Agent Skills (full width, no ring) -->
-  ${skillsSvg}
-
-  <!-- Bottom rule -->
+  <!-- bottom rule -->
   <rect x="20" y="318" width="460" height="1" fill="rgba(255,255,255,0.04)"/>
-  <text x="480" y="350" font-family="JetBrains Mono, Courier New, monospace" font-size="8.5" fill="rgba(230,232,255,0.09)" text-anchor="end" letter-spacing="0.5">getagent.id</text>
+  <text x="480" y="350" font-family="JetBrains Mono, Courier New, monospace" font-size="8.5" fill="rgba(220,225,255,0.07)" text-anchor="end" letter-spacing="0.4">getagent.id</text>
 </svg>`;
 
     res.setHeader("Content-Type", "image/svg+xml");

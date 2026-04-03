@@ -11,15 +11,15 @@ let timer: ReturnType<typeof setInterval> | null = null;
 let lastCheckedBlock: bigint | null = null;
 
 function isBaseEnabled(): boolean {
-  const { rpcUrl, contractAddress, platformWallet } = getBaseConfig();
-  return !!(rpcUrl && contractAddress && platformWallet);
+  const { rpcUrl, registrarAddress, platformWallet } = getBaseConfig();
+  return !!(rpcUrl && registrarAddress && platformWallet);
 }
 
 async function detectSecondarySales(): Promise<void> {
   if (!isBaseEnabled()) return;
 
-  const { rpcUrl, contractAddress, platformWallet } = getBaseConfig();
-  if (!rpcUrl || !contractAddress || !platformWallet) return;
+  const { rpcUrl, registrarAddress, platformWallet } = getBaseConfig();
+  if (!rpcUrl || !registrarAddress || !platformWallet) return;
 
   try {
     const { createPublicClient, http, parseAbi } = await import("viem");
@@ -41,7 +41,7 @@ async function detectSecondarySales(): Promise<void> {
     logger.info({ fromBlock: fromBlock.toString(), toBlock: currentBlock.toString() }, "[nft-transfer-detector] Checking for HandleTransferred events");
 
     const logs = await publicClient.getLogs({
-      address: contractAddress as `0x${string}`,
+      address: registrarAddress as `0x${string}`,
       event: {
         type: "event",
         name: "HandleTransferred",

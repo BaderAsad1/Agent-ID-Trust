@@ -81,70 +81,12 @@ function Traces({ handle }: { handle: string }) {
   return <>{els}</>;
 }
 
-function TrustArc({ pct, cx, cy, r, color }: { pct: number; cx: number; cy: number; r: number; color: string }) {
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
-  return (
-    <>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={5.5} />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={5.5}
-        strokeDasharray={circ} strokeDashoffset={offset}
-        strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} />
-    </>
-  );
-}
 
-function SkillPills({ skills, accentA, startX, startY, maxX }: {
-  skills: string[]; accentA: string; startX: number; startY: number; maxX: number;
-}) {
-  if (skills.length === 0) return null;
-  const maxDisplay = 6, rowH = 30, gap = 6;
-  const displayed = skills.slice(0, maxDisplay);
-  const items: React.ReactNode[] = [];
-  let cx = startX, cy = startY;
-  [...displayed, ...(skills.length > maxDisplay ? [`+${skills.length - maxDisplay}`] : [])].forEach((skill, idx) => {
-    const isMore = idx >= maxDisplay;
-    const label = skill.length > 15 ? skill.slice(0, 13) + '…' : skill;
-    const w = Math.ceil(label.length * 6.8 + 18);
-    if (cx + w > maxX && cx > startX) { cx = startX; cy += rowH; }
-    if (isMore) {
-      items.push(
-        <rect key={`more-bg`} x={cx} y={cy} width={w} height={22} rx={6} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />,
-        <text key={`more-t`} x={cx + 7} y={cy + 15} fontFamily="JetBrains Mono, monospace" fontSize={9.5} fill="rgba(234,234,245,0.35)">{label}</text>,
-      );
-    } else {
-      items.push(
-        <rect key={`s-bg-${idx}`} x={cx} y={cy} width={w} height={22} rx={6}
-          fill={accentA} fillOpacity={0.09} stroke={accentA} strokeOpacity={0.22} strokeWidth={1} />,
-        <text key={`s-t-${idx}`} x={cx + 9} y={cy + 15} fontFamily="JetBrains Mono, monospace" fontSize={9.5} fill={accentA} fontWeight={600}>{label}</text>,
-      );
-    }
-    cx += w + gap;
-  });
-  return <>{items}</>;
-}
-
-function NFTCard({ handle, displayName, trustScore, skills }: {
-  handle: string; displayName?: string | null; trustScore: number; skills: string[];
-}) {
+function NFTCard({ handle }: { handle: string }) {
   const [accentA, accentB] = handlePalette(handle);
-
-  const trustPct = Math.min(100, Math.max(0, trustScore));
-  const trustColor = trustPct >= 80 ? '#34d399' : trustPct >= 50 ? '#f59e0b' : '#ef4444';
-  const barFill = (trustPct / 100) * 320;
-
   const hl = handle.length;
-  const handleFontSize = hl <= 2 ? 68 : hl <= 3 ? 58 : hl <= 5 ? 48 : hl <= 8 ? 40 : hl <= 12 ? 32 : 24;
+  const fs = hl <= 2 ? 84 : hl <= 3 ? 74 : hl <= 4 ? 64 : hl <= 6 ? 54 : hl <= 9 ? 44 : 34;
   const handleDisplay = handle.length > 17 ? handle.slice(0, 15) + '…' : handle;
-  const displayNameTrunc = displayName ? (displayName.length > 30 ? displayName.slice(0, 28) + '…' : displayName) : null;
-
-  // Fixed positions — card is 500×380
-  const handleY   = 122;
-  const domainY   = 144;
-  const nameY     = 162;
-  const divider1Y = 180;
-  const divider2Y = 226;
-
   const uid = `nft-${handle}`;
 
   return (
@@ -152,26 +94,22 @@ function NFTCard({ handle, displayName, trustScore, skills }: {
       <svg xmlns="http://www.w3.org/2000/svg" width="500" height="380" viewBox="0 0 500 380"
         style={{ borderRadius: 18, display: 'block' }}>
         <defs>
-          <radialGradient id={`bg-${uid}`} cx="26%" cy="18%" r="90%">
-            <stop offset="0%" stopColor="#0c1228" />
-            <stop offset="50%" stopColor="#07091a" />
+          <radialGradient id={`bg-${uid}`} cx="24%" cy="18%" r="90%">
+            <stop offset="0%" stopColor="#0d1530" />
+            <stop offset="52%" stopColor="#07091c" />
             <stop offset="100%" stopColor="#040610" />
           </radialGradient>
           <linearGradient id={`top-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor={accentA} />
-            <stop offset="45%" stopColor={accentB} />
+            <stop offset="48%" stopColor={accentB} />
             <stop offset="100%" stopColor={accentA} stopOpacity={0} />
           </linearGradient>
           <linearGradient id={`id-grad-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor={accentA} />
             <stop offset="100%" stopColor={accentB} />
           </linearGradient>
-          <linearGradient id={`bar-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor={trustColor} stopOpacity={0.95} />
-            <stop offset="100%" stopColor={trustColor} stopOpacity={0.45} />
-          </linearGradient>
           <pattern id={`dots-${uid}`} x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="0.9" fill="rgba(255,255,255,0.028)" />
+            <circle cx="1" cy="1" r="0.85" fill="rgba(255,255,255,0.022)" />
           </pattern>
           <clipPath id={`clip-${uid}`}><rect width="500" height="380" rx="18" /></clipPath>
         </defs>
@@ -179,54 +117,25 @@ function NFTCard({ handle, displayName, trustScore, skills }: {
         <rect width="500" height="380" rx="18" fill={`url(#bg-${uid})`} />
         <rect width="500" height="380" rx="18" fill={`url(#dots-${uid})`} clipPath={`url(#clip-${uid})`} />
         <Traces handle={handle} />
-        <rect width="500" height="380" rx="18" fill="none" stroke={accentA} strokeOpacity={0.16} strokeWidth={1.5} />
+        <rect width="500" height="380" rx="18" fill="none" stroke={accentA} strokeOpacity={0.2} strokeWidth={1.5} />
         <rect x="0" y="0" width="500" height="3" rx="1.5" fill={`url(#top-${uid})`} />
-        <rect x="0" y="0" width="3" height="380" rx="1.5" fill={accentA} opacity={0.55} />
+        <rect x="0" y="0" width="2.5" height="380" rx="1.25" fill={accentA} opacity={0.55} />
 
-        <rect x="20" y="16" width="186" height="22" rx="6" fill={accentA} fillOpacity={0.07} stroke={accentA} strokeOpacity={0.15} strokeWidth={1} />
-        <text x="30" y="31" fontFamily="JetBrains Mono, monospace" fontSize={9} fill={accentA} opacity={0.65} fontWeight={700} letterSpacing="2.5">AGENT ID CREDENTIAL</text>
+        <rect x="20" y="16" width="183" height="21" rx="5.5" fill={accentA} fillOpacity={0.07} stroke={accentA} strokeOpacity={0.14} strokeWidth={1} />
+        <text x="30" y="30.5" fontFamily="JetBrains Mono, monospace" fontSize={8.5} fill={accentA} opacity={0.6} fontWeight={700} letterSpacing="2.4">AGENT ID CREDENTIAL</text>
 
-        {/* 15×15 identicon — cell=5 gap=1 → 89px (50% of original). Top-right at x=400 y=14 */}
         <Identicon15x15 handle={handle} x={400} y={14} cellSize={5} gap={1} gradId={`id-grad-${uid}`} />
 
-        {/* Handle name — fixed baseline y=122 */}
-        <text x="22" y={handleY} fontFamily="Bricolage Grotesque, system-ui, sans-serif" fontSize={handleFontSize} fontWeight={800} fill="#ecedff" letterSpacing="-1.5">{handleDisplay}</text>
+        {/* Handle — the hero */}
+        <text x="24" y="228" fontFamily="Bricolage Grotesque, system-ui, sans-serif" fontSize={fs} fontWeight={800} fill="#eef0ff" letterSpacing="-1.5">{handleDisplay}</text>
 
-        {/* .agentid — fixed y=144, 17px bold accent */}
-        <text x="24" y={domainY} fontFamily="JetBrains Mono, monospace" fontSize={17} fill={accentA} fontWeight={600} opacity={0.9}>.agentid</text>
+        {/* .agentid */}
+        <text x="26" y="258" fontFamily="JetBrains Mono, monospace" fontSize={20} fontWeight={600} fill={accentA} opacity={0.88}>.agentid</text>
 
-        {/* Display name — fixed y=162, only if linked */}
-        {displayNameTrunc && (
-          <text x="24" y={nameY} fontFamily="system-ui, sans-serif" fontSize={12} fill="rgba(230,232,255,0.38)">{displayNameTrunc}</text>
-        )}
-
-        {/* Divider 1 */}
-        <rect x="20" y={divider1Y} width="460" height="1" fill="rgba(255,255,255,0.06)" />
-
-        {/* Trust score */}
-        <text x="22" y="196" fontFamily="JetBrains Mono, monospace" fontSize={8.5} fill="rgba(230,232,255,0.22)" fontWeight={700} letterSpacing="2.5">TRUST SCORE</text>
-        <rect x="22" y="202" width="320" height="5" rx="2.5" fill="rgba(255,255,255,0.05)" />
-        <rect x="22" y="202" width={barFill} height="5" rx="2.5" fill={`url(#bar-${uid})`} />
-        <text x="354" y="210" fontFamily="JetBrains Mono, monospace" fontSize={16} fill={trustColor} fontWeight={800}>{trustScore}</text>
-
-        {/* Divider 2 */}
-        <rect x="20" y={divider2Y} width="460" height="1" fill="rgba(255,255,255,0.04)" />
-
-        {/* Agent Skills — full width, no ring */}
-        {skills.length > 0 ? (
-          <>
-            <text x="22" y="242" fontFamily="JetBrains Mono, monospace" fontSize={9} fill="rgba(230,232,255,0.22)" fontWeight={700} letterSpacing="2">AGENT SKILLS</text>
-            <SkillPills skills={skills} accentA={accentA} startX={22} startY={253} maxX={472} />
-          </>
-        ) : displayNameTrunc ? (
-          <text x="22" y="260" fontFamily="JetBrains Mono, monospace" fontSize={10} fill="rgba(230,232,255,0.14)">No skills listed</text>
-        ) : null}
-
-        {/* Bottom rule */}
         <rect x="20" y="318" width="460" height="1" fill="rgba(255,255,255,0.04)" />
-        <text x="480" y="350" fontFamily="JetBrains Mono, monospace" fontSize={8.5} fill="rgba(230,232,255,0.09)" textAnchor="end" letterSpacing="0.5">getagent.id</text>
+        <text x="480" y="350" fontFamily="JetBrains Mono, monospace" fontSize={8.5} fill="rgba(220,225,255,0.07)" textAnchor="end" letterSpacing="0.4">getagent.id</text>
       </svg>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'rgba(232,232,240,0.18)', letterSpacing: '0.05em' }}>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'rgba(232,232,240,0.15)', letterSpacing: '0.05em' }}>
         /api/v1/handles/{handle}/image.svg
       </div>
     </div>
@@ -234,31 +143,25 @@ function NFTCard({ handle, displayName, trustScore, skills }: {
 }
 
 export default function HandleNFT() {
-  const examples = [
-    { handle: 'ai', displayName: 'AI Agent', trustScore: 98, skills: ['web-search', 'code-execution', 'data-analysis', 'summarization', 'image-analysis', 'email-drafting'] },
-    { handle: 'nova', displayName: 'Nova Research Bot', trustScore: 91, skills: ['web-search', 'document-parsing', 'citation-extraction', 'summarization'] },
-    { handle: 'atlas', displayName: 'Atlas-7 Navigation', trustScore: 86, skills: ['routing', 'maps-api', 'traffic-prediction'] },
-    { handle: 'support', displayName: 'Customer Support Agent', trustScore: 62, skills: ['ticket-triage', 'faq-lookup', 'escalation-routing', 'sentiment-analysis'] },
-    { handle: 'scraper', displayName: null, trustScore: 24, skills: [] },
-    { handle: 'x', displayName: 'Agent X', trustScore: 100, skills: ['all-tools'] },
-  ];
+  const handles = ['ai', 'nova', 'atlas', 'support', 'scraper', 'x'];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#050711', padding: '52px 40px 80px', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: '#020307', padding: '52px 40px 80px', fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');`}</style>
       <div style={{ maxWidth: 1640, margin: '0 auto' }}>
         <div style={{ marginBottom: 48 }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.2em', color: 'rgba(79,125,243,0.6)', textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '0.2em', color: 'rgba(79,125,243,0.5)', textTransform: 'uppercase' as const, marginBottom: 10 }}>
             Handle Credential Image
           </div>
-          <h1 style={{ fontFamily: "'Bricolage Grotesque', 'Inter', sans-serif", fontSize: 34, fontWeight: 800, color: '#e8e8f0', letterSpacing: '-0.03em', margin: '0 0 10px' }}>
-            500 x 500 — one card per handle
+          <h1 style={{ fontFamily: "'Bricolage Grotesque', system-ui, sans-serif", fontSize: 34, fontWeight: 800, color: '#e8e8f0', letterSpacing: '-0.03em', margin: '0 0 10px' }}>
+            500 x 380 — one card per handle
           </h1>
-          <p style={{ fontSize: 13, color: 'rgba(232,232,240,0.33)', margin: 0, maxWidth: 520, lineHeight: 1.7 }}>
-            Per-handle color palette, 15x15 symmetric identicon, agent skills, and trust score — all derived live from the database on each request.
+          <p style={{ fontSize: 13, color: 'rgba(232,232,240,0.28)', margin: 0, maxWidth: 480, lineHeight: 1.7 }}>
+            Per-handle accent palette and 15x15 symmetric identicon — fully derived from the handle string, no database query required.
           </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(520px, 1fr))', gap: 44 }}>
-          {examples.map((ex) => <NFTCard key={ex.handle} {...ex} />)}
+          {handles.map((h) => <NFTCard key={h} handle={h} />)}
         </div>
       </div>
     </div>
