@@ -12,7 +12,7 @@
     "test:api": "pnpm --filter ./artifacts/api-server run test",
     "load:test": "k6 run scripts/load-test.js",
     "load:smoke": "k6 run scripts/load-test-smoke.js",
-    "load:stress": "k6 run --vus 500 --duration 60s scripts/load-test.js",
+    "load:stress": "k6 run scripts/load-stress.js",
     "load:test:local": "BASE_URL=http://localhost:3001/api/v1 k6 run scripts/load-test.js"
   },
   "private": true,
