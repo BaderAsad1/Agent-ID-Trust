@@ -5,6 +5,7 @@ import { Footer } from '@/components/Footer';
 import { api, type PublicProfile, type ActivityItem, type ProfileReview } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { formatPrice } from '@/lib/pricing';
+import { getSkillIcon } from '@/lib/skills';
 
 
 
@@ -56,7 +57,6 @@ function MachineReadableZone() {
   );
 }
 
-const CAP_ICONS: Record<string, string> = { 'Code Execution': '▸', 'API Access': '∼', 'Data Analysis': '≡', 'Payments': '¤', 'Messaging': '@' };
 
 const EVENT_LABELS: Record<string, string> = {
   'agent.created': 'Agent registered',
@@ -260,7 +260,7 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats }: { agent: 
               border: '1px solid rgba(255,255,255,0.05)', borderRadius: 4, padding: '3px 8px',
               display: 'flex', alignItems: 'center', gap: 4,
             }}>
-              <span style={{ color: '#4f7df3', fontWeight: 700, fontSize: 11 }}>{CAP_ICONS[cap] || '▸'}</span>
+              <span style={{ color: '#4f7df3', fontWeight: 700, fontSize: 11 }}>{getSkillIcon(cap)}</span>
               {cap}
             </span>
           ))}
@@ -454,7 +454,7 @@ export function AgentProfile() {
     { icon: '🌐', label: 'DID Resolution', desc: profile.credential?.resolverUrl ? `Resolvable via ${profile.credential.resolverUrl} (off-chain)` : 'Off-chain DID resolution (on-chain anchoring coming soon)', stats: '' },
   ];
   const skills = agentCaps.length > 0
-    ? agentCaps.map(c => ({ icon: CAP_ICONS[c] || '▸', label: c, desc: '', stats: '' }))
+    ? agentCaps.map(c => ({ icon: getSkillIcon(c), label: c, desc: '', stats: '' }))
     : defaultSkills;
 
   return (

@@ -80,11 +80,11 @@ function VerificationSeal({ visible }: { visible: boolean }) {
 }
 
 const ATTESTATIONS = [
-  { label: 'Code Execution', icon: '>' },
-  { label: 'API Access', icon: '~' },
-  { label: 'Data Analysis', icon: '#' },
-  { label: 'Payments', icon: '$' },
-  { label: 'Messaging', icon: '@' },
+  { label: 'Web Search', icon: '🔍' },
+  { label: 'Code Generation', icon: '💻' },
+  { label: 'Data Analysis', icon: '📊' },
+  { label: 'API Integration', icon: '⚡' },
+  { label: 'Customer Support', icon: '💬' },
 ];
 
 export function AgentCredential({ phase }: { phase: AnimationPhase }) {

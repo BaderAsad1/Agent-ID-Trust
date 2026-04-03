@@ -1,27 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, Loader2, Copy, AlertCircle, ArrowRight, Bot, Link2 } from 'lucide-react';
+import { Check, Loader2, Copy, AlertCircle, ArrowRight, Bot, Link2, Plus, X } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
 import { getHandlePrice } from '@/lib/pricing';
+import { SKILLS_LIBRARY, SKILL_CATEGORIES, type SkillCategory } from '@/lib/skills';
 
 type Intent = 'new' | 'claim' | null;
 type FlowStep = 'intent' | 'auth' | 'wizard-identity' | 'wizard-capabilities' | 'token-display' | 'claim-existing' | 'complete';
-
-const ALL_CAPABILITIES = [
-  { id: 'research', label: 'Research', icon: '🔍' },
-  { id: 'code', label: 'Code Generation', icon: '💻' },
-  { id: 'data', label: 'Data Analysis', icon: '📊' },
-  { id: 'writing', label: 'Writing', icon: '✍️' },
-  { id: 'image', label: 'Image Generation', icon: '🎨' },
-  { id: 'audio', label: 'Audio / Speech', icon: '🎧' },
-  { id: 'reasoning', label: 'Reasoning', icon: '🧠' },
-  { id: 'browsing', label: 'Web Browsing', icon: '🌐' },
-  { id: 'tools', label: 'Tool Use', icon: '🔧' },
-  { id: 'support', label: 'Customer Support', icon: '💬' },
-  { id: 'scheduling', label: 'Scheduling', icon: '📅' },
-  { id: 'api', label: 'API Integration', icon: '⚡' },
-];
 
 function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
   return (
@@ -109,6 +95,167 @@ function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick: (
     }}>
       {children}
     </button>
+  );
+}
+
+interface CapabilitiesStepProps {
+  selectedCaps: string[];
+  setSelectedCaps: React.Dispatch<React.SetStateAction<string[]>>;
+  error: string | null;
+  submitting: boolean;
+  onBack: () => void;
+  onNext: () => void;
+}
+
+function CapabilitiesStep({ selectedCaps, setSelectedCaps, error, submitting, onBack, onNext }: CapabilitiesStepProps) {
+  const [activeCategory, setActiveCategory] = useState<SkillCategory | 'All'>('All');
+  const [customInput, setCustomInput] = useState('');
+
+  const visibleSkills = activeCategory === 'All'
+    ? SKILLS_LIBRARY
+    : SKILLS_LIBRARY.filter(s => s.category === activeCategory);
+
+  const toggleSkill = (label: string) => {
+    setSelectedCaps(prev => prev.includes(label) ? prev.filter(c => c !== label) : [...prev, label]);
+  };
+
+  const addCustomSkill = () => {
+    const trimmed = customInput.trim();
+    if (trimmed && !selectedCaps.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+      setSelectedCaps(prev => [...prev, trimmed]);
+    }
+    setCustomInput('');
+  };
+
+  const removeSkill = (label: string) => {
+    setSelectedCaps(prev => prev.filter(c => c !== label));
+  };
+
+  const allCategories: Array<SkillCategory | 'All'> = ['All', ...SKILL_CATEGORIES];
+
+  const tabBarStyle = {
+    display: 'flex' as const, gap: 6, flexWrap: 'wrap' as const, marginBottom: 16,
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh', background: '#050711', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '40px 20px', fontFamily: "'Inter', system-ui, sans-serif",
+    }}>
+      <div style={{ width: '100%', maxWidth: 640 }}>
+        <StepIndicator steps={['intent', 'identity', 'capabilities', 'activate']} current={2} />
+        <h1 style={{
+          fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 28, fontWeight: 800,
+          color: '#e8e8f0', textAlign: 'center', marginBottom: 6,
+        }}>Capabilities</h1>
+        <p style={{ color: 'rgba(232,232,240,0.45)', fontSize: 14, textAlign: 'center', marginBottom: 24 }}>
+          Select what your agent can do. You can change these later.
+        </p>
+
+        <div style={tabBarStyle}>
+          {allCategories.map(cat => {
+            const active = activeCategory === cat;
+            return (
+              <button key={cat} onClick={() => setActiveCategory(cat)} style={{
+                padding: '6px 14px', borderRadius: 20,
+                background: active ? 'rgba(79,125,243,0.18)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${active ? 'rgba(79,125,243,0.45)' : 'rgba(255,255,255,0.06)'}`,
+                color: active ? '#a5bdfc' : 'rgba(232,232,240,0.4)',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                transition: 'all 0.15s', whiteSpace: 'nowrap',
+              }}>
+                {cat}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{
+          maxHeight: 340, overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: 8,
+          padding: '2px 0',
+        }}>
+          {visibleSkills.map(skill => {
+            const sel = selectedCaps.includes(skill.label);
+            return (
+              <button key={skill.id} onClick={() => toggleSkill(skill.label)} style={{
+                padding: '8px 14px', borderRadius: 10,
+                background: sel ? 'rgba(79,125,243,0.12)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${sel ? 'rgba(79,125,243,0.35)' : 'rgba(255,255,255,0.06)'}`,
+                color: sel ? '#a5bdfc' : 'rgba(232,232,240,0.5)',
+                fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+                transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                <span>{skill.icon}</span> {skill.label}
+                {sel && <Check size={12} style={{ marginLeft: 2 }} />}
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedCaps.length > 0 && (
+          <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(232,232,240,0.35)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
+              Selected ({selectedCaps.length})
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {selectedCaps.map(label => (
+                <span key={label} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '4px 10px', borderRadius: 8,
+                  background: 'rgba(79,125,243,0.12)', border: '1px solid rgba(79,125,243,0.25)',
+                  color: '#a5bdfc', fontSize: 12, fontWeight: 500,
+                }}>
+                  {label}
+                  <button onClick={() => removeSkill(label)} style={{
+                    background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                    color: 'rgba(165,189,252,0.5)', display: 'flex', alignItems: 'center',
+                  }}>
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+          <input
+            value={customInput}
+            onChange={e => setCustomInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomSkill(); } }}
+            placeholder="Add a custom skill…"
+            style={{
+              flex: 1, padding: '10px 14px', borderRadius: 10,
+              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+              color: '#e8e8f0', fontSize: 13, fontFamily: 'inherit', outline: 'none',
+            }}
+          />
+          <button onClick={addCustomSkill} disabled={!customInput.trim()} style={{
+            padding: '10px 16px', borderRadius: 10,
+            background: customInput.trim() ? 'rgba(79,125,243,0.15)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${customInput.trim() ? 'rgba(79,125,243,0.35)' : 'rgba(255,255,255,0.06)'}`,
+            color: customInput.trim() ? '#a5bdfc' : 'rgba(232,232,240,0.2)',
+            cursor: customInput.trim() ? 'pointer' : 'not-allowed',
+            display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, fontFamily: 'inherit',
+          }}>
+            <Plus size={14} /> Add
+          </button>
+        </div>
+
+        {error && (
+          <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: 13 }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ marginTop: 28, display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <GhostBtn onClick={onBack}>Back</GhostBtn>
+          <PrimaryBtn onClick={onNext} loading={submitting} disabled={submitting}>
+            Create Agent <ArrowRight size={16} />
+          </PrimaryBtn>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -592,45 +739,14 @@ export function GetStarted() {
 
   if (step === 'wizard-capabilities') {
     return (
-      <div style={pageStyle}>
-        <StepIndicator steps={['intent', 'identity', 'capabilities', 'activate']} current={2} />
-        <h1 style={titleStyle}>Capabilities</h1>
-        <p style={subtitleStyle}>Select what your agent can do. You can change these later.</p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          {ALL_CAPABILITIES.map(cap => {
-            const sel = selectedCaps.includes(cap.id);
-            return (
-              <button key={cap.id} onClick={() => {
-                setSelectedCaps(prev => sel ? prev.filter(c => c !== cap.id) : [...prev, cap.id]);
-              }} style={{
-                padding: '10px 16px', borderRadius: 10,
-                background: sel ? 'rgba(79,125,243,0.12)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${sel ? 'rgba(79,125,243,0.35)' : 'rgba(255,255,255,0.06)'}`,
-                color: sel ? '#a5bdfc' : 'rgba(232,232,240,0.5)',
-                fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                fontFamily: 'inherit', transition: 'all 0.15s',
-                display: 'flex', alignItems: 'center', gap: 6,
-              }}>
-                <span>{cap.icon}</span> {cap.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {error && (
-          <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: 13 }}>
-            {error}
-          </div>
-        )}
-
-        <div style={{ marginTop: 28, display: 'flex', gap: 10, justifyContent: 'center' }}>
-          <GhostBtn onClick={() => setStep('wizard-identity')}>Back</GhostBtn>
-          <PrimaryBtn onClick={handleCreateAgent} loading={submitting} disabled={submitting}>
-            Create Agent <ArrowRight size={16} />
-          </PrimaryBtn>
-        </div>
-      </div>
+      <CapabilitiesStep
+        selectedCaps={selectedCaps}
+        setSelectedCaps={setSelectedCaps}
+        error={error}
+        submitting={submitting}
+        onBack={() => setStep('wizard-identity')}
+        onNext={handleCreateAgent}
+      />
     );
   }
 
