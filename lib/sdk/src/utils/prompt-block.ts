@@ -27,13 +27,13 @@ export function formatPromptBlock(bundle: BootstrapBundle, options?: PromptBlock
     ``,
     `- **Name**: ${bundle.display_name}`,
     `- **Handle**: ${handle ? `${handle}.agentid` : "(no handle)"}`,
-    `- **DID**: did:web:getagent.id:agents:${agentId}`,
-    `- **Handle DID (alias)**: ${handle ? `did:agentid:${handle}` : "(no handle)"}`,
     `- **Agent ID**: ${agentId}`,
+    `- **DID (canonical)**: did:web:getagent.id:agents:${agentId}`,
+    handle ? `- **Handle DID (alias)**: did:agentid:${handle}` : null,
     `- **Trust Score**: ${trustScore}/100`,
     `- **Trust Tier**: ${trustTier}`,
     `- **Agent Card**: ${agentCardUrl}`,
-  ];
+  ].filter((l) => l !== null) as string[];
 
   if (inboxUrl) {
     lines.push(`- **Inbox**: ${inboxUrl}`);

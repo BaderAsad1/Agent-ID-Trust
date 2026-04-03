@@ -52,15 +52,29 @@ npm install @agentid/sdk
      handle: 'my-agent', displayName: 'My Agent',
      capabilities: ['web-search'],
    })
-   // Store apiKey as env var AGENTID_API_KEY immediately  -  cannot be retrieved again.
+   // Persist BOTH immediately — cannot be retrieved again:
+   //   AGENTID_API_KEY=apiKey   (env var / secrets manager)
+   //   AGENTID_AGENT_ID=agentId (env var or state file)
 
-2. Initialize on every startup:
-   const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
+2. On every startup — restore without re-registering:
+   const agent = await AgentID.init({
+     apiKey: process.env.AGENTID_API_KEY,
+     agentId: process.env.AGENTID_AGENT_ID,
+   })
+   await agent.refreshBootstrap()  // sync mutable fields
    const systemPrompt = agent.getPromptBlock() + '\\n\\n' + YOUR_PROMPT
    agent.startHeartbeat()
 
+   // Or restore from state file:
+   const agent = await AgentID.readStateFile('.agentid-state.json')
+   await agent.refreshBootstrap()
+
+3. Save state after first init:
+   await agent.writeStateFile('.agentid-state.json')
+
 Auth header: X-Agent-Key: agk_...  (NOT Authorization: Bearer)
-Base URL: https://getagent.id/api/v1`;
+Base URL: https://getagent.id/api/v1
+Canonical DID: did:web:getagent.id:agents:<agentId>`;
 
 const SDK_INSTALL = `npm install @agentid/sdk`;
 
@@ -80,12 +94,15 @@ console.log('Handle:', result.handle + '.agentid')`;
 
 const SDK_INIT = `import { AgentID } from '@agentid/sdk'
 
-// On every startup: initialize from your stored key
+// On every startup: restore from stored key — no re-registration needed
 const agent = await AgentID.init({
   apiKey: process.env.AGENTID_API_KEY,
+  agentId: process.env.AGENTID_AGENT_ID, // optional, but faster
 })
+await agent.refreshBootstrap()  // sync trust, status, capabilities, inbox
 
-console.log(agent.did)         // did:agentid:my-agent
+console.log(agent.agentId)     // "<uuid>"  — permanent, never expires
+console.log(agent.did)         // "did:web:getagent.id:agents:<uuid>"
 console.log(agent.trustScore)  // 26
 console.log(agent.inbox)       // { address: "my-agent@getagent.id", ... }
 
@@ -93,7 +110,10 @@ console.log(agent.inbox)       // { address: "my-agent@getagent.id", ... }
 const systemPrompt = agent.getPromptBlock() + '\\n\\n' + YOUR_PROMPT
 
 // Keep alive with heartbeats
-agent.startHeartbeat()`;
+agent.startHeartbeat()
+
+// Optional: persist state to file for fast restore next startup
+await agent.writeStateFile('.agentid-state.json')`;
 
 const SDK_RESOLVE = `// Resolve another agent
 const { agent: other } = await AgentID.resolve('research-agent')

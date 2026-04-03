@@ -583,6 +583,154 @@ class AgentID:
             return json.dumps(response.json(), indent=2)
         return response.text
 
+    def write_identity_file(
+        self,
+        path: str,
+        agent_id: Optional[str] = None,
+        format: str = "generic",
+    ) -> None:
+        """
+        Fetch the agent's identity content and write it to a file.
+
+        Args:
+            path: Filesystem path where the identity file will be written
+                (e.g. ``"AGENTID.md"`` or ``"~/.clawd/AGENTID.md"``).
+            agent_id: UUID of the agent. Defaults to the authenticated agent.
+            format: One of ``"openclaw"``, ``"claude"``, ``"generic"``, or ``"json"``.
+
+        Example::
+
+            # Write identity file for OpenClaw
+            client.write_identity_file("AGENTID.md", format="openclaw")
+        """
+        import os
+        content = self.get_identity_content(agent_id=agent_id, format=format)
+        expanded = os.path.expanduser(path)
+        os.makedirs(os.path.dirname(os.path.abspath(expanded)), exist_ok=True)
+        with open(expanded, "w", encoding="utf-8") as f:
+            f.write(content)
+
+    def export_state(self, agent_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Export the agent's durable state as a dict.
+
+        Permanent fields (agent_id, api_key, did, base_url) are safe to persist.
+        Mutable fields (handle, bootstrap) should be refreshed on next startup
+        via a fresh ``whoami()`` or ``get_bootstrap()`` call.
+
+        Args:
+            agent_id: UUID of the agent. Auto-inferred from API key if not provided.
+
+        Returns:
+            A dict with ``version``, ``base_url``, ``agent_id``, ``api_key``,
+            ``did``, ``handle``, ``resolver_url``, ``profile_url``, and ``saved_at``.
+
+        Example::
+
+            state = client.export_state()
+            import json
+            with open('.agentid-state.json', 'w') as f:
+                json.dump(state, f, indent=2)
+        """
+        import datetime
+        if agent_id is None:
+            agent = self.whoami()
+            agent_id = agent.id
+            handle = agent.handle
+        else:
+            agent = self.whoami()
+            handle = agent.handle if agent.id == agent_id else None
+
+        base_url = self._base_url
+        return {
+            "version": 1,
+            "base_url": base_url,
+            "agent_id": agent_id,
+            "api_key": self._agent_key or self._api_key or "",
+            "did": f"did:web:getagent.id:agents:{agent_id}",
+            "handle": handle or None,
+            "resolver_url": f"{base_url}/api/v1/resolve/{handle}" if handle else f"{base_url}/api/v1/resolve/id/{agent_id}",
+            "profile_url": f"{base_url}/{handle}" if handle else f"{base_url}/id/{agent_id}",
+            "saved_at": datetime.datetime.utcnow().isoformat() + "Z",
+        }
+
+    def write_state_file(self, path: str, agent_id: Optional[str] = None) -> None:
+        """
+        Export the agent's durable state and write it to a JSON file.
+
+        Args:
+            path: Filesystem path for the state file (e.g. ``".agentid-state.json"``).
+            agent_id: UUID of the agent. Auto-inferred if not provided.
+
+        Example::
+
+            client.write_state_file('.agentid-state.json')
+        """
+        import os, json
+        state = self.export_state(agent_id=agent_id)
+        expanded = os.path.expanduser(path)
+        os.makedirs(os.path.dirname(os.path.abspath(expanded)), exist_ok=True)
+        with open(expanded, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+
+    @classmethod
+    def from_state(cls, state: Dict[str, Any]) -> "AgentID":
+        """
+        Restore an AgentID client from a previously exported state dict.
+
+        Call this on startup to avoid re-registration. After restoring, call
+        ``whoami()`` or fetch the bootstrap to refresh mutable fields.
+
+        Args:
+            state: A dict previously returned by ``export_state()``.
+
+        Returns:
+            A configured AgentID client for the restored agent.
+
+        Example::
+
+            import json
+            with open('.agentid-state.json') as f:
+                state = json.load(f)
+            client = AgentID.from_state(state)
+        """
+        if state.get("version") != 1:
+            raise ValueError(f"Unsupported state version: {state.get('version')}. Expected 1.")
+        api_key = state.get("api_key", "")
+        base_url = state.get("base_url", DEFAULT_BASE_URL)
+        agent_key = None
+        user_api_key = None
+        if api_key.startswith("agk_"):
+            agent_key = api_key
+        else:
+            user_api_key = api_key
+        return cls(
+            api_key=user_api_key,
+            agent_key=agent_key,
+            base_url=base_url,
+        )
+
+    @classmethod
+    def read_state_file(cls, path: str) -> "AgentID":
+        """
+        Restore an AgentID client from a state JSON file on disk.
+
+        Args:
+            path: Path to the state file written by ``write_state_file()``.
+
+        Returns:
+            A configured AgentID client.
+
+        Example::
+
+            client = AgentID.read_state_file('.agentid-state.json')
+        """
+        import os, json
+        expanded = os.path.expanduser(path)
+        with open(expanded, "r", encoding="utf-8") as f:
+            state = json.load(f)
+        return cls.from_state(state)
+
     def acknowledge_task(self, task_id: str) -> Task:
         """
         Acknowledge receipt of a task.

@@ -459,14 +459,23 @@ const OPENCLAW_EXAMPLE = `# OpenClaw + Agent ID  -  just prompt it.
 #  GET /api/v1/resolve/billing-agent
 #  → trustScore: 91, tier: elite, verificationStatus: verified ✓
 
-# ── Optional: persist the API key for autonomous sessions ─
-# After first registration, tell OpenClaw to remember it:
+# ── Persist identity for autonomous sessions ───────────────
+# Explicit steps — do NOT rely on "telling it to remember":
 
-"Save my GetAgent.ID API key agk_... as AGENTID_API_KEY
- so you can act on my behalf without asking every time."
+# 1. Set AGENTID_API_KEY in your environment or secrets manager:
+#    export AGENTID_API_KEY=agk_...
+#    export AGENTID_AGENT_ID=<uuid from registration>
 
-# From that point, OpenClaw uses your key automatically
-# for all Agent ID actions in future conversations.`;
+# 2. Write an AGENTID.md identity file to your project:
+#    const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
+#    await agent.writeIdentityFile('AGENTID.md', 'openclaw')
+
+# 3. On next startup — restore without re-registering:
+#    const agent = await AgentID.readStateFile('.agentid-state.json')
+#    await agent.refreshBootstrap()   # sync mutable fields
+#    agent.startHeartbeat()
+
+# OpenClaw reads AGENTID.md from your project root automatically.`;
 
 type Tab = 'langchain' | 'crewai' | 'openai_assistants' | 'vercel_ai' | 'autogen' | 'openclaw' | 'fetch' | 'python';
 

@@ -513,16 +513,27 @@ function IdentityIntegration({ agent }: { agent: Agent }) {
 
   const sdkSnippet = `import { AgentID } from '@getagentid/sdk';
 
-const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY });
+// Step 1 — Register once (run this in a one-time setup script):
+// const { apiKey, agentId } = await AgentID.registerAgent({ ... })
+// Save AGENTID_API_KEY=apiKey and AGENTID_AGENT_ID=agentId in your env
 
-// Get identity content as a string
-const identity = await agent.getIdentityContent('openclaw');
+// Step 2 — On every startup: restore without re-registering
+const agent = await AgentID.init({
+  apiKey: process.env.AGENTID_API_KEY,
+  agentId: process.env.AGENTID_AGENT_ID, // optional but faster
+});
+await agent.refreshBootstrap(); // sync trust, status, capabilities, inbox
+agent.startHeartbeat();         // keep identity fresh
 
-// Or write directly to a file
-await agent.writeIdentityFile('~/clawd/AGENTID.md', 'openclaw');
+// Step 3 — Write identity file to disk for your agent framework
+await agent.writeIdentityFile('AGENTID.md', 'openclaw');
 
-// Inject into system prompt (works immediately after init)
-const systemPrompt = agent.getPromptBlock();`;
+// Step 4 — Inject canonical identity into system prompt
+const systemPrompt = agent.getPromptBlock();
+// agent.did => "did:web:getagent.id:agents:<uuid>"  (canonical, permanent)
+
+// Optional: save state for file-based restore next startup
+await agent.writeStateFile('.agentid-state.json');`;
 
   return (
     <GlassCard className="!p-5 mb-6">
@@ -550,7 +561,7 @@ const systemPrompt = agent.getPromptBlock();`;
       {open && (
         <div className="mt-4" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-            Copy the snippet for your agent framework so your agent remembers its identity across sessions.
+            Persist <code style={{ fontFamily: 'var(--font-mono)' }}>AGENTID_API_KEY</code> and <code style={{ fontFamily: 'var(--font-mono)' }}>AGENTID_AGENT_ID</code> in your environment, then call <code style={{ fontFamily: 'var(--font-mono)' }}>refreshBootstrap()</code> on startup to restore identity without re-registering.
           </p>
           <CopyBlock label="OpenClaw  -  AGENTID.md" content={openclawContent} icon={FileCode} />
           <CopyBlock label="Claude Code  -  CLAUDE.md" content={claudeContent} icon={FileCode} />

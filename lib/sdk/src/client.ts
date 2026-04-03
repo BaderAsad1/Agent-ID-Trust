@@ -33,6 +33,7 @@ import type {
   ListSubagentsOptions,
   ListSubagentsResult,
   TerminateSubagentResult,
+  PersistedAgentState,
 } from "./types.js";
 
 const DEFAULT_BASE_URL = "https://getagent.id";
@@ -44,6 +45,7 @@ export class AgentID {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private _agentId: string;
   private _baseUrl: string;
+  private _apiKey: string;
 
   public mail: MailModule;
   public tasks: TaskModule;
@@ -64,6 +66,7 @@ export class AgentID {
   private constructor(config: AgentIDConfig, agentId: string) {
     this._baseUrl = config.baseUrl || DEFAULT_BASE_URL;
     this._agentId = agentId;
+    this._apiKey = config.apiKey;
     this.http = new HttpClient({
       baseUrl: this._baseUrl,
       apiKey: config.apiKey,
@@ -399,6 +402,86 @@ export class AgentID {
       `/api/v1/agents/${this._agentId}/attest/${encodeURIComponent(subjectHandle)}`,
       options,
     );
+  }
+
+  /**
+   * Export the agent's durable state to a plain object.
+   *
+   * Permanent fields (agentId, apiKey, did, baseUrl) can be persisted safely.
+   * Mutable fields (handle, cachedBootstrap) are included as a cache snapshot
+   * and should be refreshed with refreshBootstrap() on next startup.
+   */
+  exportState(): PersistedAgentState {
+    if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
+    const h = this.resolvedHandle();
+    return {
+      version: 1,
+      baseUrl: this._baseUrl,
+      agentId: this._agentId,
+      apiKey: this._apiKey,
+      did: `did:web:getagent.id:agents:${this._agentId}`,
+      handle: h || null,
+      resolverUrl: this.resolverUrl,
+      profileUrl: this.bootstrap.public_profile_url || `${this._baseUrl}/id/${this._agentId}`,
+      savedAt: new Date().toISOString(),
+      cachedBootstrap: this.bootstrap,
+    };
+  }
+
+  /**
+   * Write the durable state to a JSON file on disk.
+   * Restores with AgentID.readStateFile(path).
+   */
+  async writeStateFile(filePath: string): Promise<void> {
+    const state = this.exportState();
+    const { writeFile, mkdir } = await import("fs/promises");
+    const { dirname } = await import("path");
+    const dir = dirname(filePath);
+    if (dir && dir !== ".") {
+      await mkdir(dir, { recursive: true });
+    }
+    await writeFile(filePath, JSON.stringify(state, null, 2), "utf-8");
+  }
+
+  /**
+   * Restore an AgentID instance from a previously exported state object.
+   * The agent is ready to use without re-registration. Call refreshBootstrap()
+   * afterwards to ensure mutable fields (trust, status, capabilities, inbox)
+   * are current.
+   */
+  static fromState(state: PersistedAgentState): AgentID {
+    if (state.version !== 1) {
+      throw new Error(`Unsupported state version: ${state.version}. Expected 1.`);
+    }
+    const instance = new AgentID(
+      { apiKey: state.apiKey, agentId: state.agentId, baseUrl: state.baseUrl },
+      state.agentId,
+    );
+    if (state.cachedBootstrap) {
+      instance.bootstrap = state.cachedBootstrap;
+    }
+    return instance;
+  }
+
+  /**
+   * Read agent state from a JSON file on disk and restore an AgentID instance.
+   * Equivalent to AgentID.fromState(JSON.parse(file)).
+   */
+  static async readStateFile(filePath: string): Promise<AgentID> {
+    const { readFile } = await import("fs/promises");
+    const raw = await readFile(filePath, "utf-8");
+    const state = JSON.parse(raw) as PersistedAgentState;
+    return AgentID.fromState(state);
+  }
+
+  /**
+   * Refresh mutable fields (trust, status, capabilities, inbox) from the server.
+   * Permanent identity fields (agentId, did, apiKey) are never altered.
+   * Call this on startup after restoring from a state file, or whenever
+   * the cached snapshot may be stale.
+   */
+  async refreshBootstrap(): Promise<void> {
+    await this.fetchBootstrap();
   }
 
   async getSignedActivity(options?: {

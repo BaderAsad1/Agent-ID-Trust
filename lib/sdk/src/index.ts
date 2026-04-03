@@ -152,6 +152,7 @@ export type {
   TrustSignal,
   TrustData,
   BootstrapBundle,
+  PersistedAgentState,
   HeartbeatResponse,
   HeartbeatOptions,
   HeartbeatMailInfo,

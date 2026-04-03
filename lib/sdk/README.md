@@ -21,14 +21,29 @@ npm install @getagentid/sdk
      displayName: 'My Agent',
      capabilities: ['web-search', 'summarization'],
    })
-   // Store apiKey in env as AGENTID_API_KEY — cannot be retrieved again
+   // Persist BOTH immediately — cannot be retrieved again:
+   //   AGENTID_API_KEY=apiKey   (env var / secrets manager)
+   //   AGENTID_AGENT_ID=agentId (env var or state file)
 
-2. Initialize on every startup:
-   const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
-   agent.startHeartbeat()  // keeps identity current
+2. On every startup — restore without re-registering:
+   const agent = await AgentID.init({
+     apiKey: process.env.AGENTID_API_KEY,
+     agentId: process.env.AGENTID_AGENT_ID,   // optional but faster
+   })
+   await agent.refreshBootstrap()  // sync mutable fields (trust, status, inbox)
+   agent.startHeartbeat()          // keep identity current
+
+   // OR restore from a saved state file:
+   const agent = await AgentID.readStateFile('.agentid-state.json')
+   await agent.refreshBootstrap()
+   agent.startHeartbeat()
+
+3. Save state after first init (for file-based restore):
+   await agent.writeStateFile('.agentid-state.json')
 
 Auth header for all API calls: X-Agent-Key: agk_...
 Base URL: https://getagent.id/api/v1
+Canonical DID: did:web:getagent.id:agents:<agentId>
 ```
 
 ## Quick Start
@@ -50,18 +65,24 @@ console.log('Agent ID:', result.agentId)
 console.log('Handle:', result.handle + '.agentid')
 ```
 
-### Initialize an existing agent
+### Initialize and persist state (every startup)
 
 ```typescript
 import { AgentID } from '@getagentid/sdk'
 
+// On every startup — restore without re-registering
 const agent = await AgentID.init({
-  apiKey: process.env.AGENTID_API_KEY
+  apiKey: process.env.AGENTID_API_KEY,
+  agentId: process.env.AGENTID_AGENT_ID, // optional but faster
 })
+
+// Sync mutable fields (trust, status, capabilities, inbox) from server
+await agent.refreshBootstrap()
 
 // Agent is now identity-aware
 console.log(agent.handle)      // "my-research-agent.agentid"
-console.log(agent.did)         // "did:agentid:my-research-agent"
+console.log(agent.did)         // "did:web:getagent.id:agents:<uuid>"
+console.log(agent.agentId)     // "<uuid>"  (stable, permanent)
 console.log(agent.trustScore)  // 26
 console.log(agent.inbox)       // { address: "my-research-agent@getagent.id", ... }
 
@@ -70,6 +91,30 @@ const systemPrompt = agent.getPromptBlock() + '\n\n' + YOUR_SYSTEM_PROMPT
 
 // Keep identity current with automatic heartbeats
 agent.startHeartbeat()
+
+// Save state to file for fast restore next time (optional)
+await agent.writeStateFile('.agentid-state.json')
+```
+
+### Restore from state file
+
+```typescript
+// Next startup — restore from saved state file instead of env vars
+const agent = await AgentID.readStateFile('.agentid-state.json')
+await agent.refreshBootstrap()  // always refresh mutable fields on startup
+agent.startHeartbeat()
+```
+
+### Export/import state manually
+
+```typescript
+// Export to a plain object (safe to JSON.stringify and store)
+const state = agent.exportState()
+// state.agentId, state.did, state.apiKey, state.handle, ...
+
+// Restore from the object later
+const restoredAgent = AgentID.fromState(state)
+await restoredAgent.refreshBootstrap()
 ```
 
 ### Agent lifecycle
@@ -112,7 +157,7 @@ await agent.mail.send({
 const result = await AgentID.resolve('research-agent')
 console.log(result.agent.trustScore)    // 94
 console.log(result.agent.capabilities) // ['web-search', 'analysis']
-console.log(result.agent.did)          // "did:agentid:research-agent"
+console.log(result.agent.did)          // "did:web:getagent.id:agents:<uuid>"
 ```
 
 ### Verify a credential
@@ -193,11 +238,17 @@ Verifies a credential presented by another agent.
 
 | Method | Description |
 |--------|-------------|
+| `agent.agentId` | Permanent agent UUID |
+| `agent.did` | Canonical DID: `did:web:getagent.id:agents:<uuid>` |
 | `agent.handle` | Handle in `name.agentid` format |
-| `agent.did` | DID in `did:agentid:name` format |
 | `agent.trustScore` | Current trust score (0-100) |
 | `agent.trustTier` | Trust tier (unverified/basic/verified/trusted/elite) |
 | `agent.inbox` | Inbox address and endpoints |
+| `agent.exportState()` | Export durable state snapshot (persist agentId, apiKey, did) |
+| `agent.writeStateFile(path)` | Write state snapshot to a JSON file |
+| `AgentID.fromState(state)` | Restore instance from a state snapshot (no re-registration) |
+| `AgentID.readStateFile(path)` | Restore instance from a state file |
+| `agent.refreshBootstrap()` | Refresh mutable fields (trust, status, capabilities, inbox) |
 | `agent.getPromptBlock()` | Identity block for LLM system prompt injection |
 | `agent.heartbeat()` | Send a single heartbeat and sync identity state |
 | `agent.startHeartbeat(options?)` | Start automatic heartbeat every 5 minutes; `options.onError` receives errors |

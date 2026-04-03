@@ -230,7 +230,8 @@ export function createServer(): McpServer {
               {
                 agentId,
                 handle: bootstrap.handle,
-                did: `did:agentid:${bootstrap.handle}`,
+                did: `did:web:getagent.id:agents:${agentId}`,
+                handleAlias: bootstrap.handle ? `did:agentid:${bootstrap.handle}` : null,
                 protocolAddress: bootstrap.protocol_address,
                 trustScore: (bootstrap.trust as Record<string, unknown>)?.score,
                 trustTier: (bootstrap.trust as Record<string, unknown>)?.tier,

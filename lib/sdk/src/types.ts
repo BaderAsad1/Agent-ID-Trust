@@ -461,3 +461,25 @@ export interface TerminateSubagentResult {
 export type TaskHandler = (task: Task) => void | Promise<void>;
 export type MessageHandler = (message: MailMessage) => void | Promise<void>;
 export type ErrorHandler = (error: Error) => void;
+
+/**
+ * Durable state snapshot for an AgentID instance.
+ *
+ * Permanent/durable fields (safe to persist and restore):
+ *   version, baseUrl, agentId, apiKey, did, resolverUrl, profileUrl, savedAt
+ *
+ * Mutable/cached fields (stale after process restart — refresh via refreshBootstrap()):
+ *   handle, cachedBootstrap
+ */
+export interface PersistedAgentState {
+  version: 1;
+  baseUrl: string;
+  agentId: string;
+  apiKey: string;
+  did: string;
+  handle: string | null;
+  resolverUrl: string;
+  profileUrl: string;
+  savedAt: string;
+  cachedBootstrap?: BootstrapBundle;
+}
