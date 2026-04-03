@@ -48,5 +48,8 @@ Thumbs.db
 .cache/
 .local/
 
+# OWS wallet vault (contains sensitive key material)
+.ows-vault/
+
 # User-uploaded assets (not tracked)
 attached_assets/
