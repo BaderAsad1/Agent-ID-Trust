@@ -261,12 +261,12 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
 
     setImmediate(async () => {
       try {
-        const { provisionAgentWallet } = await import("../../services/wallet");
-        await provisionAgentWallet(agentId, agent.handle);
+        const { provisionOwsWallet } = await import("../../services/ows-wallet");
+        await provisionOwsWallet(agentId, agent.userId);
       } catch (err) {
         logger.error(
           { agentId, error: err instanceof Error ? err.message : err },
-          "[bootstrap] Background wallet provisioning failed",
+          "[bootstrap] Background OWS wallet provisioning failed",
         );
       }
     });

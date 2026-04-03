@@ -390,6 +390,9 @@ importers:
       '@coinbase/cdp-sdk':
         specifier: ^1.45.0
         version: 1.45.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
+      '@open-wallet-standard/core':
+        specifier: ^1.2.0
+        version: 1.2.0
       '@replit/connectors-sdk':
         specifier: ^0.3.0
         version: 0.3.0
@@ -1693,6 +1696,30 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@open-wallet-standard/core-darwin-arm64@1.2.0':
+    resolution: {integrity: sha512-2TivIvNgm3+/+A7DpAHhgyH+Nefgm0JlHUaGoiazmKEVuUSNN9AhVArSMIVFXD0mN8Wz2cmequ+mFF3Mzhz6jw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@open-wallet-standard/core-darwin-x64@1.2.0':
+    resolution: {integrity: sha512-Kqx4ovI/b0Xs2QRnsY9n7TFzVIszjrNCbOLIUUgFBiNn75jhxTbbcNwMEBkaAu6hy5Y5qnaLdDUjpeqbqgSDfA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@open-wallet-standard/core-linux-arm64-gnu@1.2.0':
+    resolution: {integrity: sha512-JDrx3D1f7o7WJM6q/LE3xnYQJdz28KLWDHqyhdsBAmYxNaOYC/X48YD5dOhmD3PKR6DOqcgAMyoE58zIDU2kQA==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@open-wallet-standard/core-linux-x64-gnu@1.2.0':
+    resolution: {integrity: sha512-zPOAly+rEhCvTQ4/aBBfBVqeg+NIpCKU6aI/Jtj73gFfnVsunJzRdWyjcSP8rYGMxN2cJi18jdqO7xTPLEW+fw==}
+    cpu: [x64]
+    os: [linux]
+
+  '@open-wallet-standard/core@1.2.0':
+    resolution: {integrity: sha512-6YBlPJK0TLYivSD4etD9NzZGc1qtTa4D3mAeQ+DE0wz0gkeQFTrysiRiSVK5jIel2V2HazHto1qizYTTcVVrWg==}
+    hasBin: true
 
   '@opensea/seaport-js@4.0.7':
     resolution: {integrity: sha512-0RHcTyCQLgHxzvNirCaJI0Uy7G90DDx9fKk1Xed6I+rzcvz+rzJrHQSRMtw25PLllQxudcIatTpd9GK4YBvjJQ==}
@@ -8317,6 +8344,25 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
+
+  '@open-wallet-standard/core-darwin-arm64@1.2.0':
+    optional: true
+
+  '@open-wallet-standard/core-darwin-x64@1.2.0':
+    optional: true
+
+  '@open-wallet-standard/core-linux-arm64-gnu@1.2.0':
+    optional: true
+
+  '@open-wallet-standard/core-linux-x64-gnu@1.2.0':
+    optional: true
+
+  '@open-wallet-standard/core@1.2.0':
+    optionalDependencies:
+      '@open-wallet-standard/core-darwin-arm64': 1.2.0
+      '@open-wallet-standard/core-darwin-x64': 1.2.0
+      '@open-wallet-standard/core-linux-arm64-gnu': 1.2.0
+      '@open-wallet-standard/core-linux-x64-gnu': 1.2.0
 
   '@opensea/seaport-js@4.0.7(bufferutil@4.1.0)(utf-8-validate@5.0.10)':
     dependencies:

@@ -1,6 +1,6 @@
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, apiKeysTable, agentClaimTokensTable, type Agent } from "@workspace/db/schema";
+import { agentsTable, apiKeysTable, agentClaimTokensTable, agentOwsWalletsTable, type Agent } from "@workspace/db/schema";
 import { computeTrustScore, getTrustImprovementTips } from "./trust-score";
 import { getInboxByAgent } from "./mail";
 import { listAgentKeys } from "./agent-keys";
@@ -11,11 +11,12 @@ const SPEC_VERSION = "1.2.0";
 const APP_URL = () => process.env.APP_URL || "https://getagent.id";
 
 export async function buildBootstrapBundle(agent: Agent): Promise<Record<string, unknown>> {
-  const [trust, inbox, keys, plan] = await Promise.all([
+  const [trust, inbox, keys, plan, owsWalletRecord] = await Promise.all([
     computeTrustScore(agent.id),
     getInboxByAgent(agent.id),
     listAgentKeys(agent.id),
     getUserPlan(agent.userId),
+    db.query.agentOwsWalletsTable.findFirst({ where: eq(agentOwsWalletsTable.agentId, agent.id) }),
   ]);
 
   const limits = getPlanLimits(plan);
@@ -161,6 +162,14 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
       fleetManagement: limits.fleetManagement,
       analyticsAccess: limits.analyticsAccess,
     },
+    ows_wallet: owsWalletRecord ? {
+      standard: "OWS",
+      sdkPackage: "@open-wallet-standard/core",
+      walletId: owsWalletRecord.walletId ?? owsWalletRecord.id,
+      address: owsWalletRecord.address,
+      network: owsWalletRecord.network,
+      registeredAt: owsWalletRecord.provisionedAt ?? owsWalletRecord.createdAt,
+    } : null,
   };
 
   if (!limits.canReceiveMail) {

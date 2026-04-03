@@ -34,7 +34,7 @@ import { verifyClaimToken, generateClaimToken } from "../../utils/claim-token";
 import { hashClaimToken } from "../../utils/crypto";
 import { desc, eq, and, gte, sql, count } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable, agentClaimHistoryTable, auditEventsTable } from "@workspace/db/schema";
+import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable, agentClaimHistoryTable, auditEventsTable, agentOwsWalletsTable } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -421,10 +421,22 @@ router.post("/", requireAuth, async (req, res, next) => {
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
+    let owsWalletAddress: string | null = null;
+    try {
+      const { provisionOwsWallet } = await import("../../services/ows-wallet");
+      const owsResult = await provisionOwsWallet(agent.id, req.userId!);
+      owsWalletAddress = owsResult?.address ?? null;
+    } catch (err) {
+      logger.warn({ agentId: agent.id, error: err instanceof Error ? err.message : err }, "[agents] OWS wallet provisioning failed (non-fatal)");
+    }
+
     res.status(201).json({
       ...agent,
       claimToken: claimTokenValue,
       isSandbox,
+      walletAddress: owsWalletAddress ?? agent.walletAddress ?? null,
+      walletNetwork: owsWalletAddress ? "base" : (agent.walletNetwork ?? null),
+      walletIsSelfCustodial: owsWalletAddress ? true : (agent.walletIsSelfCustodial ?? false),
       ...(isSandbox ? { sandboxRef: `sandbox_${agent.id}` } : {}),
       ...(sandboxHandle ? {
         handlePricing: {
@@ -1488,20 +1500,22 @@ router.post("/:agentId/wallets/ows", requireAgentAuth, async (req, res, next) =>
       throw new AppError(400, "INVALID_CAIP10", `Invalid CAIP-10 account format: ${invalidAccounts.join(", ")}`);
     }
 
-    const { agentOwsWalletsTable } = await import("@workspace/db/schema");
-    const { eq } = await import("drizzle-orm");
-
     const existing = await db.query.agentOwsWalletsTable.findFirst({
       where: eq(agentOwsWalletsTable.agentId, agentId),
     });
 
     const APP_URL = process.env.APP_URL || "https://getagent.id";
 
+    const evmAccount = accounts.find((a) => a.startsWith("eip155:8453:")) ?? accounts.find((a) => a.startsWith("eip155:"));
+    const evmAddress = evmAccount ? evmAccount.split(":")[2] : (accounts[0]?.split(":")[2] ?? accounts[0] ?? "");
+
     if (existing) {
       await db
         .update(agentOwsWalletsTable)
         .set({
           walletId,
+          network: "base",
+          address: evmAddress,
           accounts,
           updatedAt: new Date(),
         })
@@ -1511,16 +1525,30 @@ router.post("/:agentId/wallets/ows", requireAgentAuth, async (req, res, next) =>
         agentId,
         userId: authenticatedAgent.userId,
         walletId,
-        network: "multi",
-        address: accounts[0] ?? "",
+        network: "base",
+        address: evmAddress,
         accounts,
+        isSelfCustodial: true,
+        status: "active",
+        provisionedAt: new Date(),
       });
     }
+
+    const walletProvisionedAt = existing ? undefined : new Date();
+    await db.update(agentsTable).set({
+      walletAddress: evmAddress,
+      walletNetwork: "base",
+      walletIsSelfCustodial: true,
+      ...(walletProvisionedAt ? { walletProvisionedAt } : {}),
+      updatedAt: new Date(),
+    }).where(eq(agentsTable.id, agentId));
 
     res.json({
       registered: true,
       agentId,
       walletId,
+      evmAddress,
+      network: "base",
       accountCount: accounts.length,
       resolveUrl: `${APP_URL}/api/v1/resolve/${authenticatedAgent.handle ?? agentId}`,
     });
@@ -1675,6 +1703,51 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
     return res.type("text/markdown").send(lines);
   } catch (err) {
     return next(err);
+  }
+});
+
+router.get("/:agentId/wallets/ows", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const agent = req.authenticatedAgent!;
+
+    if (agent.id !== agentId) {
+      const owned = await getAgentById(agentId);
+      if (!owned || !isAgentOwner(owned, agent.userId)) {
+        throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+      }
+    }
+
+    const { getOwsWallet } = await import("../../services/ows-wallet");
+    const wallet = await getOwsWallet(agentId);
+    res.json(wallet);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/:agentId/wallets/ows", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const agent = req.authenticatedAgent!;
+
+    if (agent.id !== agentId) {
+      const owned = await getAgentById(agentId);
+      if (!owned || !isAgentOwner(owned, agent.userId)) {
+        throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+      }
+    }
+
+    const { deleteOwsWallet } = await import("../../services/ows-wallet");
+    const result = await deleteOwsWallet(agentId);
+
+    if (!result.deleted) {
+      throw new AppError(404, "NOT_FOUND", "No OWS wallet registered for this agent");
+    }
+
+    res.json({ deleted: true, agentId });
+  } catch (err) {
+    next(err);
   }
 });
 

@@ -610,10 +610,10 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
 
     setImmediate(async () => {
       try {
-        const { provisionAgentWallet } = await import("../../services/wallet");
-        await provisionAgentWallet(agentId, agent.handle);
+        const { provisionOwsWallet } = await import("../../services/ows-wallet");
+        await provisionOwsWallet(agentId, freshAgent!.userId);
       } catch (err) {
-        logger.error({ agentId, error: err instanceof Error ? err.message : err }, "[programmatic] Background wallet provisioning failed");
+        logger.error({ agentId, error: err instanceof Error ? err.message : err }, "[programmatic] Background OWS wallet provisioning failed");
       }
     });
 
