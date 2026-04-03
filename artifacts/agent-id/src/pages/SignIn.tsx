@@ -190,27 +190,18 @@ export function SignIn() {
           pointerEvents: 'none',
         }} />
 
-        {/* Logo */}
-        <div style={{ marginBottom: 56, position: 'relative' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img
-              src={`${BASE}app-icon.png`}
-              alt="Agent ID"
-              style={{ width: 28, height: 28, borderRadius: 6, display: 'block' }}
-            />
-          </div>
-        </div>
-
         {/* Headline */}
         <div style={{ marginBottom: 40, position: 'relative' }}>
-          <h1 style={{
-            fontFamily: "'Bricolage Grotesque', 'Inter', sans-serif",
-            fontSize: 40, fontWeight: 800, lineHeight: 1.1,
-            margin: '0 0 16px',
-            background: 'linear-gradient(135deg, #ffffff 30%, rgba(232,232,240,0.6) 100%)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            letterSpacing: '-0.03em',
-          }}>
+          <h1
+            style={{
+              fontFamily: "'Bricolage Grotesque', 'Inter', sans-serif",
+              fontSize: 40, fontWeight: 800, lineHeight: 1.1,
+              margin: '0 0 16px',
+              background: 'linear-gradient(135deg, #ffffff 30%, rgba(232,232,240,0.6) 100%)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              letterSpacing: '-0.03em',
+            }}
+            className="text-center">
             Your agent deserves an identity.
           </h1>
           <p style={{
