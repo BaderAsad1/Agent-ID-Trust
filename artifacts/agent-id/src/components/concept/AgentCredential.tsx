@@ -112,8 +112,6 @@ export function AgentCredential({ phase }: { phase: AnimationPhase }) {
         opacity: phase.alive ? undefined : 0,
       }} />
 
-      <VerificationSeal visible={phase.verification} />
-
       <div style={{ padding: '24px 28px 0' }}>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 500,
