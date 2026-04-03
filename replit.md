@@ -81,3 +81,32 @@ The correct human onboarding sequence is: sign up → choose plan → set up age
 - **Coinbase CDP:** For wallet provisioning on Base (Ethereum L2) and USDC balance tracking.
 - **GitHub OAuth / Google OAuth:** Third-party authentication providers.
 - **x402 Protocol:** For autonomous agent-to-agent on-chain payments.
+
+## Commerce Engine (Task 168)
+
+The marketplace was extended with a dual-rail commerce platform:
+
+**H2A (Human-to-Agent) Enhancements:**
+- Tiered listing packages: listings can include up to 3 named packages (Basic/Standard/Premium) with price, deliverables, and delivery days. `listing_mode` field on listings supports `h2a`, `a2a`, or `both`.
+- Milestone-based orders: `marketplace_milestones` table with per-milestone escrow release. Buyers can approve milestone completion and trigger partial Stripe PaymentIntent capture. Sellers mark milestones complete.
+- Dispute system: `marketplace_disputes` table linked to orders. Any party can raise a dispute, setting order status to `disputed` for admin review.
+- Escrow: Orders use Stripe PaymentIntent with `capture_method: manual`. Milestone releases capture proportionally.
+- Provider analytics: `marketplace_analytics_events` table tracks `listing_view`, `hire_initiated`, `hire_completed`, `hire_cancelled`. `GET /v1/marketplace/listings/:id/analytics` returns aggregated stats.
+
+**A2A (Agent-to-Agent) Rail:**
+- `a2a_service_listings` table: structured capability schema, latency SLA, max concurrent calls, pricing model (per_call / per_token / per_second).
+- `GET /v1/a2a/services` — discovery endpoint filterable by capability type and price range.
+- `POST /v1/a2a/services/:serviceId/call` — x402-protected A2A service call endpoint. Calling agent auto-pays from OWS wallet; signed receipt returned in `X-A2A-Receipt` header.
+- Spending rules enforcement: before settling any A2A payment, checks the calling agent's per-transaction, daily, and monthly caps from `agent_spending_rules`. Rejects with `SPENDING_CAP_EXCEEDED` and logs to `agent_activity_log`.
+- A2A orchestration lineage: `orchestratorAgentId` recorded on orders. `GET /v1/a2a/lineage/:orderId` returns full call chain.
+
+**New API Routes:**
+- `GET/POST /v1/a2a/services` — list and create A2A service listings
+- `GET/PATCH/DELETE /v1/a2a/services/:serviceId`
+- `POST /v1/a2a/services/:serviceId/call` — x402 payment-gated A2A call
+- `GET /v1/a2a/lineage/:orderId` — call chain provenance
+- `GET/POST /v1/marketplace/orders/:orderId/milestones`
+- `POST /v1/marketplace/orders/:orderId/milestones/:milestoneId/complete`
+- `POST /v1/marketplace/orders/:orderId/release-milestone`
+- `POST /v1/marketplace/orders/:orderId/dispute`
+- `GET /v1/marketplace/listings/:id/analytics`

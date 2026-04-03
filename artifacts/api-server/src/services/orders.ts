@@ -4,6 +4,8 @@ import { db } from "@workspace/db";
 import {
   marketplaceOrdersTable,
   marketplaceListingsTable,
+  marketplaceMilestonesTable,
+  agentsTable,
   payoutLedgerTable,
   paymentLedgerTable,
   usersTable,
@@ -19,6 +21,9 @@ export interface CreateOrderInput {
   listingId: string;
   buyerUserId: string;
   taskDescription?: string;
+  selectedPackage?: string;
+  orchestratorAgentId?: string;
+  parentOrderId?: string;
 }
 
 export interface CreateOrderResult {
@@ -43,7 +48,19 @@ export async function createOrder(
     return { success: false, error: "CANNOT_ORDER_OWN_LISTING" };
   }
 
-  const priceAmount = Number(listing.priceAmount ?? 0);
+  let priceAmount = Number(listing.priceAmount ?? 0);
+
+  if (input.selectedPackage && listing.packages && Array.isArray(listing.packages)) {
+    const packages = listing.packages as Array<{ name: string; priceUsdc: string; deliveryDays: number }>;
+    const selectedPkg = packages.find(
+      (p) => p.name.toLowerCase() === input.selectedPackage!.toLowerCase(),
+    );
+    if (!selectedPkg) {
+      return { success: false, error: "PACKAGE_NOT_FOUND" };
+    }
+    priceAmount = Number(selectedPkg.priceUsdc);
+  }
+
   const { platformFee, sellerPayout } = calculatePlatformFee(priceAmount);
 
   let stripePaymentIntentId: string | undefined;
@@ -87,6 +104,11 @@ export async function createOrder(
       status: "payment_pending",
       paymentProvider: "stripe",
       providerPaymentReference: stripePaymentIntentId,
+      escrowPaymentIntentId: stripePaymentIntentId,
+      selectedPackage: input.selectedPackage,
+      orchestratorAgentId: input.orchestratorAgentId,
+      parentOrderId: input.parentOrderId,
+      paymentRail: "stripe",
     })
     .returning();
 
@@ -126,7 +148,12 @@ export async function confirmPayment(
     return { success: false, error: `INVALID_STATUS:${order.status}` };
   }
 
-  if (order.providerPaymentReference) {
+  const hasMilestones = (await db.query.marketplaceMilestonesTable.findFirst({
+    where: eq(marketplaceMilestonesTable.orderId, orderId),
+    columns: { id: true },
+  })) !== undefined;
+
+  if (!hasMilestones && order.providerPaymentReference) {
     try {
       const stripe = getStripe();
       const pi = await stripe.paymentIntents.retrieve(order.providerPaymentReference);
@@ -137,6 +164,8 @@ export async function confirmPayment(
       console.error(`[orders] Failed to verify PaymentIntent for order ${orderId}:`, err);
       return { success: false, error: "PAYMENT_VERIFICATION_FAILED" };
     }
+  } else if (hasMilestones) {
+    logger.info({ orderId }, "[confirmPayment] Milestone order — skipping order-level PI validation; milestones hold their own escrow");
   }
 
   const [updated] = await db
@@ -202,7 +231,13 @@ export async function confirmOrder(
     return { success: false, error: `INVALID_STATUS:${order.status}` };
   }
 
-  if (order.providerPaymentReference) {
+  const milestones = await db.query.marketplaceMilestonesTable.findMany({
+    where: eq(marketplaceMilestonesTable.orderId, orderId),
+    columns: { id: true },
+  });
+  const hasMilestones = milestones.length > 0;
+
+  if (order.providerPaymentReference && !hasMilestones) {
     const captureResult = await captureProviderPayment(
       order.paymentProvider ?? "stripe",
       order.providerPaymentReference,
@@ -211,6 +246,8 @@ export async function confirmOrder(
       console.error(`[orders] Failed to capture payment for order ${orderId}:`, captureResult.error);
       return { success: false, error: `PAYMENT_CAPTURE_FAILED:${captureResult.error}` };
     }
+  } else if (hasMilestones) {
+    logger.info({ orderId }, "[confirmOrder] Order has milestones — funds remain in escrow until milestone release");
   }
 
   const [updated] = await db
@@ -244,6 +281,26 @@ export async function completeOrder(
     return { success: false, error: `INVALID_STATUS:${order.status}` };
   }
 
+  const allMilestones = await db.query.marketplaceMilestonesTable.findMany({
+    where: eq(marketplaceMilestonesTable.orderId, orderId),
+    columns: { id: true, title: true, status: true },
+  });
+
+  const isMilestoneOrder = allMilestones.length > 0;
+  const unreleasedMilestones = allMilestones.filter((m) => m.status !== "released");
+
+  if (isMilestoneOrder && unreleasedMilestones.length > 0) {
+    const unreleasedTitles = unreleasedMilestones.map((m) => `"${m.title}" (${m.status})`).join(", ");
+    logger.warn(
+      { orderId, unreleased: unreleasedMilestones.map((m) => m.id) },
+      "[completeOrder] Blocked: unreleased milestones exist",
+    );
+    return {
+      success: false,
+      error: `MILESTONES_NOT_RELEASED: ${unreleasedMilestones.length} milestone(s) must be released before completing the order: ${unreleasedTitles}`,
+    };
+  }
+
   const [updated] = await db
     .update(marketplaceOrdersTable)
     .set({
@@ -264,24 +321,77 @@ export async function completeOrder(
 
   const paymentRef = order.providerPaymentReference ?? undefined;
 
+  const sellerAgent = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.id, order.agentId),
+    columns: { stripeConnectAccountId: true, stripeConnectStatus: true },
+  });
+
+  let payoutStatus: "pending_manual_payout" | "processing" | "completed" = "pending_manual_payout";
+  let stripeTransferId: string | undefined;
+
+  const hasActiveConnect =
+    sellerAgent?.stripeConnectAccountId && sellerAgent.stripeConnectStatus === "active";
+
+  if (hasActiveConnect && paymentRef && !isMilestoneOrder) {
+    try {
+      const stripe = getStripe();
+      const sellerPayoutCents = Math.round(parseFloat(String(order.sellerPayout)) * 100);
+
+      const pi = await stripe.paymentIntents.retrieve(paymentRef);
+      if (pi.status === "requires_capture") {
+        await stripe.paymentIntents.capture(paymentRef);
+
+        const transfer = await stripe.transfers.create({
+          amount: sellerPayoutCents,
+          currency: "usd",
+          destination: sellerAgent.stripeConnectAccountId!,
+          metadata: { orderId, listingId: order.listingId },
+        });
+        stripeTransferId = transfer.id;
+        payoutStatus = "completed";
+        logger.info({ orderId, agentId: order.agentId, transferId: transfer.id }, "[completeOrder] Stripe Connect payout executed via PI capture + transfer");
+      } else if (pi.status === "succeeded") {
+        const transfer = await stripe.transfers.create({
+          amount: sellerPayoutCents,
+          currency: "usd",
+          destination: sellerAgent.stripeConnectAccountId!,
+          metadata: { orderId, listingId: order.listingId },
+        });
+        stripeTransferId = transfer.id;
+        payoutStatus = "completed";
+        logger.info({ orderId, transferId: transfer.id }, "[completeOrder] Stripe Connect transfer executed");
+      }
+    } catch (payoutErr) {
+      logger.error(
+        { orderId, error: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) },
+        "[completeOrder] Stripe Connect payout failed — falling back to manual payout",
+      );
+      payoutStatus = "pending_manual_payout";
+    }
+  } else if (isMilestoneOrder) {
+    logger.info({ orderId }, "[completeOrder] Milestone-based order — no order-level PI capture; milestones manage their own Stripe escrow");
+  }
+
   await db.insert(payoutLedgerTable).values({
     relatedOrderId: orderId,
     sellerUserId: order.sellerUserId,
     provider: order.paymentProvider ?? "stripe",
     amount: order.sellerPayout,
     currency: "USD",
-    status: "pending_manual_payout",
+    status: payoutStatus,
     metadata: {
       orderId,
       listingId: order.listingId,
       totalPrice: order.priceAmount,
       platformFee: order.platformFee,
       stripePaymentIntentId: paymentRef,
-      note: "Stripe Connect seller payout not yet implemented — requires manual processing",
+      stripeTransferId: stripeTransferId ?? null,
+      stripeConnectAccountId: sellerAgent?.stripeConnectAccountId ?? null,
+      ...(payoutStatus === "pending_manual_payout" && {
+        note: "Stripe Connect seller payout — requires manual processing (agent has no active Connect account)",
+      }),
     },
   });
-
-  console.warn(`[PAYOUT REQUIRED] Order ${orderId ?? "unknown"} | Action needed in Stripe Dashboard: https://dashboard.stripe.com/transfers`);
 
   const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
 
@@ -329,11 +439,12 @@ export async function completeOrder(
         orderId,
         listingId: order.listingId,
         stripePaymentIntentId: paymentRef,
-        payoutStatus: "pending_manual_payout",
+        stripeTransferId: stripeTransferId ?? null,
+        payoutStatus,
+        isMilestoneOrder,
       },
     },
   ]);
-  console.warn(`[PAYOUT REQUIRED] Order ${orderId ?? "unknown"} | Action needed in Stripe Dashboard: https://dashboard.stripe.com/transfers`);
 
   await logActivity({
     agentId: order.agentId,
@@ -367,12 +478,21 @@ export async function completeOrder(
     logger.error({ err: err instanceof Error ? err.message : err }, "[orders] Failed to send order completed email");
   }
 
-  console.warn(`[PAYOUT REQUIRED] Order ${orderId ?? "unknown"} | Action needed in Stripe Dashboard: https://dashboard.stripe.com/transfers`);
+  if (payoutStatus !== "completed") {
+    console.warn(`[PAYOUT REQUIRED] Order ${orderId ?? "unknown"} | Action needed in Stripe Dashboard: https://dashboard.stripe.com/transfers`);
+  }
+
+  const payoutNote = payoutStatus === "completed"
+    ? `Stripe Connect transfer executed to seller account ${sellerAgent?.stripeConnectAccountId ?? "unknown"} (transfer ID: ${stripeTransferId ?? "unknown"}).`
+    : isMilestoneOrder
+      ? "Milestone order — each milestone manages its own escrow release and payout."
+      : "Seller payout requires manual settlement. Stripe Connect automated payouts are not yet implemented. Funds are held and will be disbursed manually by the platform operator.";
+
   return {
     success: true,
     order: updated,
-    payoutStatus: "pending_manual",
-    payoutNote: "Seller payout requires manual settlement. Stripe Connect automated payouts are not yet implemented. Funds are held and will be disbursed manually by the platform operator.",
+    payoutStatus,
+    payoutNote,
   };
 }
 

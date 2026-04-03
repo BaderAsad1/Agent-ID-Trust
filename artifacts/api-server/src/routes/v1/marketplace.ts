@@ -24,7 +24,18 @@ import {
   createReview,
   getReviewsByListing,
 } from "../../services/reviews";
+import {
+  createMilestones,
+  getMilestonesByOrder,
+  markMilestoneComplete,
+  releaseMilestoneEscrow,
+  raiseMilestoneDispute,
+} from "../../services/marketplace-milestones";
+import { trackAnalyticsEvent, getListingAnalytics } from "../../services/marketplace-analytics";
 import { env } from "../../lib/env";
+import { db } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
+import { marketplaceMilestonesTable } from "@workspace/db/schema";
 
 const router = Router();
 
@@ -38,6 +49,14 @@ function withPayoutDisclosure<T extends object>(order: T): T & { payoutStatus: s
   };
 }
 
+const listingPackageSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+  deliverables: z.array(z.string()).optional(),
+  priceUsdc: z.string(),
+  deliveryDays: z.number().int().positive(),
+});
+
 const createListingSchema = z.object({
   agentId: z.string().uuid(),
   title: z.string().min(1).max(255),
@@ -48,6 +67,8 @@ const createListingSchema = z.object({
   priceAmount: z.string().optional(),
   deliveryHours: z.number().int().positive().optional(),
   capabilities: z.array(z.string()).optional(),
+  listingMode: z.enum(["h2a", "a2a", "both"]).optional(),
+  packages: z.array(listingPackageSchema).max(3).optional(),
 });
 
 const updateListingSchema = z.object({
@@ -60,6 +81,8 @@ const updateListingSchema = z.object({
   deliveryHours: z.number().int().positive().optional(),
   capabilities: z.array(z.string()).optional(),
   status: z.enum(["draft", "active", "paused", "closed"]).optional(),
+  listingMode: z.enum(["h2a", "a2a", "both"]).optional(),
+  packages: z.array(listingPackageSchema).max(3).optional(),
 });
 
 router.get("/listings", async (req, res, next) => {
@@ -74,6 +97,7 @@ router.get("/listings", async (req, res, next) => {
       offset: req.query.offset ? Number(req.query.offset) : undefined,
       sortBy: req.query.sortBy as "created" | "rating" | "hires" | "price" | undefined,
       sortOrder: req.query.sortOrder as "asc" | "desc" | undefined,
+      listingMode: req.query.listingMode as string | undefined,
     };
     const result = await listListings(filters);
     res.json(result);
@@ -96,8 +120,26 @@ router.get("/listings/:listingId", validateUuidParam("listingId"), async (req, r
     const listingId = req.params.listingId as string;
     const listing = await getListingById(listingId);
     if (!listing) throw new AppError(404, "NOT_FOUND", "Listing not found");
-    await incrementListingViews(listingId);
+    await Promise.all([
+      incrementListingViews(listingId),
+      trackAnalyticsEvent({ eventType: "listing_view", listingId }),
+    ]);
     res.json(listing);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/listings/:listingId/analytics", requireAuth, validateUuidParam("listingId"), async (req, res, next) => {
+  try {
+    const listingId = req.params.listingId as string;
+    const listing = await getListingById(listingId);
+    if (!listing) throw new AppError(404, "NOT_FOUND", "Listing not found");
+    if (listing.userId !== req.userId!) {
+      throw new AppError(403, "FORBIDDEN", "Only listing owner can view analytics");
+    }
+    const analytics = await getListingAnalytics(listingId);
+    res.json({ listingId, ...analytics });
   } catch (err) {
     next(err);
   }
@@ -174,21 +216,74 @@ router.get("/listings/:listingId/reviews", validateUuidParam("listingId"), async
   }
 });
 
-const createOrderSchema = z.object({
-  listingId: z.string().uuid(),
-  taskDescription: z.string().optional(),
-});
-
 router.get("/stripe-config", (_req, res) => {
   const publishableKey = env().STRIPE_PUBLISHABLE_KEY || "";
   res.json({ publishableKey });
 });
 
-router.post("/orders", requireAuth, async (_req, res) => {
-  res.status(501).json({
-    error: "marketplace_payments_unavailable",
-    message: "Marketplace payments are not yet available. Automated seller payouts via Stripe Connect are coming soon.",
-  });
+const createMilestoneSchema = z.object({
+  title: z.string().min(1).max(255),
+  description: z.string().optional(),
+  amount: z.string(),
+  dueAt: z.string().optional(),
+  sortOrder: z.number().int().optional(),
+});
+
+const createOrderSchema = z.object({
+  listingId: z.string().uuid(),
+  taskDescription: z.string().optional(),
+  selectedPackage: z.string().optional(),
+  milestones: z.array(createMilestoneSchema).optional(),
+});
+
+router.post("/orders", requireAuth, async (req, res, next) => {
+  try {
+    const parsed = createOrderSchema.parse(req.body);
+    const { createOrder } = await import("../../services/orders");
+    const result = await createOrder({
+      listingId: parsed.listingId,
+      buyerUserId: req.userId!,
+      taskDescription: parsed.taskDescription,
+      selectedPackage: parsed.selectedPackage,
+    });
+    if (!result.success) {
+      const code = result.error === "LISTING_NOT_FOUND" ? 404
+        : result.error === "CANNOT_ORDER_OWN_LISTING" ? 403
+        : result.error === "PAYMENT_INTENT_FAILED" ? 502 : 400;
+      throw new AppError(code, result.error!, result.error!);
+    }
+
+    await trackAnalyticsEvent({
+      eventType: "hire_initiated",
+      listingId: parsed.listingId,
+      userId: req.userId!,
+    });
+
+    let milestoneResults;
+    if (parsed.milestones && parsed.milestones.length > 0 && result.order) {
+      milestoneResults = await createMilestones(
+        result.order.id,
+        parsed.milestones.map((m) => ({
+          ...m,
+          dueAt: m.dueAt ? new Date(m.dueAt) : undefined,
+        })),
+      );
+    }
+
+    res.status(201).json({
+      ...withPayoutDisclosure(result.order!),
+      clientSecret: result.clientSecret,
+      milestones: milestoneResults?.map((r) => r.milestone) ?? [],
+      milestoneClientSecrets: milestoneResults?.map((r) => ({
+        milestoneId: r.milestone.id,
+        title: r.milestone.title,
+        amount: r.milestone.amount,
+        clientSecret: r.clientSecret,
+      })) ?? [],
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get("/orders", requireAuth, async (req, res, next) => {
@@ -253,6 +348,14 @@ router.post("/orders/:orderId/complete", requireAuth, validateUuidParam("orderId
       const code = result.error === "ORDER_NOT_FOUND" ? 404 : 409;
       throw new AppError(code, result.error!, result.error!);
     }
+
+    const order = result.order!;
+    await trackAnalyticsEvent({
+      eventType: "hire_completed",
+      listingId: order.listingId,
+      userId: req.userId!,
+    });
+
     res.json({
       ...result.order,
       payoutStatus: result.payoutStatus,
@@ -271,7 +374,143 @@ router.post("/orders/:orderId/cancel", requireAuth, validateUuidParam("orderId")
       const code = result.error === "ORDER_NOT_FOUND" ? 404 : 409;
       throw new AppError(code, result.error!, result.error!);
     }
-    res.json(withPayoutDisclosure(result.order!));
+    const order = result.order!;
+    await trackAnalyticsEvent({
+      eventType: "hire_cancelled",
+      listingId: order.listingId,
+      userId: req.userId!,
+    });
+    res.json(withPayoutDisclosure(order));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/orders/:orderId/milestones", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
+  try {
+    const orderId = req.params.orderId as string;
+    const order = await getOrderById(orderId, req.userId!);
+    if (!order) throw new AppError(404, "NOT_FOUND", "Order not found");
+    const milestones = await getMilestonesByOrder(orderId);
+    res.json({ milestones });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/orders/:orderId/milestones", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
+  try {
+    const orderId = req.params.orderId as string;
+    const order = await getOrderById(orderId, req.userId!);
+    if (!order) throw new AppError(404, "NOT_FOUND", "Order not found");
+
+    if (order.buyerUserId !== req.userId) {
+      throw new AppError(403, "FORBIDDEN", "Only the buyer can add milestones to an order");
+    }
+
+    const schema = z.array(createMilestoneSchema).min(1);
+    const parsed = schema.parse(req.body.milestones ?? req.body);
+    const results = await createMilestones(
+      orderId,
+      parsed.map((m) => ({
+        ...m,
+        dueAt: m.dueAt ? new Date(m.dueAt) : undefined,
+      })),
+    );
+    res.status(201).json({
+      milestones: results.map((r) => r.milestone),
+      milestoneClientSecrets: results.map((r) => ({
+        milestoneId: r.milestone.id,
+        title: r.milestone.title,
+        amount: r.milestone.amount,
+        clientSecret: r.clientSecret,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post(
+  "/orders/:orderId/release-milestone",
+  requireAuth,
+  validateUuidParam("orderId"),
+  async (req, res, next) => {
+    try {
+      const orderId = req.params.orderId as string;
+      const { milestoneId } = z.object({ milestoneId: z.string().uuid() }).parse(req.body);
+
+      const milestone = await db.query.marketplaceMilestonesTable.findFirst({
+        where: and(
+          eq(marketplaceMilestonesTable.id, milestoneId),
+          eq(marketplaceMilestonesTable.orderId, orderId),
+        ),
+        columns: { id: true },
+      });
+      if (!milestone) throw new AppError(404, "MILESTONE_NOT_FOUND", "Milestone does not belong to this order");
+
+      const result = await releaseMilestoneEscrow(milestoneId, req.userId!);
+      if (!result.success) {
+        const code = result.error === "MILESTONE_NOT_FOUND" || result.error === "ORDER_NOT_FOUND" ? 404
+          : result.error === "FORBIDDEN" ? 403
+          : 409;
+        throw new AppError(code, result.error!, result.error!);
+      }
+      res.json(result.milestone);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/orders/:orderId/milestones/:milestoneId/complete",
+  requireAuth,
+  validateUuidParam("orderId", "milestoneId"),
+  async (req, res, next) => {
+    try {
+      const { orderId, milestoneId } = req.params;
+
+      const milestoneOwnership = await db.query.marketplaceMilestonesTable.findFirst({
+        where: and(
+          eq(marketplaceMilestonesTable.id, milestoneId as string),
+          eq(marketplaceMilestonesTable.orderId, orderId as string),
+        ),
+        columns: { id: true },
+      });
+      if (!milestoneOwnership) throw new AppError(404, "MILESTONE_NOT_FOUND", "Milestone does not belong to this order");
+
+      const result = await markMilestoneComplete(milestoneId as string, req.userId!);
+      if (!result.success) {
+        const code = result.error === "MILESTONE_NOT_FOUND" || result.error === "ORDER_NOT_FOUND" ? 404
+          : result.error === "FORBIDDEN" ? 403
+          : 409;
+        throw new AppError(code, result.error!, result.error!);
+      }
+      res.json(result.milestone);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+const disputeSchema = z.object({
+  reason: z.string().min(1).max(255),
+  description: z.string().optional(),
+});
+
+router.post("/orders/:orderId/dispute", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
+  try {
+    const orderId = req.params.orderId as string;
+    const parsed = disputeSchema.parse(req.body);
+    const result = await raiseMilestoneDispute(orderId, req.userId!, parsed.reason, parsed.description);
+    if (!result.success) {
+      const code = result.error === "ORDER_NOT_FOUND" ? 404
+        : result.error === "FORBIDDEN" ? 403
+        : 409;
+      throw new AppError(code, result.error!, result.error!);
+    }
+    res.json({ success: true, orderId, status: "disputed" });
   } catch (err) {
     next(err);
   }

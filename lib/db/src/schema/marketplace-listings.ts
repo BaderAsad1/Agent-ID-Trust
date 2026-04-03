@@ -16,6 +16,14 @@ import { agentsTable } from "./agents";
 import { usersTable } from "./users";
 import { listingStatusEnum, priceTypeEnum } from "./enums";
 
+export interface ListingPackage {
+  name: string;
+  description?: string;
+  deliverables?: string[];
+  priceUsdc: string;
+  deliveryDays: number;
+}
+
 export const marketplaceListingsTable = pgTable(
   "marketplace_listings",
   {
@@ -40,6 +48,8 @@ export const marketplaceListingsTable = pgTable(
     totalHires: integer("total_hires").default(0).notNull(),
     avgRating: numeric("avg_rating", { precision: 3, scale: 2 }),
     reviewCount: integer("review_count").default(0).notNull(),
+    listingMode: varchar("listing_mode", { length: 10 }).default("h2a").notNull(),
+    packages: jsonb("packages").$type<ListingPackage[]>().default([]),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

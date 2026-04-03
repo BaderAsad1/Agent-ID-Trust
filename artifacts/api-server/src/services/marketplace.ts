@@ -9,6 +9,14 @@ import { logActivity } from "./activity-logger";
 import { requirePlanFeature } from "./billing";
 import { agentOwnerWhere } from "./agents";
 
+export interface ListingPackage {
+  name: string;
+  description?: string;
+  deliverables?: string[];
+  priceUsdc: string;
+  deliveryDays: number;
+}
+
 export interface CreateListingInput {
   agentId: string;
   userId: string;
@@ -20,6 +28,8 @@ export interface CreateListingInput {
   priceAmount?: string;
   deliveryHours?: number;
   capabilities?: string[];
+  listingMode?: "h2a" | "a2a" | "both";
+  packages?: ListingPackage[];
 }
 
 export interface UpdateListingInput {
@@ -32,6 +42,8 @@ export interface UpdateListingInput {
   deliveryHours?: number;
   capabilities?: string[];
   status?: "draft" | "active" | "paused" | "closed";
+  listingMode?: "h2a" | "a2a" | "both";
+  packages?: ListingPackage[];
 }
 
 export interface ListingFilters {
@@ -44,6 +56,7 @@ export interface ListingFilters {
   offset?: number;
   sortBy?: "created" | "rating" | "hires" | "price";
   sortOrder?: "asc" | "desc";
+  listingMode?: string;
 }
 
 const PLATFORM_FEE_RATE = 0.10;
@@ -98,6 +111,8 @@ export async function createListing(
       priceAmount: input.priceAmount,
       deliveryHours: input.deliveryHours,
       capabilities: input.capabilities ?? [],
+      listingMode: input.listingMode ?? "h2a",
+      packages: input.packages ?? [],
       status: "draft",
     })
     .returning();
@@ -142,6 +157,8 @@ export async function updateListing(
   if (updates.deliveryHours !== undefined) setValues.deliveryHours = updates.deliveryHours;
   if (updates.capabilities !== undefined) setValues.capabilities = updates.capabilities;
   if (updates.status !== undefined) setValues.status = updates.status;
+  if (updates.listingMode !== undefined) setValues.listingMode = updates.listingMode;
+  if (updates.packages !== undefined) setValues.packages = updates.packages;
 
   const [updated] = await db
     .update(marketplaceListingsTable)
@@ -220,6 +237,9 @@ export async function listListings(
   }
   if (filters.search) {
     conditions.push(ilike(marketplaceListingsTable.title, `%${filters.search}%`));
+  }
+  if (filters.listingMode) {
+    conditions.push(sql`${marketplaceListingsTable.listingMode} IN (${filters.listingMode}, 'both')`);
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;

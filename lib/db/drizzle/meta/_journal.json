@@ -197,6 +197,13 @@
       "when": 1743724800000,
       "tag": "0027_add_performance_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1743984000000,
+      "tag": "0028_marketplace_commerce_engine",
+      "breakpoints": true
     }
   ]
 }

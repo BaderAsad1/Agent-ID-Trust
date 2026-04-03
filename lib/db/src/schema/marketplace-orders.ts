@@ -44,6 +44,15 @@ export const marketplaceOrdersTable = pgTable(
     }),
     deadlineAt: timestamp("deadline_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    selectedPackage: varchar("selected_package", { length: 100 }),
+    orchestratorAgentId: uuid("orchestrator_agent_id"),
+    parentOrderId: uuid("parent_order_id"),
+    escrowPaymentIntentId: varchar("escrow_payment_intent_id", { length: 255 }),
+    releasedAmount: numeric("released_amount", { precision: 12, scale: 2 }),
+    paymentRail: varchar("payment_rail", { length: 20 }).default("stripe").notNull(),
+    x402PaymentId: uuid("x402_payment_id"),
+    platformFeeUsdc: numeric("platform_fee_usdc", { precision: 18, scale: 6 }),
+    providerUsdcAddress: varchar("provider_usdc_address", { length: 255 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

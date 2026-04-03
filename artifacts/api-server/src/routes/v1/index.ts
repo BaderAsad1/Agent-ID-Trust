@@ -52,6 +52,7 @@ import waitlistRouter from "./waitlist";
 import nftRouter from "./nft";
 import agentCardRouter from "./agent-card";
 import reputationFeedbackRouter from "./reputation-feedback";
+import a2aRouter from "./a2a";
 
 const router = Router();
 
@@ -127,5 +128,6 @@ router.use("/waitlist", waitlistRouter);
 router.use("/agent-card", agentCardRouter);
 router.use("/agents", reputationFeedbackRouter);
 router.use("/", nftRouter);
+router.use("/a2a", a2aRouter);
 
 export default router;
