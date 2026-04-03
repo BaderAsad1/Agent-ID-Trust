@@ -145,12 +145,12 @@ function NFTCard({ handle, displayName, trustScore, tier, skills }: {
   const displayNameTrunc = displayName ? (displayName.length > 28 ? displayName.slice(0, 26) + '…' : displayName) : null;
 
   const handleY = 198 + Math.round((80 - handleFontSize) * 0.5);
-  const domainY = handleY + Math.round(handleFontSize * 0.3) + 6;
-  const nameY = displayNameTrunc ? domainY + 28 : null;
-
-  // ".agentid" ≈ 8 chars × 8.4px = 67px
-  const tierBadgeX = 24 + 8 * 8.4 + 10;
-  const tierBadgeW = tierShort.length * 7 + 22;
+  // .agentid inline beside handle — same baseline, proportional size
+  const handleTextWidth = Math.round(handleDisplay.length * handleFontSize * 0.48);
+  const domainAvailPx = 278 - handleTextWidth - 6;
+  const domainFontSize = Math.min(28, Math.max(16, Math.floor(domainAvailPx / 5.0)));
+  const domainX = 22 + handleTextWidth + 6;
+  const nameY = displayNameTrunc ? handleY + Math.round(handleFontSize * 0.38) + 10 : null;
 
   const uid = `nft-${handle}`;
 
@@ -195,11 +195,9 @@ function NFTCard({ handle, displayName, trustScore, tier, skills }: {
 
         <Identicon15x15 handle={handle} x={308} y={22} cellSize={11} gap={1} gradId={`id-grad-${uid}`} />
 
+        {/* Handle + .agentid inline on the same baseline */}
         <text x="22" y={handleY} fontFamily="Bricolage Grotesque, system-ui, sans-serif" fontSize={handleFontSize} fontWeight={800} fill="#ecedff" letterSpacing="-2">{handleDisplay}</text>
-
-        <text x="24" y={domainY} fontFamily="JetBrains Mono, monospace" fontSize={14} fill={accentA} opacity={0.8}>.agentid</text>
-        <rect x={tierBadgeX} y={domainY - 13} width={tierBadgeW} height={17} rx={5} fill={tierBg} stroke={tierBorder} strokeWidth={1} />
-        <text x={tierBadgeX + 11} y={domainY - 1} fontFamily="JetBrains Mono, monospace" fontSize={9} fill={tierColor} fontWeight={700}>{tierShort}</text>
+        <text x={domainX} y={handleY} fontFamily="JetBrains Mono, monospace" fontSize={domainFontSize} fill={accentA} opacity={0.85} fontWeight={500}>.agentid</text>
 
         {displayNameTrunc && (
           <text x="24" y={nameY!} fontFamily="system-ui, sans-serif" fontSize={14} fill="rgba(230,232,255,0.42)">{displayNameTrunc}</text>

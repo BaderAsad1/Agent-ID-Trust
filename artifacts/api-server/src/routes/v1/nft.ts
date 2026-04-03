@@ -270,10 +270,14 @@ router.get("/handles/:handle/image.svg", async (req, res, next) => {
     const traces = generateTraces(handle);
     const arc = trustArcSvg(trustPct, 58, 418, 30, trustColor);
 
-    // Dynamic y positions based on font size
+    // .agentid sits inline beside the handle on the same baseline.
+    // Estimate handle text pixel width using Bricolage Grotesque Bold ≈ 0.48× fontSize per char.
     const handleY = 198 + Math.round((80 - handleFontSize) * 0.5);
-    const domainY = handleY + Math.round(handleFontSize * 0.3) + 6;
-    const nameY = displayNameTrunc ? domainY + 28 : null;
+    const handleTextWidth = Math.round(handleDisplay.length * handleFontSize * 0.48);
+    const domainAvailPx = 278 - handleTextWidth - 6;
+    const domainFontSize = Math.min(28, Math.max(16, Math.floor(domainAvailPx / 5.0)));
+    const domainX = 22 + handleTextWidth + 6;
+    const nameY = displayNameTrunc ? handleY + Math.round(handleFontSize * 0.38) + 10 : null;
 
     const displayNameSvg = displayNameTrunc
       ? `<text x="24" y="${nameY}" font-family="Segoe UI, system-ui, sans-serif" font-size="14" fill="rgba(230,232,255,0.42)">${displayNameTrunc}</text>`
@@ -329,13 +333,9 @@ router.get("/handles/:handle/image.svg", async (req, res, next) => {
   <!-- 15×15 identicon (top-right) -->
   ${identicon}
 
-  <!-- Handle name -->
+  <!-- Handle name + .agentid inline on same baseline -->
   <text x="22" y="${handleY}" font-family="Bricolage Grotesque, Segoe UI, system-ui, sans-serif" font-size="${handleFontSize}" font-weight="800" fill="#ecedff" letter-spacing="-2">${handleDisplay}</text>
-
-  <!-- .agentid + tier inline -->
-  <text x="24" y="${domainY}" font-family="JetBrains Mono, Courier New, monospace" font-size="14" fill="${accentA}" opacity="0.8">.agentid</text>
-  <rect x="${24 + 8 * 8.4 + 10}" y="${domainY - 13}" width="${tierShort.length * 7 + 22}" height="17" rx="5" fill="${tierBg}" stroke="${tierBorder}" stroke-width="1"/>
-  <text x="${24 + 8 * 8.4 + 21}" y="${domainY - 1}" font-family="JetBrains Mono, Courier New, monospace" font-size="9" fill="${tierColor}" font-weight="700">${tierShort}</text>
+  <text x="${domainX}" y="${handleY}" font-family="JetBrains Mono, Courier New, monospace" font-size="${domainFontSize}" fill="${accentA}" opacity="0.85" font-weight="500">.agentid</text>
 
   <!-- Display name (only if agent linked) -->
   ${displayNameSvg}
