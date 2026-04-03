@@ -72,7 +72,7 @@ export function Nav() {
             </>
           ) : (
             <button
-              onClick={() => navigate('/get-started')}
+              onClick={() => navigate('/sign-in?intent=register')}
               className="px-5 py-1.5 font-semibold rounded-lg transition-all cursor-pointer hover:scale-[1.02]"
               style={{
                 background: 'rgba(79,125,243,0.15)',

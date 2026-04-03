@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Loader2, AlertCircle, CreditCard } from 'lucide-react';
+import { Check, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
 import { getHandlePrice } from '@/lib/pricing';
@@ -166,9 +166,24 @@ function ReviewRow({ label, value, mono, ok, last }: { label: string; value: str
   );
 }
 
+const PLAN_STORAGE_KEY = 'agent-id-wizard-plan';
+
+function getSelectedPlan(): 'free' | 'starter' | 'pro' {
+  try {
+    const v = sessionStorage.getItem(PLAN_STORAGE_KEY);
+    if (v === 'starter' || v === 'pro') return v;
+  } catch {}
+  return 'free';
+}
+
+const FREE_PLAN_STANDARD_FEE_USD = 5;
+
 export function Start() {
   const navigate = useNavigate();
   const { userId, loading: authLoading, login, refreshAgents } = useAuth();
+
+  const selectedPlan = getSelectedPlan();
+  const isPaidPlan = selectedPlan === 'starter' || selectedPlan === 'pro';
 
   const [step, setStep] = useState(1);
 
@@ -190,7 +205,37 @@ export function Start() {
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [domainActive, setDomainActive] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [autoRouting, setAutoRouting] = useState(false);
+
+  useEffect(() => {
+    if (!showSuccess) return;
+    const handleLen = handle.replace(/[^a-z0-9]/g, '').length;
+    const isStandardHandle = handleLen >= 5;
+    const { annualPrice: rawAnnual } = handle ? getHandlePrice(handle) : { annualPrice: 0 };
+    const effectivePrice = isPaidPlan && isStandardHandle
+      ? 0
+      : isStandardHandle
+        ? FREE_PLAN_STANDARD_FEE_USD
+        : (rawAnnual ?? 0);
+
+    const timer = setTimeout(async () => {
+      setAutoRouting(true);
+      if (effectivePrice > 0 && handle) {
+        try {
+          const base = window.location.origin;
+          const r = await api.billing.handleCheckout(
+            handle,
+            createdAgentId ?? undefined,
+            `${base}/dashboard?payment=success`,
+            `${base}/dashboard?payment=cancelled`,
+          );
+          if (r.url) { window.location.href = r.url; return; }
+        } catch { /* fall through to dashboard */ }
+      }
+      navigate('/dashboard');
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [showSuccess]);
 
   useEffect(() => {
     if (!handle) { setAvailable(null); return; }
@@ -324,8 +369,6 @@ export function Start() {
 
 
   if (showSuccess) {
-    const { annualPrice: annualPriceRaw } = handle ? getHandlePrice(handle) : { annualPrice: 0 };
-    const annualPrice = annualPriceRaw ?? 0;
     return (
       <div style={shell}>
         <div style={{ width: '100%', maxWidth: 440, textAlign: 'center' }}>
@@ -431,42 +474,34 @@ export function Start() {
             </div>
           </div>
 
-          {handle && annualPrice > 0 && (
-            <div style={{ marginBottom: 12, padding: '14px 18px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 12, textAlign: 'left' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <AlertCircle size={14} /> Activate your handle
+          {(() => {
+            const handleLen = handle.replace(/[^a-z0-9]/g, '').length;
+            const isStandardHandle = handleLen >= 5;
+            const { annualPrice: rawAnnual } = handle ? getHandlePrice(handle) : { annualPrice: 0 };
+            const effectivePrice = isPaidPlan && isStandardHandle
+              ? 0
+              : isStandardHandle
+                ? FREE_PLAN_STANDARD_FEE_USD
+                : (rawAnnual ?? 0);
+            const needsCheckout = effectivePrice > 0 && !!handle;
+            return (
+              <div style={{
+                marginBottom: 12, padding: '14px 18px', borderRadius: 12, textAlign: 'center',
+                background: needsCheckout ? 'rgba(245,158,11,0.05)' : 'rgba(52,211,153,0.05)',
+                border: `1px solid ${needsCheckout ? 'rgba(245,158,11,0.12)' : 'rgba(52,211,153,0.12)'}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(232,232,240,0.5)', fontSize: 13 }}>
+                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                  {autoRouting
+                    ? (needsCheckout ? 'Opening checkout…' : 'Going to dashboard…')
+                    : (needsCheckout
+                      ? `Redirecting to checkout ($${effectivePrice}/yr)…`
+                      : (isPaidPlan && isStandardHandle ? 'Handle included — redirecting to dashboard…' : 'Redirecting to dashboard…'))
+                  }
+                </div>
               </div>
-              <p style={{ fontSize: 12, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5, margin: '0 0 10px' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', color: '#4f7df3' }}>{handle}.agentid</span> is reserved. Pay ${annualPrice}/yr to activate.
-              </p>
-              <button
-                disabled={checkoutLoading}
-                onClick={async () => {
-                  setCheckoutLoading(true);
-                  try {
-                    const base = window.location.origin;
-                    const r = await api.billing.handleCheckout(handle, undefined, `${base}/dashboard?payment=success`, `${base}/dashboard?payment=cancelled`);
-                    if (r.url) window.location.href = r.url;
-                  } catch { setCheckoutLoading(false); }
-                }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 8, background: '#4f7df3', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-              >
-                {checkoutLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <CreditCard size={14} />}
-                Activate Handle
-              </button>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-            <button onClick={() => navigate(`/${handle}`)} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,232,240,0.6)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>View Profile</button>
-            <button onClick={() => navigate('/dashboard')} style={{ flex: 1, padding: '12px 16px', borderRadius: 10, background: '#4f7df3', border: 'none', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Go to Dashboard →</button>
-          </div>
-
-          <div style={{ padding: '12px 16px', background: 'rgba(79,125,243,0.04)', border: '1px solid rgba(79,125,243,0.1)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13 }}>🔗</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(232,232,240,0.4)' }}>Share:</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#4f7df3' }}>{handle}.getagent.id</span>
-          </div>
+            );
+          })()}
         </div>
       </div>
     );
@@ -525,19 +560,48 @@ export function Start() {
               </FieldGroup>
 
               {handle && (() => {
-                const { annualPrice: rawAnnualPrice, tier } = getHandlePrice(handle);
-                const annualPrice = rawAnnualPrice ?? 0;
-                const isUltraPremium = annualPrice >= 99;
-                const isPremium = annualPrice >= 29 && annualPrice < 99;
-                const priceLabel = isUltraPremium ? `$${annualPrice}/yr  -  Premium` : isPremium ? `$${annualPrice}/yr  -  Standard` : 'Included with paid plan';
-                const priceColor = isUltraPremium ? '#a78bfa' : isPremium ? '#f59e0b' : '#34d399';
-                const priceBg = isUltraPremium ? 'rgba(167,139,250,0.08)' : isPremium ? 'rgba(245,158,11,0.06)' : 'rgba(52,211,153,0.06)';
-                const priceBorder = isUltraPremium ? 'rgba(167,139,250,0.2)' : isPremium ? 'rgba(245,158,11,0.15)' : 'rgba(52,211,153,0.15)';
+                const { annualPrice: rawAnnualPrice } = getHandlePrice(handle);
+                const handleLen = handle.replace(/[^a-z0-9]/g, '').length;
+                const isStandardHandle = handleLen >= 5;
+                const isFreeForPaid = isPaidPlan && isStandardHandle;
+                const effectiveDisplayPrice = isFreeForPaid
+                  ? 0
+                  : isStandardHandle
+                    ? FREE_PLAN_STANDARD_FEE_USD
+                    : (rawAnnualPrice ?? 0);
+
+                let priceLabel: string;
+                let priceColor: string;
+                let priceBg: string;
+                let priceBorder: string;
+
+                if (isFreeForPaid) {
+                  priceLabel = '1 free handle included with your plan';
+                  priceColor = '#34d399';
+                  priceBg = 'rgba(52,211,153,0.06)';
+                  priceBorder = 'rgba(52,211,153,0.15)';
+                } else if (effectiveDisplayPrice >= 99) {
+                  priceLabel = `$${effectiveDisplayPrice}/yr — Ultra-premium (3 chars)`;
+                  priceColor = '#a78bfa';
+                  priceBg = 'rgba(167,139,250,0.08)';
+                  priceBorder = 'rgba(167,139,250,0.2)';
+                } else if (effectiveDisplayPrice >= 29) {
+                  priceLabel = `$${effectiveDisplayPrice}/yr — Premium (4 chars)`;
+                  priceColor = '#f59e0b';
+                  priceBg = 'rgba(245,158,11,0.06)';
+                  priceBorder = 'rgba(245,158,11,0.15)';
+                } else {
+                  priceLabel = `$${effectiveDisplayPrice}/yr`;
+                  priceColor = '#f59e0b';
+                  priceBg = 'rgba(245,158,11,0.06)';
+                  priceBorder = 'rgba(245,158,11,0.15)';
+                }
+
                 return (
                   <div style={{ padding: '14px 16px', background: priceBg, borderRadius: 10, border: `1px solid ${priceBorder}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                       <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.5)' }}>Handle cost</span>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: priceColor }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, color: priceColor }}>
                         {priceLabel}
                       </div>
                     </div>

@@ -36,6 +36,16 @@ The platform aims to provide a robust, secure, and scalable environment for auto
 
 The Agent ID platform is built as a monorepo containing several distinct but interconnected services.
 
+**Human Onboarding Flow (post-task-166):**
+The correct human onboarding sequence is: sign up → choose plan → set up agent identity.
+- Landing page "Get Started" → `/sign-in?intent=register` (shows "Create your account" copy)
+- After auth, new users (no existing agents) → `/onboarding/plan` (plan selection step)
+- After plan selection, persisted in sessionStorage (`agent-id-wizard-plan`) → `/start` (identity setup)
+- `/start` reads the plan: for paid plans (starter/pro), 5+ char handles show "1 free handle included"; for free plan or short handles (3–4 chars), fee is always shown
+- After identity setup: if handle fee owed → checkout; otherwise → dashboard
+- Returning users (have existing agents) skip `/onboarding/plan` → go directly to `/dashboard`
+- `GetStarted.tsx` remains for backwards compat but is not linked in the primary flow
+
 **Core Architecture:**
 - **Frontend (`artifacts/agent-id`):** A React single-page application built with Vite, utilizing React Router DOM for navigation and Framer Motion for animations. It includes a landing page, marketplace, job board, registration wizard, user dashboard (agents, tasks, mail, transfers, domains, fleet), and public agent profiles. Tailwind CSS is used for styling.
 - **Backend (`artifacts/api-server`):** An Express 5 API provides all core services under `/api/v1/...`. It manages agents, marketplace, jobs, tasks, mail, billing (Stripe), domain provisioning (Cloudflare), resolution protocol, trust scoring, agent transfers, and fleet management.

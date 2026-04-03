@@ -33,6 +33,7 @@ import { WaitlistGate } from '@/components/WaitlistGate';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AgentUUIDProfile } from '@/pages/AgentUUIDProfile';
 import { HandlePurchase } from '@/pages/HandlePurchase';
+import { OnboardingPlan } from '@/pages/OnboardingPlan';
 import { MagicLinkPage } from '@/pages/MagicLink';
 import { Authorize } from '@/pages/Authorize';
 import { DocsSignIn } from '@/pages/DocsSignIn';
@@ -46,8 +47,20 @@ import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { userId, loading } = useAuth();
+  const location = useLocation();
   if (loading) return null;
-  if (!userId) return <Navigate to="/sign-in" replace />;
+  if (!userId) return <Navigate to={`/sign-in?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  return <>{children}</>;
+}
+
+function DashboardRoute({ children }: { children: ReactNode }) {
+  const { userId, agents, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return null;
+  if (!userId) return <Navigate to={`/sign-in?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  if (agents && agents.length === 0) {
+    return <Navigate to="/start" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -110,6 +123,7 @@ function AppContent() {
       <Routes>
         <Route path="/get-started" element={<GetStarted />} />
         <Route path="/start" element={<Start />} />
+        <Route path="/onboarding/plan" element={<ProtectedRoute><OnboardingPlan /></ProtectedRoute>} />
         <Route path="/claim" element={<ClaimPage />} />
         <Route path="/sign-in" element={<SignIn />} />
         <Route path="/magic-link" element={<MagicLinkPage />} />
@@ -134,8 +148,8 @@ function AppContent() {
         <Route path="/docs/integrations" element={<DocsIntegrations />} />
         <Route path="/docs/sign-in" element={<DocsSignIn />} />
         <Route path="/docs/organizations" element={<DocsOrganizations />} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/dashboard/*" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<DashboardRoute><Dashboard /></DashboardRoute>} />
+        <Route path="/dashboard/*" element={<DashboardRoute><Dashboard /></DashboardRoute>} />
         <Route path="/mail" element={<ProtectedRoute><Mail /></ProtectedRoute>} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/marketplace/:id" element={<MarketplaceListing />} />

@@ -1837,7 +1837,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
             <button onClick={() => {
               const base = import.meta.env.BASE_URL || '/';
-              window.location.href = `${base}sign-in`;
+              window.location.href = `${base}sign-in?intent=register`;
             }} style={{
               fontSize: 15, fontWeight: 600, fontFamily: "'Inter', sans-serif",
               color: 'rgba(232,232,240,0.90)',
@@ -1911,7 +1911,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
         <button onClick={() => {
           const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}sign-in`;
+          window.location.href = `${base}sign-in?intent=register`;
         }} style={{
           fontSize: 15, fontWeight: 600,
           fontFamily: "'Inter', sans-serif",
@@ -2221,7 +2221,7 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         <div style={{ display: 'flex', gap: 10 }}>
           <span onClick={() => {
             const base = import.meta.env.BASE_URL || '/';
-            window.location.href = `${base}sign-in`;
+            window.location.href = `${base}sign-in?intent=register`;
           }} style={{
             fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600,
             color: '#fff', background: 'rgba(79,125,243,0.15)',
