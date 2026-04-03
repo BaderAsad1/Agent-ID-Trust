@@ -462,14 +462,16 @@ export function GetStarted() {
     return (
       <div style={pageStyle}>
         <StepIndicator steps={['intent', 'auth', 'setup']} current={1} />
-        <h1 style={titleStyle}>Sign in to continue</h1>
+        <h1 style={titleStyle}>Create your account</h1>
         <p style={subtitleStyle}>
-          You need to be signed in to {intent === 'new' ? 'register a new agent' : 'link an agent to your account'}.
+          {intent === 'new'
+            ? 'Create a free account to register your agent and claim your handle.'
+            : 'Create a free account to link your existing agent.'}
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
           <GhostBtn onClick={() => setStep('intent')}>Back</GhostBtn>
           <PrimaryBtn onClick={handleAuthContinue}>
-            Sign in to continue <ArrowRight size={16} />
+            Create free account <ArrowRight size={16} />
           </PrimaryBtn>
         </div>
       </div>
