@@ -131,28 +131,28 @@ function NFTCard({ handle, displayName, trustScore, skills }: {
 
   const trustPct = Math.min(100, Math.max(0, trustScore));
   const trustColor = trustPct >= 80 ? '#34d399' : trustPct >= 50 ? '#f59e0b' : '#ef4444';
-  const barFill = (trustPct / 100) * 300;
+  const barFill = (trustPct / 100) * 320;
 
   const hl = handle.length;
-  const handleFontSize = hl <= 2 ? 82 : hl <= 3 ? 72 : hl <= 5 ? 60 : hl <= 8 ? 48 : hl <= 12 ? 38 : 28;
+  const handleFontSize = hl <= 2 ? 68 : hl <= 3 ? 58 : hl <= 5 ? 48 : hl <= 8 ? 40 : hl <= 12 ? 32 : 24;
   const handleDisplay = handle.length > 17 ? handle.slice(0, 15) + '…' : handle;
   const displayNameTrunc = displayName ? (displayName.length > 30 ? displayName.slice(0, 28) + '…' : displayName) : null;
 
-  // All y-positions fixed — no dynamic shifts
-  const handleY   = 190;
-  const domainY   = 218;
-  const nameY     = 242;
-  const divider1Y = 260;
-  const divider2Y = 326;
+  // Fixed positions — card is 500×380
+  const handleY   = 122;
+  const domainY   = 144;
+  const nameY     = 162;
+  const divider1Y = 180;
+  const divider2Y = 226;
 
   const uid = `nft-${handle}`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500"
-        style={{ borderRadius: 20, display: 'block' }}>
+      <svg xmlns="http://www.w3.org/2000/svg" width="500" height="380" viewBox="0 0 500 380"
+        style={{ borderRadius: 18, display: 'block' }}>
         <defs>
-          <radialGradient id={`bg-${uid}`} cx="26%" cy="20%" r="88%">
+          <radialGradient id={`bg-${uid}`} cx="26%" cy="18%" r="90%">
             <stop offset="0%" stopColor="#0c1228" />
             <stop offset="50%" stopColor="#07091a" />
             <stop offset="100%" stopColor="#040610" />
@@ -173,62 +173,58 @@ function NFTCard({ handle, displayName, trustScore, skills }: {
           <pattern id={`dots-${uid}`} x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="0.9" fill="rgba(255,255,255,0.028)" />
           </pattern>
-          <clipPath id={`clip-${uid}`}><rect width="500" height="500" rx="20" /></clipPath>
+          <clipPath id={`clip-${uid}`}><rect width="500" height="380" rx="18" /></clipPath>
         </defs>
 
-        <rect width="500" height="500" rx="20" fill={`url(#bg-${uid})`} />
-        <rect width="500" height="500" rx="20" fill={`url(#dots-${uid})`} clipPath={`url(#clip-${uid})`} />
+        <rect width="500" height="380" rx="18" fill={`url(#bg-${uid})`} />
+        <rect width="500" height="380" rx="18" fill={`url(#dots-${uid})`} clipPath={`url(#clip-${uid})`} />
         <Traces handle={handle} />
-        <rect width="500" height="500" rx="20" fill="none" stroke={accentA} strokeOpacity={0.16} strokeWidth={1.5} />
+        <rect width="500" height="380" rx="18" fill="none" stroke={accentA} strokeOpacity={0.16} strokeWidth={1.5} />
         <rect x="0" y="0" width="500" height="3" rx="1.5" fill={`url(#top-${uid})`} />
-        <rect x="0" y="0" width="3" height="500" rx="1.5" fill={accentA} opacity={0.55} />
+        <rect x="0" y="0" width="3" height="380" rx="1.5" fill={accentA} opacity={0.55} />
 
-        <rect x="22" y="20" width="200" height="24" rx="6" fill={accentA} fillOpacity={0.07} stroke={accentA} strokeOpacity={0.15} strokeWidth={1} />
-        <text x="33" y="36" fontFamily="JetBrains Mono, monospace" fontSize={9.5} fill={accentA} opacity={0.65} fontWeight={700} letterSpacing="2.5">AGENT ID CREDENTIAL</text>
+        <rect x="20" y="16" width="186" height="22" rx="6" fill={accentA} fillOpacity={0.07} stroke={accentA} strokeOpacity={0.15} strokeWidth={1} />
+        <text x="30" y="31" fontFamily="JetBrains Mono, monospace" fontSize={9} fill={accentA} opacity={0.65} fontWeight={700} letterSpacing="2.5">AGENT ID CREDENTIAL</text>
 
-        <Identicon15x15 handle={handle} x={308} y={22} cellSize={11} gap={1} gradId={`id-grad-${uid}`} />
+        {/* 15×15 identicon — cell=5 gap=1 → 89px (50% of original). Top-right at x=400 y=14 */}
+        <Identicon15x15 handle={handle} x={400} y={14} cellSize={5} gap={1} gradId={`id-grad-${uid}`} />
 
-        {/* Handle name — fixed baseline y=190 */}
+        {/* Handle name — fixed baseline y=122 */}
         <text x="22" y={handleY} fontFamily="Bricolage Grotesque, system-ui, sans-serif" fontSize={handleFontSize} fontWeight={800} fill="#ecedff" letterSpacing="-1.5">{handleDisplay}</text>
 
-        {/* .agentid — fixed y=218, always 20px bold accent */}
-        <text x="24" y={domainY} fontFamily="JetBrains Mono, monospace" fontSize={20} fill={accentA} fontWeight={600} opacity={0.9}>.agentid</text>
+        {/* .agentid — fixed y=144, 17px bold accent */}
+        <text x="24" y={domainY} fontFamily="JetBrains Mono, monospace" fontSize={17} fill={accentA} fontWeight={600} opacity={0.9}>.agentid</text>
 
-        {/* Display name — fixed y=242, only if linked */}
+        {/* Display name — fixed y=162, only if linked */}
         {displayNameTrunc && (
-          <text x="24" y={nameY} fontFamily="system-ui, sans-serif" fontSize={13} fill="rgba(230,232,255,0.38)">{displayNameTrunc}</text>
+          <text x="24" y={nameY} fontFamily="system-ui, sans-serif" fontSize={12} fill="rgba(230,232,255,0.38)">{displayNameTrunc}</text>
         )}
 
         {/* Divider 1 */}
-        <rect x="22" y={divider1Y} width="456" height="1" fill="rgba(255,255,255,0.06)" />
+        <rect x="20" y={divider1Y} width="460" height="1" fill="rgba(255,255,255,0.06)" />
 
         {/* Trust score */}
-        <text x="22" y="286" fontFamily="JetBrains Mono, monospace" fontSize={9} fill="rgba(230,232,255,0.22)" fontWeight={700} letterSpacing="2.5">TRUST SCORE</text>
-        <rect x="22" y="294" width="300" height="6" rx="3" fill="rgba(255,255,255,0.05)" />
-        <rect x="22" y="294" width={barFill} height="6" rx="3" fill={`url(#bar-${uid})`} />
-        <text x="334" y="303" fontFamily="JetBrains Mono, monospace" fontSize={18} fill={trustColor} fontWeight={800}>{trustScore}</text>
+        <text x="22" y="196" fontFamily="JetBrains Mono, monospace" fontSize={8.5} fill="rgba(230,232,255,0.22)" fontWeight={700} letterSpacing="2.5">TRUST SCORE</text>
+        <rect x="22" y="202" width="320" height="5" rx="2.5" fill="rgba(255,255,255,0.05)" />
+        <rect x="22" y="202" width={barFill} height="5" rx="2.5" fill={`url(#bar-${uid})`} />
+        <text x="354" y="210" fontFamily="JetBrains Mono, monospace" fontSize={16} fill={trustColor} fontWeight={800}>{trustScore}</text>
 
         {/* Divider 2 */}
-        <rect x="22" y={divider2Y} width="456" height="1" fill="rgba(255,255,255,0.04)" />
+        <rect x="20" y={divider2Y} width="460" height="1" fill="rgba(255,255,255,0.04)" />
 
-        {/* Trust ring — fixed cx=56 cy=392 r=28 */}
-        <TrustArc pct={trustPct} cx={56} cy={392} r={28} color={trustColor} />
-        <text x="56" y="397" fontFamily="JetBrains Mono, monospace" fontSize={13} fill={trustColor} fontWeight={800} textAnchor="middle">{trustScore}</text>
-        <text x="56" y="412" fontFamily="JetBrains Mono, monospace" fontSize={8} fill="rgba(230,232,255,0.2)" textAnchor="middle" letterSpacing="1">/100</text>
-
-        {/* Agent Skills — fixed x=104, to the right of the ring */}
+        {/* Agent Skills — full width, no ring */}
         {skills.length > 0 ? (
           <>
-            <text x="104" y="344" fontFamily="JetBrains Mono, monospace" fontSize={9} fill="rgba(230,232,255,0.22)" fontWeight={700} letterSpacing="2">AGENT SKILLS</text>
-            <SkillPills skills={skills} accentA={accentA} startX={104} startY={356} maxX={468} />
+            <text x="22" y="242" fontFamily="JetBrains Mono, monospace" fontSize={9} fill="rgba(230,232,255,0.22)" fontWeight={700} letterSpacing="2">AGENT SKILLS</text>
+            <SkillPills skills={skills} accentA={accentA} startX={22} startY={253} maxX={472} />
           </>
         ) : displayNameTrunc ? (
-          <text x="104" y="372" fontFamily="JetBrains Mono, monospace" fontSize={10} fill="rgba(230,232,255,0.14)">No skills listed</text>
+          <text x="22" y="260" fontFamily="JetBrains Mono, monospace" fontSize={10} fill="rgba(230,232,255,0.14)">No skills listed</text>
         ) : null}
 
         {/* Bottom rule */}
-        <rect x="22" y="438" width="456" height="1" fill="rgba(255,255,255,0.04)" />
-        <text x="478" y="476" fontFamily="JetBrains Mono, monospace" fontSize={9} fill="rgba(230,232,255,0.09)" textAnchor="end" letterSpacing="0.5">getagent.id</text>
+        <rect x="20" y="318" width="460" height="1" fill="rgba(255,255,255,0.04)" />
+        <text x="480" y="350" fontFamily="JetBrains Mono, monospace" fontSize={8.5} fill="rgba(230,232,255,0.09)" textAnchor="end" letterSpacing="0.5">getagent.id</text>
       </svg>
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'rgba(232,232,240,0.18)', letterSpacing: '0.05em' }}>
         /api/v1/handles/{handle}/image.svg
