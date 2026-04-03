@@ -313,18 +313,11 @@ function buildCaip10Address(network: string, address: string): string {
 
 function parseChainRegistrations(
   chainRegistrations: Record<string, unknown>[] | null | undefined,
-  chainMints: Record<string, unknown> | null | undefined,
 ): Array<Record<string, unknown>> {
   if (chainRegistrations && Array.isArray(chainRegistrations) && chainRegistrations.length > 0) {
     return chainRegistrations as Array<Record<string, unknown>>;
   }
-  if (!chainMints || typeof chainMints !== "object") return [];
-  return Object.entries(chainMints)
-    .filter(([, v]) => v && typeof v === "object")
-    .map(([chain, v]) => ({
-      chain,
-      ...((v as Record<string, unknown>)),
-    }));
+  return [];
 }
 
 export async function buildErc8004(handle: string) {
@@ -424,7 +417,6 @@ export async function buildErc8004(handle: string) {
 
   const chainRegistrations = parseChainRegistrations(
     (agent as unknown as { chainRegistrations?: Record<string, unknown>[] }).chainRegistrations,
-    agent.chainMints as Record<string, unknown> | null,
   );
 
   const owsEvmWallets = owsWallets
@@ -454,7 +446,7 @@ export async function buildErc8004(handle: string) {
     alsoKnownAs: agent.handle ? [`did:agentid:${agent.handle}`] : undefined,
     name: agent.displayName,
     description: agent.description || null,
-    image: agent.avatarUrl || `${APP_URL}/api/v1/agents/${agent.id}/nft-image`,
+    image: agent.avatarUrl || (agent.handle ? `${APP_URL}/api/v1/handles/${agent.handle}/image.svg` : null),
     active: agent.status === "active",
     x402Support,
     supportedTrust: ["unverified", "basic", "verified", "trusted"],

@@ -54,8 +54,8 @@ function buildAgentIdentityDocument(
 ) {
   const handle = normalizeHandle(agent.handle ?? "");
   return {
-    "@context": "https://getagent.id/ns/agent-identity/v1",
-    "@type": "AgentIdentity",
+    "@context": "https://getagent.id/ns/agentid/v1",
+    "@type": "AgentID",
     id: `did:web:getagent.id:agents:${agent.id}`,
     handleDid: agent.handle ? `did:agentid:${agent.handle}` : null,
     handle: agent.handle,

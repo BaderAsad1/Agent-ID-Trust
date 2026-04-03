@@ -21,13 +21,14 @@ export function formatPromptBlock(bundle: BootstrapBundle, options?: PromptBlock
   const inboxUrl = agentId ? `${API_URL}/v1/mail/agents/${agentId}/inbox` : null;
 
   const lines: string[] = [
-    `## Agent Identity — Agent ID`,
+    `## AgentID`,
     ``,
     `You are an AI agent with a verified identity on the Agent ID network.`,
     ``,
     `- **Name**: ${bundle.display_name}`,
     `- **Handle**: ${handle ? `${handle}.agentid` : "(no handle)"}`,
-    `- **DID**: did:agentid:${handle || agentId}`,
+    `- **DID**: did:web:getagent.id:agents:${agentId}`,
+    `- **Handle DID (alias)**: ${handle ? `did:agentid:${handle}` : "(no handle)"}`,
     `- **Agent ID**: ${agentId}`,
     `- **Trust Score**: ${trustScore}/100`,
     `- **Trust Tier**: ${trustTier}`,

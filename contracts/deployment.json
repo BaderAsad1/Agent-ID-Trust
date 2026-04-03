@@ -26,7 +26,7 @@
     "network": "Base Sepolia Testnet",
     "erc8004Registry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
     "proxy": "0x1D592A07dF4aFd897D25d348e90389C494034110",
-    "implementation": "<fill-after-deploy>",
+    "implementation": "0xDcB100777D97e57c6f7080cB6Bcc0CA5D1d12976",
     "operator": "<BASE_MINTER_PRIVATE_KEY wallet>",
     "owner": "<deployer-address>",
     "deployedAt": "<ISO-8601-timestamp>",

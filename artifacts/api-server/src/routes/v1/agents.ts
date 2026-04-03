@@ -1602,7 +1602,7 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
         profileUrl,
         capabilities,
         promptBlock: [
-          `## Agent Identity — Agent ID`,
+          `## AgentID`,
           ``,
           `You are an AI agent with a verified identity on the Agent ID network.`,
           ``,
@@ -1627,7 +1627,7 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
 
     if (format === "openclaw") {
       const content = [
-        `# Agent Identity`,
+        `# AgentID`,
         ``,
         `You are ${bundle.display_name}, an AI agent with a verified identity on Agent ID.`,
         ``,
@@ -1667,7 +1667,7 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
 
     if (format === "claude") {
       const content = [
-        `# Agent Identity`,
+        `# AgentID`,
         ``,
         `This agent has a verified identity on Agent ID (getagent.id).`,
         `Handle: ${fqdn || "(no handle)"} | DID: ${did} | Trust: ${trustScore}/100`,
@@ -1679,7 +1679,7 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
     }
 
     const lines = [
-      `## Agent Identity — Agent ID`,
+      `## AgentID`,
       ``,
       `You are an AI agent with a verified identity on the Agent ID network.`,
       ``,
