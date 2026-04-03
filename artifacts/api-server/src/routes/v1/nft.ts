@@ -12,6 +12,23 @@ import { agentOwnerFilter } from "../../services/agents";
 
 const router = Router();
 
+const PALETTES: Array<[string, string]> = [
+  ["#4f7df3", "#7c5bf5"],
+  ["#34d399", "#059669"],
+  ["#f59e0b", "#d97706"],
+  ["#06b6d4", "#0891b2"],
+  ["#ec4899", "#db2777"],
+  ["#8b5cf6", "#6d28d9"],
+  ["#f97316", "#ea580c"],
+  ["#22d3ee", "#0e7490"],
+];
+
+function handlePalette(handle: string): [string, string] {
+  let hash = 5381;
+  for (const c of handle) hash = ((hash << 5) + hash) ^ c.charCodeAt(0);
+  return PALETTES[Math.abs(hash) % PALETTES.length];
+}
+
 function getTierFromHandle(handle: string): string {
   const len = handle.replace(/[^a-z0-9]/gi, "").length;
   if (len <= 3) return "premium";
@@ -30,42 +47,78 @@ function isValidEvmAddress(address: string): boolean {
   return /^0x[0-9a-fA-F]{40}$/.test(address);
 }
 
-function handleToIdenticon(handle: string): boolean[][] {
-  let hash = 5381;
+function handleToIdenticon9x9(handle: string): boolean[][] {
+  let h1 = 5381, h2 = 0x12345678;
   for (const c of handle) {
-    hash = ((hash << 5) + hash) ^ c.charCodeAt(0);
+    const code = c.charCodeAt(0);
+    h1 = ((h1 << 5) + h1) ^ code;
+    h2 = Math.imul(h2 ^ code, 0x9e3779b9);
   }
-  hash = Math.abs(hash);
+  h1 = Math.abs(h1); h2 = Math.abs(h2);
   const cells: boolean[][] = [];
-  for (let row = 0; row < 5; row++) {
+  for (let row = 0; row < 9; row++) {
     const rowCells: boolean[] = [];
-    for (let col = 0; col < 3; col++) {
-      rowCells.push(((hash >> (row * 3 + col)) & 1) === 1);
+    for (let col = 0; col < 5; col++) {
+      const bitIdx = row * 5 + col;
+      const src = bitIdx < 31 ? h1 : h2;
+      rowCells.push(((src >> (bitIdx % 31)) & 1) === 1);
     }
-    cells.push([rowCells[0], rowCells[1], rowCells[2], rowCells[1], rowCells[0]]);
+    cells.push([
+      rowCells[0], rowCells[1], rowCells[2], rowCells[3], rowCells[4],
+      rowCells[3], rowCells[2], rowCells[1], rowCells[0],
+    ]);
   }
   return cells;
 }
 
-function renderIdenticon(handle: string, x: number, y: number, cellSize: number, gap: number): string {
-  const cells = handleToIdenticon(handle);
+function renderIdenticon9x9(
+  handle: string, x: number, y: number,
+  cellSize: number, gap: number,
+  accentA: string, accentB: string,
+  gradId: string,
+): string {
+  const cells = handleToIdenticon9x9(handle);
   const parts: string[] = [];
-  for (let row = 0; row < 5; row++) {
-    for (let col = 0; col < 5; col++) {
+  const dim = 9;
+  for (let row = 0; row < dim; row++) {
+    for (let col = 0; col < dim; col++) {
       const cx = x + col * (cellSize + gap);
       const cy = y + row * (cellSize + gap);
-      const fill = cells[row][col] ? 'url(#id-grad)' : 'rgba(255,255,255,0.04)';
-      parts.push(`<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="3" fill="${fill}"/>`);
+      const active = cells[row][col];
+      // Vary opacity towards edges for a vignette feel
+      const edgeDist = Math.min(row, dim - 1 - row, col, dim - 1 - col);
+      const opacity = active ? (edgeDist === 0 ? 0.55 : edgeDist === 1 ? 0.75 : 1) : 0.04;
+      const fill = active ? `url(#${gradId})` : "rgba(255,255,255,0.04)";
+      parts.push(
+        `<rect x="${cx}" y="${cy}" width="${cellSize}" height="${cellSize}" rx="3" fill="${fill}" opacity="${opacity}"/>`
+      );
+      void accentA; void accentB;
     }
   }
-  return parts.join('\n  ');
+  return parts.join("\n  ");
 }
 
-function trustArc(trustPct: number, cx: number, cy: number, r: number, color: string): string {
+function generateTraces(handle: string): string {
+  let seed = 0x6d2b4e1a;
+  for (const c of handle) seed = ((seed * 31) + c.charCodeAt(0)) >>> 0;
+  const traces: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    const y = 100 + (((seed >>> (i * 8)) & 0xFF) / 255) * 220;
+    const x2 = 160 + (((seed >>> (i * 8 + 4)) & 0x3F) / 63) * 100;
+    const dropY = y + (((seed >>> (i * 8 + 2)) & 0x1F) - 16) * 3;
+    traces.push(
+      `<path d="M4 ${y.toFixed(1)} H ${x2.toFixed(1)} V ${dropY.toFixed(1)}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>`,
+    );
+    traces.push(`<circle cx="${x2.toFixed(1)}" cy="${dropY.toFixed(1)}" r="2.5" fill="rgba(255,255,255,0.08)"/>`);
+  }
+  return traces.join("\n  ");
+}
+
+function trustArcSvg(trustPct: number, cx: number, cy: number, r: number, color: string): string {
   const circ = 2 * Math.PI * r;
   const offset = circ - (trustPct / 100) * circ;
-  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
-  <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="5"
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="5.5"/>
+  <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="5.5"
     stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"
     stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>`;
 }
@@ -168,123 +221,141 @@ router.get("/handles/:handle/image.svg", async (req, res, next) => {
     const tier = getTierFromHandle(handle);
     const nftStatus = agent?.nftStatus ?? "none";
 
+    const [accentA, accentB] = handlePalette(handle);
     const isMinted = nftStatus === "minted" || nftStatus === "pending_claim" || nftStatus === "active";
     const tierShort = tier === "premium" ? (handle.replace(/[^a-z0-9]/gi, "").length <= 3 ? "ULTRA RARE" : "RARE") : "STANDARD";
-    const handleDisplay16 = handle.length > 16 ? handle.slice(0, 14) + "…" : handle;
-    const displayNameTrunc = displayName.length > 24 ? displayName.slice(0, 22) + "…" : displayName;
 
-    const tierColor = tier === "premium" ? "#f59e0b" : "#4f7df3";
-    const tierBg = tier === "premium" ? "rgba(245,158,11,0.1)" : "rgba(79,125,243,0.1)";
-    const tierBorder = tier === "premium" ? "rgba(245,158,11,0.25)" : "rgba(79,125,243,0.25)";
+    const hl = handle.length;
+    const handleFontSize = hl <= 3 ? 80 : hl <= 5 ? 68 : hl <= 8 ? 56 : hl <= 12 ? 44 : 34;
+    const handleDisplay = handle.length > 17 ? handle.slice(0, 15) + "…" : handle;
+    const displayNameTrunc = displayName.length > 26 ? displayName.slice(0, 24) + "…" : displayName;
+
+    const tierColor = tier === "premium" ? "#f59e0b" : accentA;
+    const tierBg = tier === "premium" ? "rgba(245,158,11,0.1)" : `rgba(79,125,243,0.1)`;
+    const tierBorder = tier === "premium" ? "rgba(245,158,11,0.25)" : `rgba(79,125,243,0.25)`;
 
     const trustPct = Math.min(100, Math.max(0, trustScore));
     const trustColor = trustPct >= 80 ? "#34d399" : trustPct >= 50 ? "#f59e0b" : "#ef4444";
-    const trustGlow = trustPct >= 80 ? "rgba(52,211,153,0.25)" : trustPct >= 50 ? "rgba(245,158,11,0.25)" : "rgba(239,68,68,0.25)";
+    const trustGlow = trustPct >= 80 ? "rgba(52,211,153,0.22)" : trustPct >= 50 ? "rgba(245,158,11,0.22)" : "rgba(239,68,68,0.22)";
 
-    const identicon = renderIdenticon(handle, 388, 24, 14, 2);
-    const arc = trustArc(trustPct, 60, 395, 32, trustColor);
-    const barFill = (trustPct / 100) * 280;
+    const barFill = (trustPct / 100) * 300;
+    const arc = trustArcSvg(trustPct, 66, 420, 36, trustColor);
+    const identicon = renderIdenticon9x9(handle, 302, 34, 16, 2, accentA, accentB, "id-grad");
+    const traces = generateTraces(handle);
+
+    const handleY = 200 + (80 - handleFontSize) * 0.5;
+    const domainY = handleY + handleFontSize * 0.28;
+    const nameY = domainY + 30;
 
     const baseBadge = isMinted
-      ? `<rect x="318" y="448" width="100" height="22" rx="7" fill="rgba(52,211,153,0.08)" stroke="rgba(52,211,153,0.2)" stroke-width="1"/>
-  <text x="368" y="463" font-family="JetBrains Mono, monospace" font-size="9" fill="#34d399" text-anchor="middle" font-weight="600">&#x2B21; BASE NFT</text>`
+      ? `<rect x="340" y="456" width="110" height="24" rx="8" fill="rgba(52,211,153,0.08)" stroke="rgba(52,211,153,0.2)" stroke-width="1"/>
+  <text x="395" y="472" font-family="JetBrains Mono, monospace" font-size="10" fill="#34d399" text-anchor="middle" font-weight="600">&#x2B21; BASE NFT</text>`
       : "";
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">
   <defs>
-    <radialGradient id="bg" cx="25%" cy="20%" r="90%">
-      <stop offset="0%" stop-color="#0e1535"/>
-      <stop offset="60%" stop-color="#080c1f"/>
-      <stop offset="100%" stop-color="#05071a"/>
+    <radialGradient id="bg-r" cx="28%" cy="22%" r="85%">
+      <stop offset="0%" stop-color="#0d1430"/>
+      <stop offset="55%" stop-color="#080b1e"/>
+      <stop offset="100%" stop-color="#04060f"/>
     </radialGradient>
     <linearGradient id="top-line" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#4f7df3"/>
-      <stop offset="50%" stop-color="#7c5bf5"/>
-      <stop offset="100%" stop-color="#4f7df3" stop-opacity="0"/>
+      <stop offset="0%" stop-color="${accentA}"/>
+      <stop offset="50%" stop-color="${accentB}"/>
+      <stop offset="100%" stop-color="${accentA}" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="id-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4f7df3"/>
-      <stop offset="100%" stop-color="#7c5bf5"/>
+      <stop offset="0%" stop-color="${accentA}"/>
+      <stop offset="100%" stop-color="${accentB}"/>
     </linearGradient>
-    <linearGradient id="trust-bg" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="rgba(255,255,255,0.04)"/>
-      <stop offset="100%" stop-color="rgba(255,255,255,0.02)"/>
+    <linearGradient id="bar-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${trustColor}" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="${trustColor}" stop-opacity="0.55"/>
     </linearGradient>
-    <filter id="glow-${handle}">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
+    <filter id="glow-f">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+    </filter>
+    <filter id="txt-glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <filter id="soft-${handle}">
-      <feGaussianBlur stdDeviation="20" result="blur"/>
-    </filter>
-    <pattern id="dots-${handle}" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-      <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.035)"/>
+    <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="0.9" fill="rgba(255,255,255,0.03)"/>
     </pattern>
-    <clipPath id="clip-${handle}"><rect width="500" height="500" rx="24"/></clipPath>
+    <clipPath id="card-clip"><rect width="500" height="500" rx="22"/></clipPath>
   </defs>
 
-  <rect width="500" height="500" rx="24" fill="url(#bg)"/>
-  <rect width="500" height="500" rx="24" fill="url(#dots-${handle})" clip-path="url(#clip-${handle})"/>
+  <!-- Base -->
+  <rect width="500" height="500" rx="22" fill="url(#bg-r)"/>
+  <rect width="500" height="500" rx="22" fill="url(#dots)" clip-path="url(#card-clip)"/>
 
-  <!-- Subtle radial glow top-left -->
-  <ellipse cx="80" cy="80" rx="160" ry="140" fill="${trustGlow}" filter="url(#soft-${handle})" opacity="0.5"/>
+  <!-- PCB traces -->
+  ${traces}
+
+  <!-- Ambient glow (accent) -->
+  <ellipse cx="420" cy="80" rx="180" ry="150" fill="${accentA}" filter="url(#glow-f)" opacity="0.18"/>
+  <!-- Ambient glow (trust) -->
+  <ellipse cx="66" cy="420" rx="110" ry="100" fill="${trustColor}" filter="url(#glow-f)" opacity="0.22"/>
 
   <!-- Border -->
-  <rect width="500" height="500" rx="24" fill="none" stroke="rgba(79,125,243,0.18)" stroke-width="1.5"/>
+  <rect width="500" height="500" rx="22" fill="none" stroke="${accentA}" stroke-opacity="0.18" stroke-width="1.5"/>
 
-  <!-- Top accent line -->
+  <!-- Top accent bar -->
   <rect x="0" y="0" width="500" height="3" rx="1.5" fill="url(#top-line)"/>
 
-  <!-- Left accent bar -->
-  <rect x="0" y="0" width="3" height="500" rx="1.5" fill="rgba(79,125,243,0.45)"/>
+  <!-- Left accent strip -->
+  <rect x="0" y="0" width="3" height="500" rx="1.5" fill="${accentA}" opacity="0.6"/>
 
-  <!-- AGENT ID CREDENTIAL pill -->
-  <rect x="24" y="24" width="192" height="24" rx="7" fill="rgba(79,125,243,0.07)" stroke="rgba(79,125,243,0.14)" stroke-width="1"/>
-  <text x="36" y="40" font-family="JetBrains Mono, monospace" font-size="10" fill="rgba(79,125,243,0.65)" font-weight="700" letter-spacing="2.5">AGENT ID CREDENTIAL</text>
+  <!-- AGENT ID CREDENTIAL badge -->
+  <rect x="22" y="22" width="200" height="26" rx="7" fill="${accentA}" fill-opacity="0.07" stroke="${accentA}" stroke-opacity="0.16" stroke-width="1"/>
+  <text x="34" y="39" font-family="JetBrains Mono, Courier New, monospace" font-size="10" fill="${accentA}" opacity="0.7" font-weight="700" letter-spacing="2.5">AGENT ID CREDENTIAL</text>
 
-  <!-- Identicon (5x5 symmetric, top-right) -->
+  <!-- 9x9 identicon (top-right) -->
   ${identicon}
 
   <!-- Handle name -->
-  <text x="24" y="150" font-family="Bricolage Grotesque, Inter, sans-serif" font-size="60" font-weight="800" fill="#eaeaf5" letter-spacing="-2.5">${handleDisplay16}</text>
+  <text x="22" y="${handleY}" font-family="Bricolage Grotesque, Segoe UI, system-ui, sans-serif" font-size="${handleFontSize}" font-weight="800" fill="#eef0ff" letter-spacing="-2">${handleDisplay}</text>
 
   <!-- .agentid domain -->
-  <text x="26" y="180" font-family="JetBrains Mono, monospace" font-size="15" fill="#4f7df3" opacity="0.75">.agentid</text>
+  <text x="24" y="${domainY}" font-family="JetBrains Mono, Courier New, monospace" font-size="14" fill="${accentA}" opacity="0.8">.agentid</text>
 
   <!-- Display name -->
-  <text x="26" y="218" font-family="Inter, sans-serif" font-size="15" fill="rgba(234,234,245,0.45)">${displayNameTrunc}</text>
+  <text x="24" y="${nameY}" font-family="Segoe UI, system-ui, sans-serif" font-size="14" fill="rgba(230,232,255,0.42)">${displayNameTrunc}</text>
 
   <!-- Divider -->
-  <rect x="24" y="238" width="452" height="1" fill="rgba(255,255,255,0.05)"/>
+  <rect x="22" y="255" width="456" height="1" fill="rgba(255,255,255,0.06)"/>
 
-  <!-- Trust score label -->
-  <text x="24" y="275" font-family="JetBrains Mono, monospace" font-size="10" fill="rgba(234,234,245,0.25)" font-weight="700" letter-spacing="2">TRUST SCORE</text>
+  <!-- TRUST SCORE label -->
+  <text x="22" y="290" font-family="JetBrains Mono, Courier New, monospace" font-size="9.5" fill="rgba(230,232,255,0.22)" font-weight="700" letter-spacing="2.5">TRUST SCORE</text>
 
-  <!-- Trust bar track -->
-  <rect x="24" y="284" width="280" height="6" rx="3" fill="rgba(255,255,255,0.05)"/>
-  <!-- Trust bar fill -->
-  <rect x="24" y="284" width="${barFill.toFixed(1)}" height="6" rx="3" fill="${trustColor}" opacity="0.85"/>
+  <!-- Bar track -->
+  <rect x="22" y="298" width="300" height="7" rx="3.5" fill="rgba(255,255,255,0.05)"/>
+  <!-- Bar fill -->
+  <rect x="22" y="298" width="${barFill.toFixed(1)}" height="7" rx="3.5" fill="url(#bar-grad)"/>
 
-  <!-- Trust number -->
-  <text x="316" y="291" font-family="JetBrains Mono, monospace" font-size="20" fill="${trustColor}" font-weight="800">${trustScore}</text>
+  <!-- Score number -->
+  <text x="334" y="307" font-family="JetBrains Mono, Courier New, monospace" font-size="18" fill="${trustColor}" font-weight="800">${trustScore}</text>
 
-  <!-- Trust arc (decorative ring bottom-left) -->
+  <!-- Second divider -->
+  <rect x="22" y="336" width="456" height="1" fill="rgba(255,255,255,0.04)"/>
+
+  <!-- Trust arc ring -->
   ${arc}
-  <text x="60" y="401" font-family="JetBrains Mono, monospace" font-size="13" fill="${trustColor}" font-weight="800" text-anchor="middle">${trustScore}</text>
-  <text x="60" y="416" font-family="JetBrains Mono, monospace" font-size="8" fill="rgba(234,234,245,0.25)" text-anchor="middle" letter-spacing="1">TRUST</text>
+  <text x="66" y="426" font-family="JetBrains Mono, Courier New, monospace" font-size="14" fill="${trustColor}" font-weight="800" text-anchor="middle">${trustScore}</text>
+  <text x="66" y="443" font-family="JetBrains Mono, Courier New, monospace" font-size="8" fill="rgba(230,232,255,0.22)" text-anchor="middle" letter-spacing="1.5">/ 100</text>
 
   <!-- Tier badge -->
-  <rect x="110" y="376" width="${tierShort.length * 7 + 30}" height="26" rx="8" fill="${tierBg}" stroke="${tierBorder}" stroke-width="1"/>
-  <text x="125" y="393" font-family="JetBrains Mono, monospace" font-size="10.5" fill="${tierColor}" font-weight="700">${tierShort}</text>
+  <rect x="120" y="400" width="${tierShort.length * 7.2 + 28}" height="28" rx="8" fill="${tierBg}" stroke="${tierBorder}" stroke-width="1"/>
+  <text x="134" y="419" font-family="JetBrains Mono, Courier New, monospace" font-size="10.5" fill="${tierColor}" font-weight="700">${tierShort}</text>
 
-  <!-- Horizontal divider above bottom row -->
-  <rect x="24" y="438" width="452" height="1" fill="rgba(255,255,255,0.04)"/>
+  <!-- Bottom rule -->
+  <rect x="22" y="449" width="456" height="1" fill="rgba(255,255,255,0.04)"/>
 
-  <!-- Base badge (conditional) -->
+  <!-- BASE NFT badge -->
   ${baseBadge}
 
   <!-- getagent.id watermark -->
-  <text x="476" y="484" font-family="JetBrains Mono, monospace" font-size="9" fill="rgba(234,234,245,0.12)" text-anchor="end" letter-spacing="0.5">getagent.id</text>
+  <text x="478" y="486" font-family="JetBrains Mono, Courier New, monospace" font-size="9" fill="rgba(230,232,255,0.1)" text-anchor="end" letter-spacing="0.5">getagent.id</text>
 </svg>`;
 
     res.setHeader("Content-Type", "image/svg+xml");
