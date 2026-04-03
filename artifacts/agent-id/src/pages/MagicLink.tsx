@@ -22,8 +22,11 @@ export function MagicLinkPage() {
     verifyAttempted.current = true;
 
     const hash = window.location.hash;
-    const params = new URLSearchParams(hash.replace(/^#/, ''));
-    const token = params.get('token');
+    const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+    const token = hashParams.get('token');
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const returnTo = searchParams.get('returnTo') || '/dashboard';
 
     if (!token) {
       setStatus('invalid');
@@ -41,7 +44,7 @@ export function MagicLinkPage() {
         });
         if (res.ok) {
           setStatus('success');
-          redirectTimer.current = setTimeout(() => navigate('/dashboard', { replace: true }), 1500);
+          redirectTimer.current = setTimeout(() => navigate(returnTo, { replace: true }), 1500);
         } else {
           const body = await res.json().catch(() => ({}));
           const code = body.code || '';
@@ -111,7 +114,7 @@ export function MagicLinkPage() {
             You're signed in
           </h1>
           <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)' }}>
-            Redirecting to your dashboard...
+            Taking you back where you left off...
           </p>
         </div>
       </div>

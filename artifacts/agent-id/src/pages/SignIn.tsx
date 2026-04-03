@@ -72,7 +72,7 @@ export function SignIn() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), returnTo }),
       });
       if (res.ok) {
         setSent(true);

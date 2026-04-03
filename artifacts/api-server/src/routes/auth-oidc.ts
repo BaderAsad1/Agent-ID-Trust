@@ -319,7 +319,7 @@ router.get("/auth/google/callback", async (req: Request, res: Response) => {
 });
 
 router.post("/auth/magic-link/send", magicLinkSendRateLimit, async (req: Request, res: Response) => {
-  const { email } = req.body as { email?: string };
+  const { email, returnTo: rawReturnTo } = req.body as { email?: string; returnTo?: string };
   if (!email || !email.includes("@")) {
     res.status(400).json({ error: "INVALID_EMAIL", message: "A valid email address is required", requestId: req.requestId ?? "unknown" });
     return;
@@ -336,7 +336,9 @@ router.post("/auth/magic-link/send", magicLinkSendRateLimit, async (req: Request
   });
 
   const baseUrl = env().AUTH_BASE_URL || getAppUrl(req);
-  const magicUrl = `${baseUrl}/magic-link#token=${token}`;
+  const safeReturnTo = getSafeReturnTo(rawReturnTo);
+  const returnToParam = safeReturnTo !== "/" ? `?returnTo=${encodeURIComponent(safeReturnTo)}` : "";
+  const magicUrl = `${baseUrl}/magic-link${returnToParam}#token=${token}`;
 
   try {
     await sendMagicLinkEmail(email, magicUrl);
