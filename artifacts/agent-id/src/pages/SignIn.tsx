@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { Bot, Mail, LockKeyhole, Zap, Star } from 'lucide-react';
 
 const BASE = import.meta.env.BASE_URL || '/';
 const ACCENT = '#4f7df3';
@@ -112,8 +113,10 @@ export function SignIn() {
             width: 48, height: 48, borderRadius: '50%',
             background: 'rgba(79,125,243,0.1)', border: '1px solid rgba(79,125,243,0.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 24px', fontSize: 22,
-          }}>✉️</div>
+            margin: '0 auto 24px',
+          }}>
+            <Mail size={22} color={ACCENT} strokeWidth={1.5} />
+          </div>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#f0f0f5', marginBottom: 12 }}>
             Check your email
           </h1>
@@ -191,22 +194,17 @@ export function SignIn() {
         {/* Logo */}
         <div style={{ marginBottom: 56, position: 'relative' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: `linear-gradient(135deg, ${ACCENT}, ${PURPLE})`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, fontWeight: 800, color: 'white',
-              fontFamily: "'JetBrains Mono', monospace",
-              boxShadow: `0 0 16px ${ACCENT}55`,
-            }}>
-              id
-            </div>
+            <img
+              src={`${BASE}app-icon.png`}
+              alt="Agent ID"
+              style={{ width: 28, height: 28, borderRadius: 6, display: 'block' }}
+            />
             <span style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontWeight: 700, fontSize: 16, color: 'rgba(232,232,240,0.9)',
-              letterSpacing: '-0.02em',
+              fontFamily: 'var(--font-display, "Bricolage Grotesque", sans-serif)',
+              fontWeight: 700, fontSize: 16, color: 'var(--text-primary, #f0f0f5)',
+              letterSpacing: '-0.01em',
             }}>
-              agent<span style={{ color: 'white' }}>ID</span>
+              Agent ID
             </span>
           </div>
         </div>
@@ -251,9 +249,8 @@ export function SignIn() {
               background: `linear-gradient(135deg, ${ACCENT}44, ${PURPLE}44)`,
               border: `1px solid ${ACCENT}44`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18,
             }}>
-              🤖
+              <Bot size={20} color={ACCENT} strokeWidth={1.75} />
             </div>
             <div>
               <div style={{
@@ -520,13 +517,13 @@ export function SignIn() {
             display: 'flex', gap: 20, justifyContent: 'center',
             marginBottom: 20,
           }}>
-            {[
-              { icon: '🔒', label: 'No password' },
-              { icon: '⚡', label: 'Instant setup' },
-              { icon: '✨', label: 'Free plan' },
-            ].map(({ icon, label }) => (
+            {([
+              { icon: <LockKeyhole size={13} strokeWidth={2} color="rgba(232,232,240,0.45)" />, label: 'No password' },
+              { icon: <Zap size={13} strokeWidth={2} color="rgba(232,232,240,0.45)" />, label: 'Instant setup' },
+              { icon: <Star size={13} strokeWidth={2} color="rgba(232,232,240,0.45)" />, label: 'Free plan' },
+            ] as { icon: ReactNode; label: string }[]).map(({ icon, label }) => (
               <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 13 }}>{icon}</span>
+                {icon}
                 <span style={{ fontSize: 12, color: 'rgba(232,232,240,0.38)', fontWeight: 500 }}>{label}</span>
               </div>
             ))}
