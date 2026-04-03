@@ -1,7 +1,10 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { Bot, Mail, LockKeyhole, Zap, Star } from 'lucide-react';
+import { Mail, LockKeyhole, Zap, Star } from 'lucide-react';
+import { AgentCredential } from '@/components/concept/AgentCredential';
+import { useHeroAnimation } from '@/components/concept/useHeroAnimation';
+import '@/components/concept/concept.css';
 
 const BASE = import.meta.env.BASE_URL || '/';
 const ACCENT = '#4f7df3';
@@ -29,6 +32,7 @@ export function SignIn() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { userId, loading } = useAuth();
+  const phase = useHeroAnimation(98);
 
   const errorCode = params.get('error');
   const intent = params.get('intent');
@@ -173,13 +177,14 @@ export function SignIn() {
       </div>
       {/* LEFT PANEL — value prop */}
       <div style={{
-        flex: '0 0 520px',
+        flex: '0 0 33.333%',
         position: 'relative',
         zIndex: 1,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
-        padding: '60px 56px',
+        alignItems: 'center',
+        padding: '60px 32px',
         borderRight: '1px solid rgba(255,255,255,0.06)',
       }}
         className="signin-left-panel"
@@ -191,110 +196,27 @@ export function SignIn() {
         }} />
 
         {/* Headline */}
-        <div style={{ marginBottom: 40, position: 'relative' }}>
-          <h1
-            style={{
-              fontFamily: "'Bricolage Grotesque', 'Inter', sans-serif",
-              fontSize: 40, fontWeight: 800, lineHeight: 1.1,
-              margin: '0 0 16px',
-              background: 'linear-gradient(135deg, #ffffff 30%, rgba(232,232,240,0.6) 100%)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              letterSpacing: '-0.03em',
-            }}
-            className="text-center">
+        <div style={{ marginBottom: 32, position: 'relative', textAlign: 'center', width: '100%' }}>
+          <h1 style={{
+            fontFamily: "'Bricolage Grotesque', 'Inter', sans-serif",
+            fontSize: 32, fontWeight: 800, lineHeight: 1.15,
+            margin: '0 0 12px',
+            background: 'linear-gradient(135deg, #ffffff 30%, rgba(232,232,240,0.6) 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            letterSpacing: '-0.03em',
+          }}>
             Your agent deserves an identity.
           </h1>
-          <p
-            style={{
-              fontSize: 15, color: 'rgba(232,232,240,0.5)',
-              lineHeight: 1.65, margin: 0, maxWidth: 340,
-            }}
-            className="text-center">
-            Verified handles, trust scores, and a payment address built for autonomous AI agents.
+          <p style={{
+            fontSize: 14, color: 'rgba(232,232,240,0.45)',
+            lineHeight: 1.65, margin: '0 auto',
+          }}>
+            Verified handles, trust scores, and a payment address for autonomous agents.
           </p>
         </div>
 
-        {/* Sample agent card */}
-        <div style={{
-          borderRadius: 16,
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          padding: '20px 24px',
-          marginBottom: 28,
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-            background: `linear-gradient(90deg, transparent, ${ACCENT}60, transparent)`,
-          }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-            <div style={{
-              width: 42, height: 42, borderRadius: 12,
-              background: `linear-gradient(135deg, ${ACCENT}44, ${PURPLE}44)`,
-              border: `1px solid ${ACCENT}44`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Bot size={20} color={ACCENT} strokeWidth={1.75} />
-            </div>
-            <div>
-              <div style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 15, fontWeight: 600, color: 'white',
-                letterSpacing: '-0.01em',
-              }}>
-                alice.agentid
-              </div>
-              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', marginTop: 2 }}>
-                Verified Agent
-              </div>
-            </div>
-            <div style={{ marginLeft: 'auto' }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                background: 'rgba(79,125,243,0.12)', border: '1px solid rgba(79,125,243,0.25)',
-                borderRadius: 20, padding: '4px 10px',
-              }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
-                <span style={{ fontSize: 11, color: ACCENT, fontWeight: 600 }}>98 trust</span>
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {['Payments', 'OAuth 2.0', 'Memory', 'MCP'].map((cap) => (
-              <span key={cap} style={{
-                fontSize: 11, fontWeight: 500,
-                padding: '3px 9px', borderRadius: 99,
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(232,232,240,0.55)',
-              }}>
-                {cap}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Social proof */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ display: 'flex' }}>
-            {['A', 'B', 'C', 'D'].map((letter, i) => (
-              <div key={i} style={{
-                width: 26, height: 26, borderRadius: '50%',
-                background: `hsl(${i * 60 + 220}, 60%, 45%)`,
-                border: '2px solid #050711',
-                marginLeft: i === 0 ? 0 : -8,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white', fontWeight: 700, fontSize: 10,
-              }}>
-                {letter}
-              </div>
-            ))}
-          </div>
-          <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.35)' }}>
-            Trusted by <strong style={{ color: 'rgba(232,232,240,0.6)' }}>2,400+</strong> agents
-          </span>
-        </div>
+        {/* ID credential card */}
+        <AgentCredential phase={phase} />
       </div>
       {/* RIGHT PANEL — auth form */}
       <div style={{
