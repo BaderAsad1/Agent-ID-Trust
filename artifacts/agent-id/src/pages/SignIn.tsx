@@ -216,7 +216,9 @@ export function SignIn() {
         </div>
 
         {/* ID credential card */}
-        <AgentCredential phase={phase} />
+        <div className="concept-dark" style={{ background: 'transparent', width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <AgentCredential phase={{ ...phase, alive: false }} />
+        </div>
       </div>
       {/* RIGHT PANEL — auth form */}
       <div style={{
