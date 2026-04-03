@@ -2,6 +2,8 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/agent-id/AgentID.tsx": () => import("../components/mockups/agent-id/AgentID.tsx"),
+  "./components/mockups/agent-id/CardBare.tsx": () => import("../components/mockups/agent-id/CardBare.tsx"),
+  "./components/mockups/agent-id/CardLinked.tsx": () => import("../components/mockups/agent-id/CardLinked.tsx"),
   "./components/mockups/agent-id/ConceptDark.tsx": () => import("../components/mockups/agent-id/ConceptDark.tsx"),
   "./components/mockups/agent-id/ConceptLight.tsx": () => import("../components/mockups/agent-id/ConceptLight.tsx"),
   "./components/mockups/agent-id/HandleNFT.tsx": () => import("../components/mockups/agent-id/HandleNFT.tsx"),
@@ -19,7 +21,7 @@ export const modules: ModuleMap = {
   "./components/mockups/onboarding/Step4_Verify.tsx": () => import("../components/mockups/onboarding/Step4_Verify.tsx"),
   "./components/mockups/onboarding/Step5_Capabilities.tsx": () => import("../components/mockups/onboarding/Step5_Capabilities.tsx"),
   "./components/mockups/onboarding/Step6_Complete.tsx": () => import("../components/mockups/onboarding/Step6_Complete.tsx"),
+  "./components/mockups/signin/Redesign.tsx": () => import("../components/mockups/signin/Redesign.tsx"),
   "./components/mockups/pricing/PricingAtlas.tsx": () => import("../components/mockups/pricing/PricingAtlas.tsx"),
-  "./components/mockups/pricing/PricingGravity.tsx": () => import("../components/mockups/pricing/PricingGravity.tsx"),
-  "./components/mockups/signin/Redesign.tsx": () => import("../components/mockups/signin/Redesign.tsx")
+  "./components/mockups/pricing/PricingGravity.tsx": () => import("../components/mockups/pricing/PricingGravity.tsx")
 };
