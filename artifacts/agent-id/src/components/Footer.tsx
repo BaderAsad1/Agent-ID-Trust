@@ -42,7 +42,7 @@ export function Footer() {
   return (
     <footer style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'var(--bg-base)' }}>
       <div className="max-w-[1100px] mx-auto px-6 md:px-12 py-10">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-8">
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <img

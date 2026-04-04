@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, CheckCircle, XCircle, Clock, AlertTriangle, AtSign, Loader2, Gavel } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Clock, AlertTriangle, AtSign, Loader2, Gavel, ArrowRight } from 'lucide-react';
 import { GlassCard, PrimaryButton } from '@/components/shared';
 import { api } from '@/lib/api';
 import { HANDLE_PRICING_TIERS } from '@/lib/pricing';
+import { useAuth } from '@/lib/AuthContext';
 
 type HandleStatus = 'idle' | 'loading' | 'available' | 'taken' | 'reserved' | 'in-auction' | 'invalid';
 
@@ -69,7 +70,17 @@ function ScarcityBadge({ handle }: { handle: string }) {
   return null;
 }
 
+function isFreePlan(plan: string | null): boolean {
+  return plan === 'free' || plan === 'none' || plan === '';
+}
+
+function isPlanLoading(plan: string | null): boolean {
+  return plan === null;
+}
+
 export function HandlesClaim() {
+  const { userId } = useAuth();
+  const [userPlan, setUserPlan] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<HandleStatus>('idle');
   const [result, setResult] = useState<CheckResult | null>(null);
@@ -77,6 +88,13 @@ export function HandlesClaim() {
   const [claimError, setClaimError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seqRef = useRef(0);
+
+  useEffect(() => {
+    if (!userId) return;
+    api.billing.subscription()
+      .then(res => setUserPlan(res.plan ?? 'none'))
+      .catch(() => setUserPlan('unknown'));
+  }, [userId]);
 
   useEffect(() => {
     const trimmed = query.trim().toLowerCase().replace(/^@/, '');
@@ -215,32 +233,57 @@ export function HandlesClaim() {
                       {getTierLabel(result) && (
                         <span className="capitalize">{getTierLabel(result)} handle</span>
                       )}
-                      {isStandardHandle(result) ? (
+                      {isStandardHandle(result) && !isFreePlan(userPlan) && (
                         <span className="font-semibold" style={{ color: 'var(--success)' }}>
                           Included with paid plan
                         </span>
-                      ) : (
-                        getAnnualUsd(result) !== null && (
-                          <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                            ${getAnnualUsd(result)}/yr
-                          </span>
-                        )
+                      )}
+                      {!isStandardHandle(result) && getAnnualUsd(result) !== null && (
+                        <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                          ${getAnnualUsd(result)}/yr
+                        </span>
                       )}
                     </div>
                   </div>
-                  <PrimaryButton
-                    variant="blue"
-                    className="flex-shrink-0"
-                    disabled={claimLoading}
-                    onClick={handleClaim}
-                  >
-                    {claimLoading ? (
-                      <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</span>
-                    ) : (
-                      isStandardHandle(result) ? `Register @${result.handle}` : `Claim @${result.handle}`
-                    )}
-                  </PrimaryButton>
+                  {isStandardHandle(result) && isPlanLoading(userPlan) ? (
+                    <PrimaryButton variant="blue" className="flex-shrink-0" disabled>
+                      <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</span>
+                    </PrimaryButton>
+                  ) : isStandardHandle(result) && isFreePlan(userPlan) ? null : (
+                    <PrimaryButton
+                      variant="blue"
+                      className="flex-shrink-0"
+                      disabled={claimLoading}
+                      onClick={handleClaim}
+                    >
+                      {claimLoading ? (
+                        <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</span>
+                      ) : (
+                        isStandardHandle(result) ? `Register @${result.handle}` : `Claim @${result.handle}`
+                      )}
+                    </PrimaryButton>
+                  )}
                 </div>
+                {isStandardHandle(result) && isFreePlan(userPlan) && (
+                  <div className="flex items-start gap-3 px-4 py-3 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#818cf8' }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold mb-1" style={{ color: '#818cf8' }}>
+                        Upgrade to claim this handle
+                      </div>
+                      <div className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                        Handles are included with Starter, Pro, or Enterprise — upgrade your plan to register @{result.handle}.
+                      </div>
+                      <a
+                        href="/pricing"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                        style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)', textDecoration: 'none' }}
+                      >
+                        View plans <ArrowRight className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                )}
                 {claimError && (
                   <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
                     <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
