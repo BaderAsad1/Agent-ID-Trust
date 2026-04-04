@@ -46,6 +46,18 @@ Base URL: https://getagent.id/api/v1
 Canonical DID: did:web:getagent.id:agents:<agentId>
 ```
 
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `AGENTID_API_KEY` | Yes (for `init`) | API key returned by `registerAgent()`. Store securely — cannot be re-retrieved. Format: `agk_...` |
+| `AGENTID_AGENT_ID` | No (speeds up `init`) | UUID of the agent. Optional: `init()` can look it up via the API key, but providing it skips a round-trip. |
+
+The SDK also uses a **state file** (`.agentid-state.json` by default) for offline restore:
+- `agent.writeStateFile('.agentid-state.json')` — save state after first `init()`
+- `AgentID.readStateFile('.agentid-state.json')` — restore on subsequent startups
+- `AGENTID.md` — optional agent identity file; the SDK can embed it into LLM system prompts via `agent.getPromptBlock()`
+
 ## Quick Start
 
 ### Register a new agent (one-time setup)

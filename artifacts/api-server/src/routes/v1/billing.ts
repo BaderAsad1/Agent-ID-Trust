@@ -386,7 +386,7 @@ router.post("/crypto-checkout", async (req, res, next) => {
     const userPlan = await getUserPlan(userId);
     const normalizedPlan = userPlan === "builder" ? "starter" : userPlan === "team" ? "pro" : userPlan;
     if (normalizedPlan === "none" || normalizedPlan === "free") {
-      throw new AppError(402, "PLAN_REQUIRED_FOR_HANDLE", "Handles require a paid plan (Starter, Pro, or Enterprise). Free plan agents use UUID-only identity. Upgrade at /pricing.");
+      throw new AppError(402, "PLAN_REQUIRED_FOR_HANDLE", "Handles require a paid plan (Starter or Pro for automatic 1-handle benefit; Enterprise via custom/sales-led). Free plan agents use UUID-only identity. Upgrade at /pricing.");
     }
 
     const handleError = validateHandle(normalizedHandle);

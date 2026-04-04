@@ -85,7 +85,7 @@ Handles are scarce, owned assets with ENS-style pricing.
 - 1-2 character handles: RESERVED — not available
 - 3-character handles: $99/year (ultra-premium — Stripe payment required, includes on-chain mint)
 - 4-character handles: $29/year (premium — Stripe payment required, includes on-chain mint)
-- 5+ character handles: Included with any active Starter, Pro, or Enterprise plan (not available standalone for Free users)
+- 5+ character handles: 1 included automatically with Starter or Pro plan; Enterprise: custom/sales-led entitlement; Free: not included
 Grace period: 90 days after handle expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.
 Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
 Handles can be transferred to another account from the dashboard.
@@ -94,7 +94,7 @@ Handles can be transferred to another account from the dashboard.
 Four tiers — Free (no Stripe required) through Enterprise:
 - **Free** ($0): 1 agent, UUID machine identity, API access, trust score. No handle, no mail, no Stripe required.
 - **Starter** ($29/month or $290/year): 5 agents, inbox & messaging, task management, 1 standard handle included, email support.
-- **Pro** ($79/month or $790/year): 25 agents, inbox & messaging, fleet management, analytics, custom domains, priority support.
+- **Pro** ($79/month or $790/year): 25 agents, inbox & messaging, fleet management, analytics, 1 standard handle included, custom domains, priority support.
 - **Enterprise** (contact sales): Custom agent count, SLA, dedicated support, custom integrations, enterprise contract.
 3-char and 4-char handles require an additional per-handle annual payment on top of any paid plan.
 
@@ -307,7 +307,7 @@ The .agentid namespace is a protocol-layer naming system — like ENS's .eth for
 - **Well-known**: \`https://handle.getagent.id/.well-known/agent.json\` — standard machine-readable identity document.
 The open-source \`@agentid/resolver\` SDK allows orchestration frameworks (LangChain, CrewAI, AutoGPT) to resolve .agentid names natively — the same way wallets integrated ENS.
 
-Handle registration requires payment matching the tier price, except for paid subscribers (Starter, Pro, or Enterprise) who receive their first standard handle (5+ characters) at no additional cost during their first year. Agents with unpaid handles cannot be activated or listed publicly until payment completes via Stripe checkout (\`POST /api/v1/billing/handle-checkout\`).
+Handle registration requires payment matching the tier price, except for Starter and Pro subscribers who receive their first standard handle (5+ characters) at no additional cost during their first year. Enterprise subscribers receive handles via their custom sales-led entitlement. Agents with unpaid handles cannot be activated or listed publicly until payment completes via Stripe checkout (\`POST /api/v1/billing/handle-checkout\`).
 
 ## Supported Protocols
 - **MCP** (Model Context Protocol) — Anthropic's protocol for tool use and context sharing
@@ -333,7 +333,7 @@ Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
 |------|---------|--------|--------|---------|
 | Free | $0 | $0 | 1 | UUID identity, API access, trust score |
 | Starter | $29/mo | $290/yr | 5 | Inbox, tasks, 1 standard handle included |
-| Pro | $79/mo | $790/yr | 25 | Fleet management, analytics, custom domains |
+| Pro | $79/mo | $790/yr | 25 | Fleet management, analytics, 1 standard handle included, custom domains |
 | Enterprise | Tailored | Tailored | Custom | SLA, dedicated support, custom integrations |
 
 Enterprise is tailored per sales conversation (custom agent count, rate limits, features, and pricing). Contact sales@getagent.id.

@@ -38,7 +38,7 @@ export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
   {
     minLength: 5, maxLength: undefined, tier: "standard_5plus",
     annualPriceUsd: 0, annualPriceCents: 0,
-    description: "Standard handle (5+ characters) — included with any active paid plan (Starter, Pro, or Enterprise)",
+    description: "Standard handle (5+ characters) — 1 included automatically with Starter or Pro plan; Enterprise: custom/sales-led entitlement",
     isReserved: false, includedWithPaidPlan: true, isFree: false,
     onChainMintPrice: 500, onChainMintPriceDollars: 5, includesOnChainMint: false,
   },
@@ -49,6 +49,33 @@ export function getHandlePricingTier(handle: string): HandlePricingTier {
   return HANDLE_PRICING_TIERS.find(t => len >= t.minLength && len <= (t.maxLength ?? Infinity)) ?? HANDLE_PRICING_TIERS[HANDLE_PRICING_TIERS.length - 1];
 }
 
+/**
+ * Returns true if the plan includes exactly 1 standard handle (5+ chars) as a defined,
+ * automatic benefit — no extra charge, no sales involvement required.
+ * - Starter: 1 included standard handle (automatic)
+ * - Pro: 1 included standard handle (automatic)
+ * - Enterprise: NOT covered here — see hasCustomHandleEntitlement()
+ * - Free / none: no included handles
+ */
 export function isEligibleForIncludedHandle(plan: string): boolean {
-  return plan === "starter" || plan === "pro" || plan === "enterprise";
+  return plan === "starter" || plan === "pro";
+}
+
+/**
+ * Returns true for plans whose handle entitlements are managed via a custom/sales-led
+ * contract rather than the standard automatic-inclusion model.
+ * Enterprise customers get handle access as part of their bespoke agreement;
+ * the exact count is determined at sales time, not by this function.
+ */
+export function hasCustomHandleEntitlement(plan: string): boolean {
+  return plan === "enterprise";
+}
+
+/**
+ * Returns true if the plan allows claiming any form of included/custom-handled standard
+ * handle — covers both the automatic (Starter/Pro) and custom (Enterprise) cases.
+ * Use this for access-gate checks; use isEligibleForIncludedHandle() for quota checks.
+ */
+export function isAllowedHandleAccess(plan: string): boolean {
+  return isEligibleForIncludedHandle(plan) || hasCustomHandleEntitlement(plan);
 }

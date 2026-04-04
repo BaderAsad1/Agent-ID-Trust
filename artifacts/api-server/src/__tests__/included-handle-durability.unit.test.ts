@@ -171,9 +171,11 @@ describe("isEligibleForIncludedHandle — plan eligibility logic", () => {
     expect(isEligibleForIncludedHandle("pro")).toBe(true);
   });
 
-  it("returns true for enterprise plan", async () => {
-    const { isEligibleForIncludedHandle } = await import("../services/billing");
-    expect(isEligibleForIncludedHandle("enterprise")).toBe(true);
+  it("returns false for enterprise plan (enterprise uses custom/sales-led handle entitlement, not automatic)", async () => {
+    const { isEligibleForIncludedHandle, hasCustomHandleEntitlement, isAllowedHandleAccess } = await import("../services/billing");
+    expect(isEligibleForIncludedHandle("enterprise")).toBe(false);
+    expect(hasCustomHandleEntitlement("enterprise")).toBe(true);
+    expect(isAllowedHandleAccess("enterprise")).toBe(true);
   });
 
   it("returns false for free plan", async () => {

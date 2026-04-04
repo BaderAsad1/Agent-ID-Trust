@@ -16,11 +16,11 @@ import {
   type Subscription,
   type AgentSubscription,
 } from "@workspace/db/schema";
-import { getHandlePricingTier as sharedGetHandlePricingTier, isEligibleForIncludedHandle } from "@workspace/shared-pricing";
+import { getHandlePricingTier as sharedGetHandlePricingTier, isEligibleForIncludedHandle, isAllowedHandleAccess } from "@workspace/shared-pricing";
 import { env } from "../lib/env";
 import { getStripe } from "./stripe-client";
 
-export { isEligibleForIncludedHandle } from "@workspace/shared-pricing";
+export { isEligibleForIncludedHandle, hasCustomHandleEntitlement, isAllowedHandleAccess } from "@workspace/shared-pricing";
 
 const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
 
@@ -76,7 +76,9 @@ export function getPlanLimits(plan: string) {
     customDomain: isProOrAbove,
     canUseTeamFeatures: isEnterprise,
     fleetManagement: plan === "pro" || plan === "enterprise",
-    includesStandardHandle: LAUNCH_MODE || isPaid,
+    // Only Starter/Pro get the automatic 1-handle benefit.
+    // Enterprise handle entitlements are custom/sales-led — not modeled as a boolean here.
+    includesStandardHandle: LAUNCH_MODE || plan === "starter" || plan === "pro",
     inboxAccess: LAUNCH_MODE || isPaid,
     tasksAccess: LAUNCH_MODE || isPaid,
     supportLevel: isEnterprise ? "sla" : isProOrAbove ? "priority" : isPaid ? "email" : "community",
@@ -661,6 +663,8 @@ export async function checkUserIncludedHandleEligibility(userId: string, handle:
   if (handleLen < 5) return false;
 
   const userSub = await getActiveUserSubscription(userId);
+  // Access gate: only Starter/Pro qualify for the automatic 1-handle claim flow.
+  // Enterprise handle entitlements are custom/sales-led and provisioned separately.
   if (!userSub || !isEligibleForIncludedHandle(userSub.plan)) return false;
 
   // Primary (durable) check: any subscription row with the column set means benefit is used.
@@ -714,6 +718,8 @@ export async function claimIncludedHandleBenefit(
   if (handleLen < 5) return { claimed: false };
 
   const userSub = await getActiveUserSubscription(userId);
+  // Only Starter/Pro qualify for the automatic 1-handle claim flow.
+  // Enterprise handle entitlements are custom/sales-led and provisioned separately.
   if (!userSub || !isEligibleForIncludedHandle(userSub.plan)) return { claimed: false };
 
   // Guard against cancel-and-resubscribe bypass: check ALL subscription rows for
@@ -794,6 +800,8 @@ export async function claimIncludedHandleBenefitTx(
     .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
     .limit(1);
   const userSub = subs[0] ?? null;
+  // Only Starter/Pro qualify for the automatic 1-handle claim flow.
+  // Enterprise handle entitlements are custom/sales-led and provisioned separately.
   if (!userSub || !isEligibleForIncludedHandle(userSub.plan)) return { claimed: false };
 
   const historicalClaim = await tx

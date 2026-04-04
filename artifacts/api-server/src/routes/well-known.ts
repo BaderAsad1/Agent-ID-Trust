@@ -280,15 +280,15 @@ router.get("/.well-known/agent-registration", async (_req: Request, res: Respons
         { characters: "1-2", pricePerYear: "RESERVED", description: "Reserved — not available" },
         { characters: 3, pricePerYear: "$99", description: "Ultra-premium 3-character handle — Stripe payment required, includes on-chain mint" },
         { characters: 4, pricePerYear: "$29", description: "Premium 4-character handle — Stripe payment required, includes on-chain mint" },
-        { characters: "5+", pricePerYear: "Included", description: "Standard handle — included with Starter, Pro, or Enterprise plan" },
+        { characters: "5+", pricePerYear: "Included", description: "Standard handle — 1 included automatically with Starter or Pro plan. Enterprise: custom/sales-led." },
       ],
       marketplaceFee: "2.5%",
       gracePeriodDays: 90,
       plans: [
         { name: "Free", monthlyPrice: "$0", yearlyPrice: "$0", agents: 1, requestsPerMin: null, features: "UUID identity, API access, trust score — no handle, no mail, no Stripe required" },
         { name: "Starter", monthlyPrice: "$29/mo", yearlyPrice: "$290/yr", agents: 5, requestsPerMin: 1000, features: "5 agents, inbox & messaging, task management, 1 standard handle included, email support" },
-        { name: "Pro", monthlyPrice: "$79/mo", yearlyPrice: "$790/yr", agents: 25, requestsPerMin: 5000, features: "25 agents, inbox & messaging, fleet management, analytics, custom domains, priority support" },
-        { name: "Enterprise", monthlyPrice: "Tailored", yearlyPrice: "Tailored", agents: null, requestsPerMin: null, features: "Custom agent count, SLA, dedicated support, custom integrations, enterprise contract" },
+        { name: "Pro", monthlyPrice: "$79/mo", yearlyPrice: "$790/yr", agents: 25, requestsPerMin: 5000, features: "25 agents, inbox & messaging, fleet management, analytics, 1 standard handle included, custom domains, priority support" },
+        { name: "Enterprise", monthlyPrice: "Tailored", yearlyPrice: "Tailored", agents: null, requestsPerMin: null, features: "Custom agent count, custom handle entitlements (sales-led), SLA, dedicated support, custom integrations, enterprise contract" },
       ],
     },
     capabilities: {

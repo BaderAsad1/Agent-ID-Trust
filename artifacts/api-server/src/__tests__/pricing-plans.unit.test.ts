@@ -101,8 +101,8 @@ describe('Canonical four-plan pricing model', () => {
       expect(isEligibleForIncludedHandle('pro')).toBe(true);
     });
 
-    it('returns true for enterprise', () => {
-      expect(isEligibleForIncludedHandle('enterprise')).toBe(true);
+    it('returns false for enterprise — enterprise uses custom/sales-led handle entitlement (not automatic)', () => {
+      expect(isEligibleForIncludedHandle('enterprise')).toBe(false);
     });
 
     it('returns false for free/none (no payment)', () => {
@@ -320,10 +320,11 @@ describe('checkUserIncludedHandleEligibility via isEligibleForIncludedHandle (fr
     expect(isEligibleForIncludedHandle('none')).toBe(false);
   });
 
-  it('isEligibleForIncludedHandle accepts paid plans only', () => {
+  it('isEligibleForIncludedHandle accepts only Starter/Pro (automatic 1-handle benefit)', () => {
     expect(isEligibleForIncludedHandle('starter')).toBe(true);
     expect(isEligibleForIncludedHandle('pro')).toBe(true);
-    expect(isEligibleForIncludedHandle('enterprise')).toBe(true);
+    // Enterprise is custom/sales-led — not covered by isEligibleForIncludedHandle
+    expect(isEligibleForIncludedHandle('enterprise')).toBe(false);
   });
 
   it('HANDLE_TIERS from handle service are derived from shared-pricing (no local overrides)', async () => {
@@ -334,5 +335,86 @@ describe('checkUserIncludedHandleEligibility via isEligibleForIncludedHandle (fr
     const sharedPremium3 = HANDLE_PRICING_TIERS.find(t => t.tier === 'premium_3')!;
     expect(HANDLE_TIERS.premium_3.annualUsd).toBe(sharedPremium3.annualPriceUsd);
     expect(HANDLE_TIERS.premium_3.includedWithPaidPlan).toBe(false);
+  });
+});
+
+describe('Pricing entitlement cross-surface consistency', () => {
+  it('no pricing surface claims Free plan includes handles', () => {
+    const freeIncluded = isEligibleForIncludedHandle('free');
+    expect(freeIncluded).toBe(false);
+    const standardTier = HANDLE_PRICING_TIERS.find(t => t.tier === 'standard_5plus')!;
+    expect(standardTier.isFree).toBe(false);
+    expect(standardTier.includedWithPaidPlan).toBe(true);
+  });
+
+  it('backend includesStandardHandle matches shared-pricing for starter and pro (both get 1 included handle)', async () => {
+    const { getPlanLimits } = await import('../services/billing');
+    const starterLimits = getPlanLimits('starter');
+    const proLimits = getPlanLimits('pro');
+    expect(starterLimits.includesStandardHandle).toBe(true);
+    expect(proLimits.includesStandardHandle).toBe(true);
+    expect(isEligibleForIncludedHandle('starter')).toBe(true);
+    expect(isEligibleForIncludedHandle('pro')).toBe(true);
+  });
+
+  it('backend includesStandardHandle is false for free/none plans', async () => {
+    const { getPlanLimits } = await import('../services/billing');
+    const freeLimits = getPlanLimits('free');
+    const noneLimits = getPlanLimits('none');
+    expect(freeLimits.includesStandardHandle).toBe(false);
+    expect(noneLimits.includesStandardHandle).toBe(false);
+    expect(isEligibleForIncludedHandle('free')).toBe(false);
+    expect(isEligibleForIncludedHandle('none')).toBe(false);
+  });
+
+  it('handle quota enforcement: getPlanLimits includesStandardHandle=true only for Starter/Pro; Enterprise=false (custom/sales-led)', async () => {
+    const { getPlanLimits } = await import('../services/billing');
+    // Starter and Pro: automatic 1-handle benefit — consistent across backend + shared-pricing
+    expect(getPlanLimits('starter').includesStandardHandle).toBe(true);
+    expect(getPlanLimits('pro').includesStandardHandle).toBe(true);
+    expect(isEligibleForIncludedHandle('starter')).toBe(true);
+    expect(isEligibleForIncludedHandle('pro')).toBe(true);
+    // Enterprise: custom/sales-led — NOT automatic inclusion
+    expect(getPlanLimits('enterprise').includesStandardHandle).toBe(false);
+    expect(isEligibleForIncludedHandle('enterprise')).toBe(false);
+    // Free / none: no handles
+    expect(getPlanLimits('free').includesStandardHandle).toBe(false);
+    expect(getPlanLimits('none').includesStandardHandle).toBe(false);
+    expect(isEligibleForIncludedHandle('free')).toBe(false);
+    expect(isEligibleForIncludedHandle('none')).toBe(false);
+  });
+
+  it('handle quota enforcement: claimIncludedHandleBenefit rejects handles shorter than 5 chars (not eligible for included benefit)', async () => {
+    const { claimIncludedHandleBenefit } = await import('../services/billing');
+    const result3 = await claimIncludedHandleBenefit('user-test', 'abc');
+    expect(result3.claimed).toBe(false);
+    const result4 = await claimIncludedHandleBenefit('user-test', 'abcd');
+    expect(result4.claimed).toBe(false);
+  });
+
+  it('Enterprise plan entitlement functions: isEligibleForIncludedHandle=false, hasCustomHandleEntitlement=true, isAllowedHandleAccess=true', async () => {
+    // Enterprise handle entitlement is custom/sales-led, not automatic.
+    // isEligibleForIncludedHandle governs the automatic 1-handle claim flow.
+    // hasCustomHandleEntitlement flags enterprise as needing a custom sales-led process.
+    // isAllowedHandleAccess is a combined gate for read checks (includes enterprise).
+    const { isEligibleForIncludedHandle, hasCustomHandleEntitlement, isAllowedHandleAccess } = await import('../services/billing');
+    expect(isEligibleForIncludedHandle('enterprise')).toBe(false);
+    expect(hasCustomHandleEntitlement('enterprise')).toBe(true);
+    expect(isAllowedHandleAccess('enterprise')).toBe(true);
+    // Starter/Pro: automatic benefit — all three functions agree
+    expect(isEligibleForIncludedHandle('starter')).toBe(true);
+    expect(hasCustomHandleEntitlement('starter')).toBe(false);
+    expect(isAllowedHandleAccess('starter')).toBe(true);
+    // Free/none: no handle access at all
+    expect(isEligibleForIncludedHandle('free')).toBe(false);
+    expect(hasCustomHandleEntitlement('free')).toBe(false);
+    expect(isAllowedHandleAccess('free')).toBe(false);
+  });
+
+  it('shared-pricing standard_5plus: only ONE tier is included with paid plan — Starter and Pro each get 1, not 5', () => {
+    const includedTiers = HANDLE_PRICING_TIERS.filter(t => t.includedWithPaidPlan);
+    expect(includedTiers).toHaveLength(1);
+    expect(includedTiers[0].tier).toBe('standard_5plus');
+    expect(includedTiers[0].minLength).toBe(5);
   });
 });

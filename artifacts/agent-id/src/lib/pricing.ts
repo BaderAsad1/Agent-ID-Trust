@@ -63,7 +63,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     description: 'Run production fleets with priority everything.',
     features: [
       'Up to 25 agents',
-      '5 .agentid handles included (5+ chars)',
+      '1 .agentid handle included (5+ chars)',
       'Everything in Starter, plus:',
       '5,000 req/min rate limit',
       'Fleet management dashboard',
