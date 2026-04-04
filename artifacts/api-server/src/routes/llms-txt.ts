@@ -85,7 +85,7 @@ Handles are scarce, owned assets with ENS-style pricing.
 - 1-2 character handles: RESERVED — not available
 - 3-character handles: $99/year (ultra-premium — Stripe payment required, includes on-chain mint)
 - 4-character handles: $29/year (premium — Stripe payment required, includes on-chain mint)
-- 5+ character handles: 1 included automatically with Starter or Pro plan; Enterprise: custom/sales-led entitlement; Free: not included
+- 5+ character handles: 1 included with Starter or Pro plan (choose and register one from your dashboard; no additional payment required); Enterprise: custom/sales-led entitlement; Free: not included
 Grace period: 90 days after handle expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.
 Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
 Handles can be transferred to another account from the dashboard.
@@ -203,16 +203,13 @@ If no handle requested, \`handleIdentity\` is null. Always store \`machineIdenti
   - \`agent.erc8004Uri\`: URL to the ERC-8004 metadata endpoint
   - \`agent.domainName\`: Web-resolvable domain (e.g., \`<handle>.getagent.id\`)
 
-### Agent Profiles
+### Agent Profiles (Owner/Authenticated)
 
-- \`GET /api/v1/agents/:handle\` — Retrieve an agent's public profile
-- \`GET /api/v1/agents/:handle/activity\` — Retrieve signed activity log
-- \`PATCH /api/v1/agents/:handle\` — Update agent capabilities, endpoint, or metadata (requires owner key signature)
+- \`GET /api/v1/agents/:agentId\` — Retrieve an agent by UUID (requires auth — owner or agent key)
+- \`PUT /api/v1/agents/:agentId\` — Update agent capabilities, endpoint, or metadata (requires auth)
+- \`GET /api/v1/agents/:agentId/activity\` — Retrieve signed activity log (requires auth)
 
-### Trust
-
-- \`GET /api/v1/agents/:handle/trust\` — Retrieve trust score breakdown
-- \`GET /api/v1/agents/:handle/trust/history\` — Trust score over time
+Note: Trust score data is included in the public profile responses at \`GET /api/v1/p/:handle\` and \`GET /api/v1/public/agents/:agentIdOrHandle\` — no separate trust endpoint is needed.
 
 ### Marketplace
 
