@@ -1,5 +1,6 @@
 import { z } from "zod/v4";
 import pino from "pino";
+import crypto from "crypto";
 
 const envLogger = pino({ name: "env" });
 
@@ -160,6 +161,36 @@ export function validateEnv(): Env {
   _env = env;
 
   const isProd = env.NODE_ENV === "production";
+
+  // Normalize VC keys: if stored as PEM, convert to JWK JSON so all downstream code works uniformly
+  if (env.VC_SIGNING_KEY?.trimStart().startsWith("-----BEGIN")) {
+    try {
+      const key = crypto.createPrivateKey(env.VC_SIGNING_KEY);
+      const jwk = key.export({ format: "jwk" }) as Record<string, string>;
+      jwk.alg = "EdDSA";
+      jwk.kid = env.VC_KEY_ID || "agentid-vc-key-1";
+      const jwkStr = JSON.stringify(jwk);
+      env.VC_SIGNING_KEY = jwkStr;
+      process.env.VC_SIGNING_KEY = jwkStr;
+      envLogger.info("[env] VC_SIGNING_KEY normalized from PEM to JWK format");
+    } catch (e) {
+      envLogger.warn({ err: e }, "[env] VC_SIGNING_KEY looks like PEM but failed to parse — validation will catch this");
+    }
+  }
+  if (env.VC_PUBLIC_KEY?.trimStart().startsWith("-----BEGIN")) {
+    try {
+      const key = crypto.createPublicKey(env.VC_PUBLIC_KEY);
+      const jwk = key.export({ format: "jwk" }) as Record<string, string>;
+      jwk.alg = "EdDSA";
+      jwk.kid = env.VC_KEY_ID || "agentid-vc-key-1";
+      const jwkStr = JSON.stringify(jwk);
+      env.VC_PUBLIC_KEY = jwkStr;
+      process.env.VC_PUBLIC_KEY = jwkStr;
+      envLogger.info("[env] VC_PUBLIC_KEY normalized from PEM to JWK format");
+    } catch (e) {
+      envLogger.warn({ err: e }, "[env] VC_PUBLIC_KEY looks like PEM but failed to parse — validation will catch this");
+    }
+  }
 
   if (isProd && !env.ACTIVITY_HMAC_SECRET) {
     envLogger.fatal("[env] ACTIVITY_HMAC_SECRET is required in production.");
