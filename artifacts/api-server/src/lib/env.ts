@@ -5,7 +5,7 @@ import crypto from "crypto";
 const envLogger = pino({ name: "env" });
 
 const envSchema = z.object({
-  PORT: z.string().min(1),
+  PORT: z.string().default("8080"),
   NODE_ENV: z.string().default("development"),
 
   DATABASE_URL: z.string().optional(),
