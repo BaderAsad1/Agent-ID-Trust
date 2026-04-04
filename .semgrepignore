@@ -13,14 +13,21 @@ node_modules/
 **/*.test.ts
 **/*.spec.ts
 
-# Documentation pages — contain illustrative placeholder keys (e.g. "sk_agent_...",
-# "pi_..._secret_...") in code examples. These are NOT real credentials.
+# Documentation and markdown files — contain illustrative placeholder env var names
+# and example key prefixes (sk_live_..., whsec_...) that are NOT real credentials.
+*.md
+**/*.md
+
+# Documentation pages in source — contain example API/key placeholders in code samples
 artifacts/agent-id/src/pages/DocsPayments.tsx
 artifacts/agent-id/src/pages/Protocol.tsx
 artifacts/api-server/src/seo/
 
 # Mockup sandbox — isolated UI prototypes, never shipped in production runtime.
 artifacts/mockup-sandbox/src/components/mockups/
+
+# Contract deployment manifest — contains on-chain contract addresses (not credentials).
+contracts/deployment.json
 
 # Scripts/tooling
 scripts/
