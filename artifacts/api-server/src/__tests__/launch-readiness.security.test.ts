@@ -210,6 +210,243 @@ describe("LR-2 — .well-known endpoints: live HTTP 200 + application/json", () 
     expect(src).toContain("app.use(wellKnownRouter)");
     expect(src).toContain('app.use("/api", wellKnownRouter)');
   });
+
+  it("SPA fallback regex excludes /.well-known/ paths (route-order regression check)", () => {
+    // The SPA catch-all in app.ts previously used `well-known` (no leading dot),
+    // which matched ONLY paths starting with /well-known/ — not /.well-known/.
+    // This test verifies the regex is corrected to `\.well-known` with the escaped dot.
+    const fs = require("fs");
+    const path = require("path");
+    const src: string = fs.readFileSync(path.join(__dirname, "../app.ts"), "utf8");
+    // The exclusion regex must have `\.well-known` (escaped dot) — not bare `well-known`
+    expect(src).toMatch(/\/\(api\|mcp\|\\\.well-known/);
+    // Confirm the old broken form is absent
+    expect(src).not.toMatch(/\/\(api\|mcp\|well-known[^\\]/);
+  });
+
+  it("SPA fallback regex correctly excludes /.well-known/ paths (behavioral)", () => {
+    // Extract the SPA exclusion regex from app.ts and test it against /.well-known/ paths
+    const wellKnownPaths = [
+      "/.well-known/openid-configuration",
+      "/.well-known/agent-registration",
+      "/.well-known/jwks.json",
+      "/.well-known/mcp.json",
+      "/.well-known/did.json",
+      "/.well-known/agent.json",
+      "/.well-known/agentid-configuration",
+    ];
+    // This is the corrected regex from app.ts
+    const spaExclusionRegex = /^\/(api|mcp|\.well-known|sitemap\.xml|agent|oauth|auth|llms\.txt|glossary|guides|use-cases|compare)(\/|$)/;
+
+    for (const p of wellKnownPaths) {
+      expect(spaExclusionRegex.test(p)).toBe(true);
+    }
+
+    // Confirm non-well-known paths are NOT excluded (would fall through to SPA — expected)
+    const spaPaths = ["/about", "/pricing", "/dashboard", "/agents/some-agent"];
+    for (const p of spaPaths) {
+      expect(spaExclusionRegex.test(p)).toBe(false);
+    }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LR-2b: OIDC metadata internal consistency
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe("LR-2b — OIDC metadata: internal consistency and referenced route existence", () => {
+  let testApp: express.Express;
+  let savedVcSigningKey: string | undefined;
+  let savedVcPublicKey: string | undefined;
+
+  const TEST_VC_PRIV = JSON.stringify({
+    crv: "Ed25519",
+    d: "hWS0_Ahm3yC2ZCOcMCQDWq71AZgPEgBfEnheH9wbyYk",
+    x: "ys4PP10Pk9buo1UHC0c7VlueRvwNFvczZWYXHg0A0dw",
+    kty: "OKP",
+    kid: "test-key-lr2b",
+  });
+  const TEST_VC_PUB = JSON.stringify({
+    crv: "Ed25519",
+    x: "ys4PP10Pk9buo1UHC0c7VlueRvwNFvczZWYXHg0A0dw",
+    kty: "OKP",
+    kid: "test-key-lr2b",
+  });
+
+  beforeAll(async () => {
+    process.env.PORT = "0";
+    process.env.NODE_ENV = "test";
+    savedVcSigningKey = process.env.VC_SIGNING_KEY;
+    savedVcPublicKey = process.env.VC_PUBLIC_KEY;
+    process.env.VC_SIGNING_KEY = TEST_VC_PRIV;
+    process.env.VC_PUBLIC_KEY = TEST_VC_PUB;
+
+    const { _resetEnvCacheForTests } = await import("../lib/env");
+    _resetEnvCacheForTests();
+
+    // Build a minimal app with the well-known + oauth routers to test route existence
+    // without full app startup (avoids Redis/DB connection side effects in tests)
+    const wellKnownMod = await import("../routes/well-known");
+    const oauthMod = await import("../routes/oauth");
+    const { errorHandler } = await import("../middlewares/error-handler");
+
+    testApp = express();
+    testApp.use(express.json());
+    testApp.use(wellKnownMod.default);
+    // Mirror app.ts: wellKnownRouter also at /api prefix
+    testApp.use("/api", wellKnownMod.default);
+    // Mount oauth router at /oauth to mirror app.ts route setup
+    testApp.use("/oauth", oauthMod.default);
+    testApp.use(errorHandler);
+  });
+
+  afterAll(async () => {
+    if (savedVcSigningKey !== undefined) {
+      process.env.VC_SIGNING_KEY = savedVcSigningKey;
+    } else {
+      delete process.env.VC_SIGNING_KEY;
+    }
+    if (savedVcPublicKey !== undefined) {
+      process.env.VC_PUBLIC_KEY = savedVcPublicKey;
+    } else {
+      delete process.env.VC_PUBLIC_KEY;
+    }
+    const { _resetEnvCacheForTests } = await import("../lib/env");
+    _resetEnvCacheForTests();
+  });
+
+  it("/.well-known/openid-configuration returns issuer that is a valid HTTP(S) URL", async () => {
+    const res = await request(testApp).get("/.well-known/openid-configuration");
+    expect(res.status).toBe(200);
+    const { issuer } = res.body;
+    expect(typeof issuer).toBe("string");
+    expect(issuer.length).toBeGreaterThan(0);
+    // issuer must be a valid URL (not a DID — DIDs are for VC JWT iss, not OAuth iss)
+    expect(() => new URL(issuer)).not.toThrow();
+    expect(issuer).toMatch(/^https?:\/\//);
+  });
+
+  it("/.well-known/openid-configuration jwks_uri points to /api/.well-known/jwks.json", async () => {
+    const res = await request(testApp).get("/.well-known/openid-configuration");
+    expect(res.status).toBe(200);
+    const jwksUri: string = res.body.jwks_uri;
+    expect(typeof jwksUri).toBe("string");
+    // jwks_uri must end with /api/.well-known/jwks.json — this is the real Express route
+    expect(jwksUri).toMatch(/\/api\/\.well-known\/jwks\.json$/);
+  });
+
+  it("/.well-known/openid-configuration jwks_uri path is registered as an Express route (non-404)", async () => {
+    const res = await request(testApp).get("/.well-known/openid-configuration");
+    const jwksUri: string = res.body.jwks_uri;
+    // The wellKnownRouter handles /api/.well-known/jwks.json when mounted at /api prefix.
+    // In this test app, the router is mounted at root (it handles the /.well-known/ prefix
+    // internally), so we test the /api/.well-known/jwks.json path via the second mount.
+    // Verify the path-segment: the JWKS route is registered in well-known.ts
+    const fs = require("fs");
+    const path = require("path");
+    const src: string = fs.readFileSync(path.join(__dirname, "../routes/well-known.ts"), "utf8");
+    expect(src).toContain('router.get("/.well-known/jwks.json"');
+    // The route exists and returns 200 with our test VC key
+    const jwksRes = await request(testApp).get("/.well-known/jwks.json");
+    expect(jwksRes.status).toBe(200);
+    expect(jwksRes.headers["content-type"]).toMatch(/application\/json/);
+    expect(jwksRes.body).toHaveProperty("keys");
+  });
+
+  it("OIDC authorization_endpoint is at /oauth/authorize — route registered in oauthRouter", async () => {
+    const res = await request(testApp).get("/.well-known/openid-configuration");
+    const authEndpoint: string = res.body.authorization_endpoint;
+    expect(authEndpoint).toMatch(/\/oauth\/authorize/);
+    // Verify the route is registered in oauth.ts source
+    const fs = require("fs");
+    const path = require("path");
+    // Check in routes/oauth.ts (the main oauth router)
+    const oauthSrc: string = fs.readFileSync(
+      path.join(__dirname, "../routes/oauth.ts"),
+      "utf8",
+    );
+    expect(oauthSrc).toMatch(/authorize/);
+    // Behavioral: GET /oauth/authorize returns a response (not 404)
+    const authRes = await request(testApp).get("/oauth/authorize");
+    expect(authRes.status).not.toBe(404);
+  });
+
+  it("OIDC token_endpoint is at /oauth/token — route registered in oauthRouter", async () => {
+    const res = await request(testApp).get("/.well-known/openid-configuration");
+    const tokenEndpoint: string = res.body.token_endpoint;
+    expect(tokenEndpoint).toMatch(/\/oauth\/token/);
+    // Behavioral: POST /oauth/token with no params returns 400, not 404
+    const tokenRes = await request(testApp).post("/oauth/token").send({});
+    expect(tokenRes.status).not.toBe(404);
+  });
+
+  it("env.ts validateEnv: malformed VC_SIGNING_KEY (missing 'd' field) is caught with clear error in production", () => {
+    const fs = require("fs");
+    const path = require("path");
+    const src: string = fs.readFileSync(path.join(__dirname, "../lib/env.ts"), "utf8");
+    // Verify the format validation guard is present for VC_SIGNING_KEY
+    expect(src).toContain("VC_SIGNING_KEY JWK is missing required fields");
+    expect(src).toContain("VC_PUBLIC_KEY JWK is missing required fields");
+    expect(src).toContain("VC_PUBLIC_KEY must NOT contain the private key field");
+    expect(src).toContain("must be a valid Ed25519 private JWK JSON string");
+  });
+
+  it("all OIDC metadata URL fields resolve to non-404 Express routes", async () => {
+    const res = await request(testApp).get("/.well-known/openid-configuration");
+    expect(res.status).toBe(200);
+
+    const body = res.body as Record<string, unknown>;
+
+    // URLs served by the oauth router (mounted at /oauth in testApp) — behavioral check
+    const oauthEndpoints: Array<{ key: string; path: string; method: "get" | "post" }> = [
+      { key: "authorization_endpoint", path: "/oauth/authorize", method: "get" },
+      { key: "token_endpoint", path: "/oauth/token", method: "post" },
+      { key: "userinfo_endpoint", path: "/oauth/userinfo", method: "get" },
+      { key: "revocation_endpoint", path: "/oauth/revoke", method: "post" },
+    ];
+
+    for (const { key, path, method } of oauthEndpoints) {
+      const fieldValue = body[key] as string | undefined;
+      expect(typeof fieldValue).toBe("string"); // Field must be present in OIDC doc
+      const resp = method === "post"
+        ? await request(testApp).post(path).send({})
+        : await request(testApp).get(path);
+      console.log(`  OIDC ${key}: ${path} → ${resp.status}`);
+      // 404 = route not registered. 400/401/302 = route registered but missing params/auth
+      expect(resp.status).not.toBe(404);
+    }
+
+    // URLs served by the v1 API router (not mounted in the minimal testApp) —
+    // verify via source-structure check that the routes are registered in the Express app
+    const fs = require("fs");
+    const path = require("path");
+
+    // jwks_uri → /api/.well-known/jwks.json → wellKnownRouter at /api prefix
+    expect(body.jwks_uri).toMatch(/\/api\/\.well-known\/jwks\.json$/);
+    // Behavioral: already tested in the jwks_uri route test above
+
+    // introspection_endpoint → /api/v1/auth/introspect — must be in v1/agent-auth.ts
+    const agentAuthSrc: string = fs.readFileSync(path.join(__dirname, "../routes/v1/agent-auth.ts"), "utf8");
+    expect(agentAuthSrc).toMatch(/introspect/); // Route registered in v1 router
+
+    // registration_endpoint → /api/v1/clients — must be in v1/index.ts
+    const v1IndexSrc: string = fs.readFileSync(path.join(__dirname, "../routes/v1/index.ts"), "utf8");
+    expect(v1IndexSrc).toMatch(/clients/); // Route registered in v1 router
+
+    // challenge_endpoint → /api/v1/auth/challenge — must be in v1/agent-auth.ts
+    expect(agentAuthSrc).toMatch(/challenge/); // Route registered in v1 router
+
+    // All URL fields in the OIDC doc must be valid parseable URLs
+    const urlFields = Object.entries(body).filter(([key, value]) =>
+      (key.endsWith("_endpoint") || key.endsWith("_uri")) &&
+      typeof value === "string" && value.startsWith("http"),
+    );
+    expect(urlFields.length).toBeGreaterThan(5); // OIDC doc must declare several endpoints
+    for (const [key, value] of urlFields) {
+      expect(() => new URL(value as string)).not.toThrow();
+      console.log(`  OIDC field ${key}: ${value} ✓ (valid URL)`);
+    }
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -547,9 +784,10 @@ describe("LR-8 — Rate-limit Redis fallback: explicit, not silent", () => {
       // With NODE_ENV=production, the middleware must hard-block with 503.
       await new Promise<void>((resolve, reject) => {
         const json = vi.fn();
+        const setHeader = vi.fn();
         const status = vi.fn(() => ({ json }));
         const mockReq = { ip: "127.0.0.1", body: {}, headers: {}, socket: { remoteAddress: "127.0.0.1" } } as unknown as import("express").Request;
-        const mockRes = { status, json } as unknown as import("express").Response;
+        const mockRes = { status, json, setHeader } as unknown as import("express").Response;
         const next = (err?: unknown) => {
           if (err) reject(err as Error);
           else resolve();

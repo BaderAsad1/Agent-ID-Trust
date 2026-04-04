@@ -173,9 +173,42 @@ export function validateEnv(): Env {
     envLogger.fatal("[env] VC_SIGNING_KEY is required in production for W3C VC issuance.");
     process.exit(1);
   }
+  if (isProd && env.VC_SIGNING_KEY) {
+    try {
+      const parsed = JSON.parse(env.VC_SIGNING_KEY);
+      if (!parsed.kty || !parsed.crv || !parsed.d) {
+        throw new Error("VC_SIGNING_KEY JWK is missing required fields (kty, crv, d)");
+      }
+      if (parsed.crv !== "Ed25519") {
+        throw new Error(`VC_SIGNING_KEY must be Ed25519, got: ${parsed.crv}`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      envLogger.fatal({ err: msg }, "[env] VC_SIGNING_KEY is malformed — must be a valid Ed25519 private JWK JSON string.");
+      process.exit(1);
+    }
+  }
   if (isProd && !env.VC_PUBLIC_KEY) {
     envLogger.fatal("[env] VC_PUBLIC_KEY is required in production for W3C VC verification.");
     process.exit(1);
+  }
+  if (isProd && env.VC_PUBLIC_KEY) {
+    try {
+      const parsed = JSON.parse(env.VC_PUBLIC_KEY);
+      if (!parsed.kty || !parsed.crv || !parsed.x) {
+        throw new Error("VC_PUBLIC_KEY JWK is missing required fields (kty, crv, x)");
+      }
+      if (parsed.crv !== "Ed25519") {
+        throw new Error(`VC_PUBLIC_KEY must be Ed25519, got: ${parsed.crv}`);
+      }
+      if (parsed.d) {
+        throw new Error("VC_PUBLIC_KEY must NOT contain the private key field 'd'");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      envLogger.fatal({ err: msg }, "[env] VC_PUBLIC_KEY is malformed — must be a valid Ed25519 public JWK JSON string (no private 'd' field).");
+      process.exit(1);
+    }
   }
   if (isProd && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) {
     envLogger.fatal("[env] JWT_SECRET is required in production and must be at least 32 characters.");
