@@ -14,8 +14,6 @@ export const modules: ModuleMap = {
   "./components/mockups/agent-id/HomeOrb.tsx": () => import("../components/mockups/agent-id/HomeOrb.tsx"),
   "./components/mockups/agent-id/HomeSignal.tsx": () => import("../components/mockups/agent-id/HomeSignal.tsx"),
   "./components/mockups/agent-id/IssuanceFilm.tsx": () => import("../components/mockups/agent-id/IssuanceFilm.tsx"),
-  "./components/mockups/get-started/CenteredHero.tsx": () => import("../components/mockups/get-started/CenteredHero.tsx"),
-  "./components/mockups/get-started/SplitScreen.tsx": () => import("../components/mockups/get-started/SplitScreen.tsx"),
   "./components/mockups/onboarding/Step1_Welcome.tsx": () => import("../components/mockups/onboarding/Step1_Welcome.tsx"),
   "./components/mockups/onboarding/Step2_SignIn.tsx": () => import("../components/mockups/onboarding/Step2_SignIn.tsx"),
   "./components/mockups/onboarding/Step3_Identity.tsx": () => import("../components/mockups/onboarding/Step3_Identity.tsx"),
@@ -24,5 +22,7 @@ export const modules: ModuleMap = {
   "./components/mockups/onboarding/Step6_Complete.tsx": () => import("../components/mockups/onboarding/Step6_Complete.tsx"),
   "./components/mockups/pricing/PricingAtlas.tsx": () => import("../components/mockups/pricing/PricingAtlas.tsx"),
   "./components/mockups/pricing/PricingGravity.tsx": () => import("../components/mockups/pricing/PricingGravity.tsx"),
-  "./components/mockups/signin/Redesign.tsx": () => import("../components/mockups/signin/Redesign.tsx")
+  "./components/mockups/signin/Redesign.tsx": () => import("../components/mockups/signin/Redesign.tsx"),
+  "./components/mockups/get-started/CenteredHero.tsx": () => import("../components/mockups/get-started/CenteredHero.tsx"),
+  "./components/mockups/get-started/SplitScreen.tsx": () => import("../components/mockups/get-started/SplitScreen.tsx")
 };
