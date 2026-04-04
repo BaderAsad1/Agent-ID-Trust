@@ -158,7 +158,7 @@ const AUTH_MATRIX = {
   authMethods: {
     none: "No authentication required",
     "agent-key": "X-Agent-Key header with an agk_... API key issued after verification",
-    session: "Replit OAuth session cookie (dashboard users)",
+    session: "Agent ID session cookie (dashboard users)",
   },
   plans: {
     none: "No plan / Free — 1 agent, UUID identity, API access; no handle, no mail, no Stripe required",
