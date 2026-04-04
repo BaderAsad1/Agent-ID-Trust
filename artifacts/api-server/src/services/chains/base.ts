@@ -39,7 +39,37 @@ const REGISTRAR_ABI = parseAbi([
   "function handleTier(string calldata handle) external view returns (uint8)",
   "function handleExpiry(string calldata handle) external view returns (uint256)",
   "function handleToAgentId(string calldata handle) external view returns (uint256)",
+  // Custom errors — required so viem can decode reverts (selector: keccak256 first 4 bytes)
+  "error HandleNotRegistered()",   // 0xc62e1196
+  "error HandleAlreadyRegistered()", // 0xf6963f5d
+  "error HandleRetired()",         // 0x1d7d72d7
+  "error HandleIsReserved()",      // 0x2b8fc0bc
+  "error HandleTooShort()",        // 0x7d5cd9c8
+  "error HandleTooLong()",         // 0x30643220
+  "error HandleInvalidChars()",    // 0x1106ecd2
+  "error OnlyMinter()",            // 0x9cdc2ed5
+  "error GracePeriodActive()",     // 0x478f84e7
+  "error HandleNotInCustody()",
+  "error InvalidTier()",
+  "error ExpiryMustIncrease()",
+  "error ExpiryMustBeInFuture()",
+  "error PlatformWalletMustRemainCustodyWallet()",
+  "error ZeroAddress()",
 ]);
+
+/**
+ * Thrown by resolveOnChain when the handle is not registered on-chain.
+ * Callers should treat this as a definitive "does not exist" signal rather
+ * than a transient chain error.
+ */
+export class HandleNotRegisteredOnChainError extends Error {
+  readonly handle: string;
+  constructor(handle: string) {
+    super(`Handle "${handle}" is not registered on-chain (HandleNotRegistered)`);
+    this.name = "HandleNotRegisteredOnChainError";
+    this.handle = handle;
+  }
+}
 
 /**
  * Maps tier string to on-chain uint8 tier code.
@@ -389,14 +419,26 @@ export async function resolveOnChain(
   const chain = getViemChain();
   const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
 
-  const result = await publicClient.readContract({
-    address: registrarAddress,
-    abi: REGISTRAR_ABI,
-    functionName: "resolveHandle",
-    args: [handle],
-  });
+  let result: readonly [bigint, Address, number, boolean, boolean];
+  try {
+    result = (await publicClient.readContract({
+      address: registrarAddress,
+      abi: REGISTRAR_ABI,
+      functionName: "resolveHandle",
+      args: [handle],
+    })) as readonly [bigint, Address, number, boolean, boolean];
+  } catch (err) {
+    // viem wraps ContractFunctionRevertedError inside ContractFunctionExecutionError.
+    // The decoded custom-error name lives on the cause.
+    const cause = (err as { cause?: { name?: string; data?: { errorName?: string } } }).cause;
+    const revertName = cause?.data?.errorName ?? cause?.name ?? "";
+    if (revertName === "HandleNotRegistered") {
+      throw new HandleNotRegisteredOnChainError(handle);
+    }
+    throw err;
+  }
 
-  const [agentId, nftOwner, tier, active, expired] = result as readonly [bigint, Address, number, boolean, boolean];
+  const [agentId, nftOwner, tier, active, expired] = result;
 
   return {
     agentId: agentId.toString(),

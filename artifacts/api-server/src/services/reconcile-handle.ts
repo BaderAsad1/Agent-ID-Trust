@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import { db } from "@workspace/db";
 import { agentsTable, usersTable, nftAuditLogTable, agentOwsWalletsTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
-import { resolveOnChain } from "./chains/base";
+import { resolveOnChain, HandleNotRegisteredOnChainError } from "./chains/base";
 
 const SYSTEM_USER_EMAIL = "platform-reconciliation@system.internal";
 const SYSTEM_USER_PROVIDER = "system";
@@ -123,7 +123,19 @@ export async function reconcileOnChainHandle(handle: string): Promise<ReconcileH
 
   logger.info({ handle: normalizedHandle }, "[reconcile] Starting on-chain handle reconciliation");
 
-  const onChain = await resolveOnChain(normalizedHandle);
+  let onChain: Awaited<ReturnType<typeof resolveOnChain>>;
+  try {
+    onChain = await resolveOnChain(normalizedHandle);
+  } catch (err) {
+    if (err instanceof HandleNotRegisteredOnChainError) {
+      throw new Error(
+        `HANDLE_NOT_REGISTERED: Handle "${normalizedHandle}" is not registered on-chain. ` +
+        "Verify the handle was minted on the correct network and registrar contract.",
+      );
+    }
+    throw err;
+  }
+
   if (!onChain) {
     throw new Error(
       `CHAIN_UNAVAILABLE: resolveOnChain returned null for handle "${normalizedHandle}". ` +
