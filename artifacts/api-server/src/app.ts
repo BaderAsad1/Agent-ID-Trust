@@ -321,6 +321,42 @@ app.use(seoRouter);
 
 const MCP_PORT = Number(process.env.MCP_PORT || 3001);
 
+function proxyToMcp(req: Request, res: Response, targetPath: string) {
+  const headers: Record<string, string | string[] | undefined> = { ...req.headers };
+  headers.host = `127.0.0.1:${MCP_PORT}`;
+  headers["content-length"] = "0";
+
+  const options: http.RequestOptions = {
+    hostname: "127.0.0.1",
+    port: MCP_PORT,
+    path: targetPath,
+    method: req.method,
+    headers: headers as http.OutgoingHttpHeaders,
+  };
+  const proxy = http.request(options, (proxyRes) => {
+    const resHeaders: Record<string, string | string[] | undefined> = {};
+    for (const [k, v] of Object.entries(proxyRes.headers)) {
+      resHeaders[k] = v as string | string[] | undefined;
+    }
+    res.writeHead(proxyRes.statusCode ?? 502, resHeaders);
+    proxyRes.pipe(res, { end: true });
+  });
+  proxy.on("error", (_err) => {
+    if (!res.headersSent) {
+      res.status(502).json({ error: "MCP server unavailable", code: "MCP_UNAVAILABLE" });
+    }
+  });
+  proxy.end();
+}
+
+app.get("/mcp/.well-known/mcp.json", (req: Request, res: Response) => {
+  proxyToMcp(req, res, "/.well-known/mcp.json");
+});
+
+app.get("/mcp/health", (req: Request, res: Response) => {
+  proxyToMcp(req, res, "/health");
+});
+
 app.all("/mcp", async (req: Request, res: Response, next: NextFunction) => {
   const { tryAgentAuth } = await import("./middlewares/agent-auth");
   tryAgentAuth(req, res, (err?: unknown) => {
@@ -535,7 +571,7 @@ if (fs.existsSync(frontendDist)) {
   // SPA fallback — serve index.html for any non-API, non-asset route (Express 5 compatible)
   app.get("/{*path}", async (req: Request, res: Response, next: NextFunction) => {
     const p = req.path;
-    if (/^\/(api|mcp|well-known|sitemap\.xml|agent|oauth|auth|llms\.txt|glossary|guides|use-cases|compare)(\/|$)/.test(p)) {
+    if (/^\/(api|mcp|\.well-known|sitemap\.xml|agent|oauth|auth|llms\.txt|glossary|guides|use-cases|compare)(\/|$)/.test(p)) {
       return next();
     }
 
