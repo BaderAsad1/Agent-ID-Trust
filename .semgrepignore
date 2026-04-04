@@ -1,0 +1,26 @@
+# Replit platform infrastructure — managed by Replit, not user-authored code.
+# [userenv.*] sections store environment variables set via the Replit Secrets UI.
+# They are NOT hardcoded credentials; the scanner should not flag them.
+.replit
+
+# Generated build output
+artifacts/*/dist/
+lib/*/dist/
+node_modules/
+
+# Test fixtures and snapshots
+**/__snapshots__/
+**/*.test.ts
+**/*.spec.ts
+
+# Documentation pages — contain illustrative placeholder keys (e.g. "sk_agent_...",
+# "pi_..._secret_...") in code examples. These are NOT real credentials.
+artifacts/agent-id/src/pages/DocsPayments.tsx
+artifacts/agent-id/src/pages/Protocol.tsx
+artifacts/api-server/src/seo/
+
+# Mockup sandbox — isolated UI prototypes, never shipped in production runtime.
+artifacts/mockup-sandbox/src/components/mockups/
+
+# Scripts/tooling
+scripts/

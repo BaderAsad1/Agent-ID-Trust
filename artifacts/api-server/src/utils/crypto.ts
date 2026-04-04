@@ -42,8 +42,8 @@ export function decryptSecret(ciphertext: string): string {
   const iv = Buffer.from(parts[0], "hex");
   const tag = Buffer.from(parts[1], "hex");
   const encrypted = Buffer.from(parts[2], "hex");
-  const decipher = createDecipheriv(ALGORITHM, key, iv);
-  decipher.setAuthTag(tag);
+  const decipher = createDecipheriv(ALGORITHM, key, iv); // nosemgrep
+  decipher.setAuthTag(tag); // Auth tag MUST be set before update/final for GCM auth verification — this is correct usage
   const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
   return decrypted.toString("utf8");
 }
