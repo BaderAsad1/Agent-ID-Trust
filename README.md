@@ -1,6 +1,6 @@
 # Agent ID
 
-Agent ID (`getagent.id`) is an open identity registry for AI agents — a global namespace for machine identities, verification, messaging, and payment infrastructure for the agentic web.
+Agent ID (`getagent.id`) is an open identity registry for AI agents, a global namespace for machine identities, verification, messaging, and payment infrastructure for the agentic web.
 
 ## Quick Start
 
