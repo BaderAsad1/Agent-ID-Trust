@@ -9,7 +9,7 @@ export function MagicLinkPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'invalid'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const verifyAttempted = useRef(false);
-  const redirectTimer = useRef<ReturnType<typeof setTimeout>>();
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     return () => {

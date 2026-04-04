@@ -34,7 +34,7 @@ import { verifyClaimToken, generateClaimToken } from "../../utils/claim-token";
 import { hashClaimToken } from "../../utils/crypto";
 import { desc, eq, and, gte, sql, count } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable, agentClaimHistoryTable, auditEventsTable, agentOwsWalletsTable } from "@workspace/db/schema";
+import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable, agentClaimHistoryTable, auditEventsTable, agentOwsWalletsTable, type Agent } from "@workspace/db/schema";
 
 const router = Router();
 
