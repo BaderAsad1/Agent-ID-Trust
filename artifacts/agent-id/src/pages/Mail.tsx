@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import DOMPurify from 'dompurify';
+import DOMPurify, { type Config as DOMPurifyConfig } from 'dompurify';
 import {
   Mail as MailIcon, Send, Search, ArrowLeft, Tag, CheckCircle, XCircle,
   ShieldCheck, ShieldAlert, Bot, User, Clock, Paperclip, ChevronRight,
@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { api, type Agent, type MailThread, type MailMessage, type MailLabel, type MailEvent, type InboxStats, type MailInbox, type RoutingRule, type MailAttachment } from '@/lib/api';
 import { Identicon, GlassCard, PrimaryButton, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 
-const DOMPURIFY_CONFIG: DOMPurify.Config = {
+const DOMPURIFY_CONFIG: DOMPurifyConfig = {
   ALLOWED_TAGS: [
     'p', 'br', 'b', 'i', 'em', 'strong', 'u', 's', 'del', 'ins',
     'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'span', 'div',
@@ -30,7 +30,7 @@ const DOMPURIFY_CONFIG: DOMPurify.Config = {
 };
 
 function sanitizeHtml(html: string): string {
-  return DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
+  return String(DOMPurify.sanitize(html, DOMPURIFY_CONFIG));
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {

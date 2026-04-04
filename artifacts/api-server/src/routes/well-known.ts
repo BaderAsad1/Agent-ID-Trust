@@ -206,7 +206,7 @@ router.get("/.well-known/openid-configuration", async (_req: Request, res: Respo
     userinfo_endpoint: `${APP_URL}/oauth/userinfo`,
     revocation_endpoint: `${APP_URL}/oauth/revoke`,
     introspection_endpoint: `${APP_URL}/api/v1/auth/introspect`,
-    jwks_uri: `${APP_URL}/.well-known/jwks.json`,
+    jwks_uri: `${APP_URL}/api/.well-known/jwks.json`,
     registration_endpoint: `${APP_URL}/api/v1/clients`,
     challenge_endpoint: `${APP_URL}/api/v1/auth/challenge`,
     scopes_supported: ["read", "write", "agents:read", "agents:write", "tasks:read", "tasks:write", "mail:read", "mail:write"],
