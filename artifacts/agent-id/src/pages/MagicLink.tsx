@@ -44,7 +44,7 @@ export function MagicLinkPage() {
         });
         if (res.ok) {
           setStatus('success');
-          redirectTimer.current = setTimeout(() => navigate(returnTo, { replace: true }), 1500);
+          redirectTimer.current = setTimeout(() => { window.location.href = returnTo; }, 1500);
         } else {
           const body = await res.json().catch(() => ({}));
           const code = body.code || '';

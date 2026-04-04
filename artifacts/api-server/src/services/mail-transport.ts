@@ -19,6 +19,7 @@ export interface TransportEnvelope {
   agentHandle?: string;
   agentTrustScore?: number;
   isSystemNotification?: boolean;
+  noRetry?: boolean;
 }
 
 export interface TransportResult {
@@ -229,9 +230,10 @@ export async function deliverOutbound(envelope: TransportEnvelope): Promise<Tran
   const queue = getOutboundQueue();
   if (queue && provider.name === "resend") {
     try {
+      const jobAttempts = envelope.noRetry ? 1 : 3;
       await queue.add("send", { envelope }, {
-        attempts: 3,
-        backoff: { type: "exponential", delay: 2000 },
+        attempts: jobAttempts,
+        ...(envelope.noRetry ? {} : { backoff: { type: "exponential", delay: 2000 } }),
         removeOnComplete: { age: 3600 },
         removeOnFail: { age: 86400 },
       });
