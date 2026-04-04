@@ -417,9 +417,9 @@ export async function checkHandleRegistrationLimits(
 
   if (!user) return { allowed: false, status: 404, message: "User not found" };
 
-  // All handle tiers (standard and premium) require a paid plan.
-  // Free and none plan users can only have UUID-based identity — no handles.
-  // Use subscription-backed plan state (canonical) — not denormalized users.plan.
+  // Fetch active subscription to determine plan for tier-based checks below.
+  // Free/no-subscription users are NOT blocked here — they can pay for handles
+  // separately via the /handle/purchase checkout flow.
   const activeSub = await db
     .select({ plan: subscriptionsTable.plan })
     .from(subscriptionsTable)
@@ -427,13 +427,6 @@ export async function checkHandleRegistrationLimits(
     .limit(1);
   const rawPlanForGate = (activeSub[0]?.plan ?? "none") as string;
   const normalizedPlanForGate = rawPlanForGate === "builder" ? "starter" : rawPlanForGate === "team" ? "pro" : rawPlanForGate === "free" ? "none" : rawPlanForGate;
-  if (normalizedPlanForGate === "none") {
-    return {
-      allowed: false,
-      status: 402,
-      message: "Handles require a paid plan (Starter, Pro, or Enterprise). Free plan agents use UUID-only identity. Upgrade at /pricing.",
-    };
-  }
 
   const accountAgeMs = Date.now() - new Date(user.createdAt).getTime();
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
