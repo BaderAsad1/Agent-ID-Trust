@@ -46,16 +46,19 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 | `STRIPE_PRICE_STARTER_YEARLY` | Stripe Price ID for Starter yearly plan ($290/yr) |
 | `STRIPE_PRICE_PRO_MONTHLY` | Stripe Price ID for Pro monthly plan ($79/mo) |
 | `STRIPE_PRICE_PRO_YEARLY` | Stripe Price ID for Pro yearly plan ($790/yr) |
-| `STRIPE_PRICE_HANDLE_3CHAR_YEARLY` | Stripe Price ID for 3-char handle annual renewal ($99/yr) |
-| `STRIPE_PRICE_HANDLE_4CHAR_YEARLY` | Stripe Price ID for 4-char handle annual renewal ($29/yr) |
+| `STRIPE_PRICE_HANDLE_STANDARD` | Stripe Price ID for standard handle purchase/renewal (5+ chars, $0 — included with Starter/Pro/Enterprise) |
+| `STRIPE_PRICE_HANDLE_PREMIUM` | Stripe Price ID for premium handle purchase/renewal (4 chars, $29/yr) |
+| `STRIPE_PRICE_HANDLE_ELITE` | Stripe Price ID for elite handle purchase/renewal (3 chars, $99/yr) |
 
 **Plans:**
 - **Free** ($0): 1 agent, UUID identity only (`did:web:getagent.id:agents:<uuid>`), no handle, no mail/inbox
-- **Starter** ($29/mo): 5 agents, 1 included standard handle (5+ chars), inbox and mail enabled
-- **Pro** ($79/mo): 25 agents, 1 included standard handle, all Starter features + advanced routing
+- **Starter** ($29/mo): 5 agents, 1 standard handle (5+ chars) automatically included at no extra charge, inbox and mail enabled
+- **Pro** ($79/mo): 25 agents, 1 standard handle automatically included, all Starter features + advanced routing and analytics
 - **Enterprise** (custom): unlimited agents, all Pro features + SLA support
 
-**Handle pricing:** 1-2 chars reserved · 3 chars $99/yr · 4 chars $29/yr · 5+ chars included with Starter/Pro/Enterprise
+**Handle pricing:** 1-2 chars reserved · 3 chars $99/yr (elite) · 4 chars $29/yr (premium) · 5+ chars automatically included with Starter/Pro/Enterprise (no separate purchase needed)
+
+> **Note:** Starter and Pro plan subscribers receive one standard handle (5+ chars) included with their subscription at no extra cost — no separate handle checkout is required for 5+ char handles.
 
 **Handle registrar:** Base chain (`BASE_AGENTID_REGISTRAR`) is the sole active registrar. Registrar availability checks run on read config (`BASE_RPC_URL` + `BASE_AGENTID_REGISTRAR`) and do not require write keys.
 
@@ -79,9 +82,12 @@ Set `ONCHAIN_MINTING_ENABLED=true` to enable on-chain handle registration.
 | `BASE_RPC_URL` | Base chain RPC endpoint |
 | `BASE_MINTER_PRIVATE_KEY` | Private key for the minter account (hex, `0x`-prefixed) |
 | `BASE_PLATFORM_WALLET` | Platform treasury wallet address on Base |
-| `BASE_AGENTID_REGISTRAR` | Deployed AgentIDRegistrar contract address on Base |
+| `BASE_AGENTID_REGISTRAR` | Deployed AgentIDRegistrar **proxy** address on Base (callable address for registerHandle, reserveHandles, releaseHandle) |
+| `BASE_ERC8004_REGISTRY` | ERC-8004 registry address on Base (used for ERC-8004 metadata reads, not write calls) |
 
 > **Migration note:** `BASE_HANDLE_CONTRACT` — deprecated. No longer used at runtime and not read by any active code path. `BASE_AGENTID_REGISTRAR` is the only active callable contract address.
+
+> **Contracts directory:** `contracts/deployment.json` must be checked in and populated with proxy/registry addresses for all target networks before production use. See `contracts/README.md` for details.
 
 ### Infrastructure
 

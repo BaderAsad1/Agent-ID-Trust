@@ -1,0 +1,23 @@
+{
+  "_note": "BASE_AGENTID_REGISTRAR is the proxy address used for all on-chain write calls (registerHandle, reserveHandles, releaseHandle). BASE_ERC8004_REGISTRY is the underlying registry/implementation address for ERC-8004 metadata reads — it is not callable for writes.",
+  "base-mainnet": {
+    "proxy": "",
+    "implementation": "",
+    "erc8004Registry": "",
+    "envVars": {
+      "BASE_AGENTID_REGISTRAR": "",
+      "BASE_ERC8004_REGISTRY": "",
+      "BASE_CHAIN_ID": "8453"
+    }
+  },
+  "base-sepolia": {
+    "proxy": "0x1D592A07dF4aFd897D25d348e90389C494034110",
+    "implementation": "0xDcB100777D97e57c6f7080cB6Bcc0CA5D1d12976",
+    "erc8004Registry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    "envVars": {
+      "BASE_AGENTID_REGISTRAR": "0x1D592A07dF4aFd897D25d348e90389C494034110",
+      "BASE_ERC8004_REGISTRY": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+      "BASE_CHAIN_ID": "84532"
+    }
+  }
+}
