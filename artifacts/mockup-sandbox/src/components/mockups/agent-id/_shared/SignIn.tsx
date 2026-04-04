@@ -47,9 +47,9 @@ export function SignIn() {
               <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
             </div>
           )}
-          <InputField label="User ID" placeholder="your-replit-user-id" value={userId} onChange={setUserId} />
+          <InputField label="User ID" placeholder="your-user-id" value={userId} onChange={setUserId} />
           <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-            Sign in with your Replit User ID. In production, authentication is handled automatically via Replit Auth.
+            Sign in with your Agent ID user ID. In production, authentication is handled automatically via Agent ID Auth.
           </p>
           <PrimaryButton className="w-full" onClick={handleSignIn} disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}

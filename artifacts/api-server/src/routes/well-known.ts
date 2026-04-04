@@ -267,7 +267,7 @@ router.get("/.well-known/agent-registration", async (_req: Request, res: Respons
       agentRegistration: "none",
       agentVerification: "Ed25519 key-signing",
       apiAccess: "Bearer token or X-Agent-Key header",
-      humanAccess: "OpenID Connect (Replit Auth)",
+      humanAccess: "OpenID Connect (Agent ID Auth)",
     },
     handleRules: {
       minLength: 3,

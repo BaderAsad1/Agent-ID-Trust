@@ -52,7 +52,7 @@ export function Step2_SignIn() {
             }}>J</div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 600 }}>jane_operator</div>
-              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)' }}>Authenticated via Replit</div>
+              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)' }}>Authenticated via Agent ID</div>
             </div>
             <div style={{
               marginLeft: 'auto',
