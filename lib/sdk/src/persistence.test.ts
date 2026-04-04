@@ -19,7 +19,7 @@ function makeMockBootstrap(overrides: Partial<BootstrapBundle> = {}): BootstrapB
     display_name: "My Test Agent",
     did: CANONICAL_DID,
     protocol_address: `${MOCK_HANDLE}.agentid`,
-    erc8004_uri: `https://getagent.id/api/v1/p/${MOCK_AGENT_ID}/erc8004`,
+    erc8004_uri: `https://getagent.id/api/v1/p/${MOCK_HANDLE}/erc8004`,
     provisional_domain: `${MOCK_HANDLE}.getagent.id`,
     public_profile_url: `https://getagent.id/${MOCK_HANDLE}`,
     inbox_id: "inbox-123",

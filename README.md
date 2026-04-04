@@ -46,7 +46,7 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 | `STRIPE_PRICE_STARTER_YEARLY` | Stripe Price ID for Starter yearly plan ($290/yr) |
 | `STRIPE_PRICE_PRO_MONTHLY` | Stripe Price ID for Pro monthly plan ($79/mo) |
 | `STRIPE_PRICE_PRO_YEARLY` | Stripe Price ID for Pro yearly plan ($790/yr) |
-| `STRIPE_PRICE_HANDLE_STANDARD` | Stripe Price ID for standard handle purchase/renewal (5+ chars, $0 — included with Starter/Pro/Enterprise) |
+| `STRIPE_PRICE_HANDLE_STANDARD` | Stripe Price ID for standard handle purchase/renewal (5+ chars, $0 — included with Starter/Pro; Enterprise is custom) |
 | `STRIPE_PRICE_HANDLE_PREMIUM` | Stripe Price ID for premium handle purchase/renewal (4 chars, $29/yr) |
 | `STRIPE_PRICE_HANDLE_ELITE` | Stripe Price ID for elite handle purchase/renewal (3 chars, $99/yr) |
 
@@ -56,7 +56,7 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 - **Pro** ($79/mo): 25 agents, 1 standard handle automatically included, all Starter features + advanced routing and analytics
 - **Enterprise** (custom): unlimited agents, all Pro features + SLA support
 
-**Handle pricing:** 1-2 chars reserved · 3 chars $99/yr (elite) · 4 chars $29/yr (premium) · 5+ chars automatically included with Starter/Pro/Enterprise (no separate purchase needed)
+**Handle pricing:** 1-2 chars reserved · 3 chars $99/yr (elite) · 4 chars $29/yr (premium) · 5+ chars included with Starter/Pro (Enterprise via custom entitlement; no separate purchase needed for eligible plans)
 
 > **Note:** Starter and Pro plan subscribers receive one standard handle (5+ chars) included with their subscription at no extra cost — no separate handle checkout is required for 5+ char handles.
 

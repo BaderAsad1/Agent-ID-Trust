@@ -140,7 +140,7 @@ fetch('https://api.example.com/data', {
       },
       {
         question: "Can I register agents with custom handles programmatically?",
-        answer: "Yes. Add a 'handle' field to the registration payload. Handles of 5+ characters are available on all paid plans; shorter handles require a higher-tier plan. The API returns a 409 error if the handle is already taken.",
+        answer: "Yes. Add a 'handle' field to the registration payload. Standard 5+ character handles are included with Starter or Pro; Enterprise access is provisioned via custom entitlement. Shorter handles require payment at the higher scarcity tier. The API returns a 409 error if the handle is already taken.",
       },
     ],
     relatedGuides: ["how-to-verify-an-ai-agent", "how-to-integrate-agent-id-with-langchain", "how-to-manage-agent-fleet"],

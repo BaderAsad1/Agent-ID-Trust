@@ -21,7 +21,6 @@ async function getAgentBySubdomain(hostname: string) {
   const agent = await db.query.agentsTable.findFirst({
     where: and(
       eq(agentsTable.id, domainRecord.agentId),
-      eq(agentsTable.status, "active"),
       eq(agentsTable.isPublic, true),
     ),
   });
@@ -46,6 +45,14 @@ async function getOwnerKey(agentId: string) {
     columns: { kid: true, publicKey: true, keyType: true },
   });
   return key || null;
+}
+
+function isWellKnownServeableAgent(
+  agent: typeof agentsTable.$inferSelect | null | undefined,
+): agent is typeof agentsTable.$inferSelect {
+  if (!agent || agent.status !== "active") return false;
+  const handleStatus = (agent as unknown as { handleStatus?: string | null }).handleStatus;
+  return handleStatus !== "retired";
 }
 
 function buildAgentIdentityDocument(
@@ -138,6 +145,16 @@ async function agentIdentityDocumentHandler(req: Request, res: Response, next: N
       return;
     }
 
+    if (!isWellKnownServeableAgent(agent)) {
+      const requestId = (req as unknown as { requestId?: string }).requestId || req.headers["x-request-id"] || "unknown";
+      res.status(404).json({
+        error: "AGENT_NOT_FOUND",
+        message: "No agent identity found for this domain. Resolve agents via GET /api/v1/resolve/:handle",
+        requestId,
+      });
+      return;
+    }
+
     const ownerKey = await getOwnerKey(agent.id);
     const doc = buildAgentIdentityDocument(agent, ownerKey);
 
@@ -171,7 +188,7 @@ router.get("/.well-known/agentid-configuration", async (_req: Request, res: Resp
     humanRegistrationEndpoint: `${APP_URL}/start`,
     credentialEndpoint: `${APP_URL}/api/.well-known/agent.json`,
     resolutionEndpoint: `${APP_URL}/api/v1/resolve`,
-    erc8004Endpoint: `${APP_URL}/api/v1/resolve`,
+    erc8004Endpoint: `${APP_URL}/api/v1/p/{handle}/erc8004`,
     wellKnownPath: "/.well-known/agent.json",
     baseDomain: BASE_DOMAIN,
     documentation: "https://docs.getagent.id",

@@ -20,7 +20,7 @@ interface HandleTier {
 const HANDLE_TIERS: HandleTier[] = [
   { tier: 'premium_3', label: '3-Character Handles', price: '$99/yr', priceNote: 'Ultra-premium short handle', example: 'kai', color: '#f59e0b', badge: 'Premium', minLen: 3, maxLen: 3, includedWithPaidPlan: false },
   { tier: 'premium_4', label: '4-Character Handles', price: '$29/yr', priceNote: 'Premium short handle', example: 'nova', color: '#8b5cf6', badge: 'Standard', minLen: 4, maxLen: 4, includedWithPaidPlan: false },
-  { tier: 'standard_5plus', label: '5+ Character Handles', price: 'Included', priceNote: 'Included with Starter, Pro, or Enterprise', example: 'marvin', color: '#10b981', badge: 'Basic', minLen: 5, maxLen: Infinity, includedWithPaidPlan: true },
+  { tier: 'standard_5plus', label: '5+ Character Handles', price: 'Included', priceNote: 'Included with Starter or Pro; Enterprise is custom', example: 'marvin', color: '#10b981', badge: 'Basic', minLen: 5, maxLen: Infinity, includedWithPaidPlan: true },
 ];
 
 function getTierByHandle(handle: string): HandleTier | null {
@@ -211,7 +211,7 @@ export function HandlePurchase() {
         Claim Your Handle
       </h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 40, fontSize: 16 }}>
-        5+ character handles are included with Starter, Pro, or Enterprise plans. Premium short handles (3–4 chars) are priced by scarcity.
+        5+ character handles are included with Starter or Pro plans. Enterprise handle access is provisioned via custom entitlement. Premium short handles (3–4 chars) are priced by scarcity.
       </p>
 
       <div style={{
@@ -462,7 +462,7 @@ export function HandlePurchase() {
           {[
             'Your agent UUID is permanent and free  -  it never expires',
             'Handles are optional aliases on top of your UUID identity',
-            '5+ character handles are included with Starter, Pro, or Enterprise plans',
+            '5+ character handles are included with Starter or Pro plans; Enterprise is provisioned via custom entitlement',
             '3–4 character handles are premium short handles priced by scarcity',
             'Paid handles expire annually  -  renew to keep your handle alias',
             'On-chain anchoring to Base is free — claim your handle on-chain once you connect a wallet',

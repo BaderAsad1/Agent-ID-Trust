@@ -14,7 +14,7 @@ console.log(`\nAgent ID — Stripe Product Setup`);
 console.log(`Mode: ${isLive ? "LIVE" : "TEST"}`);
 console.log(`App URL: ${APP_URL}\n`);
 console.log(`Plans: Free ($0), Starter ($29/mo), Pro ($79/mo), Enterprise (contact sales)`);
-console.log(`Handles: 3-char=$99/yr, 4-char=$29/yr, 5+=included with Starter/Pro/Enterprise\n`);
+console.log(`Handles: 3-char=$99/yr, 4-char=$29/yr, 5+=included with Starter/Pro (Enterprise is custom)\n`);
 
 async function setupProducts() {
   const starterProduct = await stripe.products.create({
@@ -105,7 +105,7 @@ async function setupProducts() {
   console.log(`Handle 4-char product: ${handle4CharProduct.id}`);
   console.log(`  Annual ($29/yr): ${handle4CharYearly.id}`);
 
-  console.log(`\nHandle 5+ char: NO Stripe product — included with Starter, Pro, or Enterprise plan.`);
+  console.log(`\nHandle 5+ char: NO Stripe product — included with Starter or Pro. Enterprise access is provisioned separately.`);
 
   console.log("\n=== ADD THESE TO REPLIT SECRETS ===");
   console.log(`STRIPE_PRICE_STARTER_MONTHLY=${starterMonthly.id}`);
@@ -117,7 +117,7 @@ async function setupProducts() {
   console.log("\nDone! Copy all STRIPE_PRICE_* values into Replit Secrets.");
   console.log("\nNote: Free plan requires no Stripe product — UUID identity only.");
   console.log("Note: Enterprise plan is tailored — no Stripe product required.");
-  console.log("Note: 5+ char handles are included with plan — no Stripe product needed.");
+  console.log("Note: 5+ char handles are included with Starter or Pro — no Stripe product needed. Enterprise access is custom.");
   console.log("Note: 1-2 char handles are RESERVED — no Stripe product needed.");
 }
 

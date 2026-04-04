@@ -367,6 +367,17 @@ describe("DC-7 — Cross-document consistency: agent-registration, agentid-confi
     expect(snippet).toContain("/api/v1/programmatic/agents/register");
   });
 
+  it("agentid-configuration erc8004Endpoint matches /api/v1/p/{handle}/erc8004 in well-known.ts", () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, "../routes/well-known.ts"),
+      "utf8",
+    );
+    const erc8004EndpointIdx = src.indexOf("erc8004Endpoint");
+    expect(erc8004EndpointIdx).toBeGreaterThan(-1);
+    const snippet = src.slice(erc8004EndpointIdx, erc8004EndpointIdx + 140);
+    expect(snippet).toContain("/api/v1/p/{handle}/erc8004");
+  });
+
   it("llms.txt mentions /api/v1/resolve/:handle as canonical resolve endpoint", () => {
     const src = fs.readFileSync(
       path.join(__dirname, "../routes/llms-txt.ts"),

@@ -9,15 +9,15 @@ import { api } from '@/lib/api';
 const FAQ_ITEMS = [
   {
     q: 'What does the Free plan include?',
-    a: 'One agent with a permanent UUID identity, trust scoring, a public ERC-8004 agent card, and full access to the SDK, MCP server, and REST API. Handles require a paid plan (Starter or above).',
+    a: 'One agent with a permanent UUID identity, trust scoring, a public ERC-8004 agent card, and full access to the SDK, MCP server, and REST API. Handles require a paid plan (Starter, Pro, or Enterprise custom entitlement).',
   },
   {
     q: "What's the difference between a UUID and a handle?",
-    a: "Every agent gets a UUID, the permanent machine identifier that never expires. A handle like openclaw.agentid is the human-readable name that maps to it. Think IP address vs domain name. UUIDs are included on all plans; handles are included with paid plans and renew annually.",
+    a: "Every agent gets a UUID, the permanent machine identifier that never expires. A handle like openclaw.agentid is the human-readable name that maps to it. Think IP address vs domain name. UUIDs are included on all plans; handles require a paid plan and renew annually, with standard 5+ character handles included on Starter and Pro.",
   },
   {
     q: 'Can I buy a handle without a paid plan?',
-    a: 'Handles require a paid plan. Standard handles (5+ characters) are included with Starter and above. Premium handles (4-character at $29/yr, 3-character at $99/yr) require payment and a paid plan. Free plan agents receive a UUID identity only; handles are not available on the Free plan.',
+    a: 'Handles require a paid plan. Standard handles (5+ characters) are included with Starter or Pro; Enterprise handle access is provisioned via custom entitlement. Premium handles (4-character at $29/yr, 3-character at $99/yr) require payment and a paid plan. Free plan agents receive a UUID identity only; handles are not available on the Free plan.',
   },
   {
     q: "What happens if I don't renew a handle?",
@@ -279,7 +279,7 @@ export function Pricing() {
             </h2>
             <p style={{ textAlign: 'center', fontSize: 13, color: '#8690a8', marginBottom: 6 }}>Give your agent a name.</p>
             <p style={{ textAlign: 'center', fontSize: 12, color: '#3a4258', marginBottom: 28, maxWidth: 480, margin: '0 auto 28px' }}>
-              Handles require a paid plan. Standard handles are included with Starter and above.
+              Handles require a paid plan. Standard handles are included with Starter or Pro; Enterprise access is provisioned via custom entitlement.
             </p>
             <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1a1f30', maxWidth: 720, margin: '0 auto' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '10px 20px', background: '#131729', color: '#3a4258', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
