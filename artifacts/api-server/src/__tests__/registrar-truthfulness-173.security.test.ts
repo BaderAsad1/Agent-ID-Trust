@@ -1,5 +1,5 @@
 /**
- * Registrar Truthfulness Tests — Task #173
+ * Registrar Truthfulness Tests — Task #173 + Launch Audit #179
  *
  * Verifies:
  *   T173-1: well-known @context and @type use AgentID branding
@@ -7,7 +7,9 @@
  *   T173-3: prompt-block header uses "## AgentID" (not "## Agent Identity — Agent ID")
  *   T173-4: No did:agentid:* as primary DID in public/SDK outputs
  *   T173-5: No chainMints as primary source in agent-card.ts
+ *   T173-5b: nft-transfer-detector disabled by default and uses chainRegistrations
  *   T173-6: deployment.json base-sepolia implementation address is correct
+ *   T179-SDK: TS SDK and Python SDK persistence APIs complete
  */
 
 import { describe, it, expect } from "vitest";
@@ -92,8 +94,8 @@ describe("T173-3 — prompt-block header branding and canonical DID (behavioral)
       capabilities: [],
     } as Parameters<typeof formatPromptBlock>[0]);
     expect(output).toContain("did:web:getagent.id:agents:uuid-test-1234-5678");
-    expect(output).toMatch(/\*\*DID\*\*: did:web:getagent\.id:agents:uuid-test-1234-5678/);
-    expect(output).not.toMatch(/\*\*DID\*\*: did:agentid:/);
+    expect(output).toMatch(/\*\*DID \(canonical\)\*\*: did:web:getagent\.id:agents:uuid-test-1234-5678/);
+    expect(output).not.toMatch(/\*\*DID \(canonical\)\*\*: did:agentid:/);
     expect(output).toContain("## AgentID");
   });
 
@@ -108,7 +110,7 @@ describe("T173-3 — prompt-block header branding and canonical DID (behavioral)
     } as Parameters<typeof formatPromptBlock>[0]);
     expect(output).toContain("did:agentid:mybot");
     expect(output).toMatch(/alias.*did:agentid:|did:agentid:.*alias/i);
-    const didLine = output.split("\n").find(l => l.includes("**DID**:"));
+    const didLine = output.split("\n").find(l => l.includes("**DID (canonical)**:"));
     expect(didLine).toBeDefined();
     expect(didLine).not.toContain("did:agentid:");
   });
@@ -228,6 +230,26 @@ describe("T173-5 — chainRegistrations is canonical source (not chainMints) in 
   });
 });
 
+describe("T173-5b — nft-transfer-detector disabled by default for registrar-only launch", () => {
+  it("nft-transfer-detector requires NFT_TRANSFER_DETECTOR_ENABLED=true to start", () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, "../workers/nft-transfer-detector.ts"),
+      "utf8",
+    );
+    expect(src).toContain('NFT_TRANSFER_DETECTOR_ENABLED');
+    expect(src).toContain('!== "true"');
+  });
+
+  it("nft-transfer-detector uses chainRegistrations (not chainMints) for writes", () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, "../workers/nft-transfer-detector.ts"),
+      "utf8",
+    );
+    expect(src).toContain("chainRegistrations");
+    expect(src).not.toMatch(/\.set\(\{[^}]*chainMints/s);
+  });
+});
+
 describe("T173-6 — deployment.json base-sepolia implementation address", () => {
   it("base-sepolia implementation is set to 0xDcB100777D97e57c6f7080cB6Bcc0CA5D1d12976", () => {
     const raw = fs.readFileSync(
@@ -254,5 +276,132 @@ describe("T173-6 — deployment.json base-sepolia implementation address", () =>
     );
     const manifest = JSON.parse(raw);
     expect(manifest["base-sepolia"].erc8004Registry).toBe("0x8004A818BFB912233c491871b3d84c89A494BD9e");
+  });
+});
+
+describe("T179-SDK — TS SDK and Python SDK persistence APIs are complete", () => {
+  it("TS SDK client.ts exports all required persistence methods", () => {
+    const src = fs.readFileSync(
+      path.join(workspaceRoot, "lib/sdk/src/client.ts"),
+      "utf8",
+    );
+    expect(src).toContain("exportState()");
+    expect(src).toContain("fromState(");
+    expect(src).toContain("writeStateFile(");
+    expect(src).toContain("readStateFile(");
+    expect(src).toContain("refreshBootstrap(");
+    expect(src).toContain("PersistedAgentState");
+  });
+
+  it("Python SDK client.py exports all required persistence methods", () => {
+    const src = fs.readFileSync(
+      path.join(workspaceRoot, "lib/python-sdk/agentid/client.py"),
+      "utf8",
+    );
+    expect(src).toContain("def export_state(");
+    expect(src).toContain("def from_state(");
+    expect(src).toContain("def write_state_file(");
+    expect(src).toContain("def read_state_file(");
+  });
+
+  it("TS SDK AgentID.fromState() runtime: restores instance with canonical DID from persisted state", async () => {
+    const { AgentID } = await import("../../../../lib/sdk/src/client.js");
+    const state = {
+      version: 1,
+      agentId: "test-uuid-1234",
+      apiKey: "ak_test",
+      baseUrl: "https://api.getagent.id",
+      did: "did:web:getagent.id:agents:test-uuid-1234",
+      cachedBootstrap: {
+        agent_id: "test-uuid-1234",
+        display_name: "Test Agent",
+        handle: "testagent",
+        trust: { score: 50, tier: "unverified" },
+        capabilities: [],
+      },
+    };
+    const agent = AgentID.fromState(state);
+    expect(agent.did).toBe("did:web:getagent.id:agents:test-uuid-1234");
+    expect(agent.agentId).toBe("test-uuid-1234");
+    const exported = agent.exportState();
+    expect(exported.did).toBe("did:web:getagent.id:agents:test-uuid-1234");
+    expect(exported.agentId).toBe("test-uuid-1234");
+    expect(exported.apiKey).toBe("ak_test");
+    expect(exported.cachedBootstrap).toBeDefined();
+  });
+
+  it("TS SDK exportState → fromState round-trip preserves canonical DID", async () => {
+    const { AgentID } = await import("../../../../lib/sdk/src/client.js");
+    const state = {
+      version: 1,
+      agentId: "roundtrip-uuid-5678",
+      apiKey: "ak_roundtrip",
+      baseUrl: "https://api.getagent.id",
+      did: "did:web:getagent.id:agents:roundtrip-uuid-5678",
+      cachedBootstrap: {
+        agent_id: "roundtrip-uuid-5678",
+        display_name: "Roundtrip Agent",
+        handle: null,
+        trust: { score: 0, tier: "unverified" },
+        capabilities: [],
+      },
+    };
+    const agent1 = AgentID.fromState(state);
+    const exported = agent1.exportState();
+    const agent2 = AgentID.fromState(exported);
+    expect(agent2.did).toBe(agent1.did);
+    expect(agent2.agentId).toBe(agent1.agentId);
+    expect(agent2.did).toBe("did:web:getagent.id:agents:roundtrip-uuid-5678");
+    expect(agent2.did).not.toContain("did:agentid:");
+  });
+
+  it("formatPromptBlock runtime: canonical DID is did:web, handle alias is did:agentid", async () => {
+    const { formatPromptBlock } = await import("../../../../lib/sdk/src/utils/prompt-block.js");
+    const output = formatPromptBlock({
+      agent_id: "runtime-uuid-9999",
+      handle: "mybot",
+      display_name: "My Bot",
+      trust: { score: 80, tier: "verified" },
+      capabilities: [],
+    } as Parameters<typeof formatPromptBlock>[0]);
+    const lines = output.split("\n");
+    const didLine = lines.find(l => l.includes("**DID (canonical)**"));
+    expect(didLine).toBeDefined();
+    expect(didLine).toContain("did:web:getagent.id:agents:runtime-uuid-9999");
+    expect(didLine).not.toContain("did:agentid:");
+    const aliasLine = lines.find(l => l.includes("Handle DID (alias)"));
+    expect(aliasLine).toBeDefined();
+    expect(aliasLine).toContain("did:agentid:mybot");
+  });
+
+  it("human profile DID shape: canonical did:web:...humans:<uuid> + did:agentid alias", () => {
+    const humansSrc = fs.readFileSync(
+      path.join(__dirname, "../routes/v1/humans.ts"),
+      "utf8",
+    );
+    const profilesSrc = fs.readFileSync(
+      path.join(__dirname, "../routes/v1/public-profiles.ts"),
+      "utf8",
+    );
+    expect(humansSrc).toContain("did:web:getagent.id:humans:${profile.id}");
+    expect(humansSrc).toContain("did:agentid:human:${profile.handle}");
+    expect(humansSrc).toContain("handleAlias");
+    expect(profilesSrc).toContain("did:web:getagent.id:humans:${humanProfile.id}");
+    expect(profilesSrc).toContain("did:agentid:human:${humanProfile.handle}");
+    expect(profilesSrc).toContain("handleAlias");
+  });
+
+  it("formatPromptBlock runtime: agent without handle has no alias line", async () => {
+    const { formatPromptBlock } = await import("../../../../lib/sdk/src/utils/prompt-block.js");
+    const output = formatPromptBlock({
+      agent_id: "no-handle-uuid-0000",
+      handle: null,
+      display_name: "Handle-less Agent",
+      trust: { score: 10, tier: "unverified" },
+      capabilities: [],
+    } as Parameters<typeof formatPromptBlock>[0]);
+    expect(output).toContain("did:web:getagent.id:agents:no-handle-uuid-0000");
+    expect(output).not.toContain("did:agentid:");
+    expect(output).not.toContain("Handle DID");
   });
 });

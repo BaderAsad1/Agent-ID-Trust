@@ -53,7 +53,8 @@ router.get("/:handle", async (req, res, next) => {
           type: "human",
           profile: {
             ...humanProfile,
-            did: `did:agentid:human:${humanProfile.handle}`,
+            did: `did:web:getagent.id:humans:${humanProfile.id}`,
+            handleAlias: `did:agentid:human:${humanProfile.handle}`,
           },
           agents: publicAgents,
           agentCount: publicAgents.length,

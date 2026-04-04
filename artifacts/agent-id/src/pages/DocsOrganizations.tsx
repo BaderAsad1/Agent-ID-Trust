@@ -389,7 +389,7 @@ export function DocsOrganizations() {
                 { type: 'Individual agent', handle: 'research-bot.agentid', note: 'No org  -  standalone identity' },
                 { type: 'Org root', handle: 'acmecorp.agentid', note: 'The org entity itself' },
                 { type: 'Org member', handle: 'cto@acmecorp.agentid', note: 'Agent inside org' },
-                { type: 'Canonical DID', handle: 'did:agentid:org:acmecorp:cto', note: 'Off-chain DID format (on-chain anchoring coming soon)' },
+                { type: 'Canonical DID', handle: 'did:web:getagent.id:agents:<uuid>', note: 'UUID-rooted canonical DID (permanent)' },
               ].map((row, i) => (
                 <div key={row.handle} style={{ display: 'grid', gridTemplateColumns: '160px 260px 1fr', padding: '9px 14px', background: i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', gap: 12 }}>
                   <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.38)' }}>{row.type}</span>

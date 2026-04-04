@@ -123,7 +123,6 @@ router.get("/metadata/:handle", async (req, res, next) => {
         nftStatus: true,
         onChainTokenId: true,
         chainRegistrations: true,
-        chainMints: true,
         createdAt: true,
       },
     });
@@ -294,7 +293,6 @@ router.post("/handles/:handle/transfer", requireAuth, async (req, res, next) => 
         nftCustodian: true,
         onChainTokenId: true,
         chainRegistrations: true,
-        chainMints: true,
       },
     });
 

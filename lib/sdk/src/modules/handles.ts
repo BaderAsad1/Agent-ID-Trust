@@ -96,8 +96,8 @@ export class HandleModule {
 
   /**
    * Request on-chain NFT mint for a handle owned by this agent.
-   * For free handles (5+ chars): creates a $5 Stripe checkout.
-   * For paid handles (3-4 chars): queues the mint immediately (included in purchase).
+   * For standard handles (5+ chars): creates a Stripe checkout for the on-chain mint fee.
+   * For premium handles (3-4 chars): queues the mint immediately (included in purchase).
    */
   async requestMint(handle: string): Promise<RequestMintResult> {
     return this.http.post<RequestMintResult>(

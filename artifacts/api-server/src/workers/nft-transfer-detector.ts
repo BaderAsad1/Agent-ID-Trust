@@ -79,7 +79,7 @@ async function detectSecondarySales(): Promise<void> {
       try {
         const agent = await db.query.agentsTable.findFirst({
           where: eq(agentsTable.onChainTokenId, tokenId),
-          columns: { id: true, userId: true, onChainOwner: true, chainMints: true, nftStatus: true },
+          columns: { id: true, userId: true, onChainOwner: true, chainRegistrations: true, nftStatus: true },
         });
 
         if (!agent) {
@@ -96,8 +96,25 @@ async function detectSecondarySales(): Promise<void> {
 
         const disputeWindowEnd = new Date(Date.now() + DISPUTE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-        const chainMints = (agent.chainMints as Record<string, unknown>) || {};
-        const baseData = (chainMints.base as Record<string, unknown>) || {};
+        const chainRegs = (agent.chainRegistrations as Record<string, unknown>[]) || [];
+        const existingBaseIdx = chainRegs.findIndex((r: Record<string, unknown>) => r.chain === "base" || r.chain === "base-sepolia");
+        const existingBase = existingBaseIdx >= 0 ? (chainRegs[existingBaseIdx] as Record<string, unknown>) : {};
+
+        const updatedBaseReg = {
+          ...existingBase,
+          chain: existingBase.chain || "base",
+          custodian: "user",
+          ownerWallet: to.toLowerCase(),
+          lastTransferTx: txHash,
+          lastTransferAt: new Date().toISOString(),
+        };
+
+        const updatedRegs = [...chainRegs];
+        if (existingBaseIdx >= 0) {
+          updatedRegs[existingBaseIdx] = updatedBaseReg;
+        } else {
+          updatedRegs.push(updatedBaseReg);
+        }
 
         if (newOwnerUser) {
           await db
@@ -105,39 +122,31 @@ async function detectSecondarySales(): Promise<void> {
             .set({
               onChainOwner: to.toLowerCase(),
               nftStatus: "minted",
-              chainMints: {
-                ...chainMints,
-                base: {
-                  ...baseData,
-                  custodian: "user",
-                  ownerWallet: to.toLowerCase(),
-                  lastTransferTx: txHash,
-                  lastTransferAt: new Date().toISOString(),
-                },
-              },
+              chainRegistrations: updatedRegs,
               updatedAt: new Date(),
             })
             .where(eq(agentsTable.id, agent.id));
 
           logger.info({ agentId: agent.id, handle, tokenId, to, txHash }, "[nft-transfer-detector] Secondary transfer to known user recorded");
         } else {
+          const pendingBaseReg = {
+            ...updatedBaseReg,
+            disputeWindowEnd: disputeWindowEnd.toISOString(),
+            pendingClaimSince: new Date().toISOString(),
+          };
+          const pendingRegs = [...chainRegs];
+          if (existingBaseIdx >= 0) {
+            pendingRegs[existingBaseIdx] = pendingBaseReg;
+          } else {
+            pendingRegs.push(pendingBaseReg);
+          }
+
           await db
             .update(agentsTable)
             .set({
               onChainOwner: to.toLowerCase(),
               nftStatus: "pending_claim",
-              chainMints: {
-                ...chainMints,
-                base: {
-                  ...baseData,
-                  custodian: "user",
-                  ownerWallet: to.toLowerCase(),
-                  lastTransferTx: txHash,
-                  lastTransferAt: new Date().toISOString(),
-                  disputeWindowEnd: disputeWindowEnd.toISOString(),
-                  pendingClaimSince: new Date().toISOString(),
-                },
-              },
+              chainRegistrations: pendingRegs,
               updatedAt: new Date(),
             })
             .where(eq(agentsTable.id, agent.id));
@@ -158,6 +167,11 @@ async function detectSecondarySales(): Promise<void> {
 
 export function startNftTransferDetector(): void {
   if (timer) return;
+
+  if (process.env.NFT_TRANSFER_DETECTOR_ENABLED !== "true") {
+    logger.info("[nft-transfer-detector] Disabled (set NFT_TRANSFER_DETECTOR_ENABLED=true to enable)");
+    return;
+  }
 
   logger.info("[nft-transfer-detector] Starting NFT transfer detector (60s polling)");
 

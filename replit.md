@@ -109,4 +109,25 @@ The marketplace was extended with a dual-rail commerce platform:
 - `POST /v1/marketplace/orders/:orderId/milestones/:milestoneId/complete`
 - `POST /v1/marketplace/orders/:orderId/release-milestone`
 - `POST /v1/marketplace/orders/:orderId/dispute`
+
+## Launch Audit (Task 179) — Identity Model & Pricing Canonical Rules
+
+**Canonical DID Model:**
+- Agent canonical DID: `did:web:getagent.id:agents:<uuid>` — used in all top-level `did` fields (resolve.ts, agent-card.ts, public-profiles.ts, prompt-block.ts, credentials.ts, SDKs)
+- Handle alias DID: `did:agentid:<handle>` — secondary only, always labeled as `handleAlias`, `alsoKnownAs`, or `Handle DID (alias)` — never the canonical `did` field
+- Human profile canonical DID: `did:web:getagent.id:humans:<uuid>` — UUID-rooted, with handle alias in `handleAlias` field
+
+**Pricing Model (confirmed):**
+- Free plan: $0 — UUID identity only, no handles, no Stripe required
+- Starter: $29/mo — 1 included standard handle (5+ chars), up to 5 agents
+- Pro: $79/mo — 1 included standard handle (5+ chars), up to 25 agents  
+- Enterprise: custom — negotiated
+- Premium 3-char handles: $99/yr; Premium 4-char handles: $29/yr
+- On-chain mint fee (Base): $5 for standard handles; included for premium handles
+
+**Chain Architecture:**
+- `chainRegistrations` (array of {chain, registrarTxHash, ...}) is the canonical on-chain data source
+- `chainMints` (legacy JSON object) remains in DB schema but is not read on any active code path (only in disabled Tron multi-chain route)
+- nft-transfer-detector writes to `chainRegistrations` (not `chainMints`)
+- AgentIDRegistrar contract is the canonical registrar; legacy AgentIDHandle ERC-721 contract is deprecated
 - `GET /v1/marketplace/listings/:id/analytics`

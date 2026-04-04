@@ -197,7 +197,7 @@ export function registerAllTools(server: McpServer, apiKey: string, getSessionId
 
       const verifyData = verifyResult as Record<string, unknown>;
       const handle = (regData.handle || params.handle.toLowerCase()) as string;
-      const did = regData.did || verifyData.did || `did:agentid:${handle}`;
+      const did = regData.did || verifyData.did || `did:web:getagent.id:agents:${agentId}`;
       return {
         content: [{ type: "text", text: JSON.stringify({
           success: true,

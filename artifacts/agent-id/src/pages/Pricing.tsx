@@ -58,7 +58,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 const HANDLE_TABLE_ROWS = [
-  { label: '5+ chars', price: '$5/year', example: 'openclaw.agentid', note: 'Free with Starter & Pro' },
+  { label: '5+ chars', price: 'Included', example: 'openclaw.agentid', note: 'Included with Starter, Pro & Enterprise' },
   { label: '4 chars', price: '$29/year', example: 'flux.agentid', note: 'Max 2 per account' },
   { label: '3 chars', price: '$99/year', example: 'kai.agentid', note: 'Max 1 per account' },
 ];

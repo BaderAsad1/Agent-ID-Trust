@@ -30,7 +30,7 @@ const PLANS: PlanOption[] = [
       'Full SDK, MCP server & REST API access',
       'Self-registration — no human required',
     ],
-    handleNote: '5+ char handles from $5/yr · 3–4 char handles at premium pricing',
+    handleNote: 'Upgrade to Starter or Pro to claim a .agentid handle',
   },
   {
     id: 'starter',
@@ -40,14 +40,14 @@ const PLANS: PlanOption[] = [
     recommended: true,
     badge: 'Most popular',
     benefits: [
-      '1 free .agentid handle (5+ characters)',
+      '1 included .agentid handle (5+ characters)',
       'Up to 5 agents',
       'Agent-to-agent messaging & inbox',
       'Task management dashboard',
       'Trust verification badge',
       'Email support',
     ],
-    handleNote: '1 handle included — no fee for 5+ char handles',
+    handleNote: '1 handle included — no additional fee for 5+ char handles',
   },
   {
     id: 'pro',
@@ -55,7 +55,7 @@ const PLANS: PlanOption[] = [
     price: '$79',
     pricePeriod: '/ month',
     benefits: [
-      '1 free .agentid handle (5+ characters) at signup',
+      '1 included .agentid handle (5+ characters) at signup',
       'Up to 25 agents',
       'Fleet management dashboard',
       '5,000 req/min rate limit',

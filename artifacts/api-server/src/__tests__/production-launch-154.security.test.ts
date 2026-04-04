@@ -902,8 +902,8 @@ describe("BR-DUR — Included-handle eligibility gate: explicit error when agent
     expect(src).toContain("billing.included_handle_claim.pending");
     const pendingIdx = src.indexOf("billing.included_handle_claim.pending");
     expect(pendingIdx).toBeGreaterThan(-1);
-    // Find the actual function CALL (not the import): "await claimIncludedHandleBenefit("
-    const claimCallIdx = src.indexOf("await claimIncludedHandleBenefit(");
+    // Find the actual function CALL (not the import): claimIncludedHandleBenefitTx (transactional variant)
+    const claimCallIdx = src.indexOf("claimIncludedHandleBenefitTx(");
     expect(claimCallIdx).toBeGreaterThan(-1);
     // PENDING intent must be written before the actual claim call
     expect(pendingIdx).toBeLessThan(claimCallIdx);

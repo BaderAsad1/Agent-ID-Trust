@@ -129,7 +129,7 @@ const resp = await fetch('${BASE}/oauth/userinfo', {
 
 const agent = await resp.json();
 // agent = {
-//   sub: 'did:agentid:clawd',
+//   sub: 'did:web:getagent.id:agents:<uuid>',
 //   agent_id: '...',
 //   handle: 'clawd',
 //   trust_tier: 'trusted',
@@ -164,7 +164,7 @@ const AUTONOMOUS_ASSERTION = `import { signAssertion } from '@agentid/sdk'; // o
 const now = Math.floor(Date.now() / 1000);
 const claims = {
   iss: \`did:web:getagent.id:agents:\${AGENT_ID}\`,
-  sub: \`did:agentid:\${AGENT_HANDLE}\`,
+  sub: \`did:web:getagent.id:agents:\${AGENT_ID}\`,
   aud: ['${BASE}'],
   iat: now,
   exp: now + 120,          // 2 minute window
@@ -425,7 +425,7 @@ export function DocsSignIn() {
           <Section id="claims" title="Token claims" subtitle="Every Agent ID access token includes these claims.">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
-                { claim: 'sub', desc: 'Agent DID  -  e.g. did:agentid:clawd', type: 'string' },
+                { claim: 'sub', desc: 'Agent DID  -  e.g. did:web:getagent.id:agents:<uuid>', type: 'string' },
                 { claim: 'iss', desc: 'Token issuer (https://getagent.id)', type: 'string' },
                 { claim: 'aud', desc: 'Your client_id', type: 'string' },
                 { claim: 'agent_id', desc: 'Internal Agent ID (UUID)', type: 'string' },
