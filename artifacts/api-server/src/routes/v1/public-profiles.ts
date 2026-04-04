@@ -18,8 +18,10 @@ import { publicRateLimit } from "../../middlewares/rate-limit";
 
 const router = Router();
 
-/** Returns true if an agent row represents a live, serveable profile (active and handle not retired). */
-function isAgentProfileActive(agent: Awaited<ReturnType<typeof getAgentByHandle>>): boolean {
+type AgentRow = NonNullable<Awaited<ReturnType<typeof getAgentByHandle>>>;
+
+/** Returns true (and narrows type to non-null) if an agent row is a live, serveable profile (active and handle not retired). */
+function isAgentProfileActive(agent: Awaited<ReturnType<typeof getAgentByHandle>>): agent is AgentRow {
   if (!agent || agent.status !== "active") return false;
   const hs = (agent as unknown as { handleStatus?: string | null }).handleStatus;
   if (hs === "retired") return false;
@@ -30,7 +32,7 @@ router.get("/:handle", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
 
-    if (isAgentProfileActive(agent) && !agent!.isPublic) {
+    if (isAgentProfileActive(agent) && !agent.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
@@ -155,7 +157,7 @@ router.get("/:handle/credential", async (req, res, next) => {
     if (!isAgentProfileActive(agent)) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (!agent!.isPublic) {
+    if (!agent.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
@@ -197,7 +199,7 @@ router.get("/:handle/credential/jwt", async (req, res, next) => {
     if (!isAgentProfileActive(agent)) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (!agent!.isPublic) {
+    if (!agent.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
@@ -217,7 +219,7 @@ router.get("/:handle/activity", async (req, res, next) => {
     if (!isAgentProfileActive(agent)) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (!agent!.isPublic) {
+    if (!agent.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
@@ -238,7 +240,7 @@ router.get("/:handle/credential/verify", async (req, res, next) => {
     if (!isAgentProfileActive(agent)) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (!agent!.isPublic) {
+    if (!agent.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
@@ -277,7 +279,7 @@ router.post("/:handle/credential/verify", async (req, res, next) => {
     if (!isAgentProfileActive(agent)) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (!agent!.isPublic) {
+    if (!agent.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 

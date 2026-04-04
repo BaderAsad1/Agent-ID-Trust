@@ -3,7 +3,7 @@ import { eq, and, desc, sql, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core";
 import type { NodePgQueryResultHKT } from "drizzle-orm/node-postgres";
 import { getHandleTier } from "./handle";
-import { agentOwnerWhere } from "./agents";
+import { agentOwnerWhere, agentOwnerFilter } from "./agents";
 import { db } from "@workspace/db";
 import { logger } from "../middlewares/request-logger";
 import {
@@ -1314,11 +1314,13 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
       return;
     }
 
-    // creator-attribution read: userId here is the Stripe checkout session metadata userId
-    // (the person who initiated and paid for the mint). Intentionally matches against the original
-    // creator (userId) rather than effective-owner, since this is payment-provisioner validation.
+    // Effective-ownership lookup: uses agentOwnerWhere so transferred agents are found by their
+    // current owner (ownerUserId) rather than the original creator (userId). This prevents silent
+    // settlement failures when a paid handle checkout is initiated by a new owner after transfer.
+    // NOTE: getUserPlanLimits intentionally uses userId for plan-limit attribution — that is separate
+    // from authorization and is not affected by this change.
     const agent = await db.query.agentsTable.findFirst({
-      where: and(eq(agentsTable.id, agentIdMeta), eq(agentsTable.userId, userId)),
+      where: agentOwnerWhere(agentIdMeta, userId),
       columns: { id: true, handle: true, nftStatus: true },
     });
 
@@ -1406,19 +1408,23 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
         return;
       }
 
-      // creator-attribution reads: userId is from Stripe checkout metadata (the paying provisioner).
-      // Intentionally uses userId (original creator) rather than effective-owner helpers —
-      // these are payment-settlement lookups tied to who initiated and paid for the handle checkout.
+      // Effective-ownership lookups: use agentOwnerWhere/agentOwnerFilter so transferred agents are
+      // found by their current owner (ownerUserId) rather than the original creator (userId). This
+      // prevents silent settlement failures when a paid handle checkout is initiated by a new owner.
+      // NOTE: getUserPlanLimits intentionally uses userId for plan-limit attribution — that is separate
+      // from authorization and is not affected by this change.
       let agentRecord: { id: string } | undefined;
       if (agentIdMeta) {
         agentRecord = await db.query.agentsTable.findFirst({
-          where: and(eq(agentsTable.id, agentIdMeta), eq(agentsTable.userId, userId)),
+          where: agentOwnerWhere(agentIdMeta, userId),
           columns: { id: true },
         });
       }
       if (!agentRecord) {
+        // Fallback: look up by handle with effective-ownership filter (agentOwnerFilter)
+        // since agentOwnerWhere requires a known agentId.
         agentRecord = await db.query.agentsTable.findFirst({
-          where: and(eq(agentsTable.handle, normalizedHandle), eq(agentsTable.userId, userId)),
+          where: and(eq(agentsTable.handle, normalizedHandle), agentOwnerFilter(userId)),
           columns: { id: true },
         });
       }
