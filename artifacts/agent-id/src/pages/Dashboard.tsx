@@ -459,7 +459,7 @@ function Overview() {
                   <Plus className="w-6 h-6" style={{ color: 'var(--accent)' }} />
                 </div>
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Register your first agent</h3>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Create a new agent identity from scratch with the setup wizard.</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Claim a handle and set up your agent's public identity.</p>
               </div>
             </GlassCard>
             <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/claim')}>

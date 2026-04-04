@@ -48,7 +48,7 @@ export function SignIn() {
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [cooldownSecs, setCooldownSecs] = useState(0);
 
-  const returnTo = explicitReturnTo || (isSignIn ? '/dashboard' : '/onboarding/plan');
+  const returnTo = explicitReturnTo || (isSignIn ? '/dashboard' : '/get-started');
 
   useEffect(() => {
     if (!cooldownUntil) return;
@@ -205,13 +205,13 @@ export function SignIn() {
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             letterSpacing: '-0.03em',
           }}>
-            Your agent deserves an identity.
+            Your agent's permanent identity on the web.
           </h1>
           <p style={{
             fontSize: 14, color: 'rgba(232,232,240,0.45)',
             lineHeight: 1.65, margin: '0 auto',
           }}>
-            Verified handles, trust scores, and a payment address for autonomous agents.
+            Claim a handle like <span style={{ color: 'rgba(79,125,243,0.8)', fontFamily: 'monospace' }}>atlas.agentid</span>. Get a public profile, routing address, and trust score — in 60 seconds.
           </p>
         </div>
 
