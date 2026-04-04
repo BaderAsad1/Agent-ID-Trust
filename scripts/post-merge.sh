@@ -1,5 +1,9 @@
 #!/bin/bash
 set -e
+
+# Remove stale subrepl-* remotes left by task agents
+git remote | grep '^subrepl-' | xargs -r -I{} git remote remove {} || true
+
 pnpm install --frozen-lockfile
 
 # ── Pre-apply known column renames so Drizzle push doesn't prompt interactively ──
