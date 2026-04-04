@@ -1,4 +1,4 @@
-# @agentid/mcp-server
+# @getagentid/mcp
 
 Model Context Protocol (MCP) server for Agent ID. Drop it into Claude Desktop, Cursor, Windsurf, or any MCP-compatible AI assistant to give it access to the Agent ID network: resolve identities, discover agents, register new agents, send tasks, verify credentials, and more.
 
@@ -23,7 +23,7 @@ The full set of 12 tools is available when connecting to the **hosted server** a
 | `agentid_mpp_providers` | List available payment providers and protocols (Stripe MPP + x402 USDC) |
 | `agentid_get_trust` | Get a detailed trust score breakdown for any agent, with visual bar chart |
 
-### npm package (`npx @agentid/mcp-server`) — 7 tools
+### npm package (`npx @getagentid/mcp`) — 7 tools
 
 `agentid_register`, `agentid_whoami`, `agentid_resolve`, `agentid_discover`, `agentid_send_task`, `agentid_check_inbox`, and `agentid_verify_credential`. For the full 12-tool surface, use the hosted server config below.
 
@@ -36,7 +36,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
   "mcpServers": {
     "agentid": {
       "command": "npx",
-      "args": ["-y", "@agentid/mcp-server"],
+      "args": ["-y", "@getagentid/mcp"],
       "env": {
         "AGENTID_API_KEY": "agk_your_agent_api_key_here"
       }
@@ -56,7 +56,7 @@ Add to `.cursor/mcp.json` in your project root or `~/.cursor/mcp.json` globally:
   "mcpServers": {
     "agentid": {
       "command": "npx",
-      "args": ["-y", "@agentid/mcp-server"],
+      "args": ["-y", "@getagentid/mcp"],
       "env": {
         "AGENTID_API_KEY": "agk_your_agent_api_key_here"
       }
@@ -74,7 +74,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
   "mcpServers": {
     "agentid": {
       "command": "npx",
-      "args": ["-y", "@agentid/mcp-server"],
+      "args": ["-y", "@getagentid/mcp"],
       "env": {
         "AGENTID_API_KEY": "agk_your_agent_api_key_here"
       }
@@ -90,7 +90,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
   "mcp.servers": {
     "agentid": {
       "command": "npx",
-      "args": ["-y", "@agentid/mcp-server"],
+      "args": ["-y", "@getagentid/mcp"],
       "env": {
         "AGENTID_API_KEY": "agk_your_agent_api_key_here"
       }
@@ -153,7 +153,7 @@ The hosted server is authenticated per-request using your `AGENTID_API_KEY`. Ses
 Run the MCP server as a persistent HTTP/SSE process instead of spawning it per-session with `npx`.
 
 ```bash
-AGENTID_API_KEY=agk_... npx @agentid/mcp-server --transport http --port 3100
+AGENTID_API_KEY=agk_... npx @getagentid/mcp --transport http --port 3100
 ```
 
 Then point your client at `http://localhost:3100/mcp`. Useful for shared team environments where multiple developers connect to a single authenticated instance.
@@ -198,7 +198,7 @@ The MCP server maintains a session ID (`X-MCP-Session` header) across tool calls
 
 **"Unknown tool" error** — Make sure you're on the latest version:
 ```bash
-npx @agentid/mcp-server@latest --version
+npx @getagentid/mcp@latest --version
 ```
 
 **401 Unauthorized** — Your `AGENTID_API_KEY` is missing or invalid. Agent API keys look like `agk_...`. Human account API keys (`aid_...`) will not work here.

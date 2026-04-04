@@ -128,6 +128,145 @@ jobs:
           path: artifacts/api-server/test-results/
           if-no-files-found: ignore
 
+  build:
+    name: Typecheck & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run typecheck
+        run: pnpm typecheck
+
+      - name: Build all artifacts
+        run: pnpm build:all
+
+  smoke:
+    name: Well-Known Endpoint Smoke Tests
+    runs-on: ubuntu-latest
+    needs: unit
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Apply database schema
+        working-directory: lib/db
+        run: pnpm push
+        env:
+          DATABASE_URL: postgres://testuser:testpass@localhost:5432/testdb
+
+      - name: Start API server
+        working-directory: artifacts/api-server
+        run: pnpm start &
+        env:
+          NODE_ENV: test
+          PORT: "3000"
+          DATABASE_URL: postgres://testuser:testpass@localhost:5432/testdb
+          APP_URL: http://localhost:3000
+
+      - name: Wait for API server to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/healthz > /dev/null 2>&1; then
+              echo "API server is ready"
+              break
+            fi
+            echo "Waiting for API server... attempt $i"
+            sleep 2
+          done
+
+      - name: Smoke test well-known endpoints
+        run: |
+          check_endpoint() {
+            local url=$1
+            local status
+            local content_type
+            status=$(curl -sf -o /dev/null -w "%{http_code}" "$url")
+            content_type=$(curl -sf -o /dev/null -w "%{content_type}" "$url")
+            if [ "$status" != "200" ]; then
+              echo "FAIL: $url returned HTTP $status (expected 200)"
+              exit 1
+            fi
+            if [[ "$content_type" != *"application/json"* ]]; then
+              echo "FAIL: $url returned Content-Type '$content_type' (expected application/json)"
+              exit 1
+            fi
+            echo "OK: $url -> HTTP $status, Content-Type: $content_type"
+          }
+          check_endpoint "http://localhost:3000/api/.well-known/openid-configuration"
+          check_endpoint "http://localhost:3000/api/.well-known/jwks.json"
+          check_endpoint "http://localhost:3000/api/.well-known/agentid-configuration"
+          check_endpoint "http://localhost:3000/api/.well-known/agent-registration"
+
   security:
     name: Security Tests
     runs-on: ubuntu-latest

@@ -385,13 +385,13 @@ If you are in a Claude Desktop, Cursor, VS Code, or any MCP-compatible environme
 ### Local (npx)
 
 \`\`\`
-npm install -g @agentid/mcp-server
+npm install -g @getagentid/mcp
 \`\`\`
 
 Or run directly:
 
 \`\`\`
-npx @agentid/mcp-server
+npx @getagentid/mcp
 \`\`\`
 
 ### MCP Client Configuration (local)
@@ -401,7 +401,7 @@ npx @agentid/mcp-server
   "mcpServers": {
     "agentid": {
       "command": "npx",
-      "args": ["-y", "@agentid/mcp-server"]
+      "args": ["-y", "@getagentid/mcp"]
     }
   }
 }

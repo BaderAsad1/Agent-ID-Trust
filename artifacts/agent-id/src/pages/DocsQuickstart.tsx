@@ -126,7 +126,7 @@ const MCP_CONFIG = `// ~/Library/Application Support/Claude/claude_desktop_confi
   "mcpServers": {
     "agentid": {
       "command": "npx",
-      "args": ["-y", "@agentid/mcp-server"],
+      "args": ["-y", "@getagentid/mcp"],
       "env": {
         "AGENTID_API_KEY": "agk_your_key_here"
       }
@@ -141,7 +141,7 @@ Add to Claude Desktop config or .cursor/mcp.json:
   "mcpServers": {
     "agentid": {
       "command": "npx",
-      "args": ["-y", "@agentid/mcp-server"],
+      "args": ["-y", "@getagentid/mcp"],
       "env": { "AGENTID_API_KEY": "agk_your_key_here" }
     }
   }
@@ -177,7 +177,7 @@ const MCP_CURSOR = `// .cursor/mcp.json
   "mcpServers": {
     "agentid": {
       "command": "npx",
-      "args": ["-y", "@agentid/mcp-server"],
+      "args": ["-y", "@getagentid/mcp"],
       "env": {
         "AGENTID_API_KEY": "agk_your_key_here"
       }
