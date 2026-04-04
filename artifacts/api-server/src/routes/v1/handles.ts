@@ -347,7 +347,6 @@ router.post("/auctions/:handle/bid", requireAuth, async (req, res, next) => {
 
 const mintChainSchema = z.object({
   chain: z.enum(["tron"]),
-  paymentIntentId: z.string().optional(),
 });
 
 router.post("/:handle/mint-chain", requireAuth, async (req, res, next) => {
@@ -369,7 +368,7 @@ router.post("/:handle/mint-chain", requireAuth, async (req, res, next) => {
       throw new AppError(400, "VALIDATION_ERROR", "Invalid request body", parsed.error.issues);
     }
 
-    const { chain, paymentIntentId: submittedPaymentIntentId } = parsed.data;
+    const { chain } = parsed.data;
 
     const agent = await db.query.agentsTable.findFirst({
       where: and(
@@ -416,53 +415,6 @@ router.post("/:handle/mint-chain", requireAuth, async (req, res, next) => {
       ].filter(Boolean);
       if (missing.length > 0) {
         throw new AppError(503, "TRON_NOT_CONFIGURED", `Tron minting is not configured: missing ${missing.join(", ")}`);
-      }
-    }
-
-    const { getUserPlan } = await import("../../services/billing");
-    const plan = await getUserPlan(userId);
-    const isStarterPlan = plan === "none" || plan === "starter";
-
-    if (isStarterPlan) {
-      const stripe = getStripe();
-
-      if (submittedPaymentIntentId) {
-        const pi = await stripe.paymentIntents.retrieve(submittedPaymentIntentId);
-
-        if (pi.metadata?.type !== "chain_mint" || pi.metadata?.handle !== handle || pi.metadata?.chain !== chain || pi.metadata?.userId !== userId) {
-          throw new AppError(400, "INVALID_PAYMENT_INTENT", "Payment intent does not match this chain mint request");
-        }
-
-        if (pi.status !== "succeeded" && pi.status !== "requires_capture") {
-          throw new AppError(402, "PAYMENT_NOT_COMPLETE", `Payment intent is not in a completed state (status: ${pi.status}). Complete payment before minting.`);
-        }
-
-        logger.info({ handle, chain, paymentIntentId: submittedPaymentIntentId, plan }, "[handles] Payment verified for Starter chain mint, proceeding");
-      } else {
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: 500,
-          currency: "usd",
-          metadata: {
-            type: "chain_mint",
-            handle,
-            chain,
-            userId,
-            agentId: agent.id,
-          },
-          description: `Chain mint for ${handle} on ${chain}`,
-        });
-
-        logger.info({ handle, chain, paymentIntentId: paymentIntent.id, plan }, "[handles] Created Stripe PaymentIntent for Starter chain mint");
-
-        res.status(402).json({
-          paymentRequired: true,
-          amount: 500,
-          currency: "usd",
-          paymentIntentId: paymentIntent.id,
-          message: `A $5 charge is required to mint "${handle}" on ${chain} for Starter plan users.`,
-          hint: "Complete payment using the paymentIntentId, then retry this request with { chain, paymentIntentId } to complete minting.",
-        });
-        return;
       }
     }
 
@@ -568,7 +520,7 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
     // This provides signed replay-safe binding between agentId, handle, and optionally wallet.
     // (Direct admin transfers use POST /handles/:handle/transfer instead.)
     if (!claimTicket) {
-      throw new AppError(400, "CLAIM_TICKET_REQUIRED", "A signed claim ticket is required. Obtain one from the billing confirmation or POST /api/v1/handles/:handle/request-mint.");
+      throw new AppError(400, "CLAIM_TICKET_REQUIRED", "A signed claim ticket is required. Obtain one by calling POST /api/v1/handles/:handle/request-mint first.");
     }
 
     // Verify claim ticket without consuming it yet.
@@ -752,11 +704,6 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
   }
 });
 
-const requestMintSchema = z.object({
-  successUrl: z.url().optional(),
-  cancelUrl: z.url().optional(),
-});
-
 router.post("/:handle/request-mint", requireAuth, async (req, res, next) => {
   try {
     const onchainMintingEnabled = process.env.ONCHAIN_MINTING_ENABLED === "true" || process.env.ONCHAIN_MINTING_ENABLED === "1";
@@ -775,7 +722,7 @@ router.post("/:handle/request-mint", requireAuth, async (req, res, next) => {
         eq(agentsTable.handle, handle),
         agentOwnerFilter(req.userId!),
       ),
-      columns: { id: true, handle: true, nftStatus: true, handleTier: true, userId: true },
+      columns: { id: true, handle: true, nftStatus: true, handleTier: true, userId: true, metadata: true },
     });
 
     if (!agent) {
@@ -786,84 +733,21 @@ router.post("/:handle/request-mint", requireAuth, async (req, res, next) => {
       throw new AppError(409, "ALREADY_MINTED", "This handle has already been anchored on-chain");
     }
 
-    if (agent.nftStatus === "pending_anchor" || agent.nftStatus === "pending_mint") {
+    if (agent.nftStatus === "pending_mint") {
       throw new AppError(409, "MINT_PENDING", "This handle already has a pending anchor request");
     }
 
-    const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
-    const isFreeHandle = handleLen >= 5;
-
-    if (isFreeHandle) {
-      const parsed = requestMintSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
-      }
-
-      const stripe = getStripe();
-      if (!stripe) {
-        throw new AppError(503, "PAYMENT_UNAVAILABLE", "Payment processing is not configured");
-      }
-
-      const { usersTable } = await import("@workspace/db/schema");
-      const user = await db.query.usersTable.findFirst({
-        where: eq(usersTable.id, req.userId!),
-        columns: { id: true, stripeCustomerId: true, email: true, displayName: true },
-      });
-
-      if (!user) {
-        throw new AppError(404, "NOT_FOUND", "User not found");
-      }
-
-      let customerId = user.stripeCustomerId;
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.email ?? undefined,
-          name: user.displayName ?? undefined,
-          metadata: { userId: user.id },
-        });
-        customerId = customer.id;
-        await db
-          .update(usersTable)
-          .set({ stripeCustomerId: customerId, updatedAt: new Date() })
-          .where(eq(usersTable.id, req.userId!));
-      }
-
-      const APP_URL = process.env.APP_URL ?? "https://getagent.id";
-      const session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        mode: "payment",
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: `On-Chain Mint: @${handle}`,
-                description: `Queue @${handle} for on-chain NFT minting on Agent ID (Base network)`,
-              },
-              unit_amount: 500,
-            },
-            quantity: 1,
-          },
-        ],
-        success_url: parsed.data.successUrl ?? `${APP_URL}/dashboard?mint=success&handle=${handle}`,
-        cancel_url: parsed.data.cancelUrl ?? `${APP_URL}/dashboard?mint=cancelled`,
-        metadata: {
-          type: "handle_mint_request",
-          agentId: agent.id,
-          handle,
-          userId: req.userId!,
-        },
-      });
-
-      logger.info({ agentId: agent.id, handle, sessionId: session.id }, "[handles] request-mint: Created Stripe checkout for free handle mint");
-
+    // If already in pending_anchor, reissue a claim ticket so the user can retry claim-nft.
+    if (agent.nftStatus === "pending_anchor") {
+      const { issueClaimTicket } = await import("../../services/claim-ticket");
+      const retryClaimTicket = issueClaimTicket({ agentId: agent.id, handle }) ?? null;
+      logger.info({ agentId: agent.id, handle }, "[handles] request-mint: Reissuing claim ticket for pending_anchor handle");
       res.json({
         handle,
-        requiresPayment: true,
-        mintPriceCents: 500,
-        mintPriceDollars: 5,
-        checkoutUrl: session.url,
-        message: "Complete payment to queue your handle for on-chain minting.",
+        requiresPayment: false,
+        nftStatus: "pending_anchor",
+        ...(retryClaimTicket ? { claimTicket: retryClaimTicket } : {}),
+        message: "Your handle is already queued for on-chain anchoring. Use the returned claimTicket with /claim-nft to transfer custody to your wallet.",
       });
       return;
     }

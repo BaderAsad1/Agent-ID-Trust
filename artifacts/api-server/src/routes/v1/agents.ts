@@ -445,9 +445,9 @@ router.post("/", requireAuth, async (req, res, next) => {
           tier: pricingTier,
           characterLength: resolvedHandleLen,
           includedWithPaidPlan: isStandardHandle,
-          onChainMintPrice: isStandardHandle ? 500 : 0,
-          onChainMintPriceDollars: isStandardHandle ? 5 : 0,
-          includesOnChainMint: !isStandardHandle,
+          onChainMintPrice: 0,
+          onChainMintPriceDollars: 0,
+          includesOnChainMint: true,
         },
       } : {}),
     });

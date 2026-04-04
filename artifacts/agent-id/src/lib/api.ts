@@ -172,8 +172,13 @@ export const api = {
         body: JSON.stringify({ destinationAddress }),
       }),
     requestMint: (handle: string) =>
-      request<{ success: boolean; status: string; message: string; requiresPayment?: boolean; checkoutUrl?: string }>(`/handles/${encodeURIComponent(handle)}/request-mint`, {
+      request<{ success: boolean; status: string; message: string; requiresPayment?: boolean; checkoutUrl?: string; claimTicket?: string; nftStatus?: string }>(`/handles/${encodeURIComponent(handle)}/request-mint`, {
         method: "POST",
+      }),
+    claimNft: (handle: string, userWallet: string, claimTicket?: string) =>
+      request<{ txHash?: string; nftStatus?: string; message?: string }>(`/handles/${encodeURIComponent(handle)}/claim-nft`, {
+        method: "POST",
+        body: JSON.stringify({ userWallet, ...(claimTicket ? { claimTicket } : {}) }),
       }),
   },
 
@@ -503,6 +508,7 @@ export interface Agent {
   };
   walletAddress?: string;
   walletNetwork?: string;
+  walletIsSelfCustodial?: boolean;
   walletUsdcBalance?: string;
   tasksReceived?: number;
   tasksCompleted?: number;

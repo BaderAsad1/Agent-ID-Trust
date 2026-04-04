@@ -465,7 +465,7 @@ export function HandlePurchase() {
             '5+ character handles are included with Starter, Pro, or Enterprise plans',
             '3–4 character handles are premium short handles priced by scarcity',
             'Paid handles expire annually  -  renew to keep your handle alias',
-            'Add on-chain minting to any handle for $5 to anchor it to Base',
+            'On-chain anchoring to Base is free — claim your handle on-chain once you connect a wallet',
           ].map((item, i) => (
             <li key={i} style={{ display: 'flex', gap: 10, color: 'var(--text-muted)', fontSize: 14 }}>
               <span style={{ color: '#6366f1', fontWeight: 700, flexShrink: 0 }}>→</span>

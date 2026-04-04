@@ -61,19 +61,21 @@ function OnChainStatus({ agent }: { agent: Agent }) {
 
   const nftStatus = agent.nftStatus ?? 'none';
   const paid = isPaidHandle(agent);
+  const hasSelfCustodialWallet = !!(agent.walletAddress && agent.walletIsSelfCustodial);
 
-  async function requestMint() {
-    if (!agent.handle) return;
+  async function claimOnChain(existingClaimTicket?: string) {
+    if (!agent.handle || !agent.walletAddress) return;
     setMinting(true);
     setMintError(null);
     try {
-      const result = await api.handles.requestMint(agent.handle);
-      if (result.requiresPayment && result.checkoutUrl) {
-        window.location.href = result.checkoutUrl;
-        return;
+      let claimTicket = existingClaimTicket;
+      if (!claimTicket) {
+        const mintResult = await api.handles.requestMint(agent.handle);
+        claimTicket = mintResult.claimTicket;
       }
+      await api.handles.claimNft(agent.handle, agent.walletAddress, claimTicket);
     } catch (err: unknown) {
-      setMintError(err instanceof Error ? err.message : 'Failed to request mint');
+      setMintError(err instanceof Error ? err.message : 'Failed to claim on-chain');
     } finally {
       setMinting(false);
     }
@@ -105,9 +107,32 @@ function OnChainStatus({ agent }: { agent: Agent }) {
     }
     return (
       <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
-        <span className="text-xs px-2 py-1 rounded-md font-medium" style={{ background: 'rgba(79,125,243,0.1)', color: 'var(--accent)', border: '1px solid rgba(79,125,243,0.2)' }}>
-          On-chain: Included
-        </span>
+        {agent.handle && hasSelfCustodialWallet ? (
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-xs" style={{ color: 'var(--text-dim)' }}>
+              {nftStatus === 'pending_anchor' ? 'Queued — claim to your wallet' : 'Not claimed on-chain'}
+            </span>
+            <button
+              onClick={() => void claimOnChain()}
+              disabled={minting}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1"
+              style={{
+                background: 'rgba(79,125,243,0.12)',
+                border: '1px solid rgba(79,125,243,0.3)',
+                color: 'var(--accent)',
+                cursor: minting ? 'not-allowed' : 'pointer',
+                opacity: minting ? 0.6 : 1,
+              }}
+            >
+              {minting ? 'Claiming…' : 'Claim on Base with your wallet'}
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+            Your handle is held securely — connect a wallet anytime to claim on-chain
+          </p>
+        )}
+        {mintError && <p className="text-xs mt-1" style={{ color: '#ef4444' }}>{mintError}</p>}
       </div>
     );
   }
@@ -139,11 +164,13 @@ function OnChainStatus({ agent }: { agent: Agent }) {
 
   return (
     <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Not minted</span>
-        {agent.handle && (
+      {agent.handle && hasSelfCustodialWallet ? (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs" style={{ color: 'var(--text-dim)' }}>
+            {nftStatus === 'pending_anchor' ? 'Queued — claim to your wallet' : 'Not claimed on-chain'}
+          </span>
           <button
-            onClick={() => void requestMint()}
+            onClick={() => void claimOnChain()}
             disabled={minting}
             className="text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1"
             style={{
@@ -154,10 +181,14 @@ function OnChainStatus({ agent }: { agent: Agent }) {
               opacity: minting ? 0.6 : 1,
             }}
           >
-            {minting ? 'Redirecting…' : 'Mint on Base  -  $5'}
+            {minting ? 'Claiming…' : 'Claim on Base with your wallet'}
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+          Your handle is held securely — connect a wallet anytime to claim on-chain
+        </p>
+      )}
       {mintError && <p className="text-xs mt-1" style={{ color: '#ef4444' }}>{mintError}</p>}
     </div>
   );
