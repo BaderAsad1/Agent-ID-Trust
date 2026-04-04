@@ -181,6 +181,13 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      "/.well-known": {
+        target: `http://localhost:${process.env.API_SERVER_PORT || 8080}`,
+        rewrite: (path) => `/api${path}`,
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,
