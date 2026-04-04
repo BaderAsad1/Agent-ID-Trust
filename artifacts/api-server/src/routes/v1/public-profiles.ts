@@ -304,14 +304,43 @@ router.post("/:handle/credential/verify", async (req, res, next) => {
 
 async function handleErc8004(req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) {
   try {
-    const erc8004 = await buildErc8004(req.params.handle as string);
-    if (!erc8004) {
-      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    const handle = (req.params.handle as string).toLowerCase().trim();
+    const erc8004 = await buildErc8004(handle);
+
+    if (erc8004) {
+      res.set("Content-Type", "application/json");
+      res.set("Cache-Control", "public, max-age=300");
+      res.json(erc8004);
+      return;
     }
 
+    // Handle exists as a valid string but isn't registered in the platform DB.
+    // Return a minimal ERC-8004 stub so the image and handle graphic are still
+    // discoverable — the image endpoint is DB-free and always resolves.
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
+    const stub = {
+      "@context": [
+        "https://www.w3.org/ns/did/v1",
+        "https://eips.ethereum.org/EIPS/eip-8004",
+      ],
+      spec: "registration-v1",
+      type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+      id: `did:agentid:${handle}`,
+      alsoKnownAs: [`did:agentid:${handle}`],
+      name: handle,
+      image: `${APP_URL}/api/v1/handles/${handle}/image.svg`,
+      active: false,
+      registered: false,
+      agentid: {
+        handle,
+        handleAlias: `did:agentid:${handle}`,
+        status: "unregistered",
+      },
+    };
+
     res.set("Content-Type", "application/json");
-    res.set("Cache-Control", "public, max-age=300");
-    res.json(erc8004);
+    res.set("Cache-Control", "public, max-age=60");
+    res.json(stub);
   } catch (err) {
     next(err);
   }
