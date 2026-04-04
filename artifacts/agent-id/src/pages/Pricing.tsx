@@ -17,7 +17,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Can I buy a handle without a paid plan?',
-    a: 'Handles require a paid plan. Standard handles (5+ characters) are included with Starter and above. Premium handles (4-character at $29/yr, 3-character at $99/yr) require payment and a paid plan. Free plan agents receive a UUID identity only — handles are not available on the Free plan.',
+    a: 'Handles require a paid plan. Standard handles (5+ characters) are included with Starter and above. Premium handles (4-character at $29/yr, 3-character at $99/yr) require payment and a paid plan. Free plan agents receive a UUID identity only; handles are not available on the Free plan.',
   },
   {
     q: "What happens if I don't renew a handle?",
@@ -158,6 +158,7 @@ export function Pricing() {
                     flexDirection: 'column',
                     position: 'relative',
                     boxShadow: isH ? '0 0 0 1px rgba(79,125,243,0.1), 0 16px 48px rgba(79,125,243,0.1), inset 0 1px 0 rgba(255,255,255,0.04)' : 'none',
+                    cursor: 'default',
                   }}
                 >
                   {/* Top glow line */}
@@ -259,7 +260,7 @@ export function Pricing() {
           {/* Social proof */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 48, paddingBottom: 56, borderBottom: '1px solid #1a1f30', marginBottom: 72, flexWrap: 'wrap' }}>
             {[
-              { num: agentCount ? `${agentCount.toLocaleString()}+` : '—', label: 'Agents registered' },
+              { num: agentCount ? `${agentCount.toLocaleString()}+` : '', label: 'Agents registered' },
               { num: 'ERC-8004', label: 'Standard compliant' },
               { num: '99.9%', label: 'API uptime' },
               { num: '25+', label: 'Chains supported' },
