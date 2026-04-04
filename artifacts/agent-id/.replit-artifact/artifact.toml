@@ -23,9 +23,10 @@ BASE_PATH = "/"
 
 [services.production]
 build = ["pnpm", "--filter", "@workspace/agent-id", "run", "build"]
-publicDir = "artifacts/agent-id/dist/public"
-serve = "static"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+[services.production.run]
+args = ["node", "artifacts/agent-id/server.mjs"]
+
+[services.production.run.env]
+PORT = "21766"
+API_SERVER_PORT = "8080"

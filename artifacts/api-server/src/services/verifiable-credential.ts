@@ -39,7 +39,13 @@ export async function getSigningKeyPair() {
   let publicKey: CryptoKey;
 
   if (config.VC_PUBLIC_KEY) {
-    publicKey = (await jose.importJWK(JSON.parse(config.VC_PUBLIC_KEY), "EdDSA")) as CryptoKey;
+    try {
+      publicKey = (await jose.importJWK(JSON.parse(config.VC_PUBLIC_KEY), "EdDSA")) as CryptoKey;
+    } catch (err) {
+      logger.warn({ err }, "[vc-signer] Failed to import public key from VC_PUBLIC_KEY, falling back to signer key");
+      const jwk = await signer.getPublicKeyJwk();
+      publicKey = (await jose.importJWK(jwk, "EdDSA")) as CryptoKey;
+    }
   } else {
     const jwk = await signer.getPublicKeyJwk();
     publicKey = (await jose.importJWK(jwk, "EdDSA")) as CryptoKey;
