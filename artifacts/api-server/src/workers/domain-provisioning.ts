@@ -193,11 +193,15 @@ async function createAndVerifyDnsRecords(job: Job<DomainProvisioningJobData>): P
     })
     .where(eq(agentDomainsTable.id, domainRecordId));
 
-  await logActivity({
-    agentId,
-    eventType: "agent.domain_provisioned",
-    payload: { domain: fqdn, dnsRecords, workerRouteId: workerRoute.routeId },
-  });
+  try {
+    await logActivity({
+      agentId,
+      eventType: "agent.domain_provisioned",
+      payload: { domain: fqdn, dnsRecords, workerRouteId: workerRoute.routeId },
+    });
+  } catch (logErr) {
+    logger.warn({ err: logErr instanceof Error ? logErr.message : logErr, agentId, domain: fqdn }, "[domain-worker] logActivity failed (non-fatal)");
+  }
 }
 
 async function verifyDnsRecords(
@@ -265,20 +269,28 @@ export function startDomainWorker(): Worker<DomainProvisioningJobData> | null {
     logger.error({ jobId: job.id, attempt: job.attemptsMade, maxAttempts: job.opts.attempts, error: err.message }, "[domain-worker] Job failed");
 
     if (job.attemptsMade >= (job.opts.attempts ?? 5)) {
-      await db
-        .update(agentDomainsTable)
-        .set({
-          status: "failed",
-          providerMetadata: { error: err.message, exhaustedRetries: true },
-          updatedAt: new Date(),
-        })
-        .where(eq(agentDomainsTable.id, job.data.domainRecordId));
+      try {
+        await db
+          .update(agentDomainsTable)
+          .set({
+            status: "failed",
+            providerMetadata: { error: err.message, exhaustedRetries: true },
+            updatedAt: new Date(),
+          })
+          .where(eq(agentDomainsTable.id, job.data.domainRecordId));
+      } catch (dbErr) {
+        logger.warn({ err: dbErr instanceof Error ? dbErr.message : dbErr, jobId: job.id }, "[domain-worker] DB status update failed (non-fatal)");
+      }
 
-      await logActivity({
-        agentId: job.data.agentId,
-        eventType: "agent.domain_provisioning_failed",
-        payload: { domain: job.data.fqdn, error: err.message, retriesExhausted: true },
-      });
+      try {
+        await logActivity({
+          agentId: job.data.agentId,
+          eventType: "agent.domain_provisioning_failed",
+          payload: { domain: job.data.fqdn, error: err.message, retriesExhausted: true },
+        });
+      } catch (logErr) {
+        logger.warn({ err: logErr instanceof Error ? logErr.message : logErr, agentId: job.data.agentId }, "[domain-worker] logActivity failed (non-fatal)");
+      }
     }
   });
 
