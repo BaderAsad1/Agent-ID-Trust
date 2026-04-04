@@ -10,6 +10,7 @@ import { transferToUser, BaseChainError, isOnchainMintingEnabled } from "../../s
 import type { Address } from "viem";
 import { agentOwnerFilter } from "../../services/agents";
 import { generateHandleCardSvg, generateHandleCardSvgDataUri } from "../../lib/handle-card-svg";
+import { validateHandle } from "../../services/agents";
 
 const router = Router();
 
@@ -27,96 +28,144 @@ function getTierLabel(handle: string): string {
   return "Standard (5+ char)";
 }
 
+function getTierAttributeValue(handle: string, handleTier?: string | null): string {
+  switch (handleTier) {
+    case "premium_3":
+      return "Ultra-Premium (3-char)";
+    case "premium_4":
+      return "Premium (4-char)";
+    case "standard":
+    case "standard_5plus":
+      return "Standard (5+ char)";
+    default:
+      return getTierLabel(handle);
+  }
+}
+
 function isValidEvmAddress(address: string): boolean {
   return /^0x[0-9a-fA-F]{40}$/.test(address);
 }
 
-router.get("/metadata/:handle", async (req, res, next) => {
-  try {
-    const handle = (req.params.handle as string).toLowerCase();
+type HandleMetadataAgentRecord = {
+  handle: string | null;
+  handleTier: string | null;
+  handleRegisteredAt: Date | null;
+  nftStatus: string | null;
+  nftCustodian?: string | null;
+  onChainTokenId?: string | null;
+  chainRegistrations?: Record<string, unknown>[] | null;
+  createdAt: Date;
+} | null;
 
-    const agent = await db.query.agentsTable.findFirst({
-      where: eq(agentsTable.handle, handle),
-      columns: {
-        id: true,
-        handle: true,
-        displayName: true,
-        trustScore: true,
-        handleTier: true,
-        handleRegisteredAt: true,
-        nftStatus: true,
-        // onChainTokenId is the ERC-8004 NFT tokenId stored at mint time — NOT a canonical
-        // identity anchor key. Intentionally retained for NFT metadata display.
-        onChainTokenId: true,
-        chainRegistrations: true,
-        createdAt: true,
+async function findHandleMetadataRecord(handle: string): Promise<HandleMetadataAgentRecord> {
+  return (await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.handle, handle),
+    columns: {
+      handle: true,
+      handleTier: true,
+      handleRegisteredAt: true,
+      nftStatus: true,
+      nftCustodian: true,
+      onChainTokenId: true,
+      chainRegistrations: true,
+      createdAt: true,
+    },
+  })) ?? null;
+}
+
+function buildHandleNftMetadata(handle: string, agent: HandleMetadataAgentRecord) {
+  const APP_URL = process.env.APP_URL || "https://getagent.id";
+  const handleLen = handle.replace(/[^a-z0-9]/gi, "").length;
+  const chainRegs = Array.isArray(agent?.chainRegistrations)
+    ? (agent.chainRegistrations as Array<Record<string, unknown>>)
+    : [];
+  const isBaseAnchored = chainRegs.some(
+    (r) => typeof r.chain === "string" && r.chain.toLowerCase().startsWith("base"),
+  ) || agent?.nftStatus === "active" || agent?.nftStatus === "minted" || agent?.nftStatus === "pending_claim";
+  const registrationState = agent?.handleRegisteredAt
+    ? "registered"
+    : agent
+      ? "provisioned"
+      : "unreconciled";
+  const registrationDate = agent?.handleRegisteredAt
+    ? new Date(agent.handleRegisteredAt).toISOString().split("T")[0]
+    : agent?.createdAt
+      ? new Date(agent.createdAt).toISOString().split("T")[0]
+      : null;
+  const imageUrl = `${APP_URL}/api/v1/handles/${handle}/image.svg`;
+  const imageData = generateHandleCardSvgDataUri(handle);
+
+  return {
+    name: `${handle}.agentid`,
+    description: `${handle}.agentid is a handle identity asset on Agent ID. This NFT represents the handle itself and remains valid whether or not it is currently linked to a public agent profile.`,
+    image: imageUrl,
+    image_data: imageData,
+    external_url: `${APP_URL}/${handle}`,
+    attributes: [
+      {
+        trait_type: "Handle Length",
+        value: handleLen,
+        display_type: "number",
       },
-    });
+      {
+        trait_type: "Tier",
+        value: getTierAttributeValue(handle, agent?.handleTier),
+      },
+      {
+        trait_type: "Namespace",
+        value: ".agentid",
+      },
+      {
+        trait_type: "Registration State",
+        value: registrationState,
+      },
+      {
+        trait_type: "On-chain Status",
+        value: isBaseAnchored ? "Base anchored" : "Off-chain",
+      },
+      {
+        trait_type: "Custody",
+        value: agent?.nftCustodian || "unassigned",
+      },
+      ...(registrationDate ? [{
+        trait_type: "Registered",
+        value: registrationDate,
+        display_type: "date",
+      }] : []),
+      ...(agent?.onChainTokenId ? [{
+        trait_type: "Token ID",
+        value: agent.onChainTokenId,
+      }] : []),
+    ],
+  };
+}
 
-    if (!agent) {
-      throw new AppError(404, "NOT_FOUND", `Handle "${handle}" not found`);
+async function sendHandleNftMetadata(
+  req: import("express").Request,
+  res: import("express").Response,
+  next: import("express").NextFunction,
+) {
+  try {
+    const handle = (req.params.handle as string).toLowerCase().trim();
+    const validationError = validateHandle(handle);
+    if (validationError) {
+      throw new AppError(400, "VALIDATION_ERROR", validationError);
     }
 
-    const handleLen = handle.replace(/[^a-z0-9]/gi, "").length;
-
-    const chainRegs = Array.isArray(agent.chainRegistrations)
-      ? (agent.chainRegistrations as Array<Record<string, unknown>>)
-      : [];
-    const isBaseAnchored = chainRegs.some(
-      (r) => typeof r.chain === "string" && r.chain.toLowerCase().startsWith("base"),
-    ) || agent.nftStatus === "active" || agent.nftStatus === "minted" || agent.nftStatus === "pending_claim";
-    const chains = isBaseAnchored ? ["Base"] : [];
-    const registeredDate = agent.handleRegisteredAt
-      ? new Date(agent.handleRegisteredAt).toISOString().split("T")[0]
-      : new Date(agent.createdAt).toISOString().split("T")[0];
-
-    const imageUrl = `${process.env.APP_URL || "https://getagent.id"}/api/v1/handles/${handle}/image.svg`;
-    const externalUrl = `${process.env.APP_URL || "https://getagent.id"}/${handle}`;
-    const imageData = generateHandleCardSvgDataUri(handle);
-
-    const metadata = {
-      name: `${handle}.agentid`,
-      description: `Agent ID handle: ${handle}.agentid — a unique on-chain identity for AI agents on the Agent ID network.`,
-      image: imageUrl,
-      image_data: imageData,
-      external_url: externalUrl,
-      attributes: [
-        {
-          trait_type: "Handle Length",
-          value: handleLen,
-          display_type: "number",
-        },
-        {
-          trait_type: "Tier",
-          value: getTierLabel(handle),
-        },
-        {
-          trait_type: "Trust Score",
-          value: agent.trustScore ?? 0,
-          display_type: "number",
-        },
-        {
-          trait_type: "Registered",
-          value: registeredDate,
-          display_type: "date",
-        },
-        {
-          trait_type: "Chains",
-          value: chains.length > 0 ? chains.join(", ") : "Off-chain",
-        },
-        {
-          trait_type: "NFT Status",
-          value: agent.nftStatus ?? "none",
-        },
-      ],
-    };
-
+    const metadata = buildHandleNftMetadata(handle, await findHandleMetadataRecord(handle));
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600");
     res.json(metadata);
   } catch (err) {
     next(err);
   }
+}
+
+router.get("/nft/metadata/:handle", sendHandleNftMetadata);
+
+router.get("/metadata/:handle", (req, res) => {
+  const handle = encodeURIComponent((req.params.handle as string).toLowerCase().trim());
+  res.redirect(308, `${process.env.APP_URL || "https://getagent.id"}/api/v1/nft/metadata/${handle}`);
 });
 
 router.get("/handles/:handle/image.svg", async (req, res, next) => {

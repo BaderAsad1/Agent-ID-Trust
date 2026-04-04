@@ -190,21 +190,21 @@ describe("T176-3 — /handles/check: fails closed when registrar unreachable", (
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe("T176-4 — NFT metadata: chain anchor from chainRegistrations (not chainMints)", () => {
-  it("nft.ts /metadata/:handle queries chainRegistrations column", () => {
+  it("nft.ts /nft/metadata/:handle queries chainRegistrations column", () => {
     const src = fs.readFileSync(path.join(apiSrc, "routes/v1/nft.ts"), "utf8");
     expect(src).toContain("chainRegistrations");
   });
 
-  it("nft.ts /metadata/:handle derives isBaseAnchored from chainRegistrations array", () => {
+  it("nft.ts /nft/metadata/:handle derives isBaseAnchored from chainRegistrations array", () => {
     const src = fs.readFileSync(path.join(apiSrc, "routes/v1/nft.ts"), "utf8");
     expect(src).toMatch(/chainRegs\.some/);
     expect(src).toMatch(/\.chain.*startsWith.*base/i);
   });
 
-  it("nft.ts /metadata/:handle does NOT use chainMints as the sole anchor source", () => {
+  it("nft.ts /nft/metadata/:handle does NOT use chainMints as the sole anchor source", () => {
     const src = fs.readFileSync(path.join(apiSrc, "routes/v1/nft.ts"), "utf8");
     const metadataBlock = src.slice(
-      src.indexOf('router.get("/metadata/:handle"'),
+      src.indexOf('router.get("/nft/metadata/:handle"'),
       src.indexOf('router.get("/handles/:handle/image.svg"'),
     );
     expect(metadataBlock).not.toMatch(/agent\.chainMints.*===.*true/);
@@ -212,24 +212,17 @@ describe("T176-4 — NFT metadata: chain anchor from chainRegistrations (not cha
     expect(metadataBlock).not.toMatch(/agent\.chainMints.*\?\s*\["Base"\]/);
   });
 
-  it("nft.ts /metadata/:handle chains value is derived from registrar-backed state", () => {
+  it("nft.ts /nft/metadata/:handle chains value is derived from registrar-backed state", () => {
     const src = fs.readFileSync(path.join(apiSrc, "routes/v1/nft.ts"), "utf8");
-    const metadataBlock = src.slice(
-      src.indexOf('router.get("/metadata/:handle"'),
-      src.indexOf('router.get("/handles/:handle/image.svg"'),
-    );
-    expect(metadataBlock).toContain("isBaseAnchored");
-    expect(metadataBlock).toMatch(/chains.*isBaseAnchored.*\["Base"\]/);
+    expect(src).toContain("const isBaseAnchored");
+    expect(src).toMatch(/const isBaseAnchored[\s\S]*chainRegs\.some/);
+    expect(src).toMatch(/isBaseAnchored\s*\?\s*"Base anchored"\s*:\s*"Off-chain"/);
   });
 
-  it("nft.ts /metadata/:handle chainRegistrations supercedes chainMints for chain list", () => {
+  it("nft.ts /nft/metadata/:handle chainRegistrations supercedes chainMints for chain list", () => {
     const src = fs.readFileSync(path.join(apiSrc, "routes/v1/nft.ts"), "utf8");
-    const metadataBlock = src.slice(
-      src.indexOf('router.get("/metadata/:handle"'),
-      src.indexOf('router.get("/handles/:handle/image.svg"'),
-    );
-    const chainRegsIdx = metadataBlock.indexOf("chainRegistrations");
-    const chainMintsIdx = metadataBlock.lastIndexOf("chainMints");
+    const chainRegsIdx = src.indexOf("chainRegistrations");
+    const chainMintsIdx = src.lastIndexOf("chainMints");
     expect(chainRegsIdx).toBeGreaterThan(-1);
     if (chainMintsIdx > -1) {
       expect(chainRegsIdx).toBeLessThan(chainMintsIdx);

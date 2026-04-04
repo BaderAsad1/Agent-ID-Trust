@@ -1574,11 +1574,11 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
     const bundle = await buildBootstrapBundle(authenticatedAgent);
     const handle = bundle.handle || null;
     const APP_URL = process.env.APP_URL || "https://getagent.id";
-    const API_URL = process.env.API_URL || "https://api.getagent.id";
+    const API_URL = `${APP_URL}/api`;
 
-    const agentCardUrl = handle
-      ? `${API_URL}/v1/agent-card/${handle}`
-      : `${API_URL}/v1/agent-card/${agentId}`;
+    const handleNftMetadataUrl = handle
+      ? `${API_URL}/v1/nft/metadata/${handle}`
+      : null;
     const profileUrl = handle ? `${APP_URL}/${handle}` : `${APP_URL}/id/${agentId}`;
     const inboxUrl = agentId ? `${API_URL}/v1/mail/agents/${agentId}/inbox` : null;
     const bundleTrust = bundle.trust as { score?: number; tier?: string } | undefined;
@@ -1597,7 +1597,7 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
         displayName: bundle.display_name,
         trustScore,
         trustTier,
-        agentCardUrl,
+        handleNftMetadataUrl,
         inboxUrl,
         profileUrl,
         capabilities,
@@ -1612,7 +1612,7 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
           `- **Agent ID**: ${agentId}`,
           `- **Trust Score**: ${trustScore}/100`,
           `- **Trust Tier**: ${trustTier}`,
-          `- **Agent Card**: ${agentCardUrl}`,
+          handleNftMetadataUrl ? `- **Handle NFT Metadata**: ${handleNftMetadataUrl}` : null,
           inboxUrl ? `- **Inbox**: ${inboxUrl}` : null,
           `- **Profile**: ${profileUrl}`,
           capabilities.length > 0 ? `- **Capabilities**: ${capabilities.join(", ")}` : null,
@@ -1636,7 +1636,7 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
         `- **Agent ID**: ${agentId}`,
         `- **Trust Score**: ${trustScore}/100`,
         `- **Trust Tier**: ${trustTier}`,
-        `- **Agent Card**: ${agentCardUrl}`,
+        handleNftMetadataUrl ? `- **Handle NFT Metadata**: ${handleNftMetadataUrl}` : null,
         inboxUrl ? `- **Inbox**: ${inboxUrl}` : null,
         `- **Profile**: ${profileUrl}`,
         ``,
@@ -1689,7 +1689,7 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
       `- **Agent ID**: ${agentId}`,
       `- **Trust Score**: ${trustScore}/100`,
       `- **Trust Tier**: ${trustTier}`,
-      `- **Agent Card**: ${agentCardUrl}`,
+      handleNftMetadataUrl ? `- **Handle NFT Metadata**: ${handleNftMetadataUrl}` : null,
       inboxUrl ? `- **Inbox**: ${inboxUrl}` : null,
       `- **Profile**: ${profileUrl}`,
       capabilities.length > 0 ? `- **Capabilities**: ${capabilities.join(", ")}` : null,
