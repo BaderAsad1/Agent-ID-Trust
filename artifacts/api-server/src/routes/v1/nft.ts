@@ -121,6 +121,8 @@ router.get("/metadata/:handle", async (req, res, next) => {
         handleTier: true,
         handleRegisteredAt: true,
         nftStatus: true,
+        // onChainTokenId is the ERC-8004 NFT tokenId stored at mint time — NOT a canonical
+        // identity anchor key. Intentionally retained for NFT metadata display.
         onChainTokenId: true,
         chainRegistrations: true,
         createdAt: true,
@@ -291,6 +293,8 @@ router.post("/handles/:handle/transfer", requireAuth, async (req, res, next) => 
         userId: true,
         nftStatus: true,
         nftCustodian: true,
+        // onChainTokenId is the ERC-8004 NFT tokenId stored at mint time — NOT a canonical
+        // identity anchor key. Intentionally retained for NFT claim status.
         onChainTokenId: true,
         chainRegistrations: true,
       },

@@ -292,8 +292,11 @@ describe("AgentIDRegistrar", function () {
     });
 
     it("should return false for a retired handle", async function () {
-      await registrar.connect(minter).registerHandle("expired", 3, 1);
-      await ethers.provider.send("evm_increaseTime", [7776001]);
+      const latest = await ethers.provider.getBlock("latest");
+      const nearFuture = latest.timestamp + 100;
+      await registrar.connect(minter).registerHandle("expired", 3, nearFuture);
+      // Advance time past expiry + 90-day grace period (7776000s)
+      await ethers.provider.send("evm_setNextBlockTimestamp", [nearFuture + 7776001]);
       await ethers.provider.send("evm_mine");
       await registrar.connect(owner).releaseHandle("expired");
 
@@ -334,8 +337,10 @@ describe("AgentIDRegistrar", function () {
     });
 
     it("should expose whether a handle has been retired", async function () {
-      await registrar.connect(minter).registerHandle("expired", 3, 1);
-      await ethers.provider.send("evm_increaseTime", [7776001]);
+      const latest = await ethers.provider.getBlock("latest");
+      const nearFuture = latest.timestamp + 100;
+      await registrar.connect(minter).registerHandle("expired", 3, nearFuture);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [nearFuture + 7776001]);
       await ethers.provider.send("evm_mine");
       await registrar.connect(owner).releaseHandle("expired");
 
@@ -375,10 +380,12 @@ describe("AgentIDRegistrar", function () {
     });
 
     it("should reject renewing to a past timestamp", async function () {
-      await registrar.connect(minter).registerHandle("renew-old", 3, 1);
+      // Register with an expiry before the time-jump target
+      await registrar.connect(minter).registerHandle("renew-old", 3, 1790000000);
       await ethers.provider.send("evm_setNextBlockTimestamp", [1800000000]);
       await ethers.provider.send("evm_mine");
 
+      // Attempting to renew to a timestamp already in the past (relative to current block)
       await expect(
         registrar.connect(minter).renewHandle("renew-old", 1700000000)
       ).to.be.revertedWithCustomError(registrar, "ExpiryMustBeInFuture");
@@ -478,10 +485,11 @@ describe("AgentIDRegistrar", function () {
     });
 
     it("should release after grace period", async function () {
-      // Register with expiry in the past
-      await registrar.connect(minter).registerHandle("expired", 3, 1); // expired at timestamp 1
-      // Fast forward time past grace period (90 days = 7776000 seconds)
-      await ethers.provider.send("evm_increaseTime", [7776001]);
+      const latest = await ethers.provider.getBlock("latest");
+      const nearFuture = latest.timestamp + 100;
+      await registrar.connect(minter).registerHandle("expired", 3, nearFuture);
+      // Advance time past expiry + 90-day grace period (7776000s)
+      await ethers.provider.send("evm_setNextBlockTimestamp", [nearFuture + 7776001]);
       await ethers.provider.send("evm_mine");
 
       await registrar.connect(owner).releaseHandle("expired");
@@ -491,10 +499,12 @@ describe("AgentIDRegistrar", function () {
     });
 
     it("should scrub ERC-8004 metadata for a released handle that is still in approved custody", async function () {
-      await registrar.connect(minter).registerHandle("expired", 3, 1);
+      const latest = await ethers.provider.getBlock("latest");
+      const nearFuture = latest.timestamp + 100;
+      await registrar.connect(minter).registerHandle("expired", 3, nearFuture);
       const agentId = await registrar.handleToAgentId("expired");
 
-      await ethers.provider.send("evm_increaseTime", [7776001]);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [nearFuture + 7776001]);
       await ethers.provider.send("evm_mine");
 
       await registrar.connect(owner).releaseHandle("expired");
@@ -510,9 +520,11 @@ describe("AgentIDRegistrar", function () {
     });
 
     it("should not allow a released handle to be registered again", async function () {
-      await registrar.connect(minter).registerHandle("expired", 3, 1);
+      const latest = await ethers.provider.getBlock("latest");
+      const nearFuture = latest.timestamp + 100;
+      await registrar.connect(minter).registerHandle("expired", 3, nearFuture);
 
-      await ethers.provider.send("evm_increaseTime", [7776001]);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [nearFuture + 7776001]);
       await ethers.provider.send("evm_mine");
 
       await registrar.connect(owner).releaseHandle("expired");
@@ -523,11 +535,13 @@ describe("AgentIDRegistrar", function () {
     });
 
     it("should retire a released handle even if the old NFT is already user-owned", async function () {
-      await registrar.connect(minter).registerHandle("expired", 3, 1);
+      const latest = await ethers.provider.getBlock("latest");
+      const nearFuture = latest.timestamp + 100;
+      await registrar.connect(minter).registerHandle("expired", 3, nearFuture);
       const agentId = await registrar.handleToAgentId("expired");
       await registrar.connect(minter).transferToUser("expired", user1.address);
 
-      await ethers.provider.send("evm_increaseTime", [7776001]);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [nearFuture + 7776001]);
       await ethers.provider.send("evm_mine");
 
       await registrar.connect(owner).releaseHandle("expired");
@@ -689,6 +703,119 @@ describe("AgentIDRegistrar", function () {
       await expect(
         upgrades.upgradeProxy(await registrar.getAddress(), AgentIDRegistrar, { kind: "uups" })
       ).to.be.reverted;
+    });
+  });
+
+  // ═══════════════════════════════════════════════════
+  //  HARDENED LAUNCH GUARDS
+  // ═══════════════════════════════════════════════════
+
+  describe("Hardened launch guards", function () {
+
+    // ── ExpiryMustBeInFuture on registerHandle ──────────
+    it("[G01] registerHandle rejects expiresAt in the past", async function () {
+      const pastTs = 1; // Unix epoch + 1s — definitely in the past
+      await expect(
+        registrar.connect(minter).registerHandle("futuretest", 3, pastTs)
+      ).to.be.revertedWithCustomError(registrar, "ExpiryMustBeInFuture");
+    });
+
+    it("[G02] registerHandle rejects expiresAt == block.timestamp (not strictly future)", async function () {
+      const block = await ethers.provider.getBlock("latest");
+      await expect(
+        registrar.connect(minter).registerHandle("nowtest", 3, block.timestamp)
+      ).to.be.revertedWithCustomError(registrar, "ExpiryMustBeInFuture");
+    });
+
+    it("[G03] registerHandle accepts expiresAt strictly in the future", async function () {
+      const future = 1900000000; // year 2030 — safely in the future
+      await registrar.connect(minter).registerHandle("futuregood", 3, future);
+      expect(await registrar.handleRegistered("futuregood")).to.be.true;
+    });
+
+    // ── Suspended-handle enforcement on renewHandle ──────
+    it("[G04] renewHandle rejects suspended handle", async function () {
+      await registrar.connect(minter).registerHandle("suspendme", 3, 1900000000);
+      await registrar.connect(owner).suspendHandle("suspendme");
+      await expect(
+        registrar.connect(minter).renewHandle("suspendme", 2000000000)
+      ).to.be.revertedWithCustomError(registrar, "HandleNotRegistered");
+    });
+
+    it("[G05] renewHandle succeeds for active (non-suspended) handle", async function () {
+      await registrar.connect(minter).registerHandle("renewok", 3, 1900000000);
+      await registrar.connect(minter).renewHandle("renewok", 2000000000);
+      expect(await registrar.handleExpiry("renewok")).to.equal(2000000000);
+    });
+
+    it("[G06] renewHandle succeeds after reactivation", async function () {
+      await registrar.connect(minter).registerHandle("reactivate", 3, 1900000000);
+      await registrar.connect(owner).suspendHandle("reactivate");
+      await registrar.connect(owner).reactivateHandle("reactivate");
+      await registrar.connect(minter).renewHandle("reactivate", 2000000000);
+      expect(await registrar.handleExpiry("reactivate")).to.equal(2000000000);
+    });
+
+    // ── Suspended-handle enforcement on transferToUser ───
+    it("[G07] transferToUser rejects suspended handle", async function () {
+      await registrar.connect(minter).registerHandle("susp-transfer", 3, 1900000000);
+      await registrar.connect(owner).suspendHandle("susp-transfer");
+      await expect(
+        registrar.connect(minter).transferToUser("susp-transfer", user1.address)
+      ).to.be.revertedWithCustomError(registrar, "HandleNotRegistered");
+    });
+
+    it("[G08] transferToUser succeeds for active handle", async function () {
+      await registrar.connect(minter).registerHandle("txok", 3, 1900000000);
+      const agentId = await registrar.handleToAgentId("txok");
+      await registrar.connect(minter).transferToUser("txok", user1.address);
+      expect(await registry.ownerOf(agentId)).to.equal(user1.address);
+    });
+
+    // ── nonReentrant on releaseHandle ────────────────────
+    it("[G09] releaseHandle only callable by owner (nonReentrant guard implicit — no re-entry vector in unit test)", async function () {
+      const latest = await ethers.provider.getBlock("latest");
+      const nearFuture = latest.timestamp + 100;
+      await registrar.connect(minter).registerHandle("releaseme", 3, nearFuture);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [nearFuture + 7776001]);
+      await ethers.provider.send("evm_mine");
+      await registrar.connect(owner).releaseHandle("releaseme");
+      expect(await registrar.handleRetired("releaseme")).to.be.true;
+    });
+
+    it("[G10] releaseHandle reverts if called by non-owner", async function () {
+      const latest = await ethers.provider.getBlock("latest");
+      const nearFuture = latest.timestamp + 100;
+      await registrar.connect(minter).registerHandle("nonownerrelease", 3, nearFuture);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [nearFuture + 7776001]);
+      await ethers.provider.send("evm_mine");
+      await expect(
+        registrar.connect(attacker).releaseHandle("nonownerrelease")
+      ).to.be.reverted;
+    });
+
+    // ── Double-hyphen validation ─────────────────────────
+    it("[G11] registerHandle rejects double-hyphen handle (foo--bar)", async function () {
+      await expect(
+        registrar.connect(minter).registerHandle("foo--bar", 3, 1900000000)
+      ).to.be.revertedWithCustomError(registrar, "HandleInvalidChars");
+    });
+
+    it("[G12] registerHandle rejects triple-hyphen handle", async function () {
+      await expect(
+        registrar.connect(minter).registerHandle("foo---bar", 3, 1900000000)
+      ).to.be.revertedWithCustomError(registrar, "HandleInvalidChars");
+    });
+
+    it("[G13] registerHandle accepts single internal hyphen", async function () {
+      await registrar.connect(minter).registerHandle("foo-bar", 3, 1900000000);
+      expect(await registrar.handleRegistered("foo-bar")).to.be.true;
+    });
+
+    it("[G14] isHandleAvailable returns false for double-hyphen handle", async function () {
+      const [available, reason] = await registrar.isHandleAvailable("bad--handle");
+      expect(available).to.be.false;
+      expect(reason).to.equal("Invalid chars (a-z 0-9 hyphens)");
     });
   });
 });

@@ -201,6 +201,7 @@ contract AgentIDRegistrar is
         if ($.handleRetired[handle]) revert HandleRetired();
         if ($.reserved[keccak256(abi.encodePacked(handle))]) revert HandleIsReserved();
         _validateTier(handle, tier);
+        if (expiresAt <= block.timestamp) revert ExpiryMustBeInFuture();
 
         // ── Build agent card URI ─────────────────────────
         string memory agentCardURI = string.concat($.baseAgentCardURI, handle);
@@ -237,6 +238,7 @@ contract AgentIDRegistrar is
     function renewHandle(string calldata handle, uint256 newExpiry) external onlyMinter whenNotPaused {
         RegistrarStorage storage $ = _getStorage();
         if (!$.handleRegistered[handle]) revert HandleNotRegistered();
+        if (!$.handleActive[handle]) revert HandleNotRegistered(); // suspended handles cannot be renewed
         if (newExpiry <= $.handleExpiry[handle]) revert ExpiryMustIncrease();
         if (newExpiry <= block.timestamp) revert ExpiryMustBeInFuture();
         $.handleExpiry[handle] = newExpiry;
@@ -259,6 +261,7 @@ contract AgentIDRegistrar is
         if (userWallet == address(0)) revert ZeroAddress();
         RegistrarStorage storage $ = _getStorage();
         if (!$.handleRegistered[handle]) revert HandleNotRegistered();
+        if (!$.handleActive[handle]) revert HandleNotRegistered(); // suspended handles cannot be transferred
         uint256 agentId = $.handleToAgentId[handle];
         address currentOwner = $.registry.ownerOf(agentId);
         if (!$.custodyWallets[currentOwner]) revert HandleNotInCustody();
@@ -422,7 +425,7 @@ contract AgentIDRegistrar is
      *      If the old NFT is still in approved custody, its ERC-8004 metadata
      *      is scrubbed before the namespace mapping is cleared.
      */
-    function releaseHandle(string calldata handle) external onlyOwner {
+    function releaseHandle(string calldata handle) external onlyOwner nonReentrant {
         RegistrarStorage storage $ = _getStorage();
         if (!$.handleRegistered[handle]) revert HandleNotRegistered();
         if (block.timestamp <= $.handleExpiry[handle] + 90 days) revert GracePeriodActive();
@@ -505,6 +508,8 @@ contract AgentIDRegistrar is
             bytes1 c = b[i];
             bool ok = (c >= 0x61 && c <= 0x7a) || (c >= 0x30 && c <= 0x39) || (c == 0x2d);
             if (!ok) revert HandleInvalidChars();
+            // Reject consecutive hyphens (e.g. "foo--bar") per DNS-label and IDN IDNA spec
+            if (c == 0x2d && i + 1 < b.length && b[i + 1] == 0x2d) revert HandleInvalidChars();
         }
     }
 
@@ -514,6 +519,8 @@ contract AgentIDRegistrar is
         for (uint256 i; i < b.length; i++) {
             bytes1 c = b[i];
             if (!((c >= 0x61 && c <= 0x7a) || (c >= 0x30 && c <= 0x39) || (c == 0x2d))) return false;
+            // Reject consecutive hyphens
+            if (c == 0x2d && i + 1 < b.length && b[i + 1] == 0x2d) return false;
         }
         return true;
     }

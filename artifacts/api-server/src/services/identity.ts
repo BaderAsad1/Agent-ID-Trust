@@ -6,6 +6,7 @@ import { getInboxByAgent } from "./mail";
 import { listAgentKeys } from "./agent-keys";
 import { getUserPlan, getPlanLimits } from "./billing";
 import { getHandleTier, HANDLE_TIERS } from "./handle";
+import { deriveAnchorState } from "../lib/anchor-state";
 
 const SPEC_VERSION = "1.2.0";
 const APP_URL = () => process.env.APP_URL || "https://getagent.id";
@@ -83,6 +84,12 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
 
   const promptBlock = buildPromptBlock(agent, trust, effectiveInbox, capabilities, limits, baseUrl, plan, apiKeyRecord?.keyPrefix);
 
+  // Derive on-chain anchor state via shared helper (single source of truth)
+  const agentAny = agent as unknown as { chainRegistrations?: unknown; nftStatus?: string };
+  const anchorState = deriveAnchorState(agentAny.chainRegistrations, agentAny.nftStatus);
+  const { erc8004Status, onchainStatus } = anchorState;
+  const onchainAnchorValue = anchorState.onchainAnchor;
+
   const walletNetwork = agent.walletNetwork || "base-sepolia";
   const isTestnet = walletNetwork.includes("sepolia") || walletNetwork.includes("testnet");
   const explorerBase = isTestnet ? "https://sepolia.basescan.org" : "https://basescan.org";
@@ -120,10 +127,10 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
     protocol_address: agent.handle ? `${agent.handle}.agentid` : `${agent.id}.agentid`,
     erc8004_uri: `${baseUrl}/api/v1/p/${agent.id}/erc8004`,
     erc8004Uri: `${baseUrl}/api/v1/p/${agent.id}/erc8004`,
-    erc8004Status: "off-chain",
-    onchain_anchor: null,
-    onchainAnchor: null,
-    onchainStatus: "pending",
+    erc8004Status,
+    onchain_anchor: onchainAnchorValue,
+    onchainAnchor: onchainAnchorValue,
+    onchainStatus,
     provisional_domain: agent.handle ? `${agent.handle.toLowerCase()}.getagent.id` : null,
     public_profile_url: agent.handle ? `/api/v1/public/agents/${agent.handle}` : `/api/v1/resolve/id/${agent.id}`,
     inbox_id: effectiveInbox?.id || null,

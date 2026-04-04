@@ -111,7 +111,7 @@ export async function issueVerifiableCredential(agentId: string): Promise<string
     issuer: "did:web:getagent.id",
     credentialSubject: {
       id: `did:web:getagent.id:agents:${agent.id}`,
-      aliases: agent.handle ? [`did:agentid:${agent.handle}`, `did:web:getagent.id:agents:${agent.handle}`] : [],
+      aliases: agent.handle ? [`did:agentid:${agent.handle}`] : [],
       handle: agent.handle,
       displayName: agent.displayName,
       agentId: agent.id,

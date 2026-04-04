@@ -110,7 +110,7 @@ router.get(
           verificationMethod: agent.verificationMethod,
           verifiedAt: agent.verifiedAt?.toISOString(),
           walletAddress: agent.walletAddress,
-          did: `did:web:getagent.id:agents:${agent.handle}`,
+          did: `did:web:getagent.id:agents:${agent.id}`,
           status: agent.status,
           createdAt: agent.createdAt.toISOString(),
           updatedAt: agent.updatedAt.toISOString(),

@@ -13,6 +13,7 @@ import {
 import { getActivityLog } from "../../services/activity-logger";
 import { listListings } from "../../services/marketplace";
 import { getReviewsByAgent } from "../../services/reviews";
+import { deriveAnchorState } from "../../lib/anchor-state";
 import { publicRateLimit } from "../../middlewares/rate-limit";
 
 const router = Router();
@@ -96,6 +97,15 @@ router.get("/:handle", async (req, res, next) => {
       credential as Record<string, unknown> | null,
     );
 
+    // Derive on-chain anchor state via shared helper (single source of truth)
+    const agentAny = agent as unknown as { chainRegistrations?: unknown; nftStatus?: string };
+    const {
+      erc8004Status: profileErc8004Status,
+      onchainStatus: profileOnchainStatus,
+      onchainAnchor: profileOnchainAnchor,
+      anchoringMethod: profileAnchoringMethod,
+    } = deriveAnchorState(agentAny.chainRegistrations, agentAny.nftStatus);
+
     res.json({
       ...profile,
       recentActivity: activityResult,
@@ -120,10 +130,10 @@ router.get("/:handle", async (req, res, next) => {
         domain: profile.agent.domainName || `${agent.handle}.getagent.id`,
         resolverUrl: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
         erc8004Uri: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
-        erc8004Status: "off-chain",
-        anchoringMethod: "off-chain",
-        onchainAnchor: null,
-        onchainStatus: "pending",
+        erc8004Status: profileErc8004Status,
+        anchoringMethod: profileAnchoringMethod,
+        onchainAnchor: profileOnchainAnchor,
+        onchainStatus: profileOnchainStatus,
       },
     });
   } catch (err) {

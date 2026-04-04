@@ -12,6 +12,7 @@ import { agentsTable, agentKeysTable, marketplaceListingsTable, resolutionEvents
 import { normalizeHandle, formatHandle, formatDomain, formatProfileUrl, formatDID, formatResolverUrl } from "../../utils/handle";
 import { getResolutionCache, setResolutionCache, deleteResolutionCache } from "../../lib/resolution-cache";
 import { addressLookupRateLimit } from "../../middlewares/rate-limit";
+import { deriveAnchorState } from "../../lib/anchor-state";
 
 async function getLineageBlock(agent: typeof agentsTable.$inferSelect): Promise<Record<string, unknown> | null> {
   if (!agent.parentAgentId) return null;
@@ -279,26 +280,15 @@ function toResolvedAgent(
   const wallets = buildWallets(agent, format);
   const chainPresence = buildChainPresence(agent);
 
-  // Determine anchoring state from chainRegistrations (canonical) not chainMints (legacy)
-  const chainRegs = agent.chainRegistrations as Record<string, unknown> | unknown[] | null;
-  const baseAnchor = (() => {
-    if (!chainRegs) return null;
-    if (Array.isArray(chainRegs)) {
-      // Accept both "base" (mainnet) and "base-sepolia" (testnet) chain labels
-      return (chainRegs as Record<string, unknown>[]).find(
-        e => e.chain === "base" || e.chain === "base-sepolia",
-      ) ?? null;
-    }
-    return (chainRegs as Record<string, unknown>).base ?? null;
-  })();
-  const isBaseAnchored = !!baseAnchor;
-  const erc8004Status = isBaseAnchored ? "anchored" : "off-chain";
-  const anchoringMethod = isBaseAnchored ? "base-registrar" : "off-chain";
-  const onchainStatus = isBaseAnchored ? "anchored" : (agent.nftStatus === "pending_anchor" ? "pending" : "off-chain");
+  // Determine anchoring state via shared helper (single source of truth, 3-state: anchored|pending|off-chain)
+  const {
+    erc8004Status,
+    onchainStatus,
+    onchainAnchor,
+    anchoringMethod,
+  } = deriveAnchorState(agent.chainRegistrations, agent.nftStatus);
 
-  const anchorRecords = isBaseAnchored
-    ? { base: baseAnchor }
-    : null;
+  const anchorRecords = onchainAnchor ? { base: onchainAnchor } : null;
 
   return {
     machineIdentity: {
@@ -359,7 +349,7 @@ function toResolvedAgent(
     updatedAt: agent.updatedAt,
     profileUrl: handle ? formatProfileUrl(handle) : `${APP_URL}/id/${agent.id}`,
     erc8004Uri: handle ? `${APP_URL}/api/v1/p/${handle}/erc8004` : null,
-    onchainAnchor: baseAnchor,
+    onchainAnchor,
     onchainStatus,
     credential: {
       namespace: ".agentid",

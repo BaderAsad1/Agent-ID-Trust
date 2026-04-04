@@ -2,6 +2,7 @@ import { eq, and, ilike, sql, or, isNull } from "drizzle-orm";
 import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import { agentsTable, usersTable, type Agent } from "@workspace/db/schema";
+import { deriveAnchorState } from "../lib/anchor-state";
 
 export interface CreateAgentInput {
   userId: string;
@@ -417,6 +418,11 @@ export function toPublicProfile(agent: Agent, credential?: Record<string, unknow
   const erc8004Uri = `${APP_URL}/api/v1/p/${handle}/erc8004`;
   const domainName = `${handle}.getagent.id`;
 
+  // Derive on-chain anchor state via shared helper (single source of truth)
+  const agentAny = agent as unknown as { chainRegistrations?: unknown; nftStatus?: string };
+  const { erc8004Status: profileErc8004Status, onchainStatus: profileOnchainStatus, onchainAnchor: profileOnchainAnchor } =
+    deriveAnchorState(agentAny.chainRegistrations, agentAny.nftStatus);
+
   return {
     agent: {
       id: agent.id,
@@ -441,9 +447,9 @@ export function toPublicProfile(agent: Agent, credential?: Record<string, unknow
       did,
       protocolAddress,
       erc8004Uri,
-      erc8004Status: "off-chain",
-      onchainAnchor: null,
-      onchainStatus: "pending",
+      erc8004Status: profileErc8004Status,
+      onchainAnchor: profileOnchainAnchor,
+      onchainStatus: profileOnchainStatus,
       domainName,
     },
     trustBreakdown: {

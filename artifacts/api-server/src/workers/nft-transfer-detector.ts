@@ -4,6 +4,28 @@ import { agentsTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { AGENT_ID_HANDLE_ABI, getBaseConfig } from "../services/chains/base";
 
+/**
+ * Normalise chainRegistrations to a mutable array regardless of whether it was
+ * stored as an array [{chain,...}] or an object {base:{...}}.
+ *
+ * For object form, the key is the chain label. If the nested value lacks a
+ * `chain` field the key is injected so callers can use `r.chain` uniformly.
+ */
+function normaliseChainRegs(raw: unknown): Array<Record<string, unknown>> {
+  if (!raw || typeof raw !== "object") return [];
+  if (Array.isArray(raw)) {
+    return (raw as Array<unknown>).filter(
+      (e): e is Record<string, unknown> => !!e && typeof e === "object",
+    );
+  }
+  return Object.entries(raw as Record<string, unknown>)
+    .filter(([, v]) => !!v && typeof v === "object")
+    .map(([key, v]) => {
+      const entry = v as Record<string, unknown>;
+      return entry.chain ? entry : { ...entry, chain: key };
+    });
+}
+
 const POLL_INTERVAL_MS = 60 * 1000;
 const DISPUTE_WINDOW_DAYS = 7;
 
@@ -40,16 +62,18 @@ async function detectSecondarySales(): Promise<void> {
 
     logger.info({ fromBlock: fromBlock.toString(), toBlock: currentBlock.toString() }, "[nft-transfer-detector] Checking for HandleTransferred events");
 
+    // Real AgentIDRegistrar event shape:
+    //   HandleTransferred(string handle, uint256 indexed agentId, address indexed from, address indexed to)
     const logs = await publicClient.getLogs({
       address: registrarAddress as `0x${string}`,
       event: {
         type: "event",
         name: "HandleTransferred",
         inputs: [
+          { type: "string", name: "handle", indexed: false },
+          { type: "uint256", name: "agentId", indexed: true },
           { type: "address", name: "from", indexed: true },
           { type: "address", name: "to", indexed: true },
-          { type: "uint256", name: "tokenId", indexed: true },
-          { type: "string", name: "handle", indexed: false },
         ],
       },
       fromBlock,
@@ -70,20 +94,23 @@ async function detectSecondarySales(): Promise<void> {
     logger.info({ count: nonPlatformTransfers.length }, "[nft-transfer-detector] Found secondary sale transfers");
 
     for (const log of nonPlatformTransfers) {
-      const tokenId = (log.args.tokenId as bigint).toString();
+      // agentId here is the registrar's on-chain agentId (ERC-8004 tokenId), not the DB UUID
+      const onChainAgentId = (log.args.agentId as bigint).toString();
       const from = log.args.from as string;
       const to = log.args.to as string;
       const handle = log.args.handle as string;
       const txHash = log.transactionHash;
 
       try {
+        // Lookup by handle (canonical registrar key extracted from HandleTransferred event).
+        // handle is the primary key on-chain so there is no secondary fallback needed.
         const agent = await db.query.agentsTable.findFirst({
-          where: eq(agentsTable.onChainTokenId, tokenId),
+          where: eq(agentsTable.handle, handle),
           columns: { id: true, userId: true, onChainOwner: true, chainRegistrations: true, nftStatus: true },
         });
 
         if (!agent) {
-          logger.warn({ tokenId, handle, txHash }, "[nft-transfer-detector] No agent found for tokenId, skipping");
+          logger.warn({ onChainAgentId, handle, txHash }, "[nft-transfer-detector] No agent found for handle, skipping");
           continue;
         }
 
@@ -96,9 +123,10 @@ async function detectSecondarySales(): Promise<void> {
 
         const disputeWindowEnd = new Date(Date.now() + DISPUTE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-        const chainRegs = (agent.chainRegistrations as Record<string, unknown>[]) || [];
-        const existingBaseIdx = chainRegs.findIndex((r: Record<string, unknown>) => r.chain === "base" || r.chain === "base-sepolia");
-        const existingBase = existingBaseIdx >= 0 ? (chainRegs[existingBaseIdx] as Record<string, unknown>) : {};
+        // Normalise to array regardless of whether stored as object or array form
+        const chainRegs = normaliseChainRegs(agent.chainRegistrations);
+        const existingBaseIdx = chainRegs.findIndex((r) => r.chain === "base" || r.chain === "base-sepolia");
+        const existingBase: Record<string, unknown> = existingBaseIdx >= 0 ? chainRegs[existingBaseIdx] : {};
 
         const updatedBaseReg = {
           ...existingBase,
@@ -127,7 +155,7 @@ async function detectSecondarySales(): Promise<void> {
             })
             .where(eq(agentsTable.id, agent.id));
 
-          logger.info({ agentId: agent.id, handle, tokenId, to, txHash }, "[nft-transfer-detector] Secondary transfer to known user recorded");
+          logger.info({ agentId: agent.id, handle, onChainAgentId, to, txHash }, "[nft-transfer-detector] Secondary transfer to known user recorded");
         } else {
           const pendingBaseReg = {
             ...updatedBaseReg,
@@ -152,12 +180,12 @@ async function detectSecondarySales(): Promise<void> {
             .where(eq(agentsTable.id, agent.id));
 
           logger.info(
-            { agentId: agent.id, handle, tokenId, from, to, txHash, disputeWindowEnd },
+            { agentId: agent.id, handle, onChainAgentId, from, to, txHash, disputeWindowEnd },
             "[nft-transfer-detector] Secondary transfer to unknown address — set pending_claim with 7-day dispute window",
           );
         }
       } catch (err) {
-        logger.error({ err, tokenId, handle, txHash }, "[nft-transfer-detector] Failed to process transfer event");
+        logger.error({ err, onChainAgentId, handle, txHash }, "[nft-transfer-detector] Failed to process transfer event");
       }
     }
   } catch (err) {

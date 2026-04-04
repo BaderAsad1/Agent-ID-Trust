@@ -380,6 +380,8 @@ router.post("/:handle/mint-chain", requireAuth, async (req, res, next) => {
         id: true,
         handle: true,
         handleTier: true,
+        // chainMints tracks cross-chain mints (Tron, additional Base, etc.) — separate from
+        // the identity-anchor canonical path (chainRegistrations). Intentionally retained here.
         chainMints: true,
         userId: true,
       },
@@ -395,6 +397,7 @@ router.post("/:handle/mint-chain", requireAuth, async (req, res, next) => {
       throw new AppError(400, "INVALID_HANDLE_TIER", "Only 3-char and 4-char handles can be minted on additional chains");
     }
 
+    // chainMints is a deduplication guard for cross-chain mints (not the identity anchor canonical path).
     const existingMints = (agent.chainMints as Record<string, unknown>) ?? {};
     if (existingMints[chain]) {
       throw new AppError(409, "ALREADY_MINTED", `Handle "${handle}" has already been minted on ${chain}`);
@@ -522,6 +525,8 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
         nftCustodian: true,
         erc8004AgentId: true,
         erc8004Chain: true,
+        // onChainTokenId is the ERC-8004 NFT tokenId stored at claim time — NOT a canonical
+        // identity anchor key. Intentionally retained for NFT claim/status display.
         onChainTokenId: true,
         chainRegistrations: true,
         handleExpiresAt: true,
