@@ -1,0 +1,209 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1773515217404,
+      "tag": "0000_large_zeigeist",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773601457097,
+      "tag": "0001_unusual_donald_blake",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773617890449,
+      "tag": "0002_empty_mastermind",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773617831448,
+      "tag": "0003_pretty_mindworm",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773618113717,
+      "tag": "0004_nice_mimic",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1773658800000,
+      "tag": "0005_mail_infrastructure",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773745200000,
+      "tag": "0006_add_payment_failed_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773697418055,
+      "tag": "0007_subagent_lineage_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773697869264,
+      "tag": "0008_subagent_lineage_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1773831600000,
+      "tag": "0009_stripe_connect_task_escrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773918000000,
+      "tag": "0010_hot_name_reservation",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1774003200000,
+      "tag": "0011_handle_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1774003200000,
+      "tag": "0012_agent_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1742169600000,
+      "tag": "0013_comm_economic_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1773752386608,
+      "tag": "0014_trust_governance_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1773757584000,
+      "tag": "0015_identity_architecture_rebuild",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1773759600000,
+      "tag": "0016_handle_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1742428800000,
+      "tag": "0017_mail_draft_and_features",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1773797182765,
+      "tag": "0018_owner_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1773850357910,
+      "tag": "0019_mpp_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1774003200000,
+      "tag": "0020_handle_foundations",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1742774400000,
+      "tag": "0021_ows_wallets_multi_chain",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1742860800000,
+      "tag": "0022_erc8004_compliance",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1742947200000,
+      "tag": "0023_magic_link_hashed_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1743033600000,
+      "tag": "0024_add_security_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1743120000000,
+      "tag": "0025_security_launch_gate_remediation",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1743206400000,
+      "tag": "0026_claim_token_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1743724800000,
+      "tag": "0027_add_performance_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1743984000000,
+      "tag": "0028_marketplace_commerce_engine",
+      "breakpoints": true
+    }
+  ]
+}

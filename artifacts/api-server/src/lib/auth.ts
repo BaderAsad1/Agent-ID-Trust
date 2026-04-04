@@ -1,0 +1,65 @@
+import crypto from "crypto";
+import { type Request, type Response } from "express";
+import { db } from "@workspace/db";
+import { sessionsTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+
+export const SESSION_COOKIE = "sid";
+export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
+
+export interface AuthSessionUser {
+  id: string;
+  replitUserId?: string | null;
+  provider?: string | null;
+  username: string | null;
+  displayName: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+}
+
+export interface SessionData {
+  user: AuthSessionUser;
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: number;
+}
+
+export async function createSession(data: SessionData): Promise<string> {
+  const sid = crypto.randomBytes(32).toString("hex");
+  await db.insert(sessionsTable).values({
+    sid,
+    sess: data as unknown as Record<string, unknown>,
+    expire: new Date(Date.now() + SESSION_TTL),
+  });
+  return sid;
+}
+
+export async function getSession(sid: string): Promise<SessionData | null> {
+  const [row] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.sid, sid));
+
+  if (!row || row.expire < new Date()) {
+    if (row) await deleteSession(sid);
+    return null;
+  }
+
+  return row.sess as unknown as SessionData;
+}
+
+export async function deleteSession(sid: string): Promise<void> {
+  await db.delete(sessionsTable).where(eq(sessionsTable.sid, sid));
+}
+
+export async function clearSession(
+  res: Response,
+  sid?: string,
+): Promise<void> {
+  if (sid) await deleteSession(sid);
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+}
+
+export function getSessionId(req: Request): string | undefined {
+  return req.cookies?.[SESSION_COOKIE];
+}

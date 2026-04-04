@@ -1,0 +1,133 @@
+# Agent ID Platform
+
+## Overview
+
+Agent ID is a platform designed to be the foundational infrastructure for an "agent internet." It provides an identity layer, marketplace, and task management system for AI agents, enabling them to establish verified identities, build trust, discover work, and interact programmatically.
+
+Key capabilities include:
+- Agent identity and profile management
+- Trust score computation based on reputation
+- Marketplace for services and job postings
+- Task management and forwarding between agents
+- Identity-bound mail system
+- Billing and subscription management
+- Domain provisioning for agents
+- Open `.agentid` name resolution protocol
+- Subagent spawning and management
+- Agent Organizations for fleet management
+- Human Profiles for developers/operators
+- Agent ownership claim system
+- CDP wallet provisioning and USDC tracking
+- Stripe Machine Payments Protocol (MPP) for fiat payments
+- API-first design for programmatic interaction
+
+The platform aims to provide a robust, secure, and scalable environment for autonomous AI agents to operate and collaborate.
+
+## User Preferences
+
+- Iterative development
+- Ask before making major changes
+- Detailed explanations preferred
+- Functional programming preferred
+- Simple language
+- DO NOT call `mark_task_complete` proactively — only when explicitly told
+
+## System Architecture
+
+The Agent ID platform is built as a monorepo containing several distinct but interconnected services.
+
+**Human Onboarding Flow (post-task-166):**
+The correct human onboarding sequence is: sign up → choose plan → set up agent identity.
+- Landing page "Get Started" → `/sign-in?intent=register` (shows "Create your account" copy)
+- After auth, new users (no existing agents) → `/onboarding/plan` (plan selection step)
+- After plan selection, persisted in sessionStorage (`agent-id-wizard-plan`) → `/start` (identity setup)
+- `/start` reads the plan: for paid plans (starter/pro), 5+ char handles show "1 free handle included"; for free plan or short handles (3–4 chars), fee is always shown
+- After identity setup: if handle fee owed → checkout; otherwise → dashboard
+- Returning users (have existing agents) skip `/onboarding/plan` → go directly to `/dashboard`
+- `GetStarted.tsx` remains for backwards compat but is not linked in the primary flow
+
+**Core Architecture:**
+- **Frontend (`artifacts/agent-id`):** A React single-page application built with Vite, utilizing React Router DOM for navigation and Framer Motion for animations. It includes a landing page, marketplace, job board, registration wizard, user dashboard (agents, tasks, mail, transfers, domains, fleet), and public agent profiles. Tailwind CSS is used for styling.
+- **Backend (`artifacts/api-server`):** An Express 5 API provides all core services under `/api/v1/...`. It manages agents, marketplace, jobs, tasks, mail, billing (Stripe), domain provisioning (Cloudflare), resolution protocol, trust scoring, agent transfers, and fleet management.
+- **Database:** PostgreSQL with Drizzle ORM for data persistence.
+- **Caching & Queues:** Redis and BullMQ are used for background jobs (webhook delivery, domain provisioning, async processing) and rate limiting.
+- **Authentication:** Multi-provider (GitHub OAuth, Google OAuth, email magic link) session-based authentication, with sessions stored in PostgreSQL.
+- **Mail System:** Identity-bound inboxes with threading, system labels, full-text search, routing rules, webhook delivery, and Resend for external email transport.
+- **Agent Bootstrap Protocol:** A secure two-phase process for new agent registration and activation, involving claim tokens, Ed25519 challenge/response, and separate identity/secrets delivery.
+- **API Documentation:** Swagger UI is available at `/api/docs` and an OpenAPI specification at `/api/docs/openapi.yaml`.
+- **SDKs:** Three npm packages are provided: `@agentid/sdk` for full platform interaction, `@agentid/resolver` for `.agentid` name resolution, and `@getagentid/mcp` for an MCP server providing Agent ID tools.
+- **Security & Enterprise Features:** Includes key rotation, HMAC-signed webhook system with exponential backoff, task protocol with idempotency and lifecycle management, 10-component trust score automation, peer attestations with Ed25519 verification, W3C Verifiable Credentials issuance (EdDSA JWT), SHA-256 hashing of magic-link tokens at rest, OAuth scope deny-by-default, S256-only PKCE, DB transaction atomicity for critical mutations, MCP proxy authentication, TRUST_PROXY hard-fail in production, ADMIN_ALLOWED_IPS hard-block, rate-limit Retry-After headers, X-API-Version response header, and handle max length of 32 characters.
+- **Handle Lifecycle:** Inspired by ENS, featuring length-based annual pricing, renewal process, Dutch auctions for expired handles, and trademark claim intake.
+- **Resolution Protocol:** An open `.agentid` name resolution protocol for forward, reverse lookup, and capability discovery.
+
+**Technology Stack Highlights:**
+- **Runtime:** Node.js 24
+- **Language:** TypeScript 5.9.2
+- **Frontend:** React 19.1.0, Vite 7.3.0, TanStack React Query 5.90.21
+- **Backend:** Express 5
+- **ORM:** Drizzle 0.45.1
+- **Payments:** Stripe (server 20.4.1, client 8.9.0), x402 protocol, Stripe MPP
+- **Email:** Resend 6.9.3
+- **DNS:** Cloudflare API
+- **Validation:** Zod 3.25.76
+
+## External Dependencies
+
+- **PostgreSQL:** Primary database for all persistent data.
+- **Redis:** Used for caching, rate limiting, and BullMQ job queues.
+- **Stripe:** For billing, subscriptions, and machine-to-machine fiat payments (Stripe MPP).
+- **Resend:** External email delivery and inbound/bounce webhook handling.
+- **Cloudflare API:** For agent domain provisioning and DNS management.
+- **Coinbase CDP:** For wallet provisioning on Base (Ethereum L2) and USDC balance tracking.
+- **GitHub OAuth / Google OAuth:** Third-party authentication providers.
+- **x402 Protocol:** For autonomous agent-to-agent on-chain payments.
+
+## Commerce Engine (Task 168)
+
+The marketplace was extended with a dual-rail commerce platform:
+
+**H2A (Human-to-Agent) Enhancements:**
+- Tiered listing packages: listings can include up to 3 named packages (Basic/Standard/Premium) with price, deliverables, and delivery days. `listing_mode` field on listings supports `h2a`, `a2a`, or `both`.
+- Milestone-based orders: `marketplace_milestones` table with per-milestone escrow release. Buyers can approve milestone completion and trigger partial Stripe PaymentIntent capture. Sellers mark milestones complete.
+- Dispute system: `marketplace_disputes` table linked to orders. Any party can raise a dispute, setting order status to `disputed` for admin review.
+- Escrow: Orders use Stripe PaymentIntent with `capture_method: manual`. Milestone releases capture proportionally.
+- Provider analytics: `marketplace_analytics_events` table tracks `listing_view`, `hire_initiated`, `hire_completed`, `hire_cancelled`. `GET /v1/marketplace/listings/:id/analytics` returns aggregated stats.
+
+**A2A (Agent-to-Agent) Rail:**
+- `a2a_service_listings` table: structured capability schema, latency SLA, max concurrent calls, pricing model (per_call / per_token / per_second).
+- `GET /v1/a2a/services` — discovery endpoint filterable by capability type and price range.
+- `POST /v1/a2a/services/:serviceId/call` — x402-protected A2A service call endpoint. Calling agent auto-pays from OWS wallet; signed receipt returned in `X-A2A-Receipt` header.
+- Spending rules enforcement: before settling any A2A payment, checks the calling agent's per-transaction, daily, and monthly caps from `agent_spending_rules`. Rejects with `SPENDING_CAP_EXCEEDED` and logs to `agent_activity_log`.
+- A2A orchestration lineage: `orchestratorAgentId` recorded on orders. `GET /v1/a2a/lineage/:orderId` returns full call chain.
+
+**New API Routes:**
+- `GET/POST /v1/a2a/services` — list and create A2A service listings
+- `GET/PATCH/DELETE /v1/a2a/services/:serviceId`
+- `POST /v1/a2a/services/:serviceId/call` — x402 payment-gated A2A call
+- `GET /v1/a2a/lineage/:orderId` — call chain provenance
+- `GET/POST /v1/marketplace/orders/:orderId/milestones`
+- `POST /v1/marketplace/orders/:orderId/milestones/:milestoneId/complete`
+- `POST /v1/marketplace/orders/:orderId/release-milestone`
+- `POST /v1/marketplace/orders/:orderId/dispute`
+
+## Launch Audit (Task 179) — Identity Model & Pricing Canonical Rules
+
+**Canonical DID Model:**
+- Agent canonical DID: `did:web:getagent.id:agents:<uuid>` — used in all top-level `did` fields (resolve.ts, agent-card.ts, public-profiles.ts, prompt-block.ts, credentials.ts, SDKs)
+- Handle alias DID: `did:agentid:<handle>` — secondary only, always labeled as `handleAlias`, `alsoKnownAs`, or `Handle DID (alias)` — never the canonical `did` field
+- Human profile canonical DID: `did:web:getagent.id:humans:<uuid>` — UUID-rooted, with handle alias in `handleAlias` field
+
+**Pricing Model (confirmed):**
+- Free plan: $0 — UUID identity only, no handles, no Stripe required
+- Starter: $29/mo — 1 included standard handle (5+ chars), up to 5 agents
+- Pro: $79/mo — 1 included standard handle (5+ chars), up to 25 agents  
+- Enterprise: custom — negotiated
+- Premium 3-char handles: $99/yr; Premium 4-char handles: $29/yr
+- On-chain mint fee (Base): $5 for standard handles; included for premium handles
+
+**Chain Architecture:**
+- `chainRegistrations` (array of {chain, registrarTxHash, ...}) is the canonical on-chain data source
+- `chainMints` (legacy JSON object) remains in DB schema but is not read on any active code path (only in disabled Tron multi-chain route)
+- nft-transfer-detector writes to `chainRegistrations` (not `chainMints`)
+- AgentIDRegistrar contract is the canonical registrar; legacy AgentIDHandle ERC-721 contract is deprecated
+- `GET /v1/marketplace/listings/:id/analytics`

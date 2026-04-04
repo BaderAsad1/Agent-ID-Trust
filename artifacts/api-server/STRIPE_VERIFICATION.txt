@@ -1,0 +1,25 @@
+=== Stripe Integration Verification ===
+
+1. Key mode: TEST
+   Publishable key: SET
+   Webhook secret: SET
+   isStripeAvailable(): true
+
+2. Webhook verification:
+   Webhook ID: we_1TBdALRadiqNLsARTZoUCdzX
+   URL: https://getagent.id/api/v1/webhooks/stripe
+   Status: enabled
+   Events registered: 7
+   ✓ checkout.session.completed
+   ✓ invoice.paid
+   ✓ invoice.payment_failed
+   ✓ customer.subscription.deleted
+   ✓ payment_intent.succeeded
+   ✓ payment_intent.payment_failed
+   ✓ charge.refunded
+
+3. Health check verification:
+   GET /api/healthz → stripe.configured: true
+   ✓ Health check confirms Stripe configured
+
+=== All checks passed ===

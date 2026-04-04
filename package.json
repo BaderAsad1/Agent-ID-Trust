@@ -1,0 +1,26 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "build": "pnpm --filter @workspace/api-server... run build && pnpm --filter @workspace/agent-id... run build",
+    "build:all": "pnpm run typecheck && pnpm -r --if-present run build",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "test": "pnpm --filter ./artifacts/api-server run test",
+    "test:api": "pnpm --filter ./artifacts/api-server run test",
+    "load:test": "k6 run scripts/load-test.js",
+    "load:smoke": "k6 run scripts/load-test-smoke.js",
+    "load:stress": "k6 run scripts/load-stress.js",
+    "load:test:local": "BASE_URL=http://localhost:3001/api/v1 k6 run scripts/load-test.js"
+  },
+  "private": true,
+  "devDependencies": {
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
+  },
+  "dependencies": {
+    "@replit/connectors-sdk": "^0.3.0"
+  }
+}

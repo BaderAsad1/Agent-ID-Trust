@@ -1,0 +1,6 @@
+Contact: mailto:security@getagent.id
+Expires: 2027-03-17T00:00:00.000Z
+Encryption: https://keys.openpgp.org/vks/v1/by-fingerprint/A1B2C3D4E5F67890ABCDEF1234567890BEEFCAFE
+Policy: https://getagent.id/security
+Preferred-Languages: en
+Canonical: https://getagent.id/.well-known/security.txt

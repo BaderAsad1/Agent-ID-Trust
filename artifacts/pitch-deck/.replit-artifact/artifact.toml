@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/pitch-deck/"
+title = "Agent ID Pitch Deck"
+version = "1.0.0"
+id = "artifacts/pitch-deck"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+localPort = 18522
+name = "web"
+paths = ["/pitch-deck/"]
+
+[services.development]
+run = "pnpm --filter @workspace/pitch-deck run dev"
+
+[services.env]
+PORT = "18522"
+BASE_PATH = "/pitch-deck/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/pitch-deck", "run", "build"]
+publicDir = "artifacts/pitch-deck/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

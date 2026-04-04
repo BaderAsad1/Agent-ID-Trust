@@ -1,0 +1,67 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: GPTBot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: CCBot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: Googlebot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: Bingbot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /sign-in
+
+Sitemap: https://getagent.id/sitemap.xml

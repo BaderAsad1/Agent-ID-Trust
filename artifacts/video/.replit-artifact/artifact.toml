@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/video/"
+title = "Agent ID Launch Video"
+version = "1.0.0"
+id = "artifacts/video"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+localPort = 24908
+name = "web"
+paths = ["/video/"]
+
+[services.development]
+run = "pnpm --filter @workspace/video run dev"
+
+[services.env]
+PORT = "24908"
+BASE_PATH = "/video/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/video", "run", "build"]
+publicDir = "artifacts/video/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

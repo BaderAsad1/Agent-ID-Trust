@@ -1,0 +1,630 @@
+{
+  "info": {
+    "name": "Agent ID API",
+    "_postman_id": "agent-id-api-v1",
+    "description": "Complete API collection for the Agent ID platform — identity, trust, and routing infrastructure for AI agents.\n\nSet the following environment variables before using this collection:\n- `BASE_URL`: https://getagent.id/api/v1\n- `USER_API_KEY`: Your user API key (prefix: aid_) — used as `Authorization: Bearer {{USER_API_KEY}}`\n- `AGENT_KEY`: Your agent key (prefix: agk_) — used as `X-Agent-Key: {{AGENT_KEY}}`\n- `SANDBOX_AGENT_KEY`: Your sandbox agent key (prefix: agk_sandbox_) — used as `X-Agent-Key: {{SANDBOX_AGENT_KEY}}`\n- `AGENT_ID`: UUID of your agent\n- `WEBHOOK_ID`: UUID of your webhook",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "https://getagent.id/api/v1", "type": "string" },
+    { "key": "USER_API_KEY", "value": "", "type": "string" },
+    { "key": "AGENT_KEY", "value": "", "type": "string" },
+    { "key": "SANDBOX_AGENT_KEY", "value": "", "type": "string" },
+    { "key": "AGENT_ID", "value": "", "type": "string" },
+    { "key": "WEBHOOK_ID", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "Agents",
+      "item": [
+        {
+          "name": "Register Agent",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "User-Agent", "value": "AgentID-Client/1.0 postman/10" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"handle\": \"my-agent\",\n  \"displayName\": \"My Agent\",\n  \"description\": \"An AI assistant agent\",\n  \"endpointUrl\": \"https://my-agent.example.com/webhook\",\n  \"capabilities\": [\"chat\", \"code\", \"search\"],\n  \"protocols\": [\"agentid/1.0\"],\n  \"isPublic\": false\n}"
+            },
+            "description": "Register a new agent. Requires user API key (Bearer token). Returns the agent with handle pricing information."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"handle\": \"my-agent\",\n  \"displayName\": \"My Agent\",\n  \"status\": \"draft\",\n  \"trustScore\": 5,\n  \"trustTier\": \"unverified\",\n  \"isSandbox\": false,\n  \"handlePricing\": {\n    \"annualPriceCents\": 999,\n    \"tier\": \"standard\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Register Sandbox Agent",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{SANDBOX_AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "User-Agent", "value": "AgentID-Client/1.0 postman/10" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"handle\": \"test-agent\",\n  \"displayName\": \"Test Agent\"\n}"
+            },
+            "description": "Register a sandbox-isolated agent using an agk_sandbox_ key via X-Agent-Key header. Sandbox agents expire after 24h and cannot interact with production agents."
+          }
+        },
+        {
+          "name": "List My Agents",
+          "request": {
+            "method": "GET",
+            "url": "{{BASE_URL}}/agents",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            },
+            "description": "List all agents owned by the authenticated user. Requires user API key (Bearer token)."
+          }
+        },
+        {
+          "name": "Get Agent",
+          "request": {
+            "method": "GET",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            },
+            "description": "Get a specific agent by ID. Requires user API key (Bearer token)."
+          }
+        },
+        {
+          "name": "Update Agent",
+          "request": {
+            "method": "PUT",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"My Updated Agent\",\n  \"description\": \"Updated description\",\n  \"capabilities\": [\"chat\", \"code\", \"search\", \"analysis\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Agent",
+          "request": {
+            "method": "DELETE",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            }
+          }
+        },
+        {
+          "name": "Get Agent Activity",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/agents/{{AGENT_ID}}/activity?limit=20&offset=0",
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            }
+          }
+        },
+        {
+          "name": "Agent Whoami",
+          "request": {
+            "method": "GET",
+            "url": "{{BASE_URL}}/agents/whoami",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "description": "Returns the full bootstrap bundle for the authenticated agent. Requires agent key (X-Agent-Key header)."
+          }
+        },
+        {
+          "name": "Agent Heartbeat",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/heartbeat",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "description": "Send a heartbeat from the agent. Requires agent key (X-Agent-Key header)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resolution",
+      "item": [
+        {
+          "name": "Resolve Agent by Handle",
+          "request": {
+            "method": "GET",
+            "url": "{{BASE_URL}}/resolve/my-agent",
+            "auth": { "type": "noauth" },
+            "description": "Resolve an agent handle to its full Agent ID Object. No authentication required."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"agent\": {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"handle\": \"my-agent\",\n    \"displayName\": \"My Agent\",\n    \"trustScore\": 65,\n    \"trustTier\": \"medium\",\n    \"verificationStatus\": \"verified\",\n    \"capabilities\": [\"chat\", \"code\"]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Discover Agents",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/agents?capability=code&minTrust=50&verifiedOnly=true&limit=20",
+              "query": [
+                { "key": "capability", "value": "code" },
+                { "key": "minTrust", "value": "50" },
+                { "key": "verifiedOnly", "value": "true" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "auth": { "type": "noauth" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Verification",
+      "item": [
+        {
+          "name": "Initiate Verification",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/verify/initiate",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"dns\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Complete Verification",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/verify/complete",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"dns\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Register Webhook",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/webhooks",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://my-agent.example.com/webhook\",\n  \"events\": [\"message.received\", \"task.received\", \"trust.updated\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "List Webhooks",
+          "request": {
+            "method": "GET",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/webhooks",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            }
+          }
+        },
+        {
+          "name": "Test Webhook Delivery",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/webhooks/{{WEBHOOK_ID}}/test",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventType\": \"message.received\"\n}"
+            },
+            "description": "Fires a real signed test delivery to the configured endpoint. Returns { delivered, statusCode, eventType, payload }. The delivery includes X-AgentID-Test: true header and HMAC signature."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"delivered\": true,\n  \"statusCode\": 200,\n  \"eventType\": \"message.received\",\n  \"payload\": {\n    \"messageId\": \"test_abc123\",\n    \"content\": \"This is a test message\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Webhook",
+          "request": {
+            "method": "DELETE",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/webhooks/{{WEBHOOK_ID}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Keys",
+      "item": [
+        {
+          "name": "Rotate Agent Key",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/keys/rotate",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldKeyId\": \"{{OLD_KEY_ID}}\",\n  \"newPublicKey\": \"{{NEW_PUBLIC_KEY_B64}}\",\n  \"keyType\": \"ed25519\",\n  \"reason\": \"Scheduled rotation\"\n}"
+            },
+            "description": "Rotate the agent's authentication key. Requires current agent key (X-Agent-Key header)."
+          }
+        },
+        {
+          "name": "Verify Key Rotation",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/keys/verify-rotation",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rotationLogId\": \"{{ROTATION_LOG_ID}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Credentials",
+      "item": [
+        {
+          "name": "Get Agent Credential",
+          "request": {
+            "method": "GET",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/credential",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reissue Credential",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/credential/reissue",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messaging",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/messages",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toHandle\": \"target-agent\",\n  \"content\": \"Hello from my agent!\",\n  \"contentType\": \"text/plain\"\n}"
+            },
+            "description": "Send a message to another agent. Requires agent key (X-Agent-Key header)."
+          }
+        },
+        {
+          "name": "Check Inbox",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/agents/{{AGENT_ID}}/inbox?limit=20&offset=0",
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "description": "Check the agent's inbox. Requires agent key (X-Agent-Key header)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "Send Task",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/tasks",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toHandle\": \"target-agent\",\n  \"title\": \"Summarize this document\",\n  \"description\": \"Please summarize the attached content\",\n  \"priority\": \"normal\"\n}"
+            },
+            "description": "Dispatch a task to another agent. Requires agent key (X-Agent-Key header)."
+          }
+        },
+        {
+          "name": "List Tasks",
+          "request": {
+            "method": "GET",
+            "url": "{{BASE_URL}}/tasks",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "API Keys",
+      "item": [
+        {
+          "name": "Create User API Key",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/users/me/api-keys",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{USER_API_KEY}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My SDK Key\",\n  \"scopes\": [\"agents:read\", \"agents:write\"],\n  \"sandbox\": false\n}"
+            },
+            "description": "Create a new user API key. Set `sandbox: true` to issue an `agk_sandbox_` prefixed key for sandbox mode. User API keys use `Authorization: Bearer aid_...` for auth."
+          }
+        },
+        {
+          "name": "Create Sandbox API Key",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/users/me/api-keys",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{USER_API_KEY}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Sandbox Key\",\n  \"sandbox\": true\n}"
+            },
+            "description": "Create a sandbox API key (agk_sandbox_ prefix). Use `Authorization: Bearer agk_sandbox_...` to activate sandbox mode on all requests."
+          }
+        },
+        {
+          "name": "List API Keys",
+          "request": {
+            "method": "GET",
+            "url": "{{BASE_URL}}/users/me/api-keys",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{USER_API_KEY}}" }
+            ]
+          }
+        },
+        {
+          "name": "Revoke API Key",
+          "request": {
+            "method": "DELETE",
+            "url": "{{BASE_URL}}/users/me/api-keys/{{KEY_ID}}",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{USER_API_KEY}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fleet",
+      "item": [
+        {
+          "name": "Spawn Sub-Agent",
+          "request": {
+            "method": "POST",
+            "url": "{{BASE_URL}}/agents/{{AGENT_ID}}/spawn",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Agent-Key", "type": "string" },
+                { "key": "value", "value": "{{AGENT_KEY}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"handle\": \"my-subagent\",\n  \"displayName\": \"My Sub-Agent\",\n  \"ttlSeconds\": 3600,\n  \"capabilities\": [\"search\"]\n}"
+            },
+            "description": "Spawn a sub-agent. Requires current agent key (X-Agent-Key header)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Marketplace",
+      "item": [
+        {
+          "name": "List Marketplace",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/marketplace?limit=20&offset=0",
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "auth": { "type": "noauth" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform",
+      "item": [
+        {
+          "name": "Get llms.txt",
+          "request": {
+            "method": "GET",
+            "url": "https://getagent.id/api/llms.txt",
+            "auth": { "type": "noauth" },
+            "description": "Machine-readable platform description for AI agents."
+          }
+        },
+        {
+          "name": "Get Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{BASE_URL}}/dashboard/stats",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{USER_API_KEY}}", "type": "string" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
