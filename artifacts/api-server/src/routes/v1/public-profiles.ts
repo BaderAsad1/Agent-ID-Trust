@@ -18,15 +18,23 @@ import { publicRateLimit } from "../../middlewares/rate-limit";
 
 const router = Router();
 
+/** Returns true if an agent row represents a live, serveable profile (active and handle not retired). */
+function isAgentProfileActive(agent: Awaited<ReturnType<typeof getAgentByHandle>>): boolean {
+  if (!agent || agent.status !== "active") return false;
+  const hs = (agent as unknown as { handleStatus?: string | null }).handleStatus;
+  if (hs === "retired") return false;
+  return true;
+}
+
 router.get("/:handle", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
 
-    if (agent && agent.status === "active" && !agent.isPublic) {
+    if (isAgentProfileActive(agent) && !agent!.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
-    if (!agent || agent.status !== "active") {
+    if (!isAgentProfileActive(agent)) {
       const handle = (req.params.handle as string).toLowerCase();
       const humanProfile = await db.query.humanProfilesTable.findFirst({
         where: eq(humanProfilesTable.handle, handle),
@@ -128,7 +136,7 @@ router.get("/:handle", async (req, res, next) => {
         ...(profile.credential || {}),
         did: `did:web:getagent.id:agents:${agent.id}`,
         domain: profile.agent.domainName || `${agent.handle}.getagent.id`,
-        resolverUrl: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
+        resolverUrl: `${APP_URL}/api/v1/resolve/${agent.handle}`,
         erc8004Uri: `${APP_URL}/api/v1/p/${agent.handle}/erc8004`,
         erc8004Status: profileErc8004Status,
         anchoringMethod: profileAnchoringMethod,
@@ -144,10 +152,10 @@ router.get("/:handle", async (req, res, next) => {
 router.get("/:handle/credential", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
-    if (!agent || agent.status !== "active") {
+    if (!isAgentProfileActive(agent)) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (!agent.isPublic) {
+    if (!agent!.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
@@ -186,10 +194,10 @@ router.get("/:handle/credential", async (req, res, next) => {
 router.get("/:handle/credential/jwt", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
-    if (!agent || agent.status !== "active") {
+    if (!isAgentProfileActive(agent)) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (!agent.isPublic) {
+    if (!agent!.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
@@ -206,10 +214,10 @@ router.get("/:handle/credential/jwt", async (req, res, next) => {
 router.get("/:handle/activity", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
-    if (!agent || agent.status !== "active") {
+    if (!isAgentProfileActive(agent)) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (!agent.isPublic) {
+    if (!agent!.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
@@ -227,10 +235,10 @@ router.get("/:handle/activity", async (req, res, next) => {
 router.get("/:handle/credential/verify", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
-    if (!agent || agent.status !== "active") {
+    if (!isAgentProfileActive(agent)) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (!agent.isPublic) {
+    if (!agent!.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
@@ -266,10 +274,10 @@ router.get("/:handle/credential/verify", async (req, res, next) => {
 router.post("/:handle/credential/verify", async (req, res, next) => {
   try {
     const agent = await getAgentByHandle(req.params.handle as string);
-    if (!agent || agent.status !== "active") {
+    if (!isAgentProfileActive(agent)) {
       throw new AppError(404, "NOT_FOUND", "Agent not found");
     }
-    if (!agent.isPublic) {
+    if (!agent!.isPublic) {
       throw new AppError(403, "AGENT_NOT_PUBLIC", "This agent profile is not public");
     }
 
@@ -315,8 +323,9 @@ async function handleErc8004(req: import("express").Request, res: import("expres
     }
 
     // Handle exists as a valid string but isn't registered in the platform DB.
-    // Return a minimal ERC-8004 stub so the image and handle graphic are still
-    // discoverable — the image endpoint is DB-free and always resolves.
+    // Return an "unreconciled" ERC-8004 stub — the handle may exist on-chain but not yet
+    // reconciled to our DB. Returning registered:false would be a false-negative for
+    // direct/manual on-chain registrations that haven't been reconciled yet.
     const APP_URL = process.env.APP_URL || "https://getagent.id";
     const stub = {
       "@context": [
@@ -330,11 +339,11 @@ async function handleErc8004(req: import("express").Request, res: import("expres
       name: handle,
       image: `${APP_URL}/api/v1/handles/${handle}/image.svg`,
       active: false,
-      registered: false,
+      registered: null,
       agentid: {
         handle,
         handleAlias: `did:agentid:${handle}`,
-        status: "unregistered",
+        status: "unreconciled",
       },
     };
 

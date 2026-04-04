@@ -50,7 +50,9 @@ describe("deriveAnchorState — 3-state anchor model (Task #181)", () => {
 
   it("pending: nftStatus=pending_anchor, no chainRegistrations entry", () => {
     const r = deriveAnchorState([], "pending_anchor");
-    expect(r.erc8004Status).toBe("pending");
+    // erc8004Status is "off-chain": NFT not yet minted, no ERC-8004 record exists.
+    // onchainStatus is "pending": the workflow is in-flight.
+    expect(r.erc8004Status).toBe("off-chain");
     expect(r.onchainStatus).toBe("pending");
     expect(r.onchainAnchor).toBeNull();
     expect(r.anchoringMethod).toBe("off-chain");
@@ -66,7 +68,10 @@ describe("deriveAnchorState — 3-state anchor model (Task #181)", () => {
 
   it("pending: nftStatus=pending_anchor, entry present (queued for anchor)", () => {
     const r = deriveAnchorState([BASE_ENTRY], "pending_anchor");
-    expect(r.erc8004Status).toBe("pending");
+    // Even with a chainRegistrations entry, pending_anchor means the NFT is not
+    // yet confirmed — no ERC-8004 record is resolvable; erc8004Status is "off-chain".
+    expect(r.erc8004Status).toBe("off-chain");
+    expect(r.onchainStatus).toBe("pending");
     expect(r.onchainAnchor).toBeNull();
   });
 
@@ -121,13 +126,16 @@ describe("deriveAnchorState — 3-state anchor model (Task #181)", () => {
     expect(r.onchainAnchor).toEqual(BASE_ENTRY);
   });
 
-  // ── coherence: erc8004Status === onchainStatus ─────────────────────────
+  // ── coherence: erc8004Status vs onchainStatus semantics ───────────────
+  // erc8004Status = "is there an ERC-8004 record resolvable on-chain?"
+  // onchainStatus = "what is the lifecycle workflow state?"
+  // They agree for most states, but pending_anchor is the exception:
+  // the workflow is in-flight (onchainStatus=pending) but no ERC-8004
+  // record exists yet (erc8004Status=off-chain).
 
-  it("coherence: erc8004Status and onchainStatus always agree", () => {
+  it("coherence: erc8004Status and onchainStatus agree for off-chain and anchored", () => {
     const fixtures: [unknown, string | null | undefined][] = [
       [null, null],
-      [[], "pending_anchor"],
-      [[BASE_ENTRY], "pending_claim"],
       [[BASE_ENTRY], "active"],
       [{ base: BASE_ENTRY }, "minted"],
     ];
@@ -135,6 +143,18 @@ describe("deriveAnchorState — 3-state anchor model (Task #181)", () => {
       const r = deriveAnchorState(regs, status);
       expect(r.erc8004Status).toBe(r.onchainStatus);
     }
+  });
+
+  it("coherence: pending_claim agrees (both pending)", () => {
+    const r = deriveAnchorState([BASE_ENTRY], "pending_claim");
+    expect(r.erc8004Status).toBe(r.onchainStatus);
+    expect(r.erc8004Status).toBe("pending");
+  });
+
+  it("coherence: pending_anchor diverges — onchainStatus=pending, erc8004Status=off-chain", () => {
+    const r = deriveAnchorState([], "pending_anchor");
+    expect(r.onchainStatus).toBe("pending");
+    expect(r.erc8004Status).toBe("off-chain");
   });
 
   // ── bootstrap/resolver parity surface check ────────────────────────────

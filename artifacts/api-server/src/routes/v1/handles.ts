@@ -667,24 +667,39 @@ router.post("/:handle/claim-nft", requireAuth, async (req, res, next) => {
     }
 
     // Step 3: Commit DB state only after all on-chain steps succeeded.
-    const chainRegistrationsUpdate = !isAnchored && onchainAgentId
-      ? [
-          {
-            chain: "base",
-            agentId: onchainAgentId,
-            txHash: txHashRegister ?? null,
-            contractAddress: onchainContractAddress ?? null,
-            registeredAt: new Date().toISOString(),
-            custodian: "user",
-          },
-        ]
-      : undefined;
+    // For newly-anchored handles (not previously anchored): write a fresh chainRegistrations array.
+    // For already-anchored handles (isAnchored=true): update the matching entry's custodian to "user".
+    let chainRegistrationsUpdate: Record<string, unknown>[] | undefined;
+    if (!isAnchored && onchainAgentId) {
+      chainRegistrationsUpdate = [
+        {
+          chain: "base",
+          agentId: onchainAgentId,
+          txHash: txHashRegister ?? null,
+          contractAddress: onchainContractAddress ?? null,
+          registeredAt: new Date().toISOString(),
+          custodian: "user",
+        },
+      ];
+    } else if (isAnchored) {
+      // Update the existing chainRegistrations entries to set custodian="user"
+      const existingRegs = (agent.chainRegistrations as Record<string, unknown>[] | null) ?? [];
+      const normalizedRegs: Record<string, unknown>[] = Array.isArray(existingRegs)
+        ? existingRegs
+        : Object.entries(existingRegs as Record<string, unknown>).map(([chain, v]) => ({ ...(v as Record<string, unknown>), chain }));
+      chainRegistrationsUpdate = normalizedRegs.map((entry) =>
+        (entry.chain === "base" || entry.chain === "base-sepolia")
+          ? { ...entry, custodian: "user" }
+          : entry,
+      );
+    }
 
     await db.update(agentsTable)
       .set({
         nftStatus: "active",
         nftCustodian: "user",
         nftOwnerWallet: userWallet.toLowerCase(),
+        onChainOwner: userWallet.toLowerCase(),
         ...(onchainAgentId ? { erc8004AgentId: onchainAgentId } : {}),
         ...(chainRegistrationsUpdate ? { chainRegistrations: chainRegistrationsUpdate } : {}),
         updatedAt: new Date(),

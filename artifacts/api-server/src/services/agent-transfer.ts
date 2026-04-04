@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   agentTransfersTable,
@@ -62,7 +62,14 @@ export interface CreateTransferInput {
 
 export async function createTransfer(input: CreateTransferInput): Promise<AgentTransfer> {
   const agent = await db.query.agentsTable.findFirst({
-    where: and(eq(agentsTable.id, input.agentId), eq(agentsTable.userId, input.sellerId)),
+    where: and(
+      eq(agentsTable.id, input.agentId),
+      // Effective-owner: ownerUserId takes precedence over userId (original creator)
+      or(
+        eq(agentsTable.ownerUserId, input.sellerId),
+        and(isNull(agentsTable.ownerUserId), eq(agentsTable.userId, input.sellerId)),
+      ),
+    ),
   });
 
   if (!agent) {

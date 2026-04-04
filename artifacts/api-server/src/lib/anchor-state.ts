@@ -69,11 +69,23 @@ export function deriveAnchorState(
   const isConfirmed = !!baseAnchor && (nftStatus === "active" || nftStatus === "minted");
   const isPending = nftStatus === "pending_anchor" || nftStatus === "pending_claim";
 
-  const status: AnchorStatus = isConfirmed ? "anchored" : isPending ? "pending" : "off-chain";
+  // onchainStatus: overall lifecycle state (pending_anchor → "pending")
+  const onchainStatus: AnchorStatus = isConfirmed ? "anchored" : isPending ? "pending" : "off-chain";
+
+  // erc8004Status: whether an ERC-8004 record exists and is resolvable on-chain.
+  // pending_anchor means the NFT has not been minted yet — no ERC-8004 entry
+  // exists — so from the resolver's perspective it is still "off-chain".
+  // pending_claim (dispute window) has a chainRegistrations entry but is not
+  // yet ownership-settled, so it maps to "pending".
+  const erc8004Status: AnchorStatus = isConfirmed
+    ? "anchored"
+    : nftStatus === "pending_claim"
+    ? "pending"
+    : "off-chain";
 
   return {
-    erc8004Status: status,
-    onchainStatus: status,
+    erc8004Status,
+    onchainStatus,
     onchainAnchor: isConfirmed ? baseAnchor : null,
     anchoringMethod: isConfirmed ? "base-registrar" : "off-chain",
   };
