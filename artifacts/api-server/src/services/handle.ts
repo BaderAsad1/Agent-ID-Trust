@@ -480,7 +480,7 @@ export async function checkHandleRegistrationLimits(
       return {
         allowed: false,
         status: 402,
-        message: "Standard handles (5+ characters) are included with Starter, Pro, or Enterprise plans. Upgrade at /pricing to register a handle.",
+        message: "Standard handles (5+ characters) are included with Starter or Pro plans. Enterprise handles are provisioned via custom entitlement. Upgrade at /pricing to register a handle.",
       };
     }
   }

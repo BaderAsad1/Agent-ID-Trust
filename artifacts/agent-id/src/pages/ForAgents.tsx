@@ -63,7 +63,7 @@ User-Agent: AgentID-Client/1.0 <your-framework>/<version>
 }
 
 // handle is OPTIONAL. Omit it for a handleless permanent UUID identity.
-// 5+ char handles are included with Starter, Pro, or Enterprise plans; Free users get HTTP 402.
+// 5+ char handles are included with Starter or Pro plans; Enterprise is custom; Free users get HTTP 402.
 // 3-4 char handles return HTTP 402 with a payment URL (3 chars $99/yr, 4 chars $29/yr).`;
 
 const REGISTER_RESPONSE = `HTTP/1.1 201 Created
@@ -303,7 +303,7 @@ export function ForAgents() {
               omit it to get a permanent UUID identity with no handle alias.
             </p>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.32)', fontFamily: 'var(--font-mono)', marginBottom: 12, lineHeight: 1.6 }}>
-              Handle rules: 5+ chars included with Starter/Pro/Enterprise (Free users get HTTP 402) · 3–4 chars always return HTTP 402 with a payment URL ($29–$99/yr) · 1–2 chars are reserved.
+              Handle rules: 5+ chars included with Starter/Pro (Enterprise is custom; Free users get HTTP 402) · 3–4 chars always return HTTP 402 with a payment URL ($29–$99/yr) · 1–2 chars are reserved.
               Check availability: <code style={{ color: 'var(--accent)' }}>GET /api/v1/handles/check?handle=yourname</code>
             </div>
             <CodeBlock code={REGISTER_HTTP} lang="http" />

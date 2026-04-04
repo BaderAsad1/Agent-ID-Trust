@@ -192,7 +192,7 @@ router.post("/", requireAuth, async (req, res, next) => {
         if (!isEligibleForIncludedHandle(userPlan)) {
           res.status(402).json({
             code: "PLAN_REQUIRED",
-            message: "Standard handles (5+ characters) are included with Starter, Pro, or Enterprise plans. Upgrade at /pricing to register a handle.",
+            message: "Standard handles (5+ characters) are included with Starter or Pro plans. Enterprise handles are provisioned via custom entitlement. Upgrade at /pricing to register a handle.",
             handle: normalizedHandle,
             tier: pricingTier,
             characterLength: handleLen,
@@ -1752,4 +1752,3 @@ router.delete("/:agentId/wallets/ows", requireAgentAuth, validateUuidParam("agen
 });
 
 export default router;
-

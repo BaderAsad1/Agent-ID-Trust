@@ -174,7 +174,7 @@ export function HandlesClaim() {
           Claim a Handle
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Search for a handle and claim it. Handles are included with paid plans (Starter, Pro, or Enterprise).
+          Search for a handle and claim it. Standard 5+ character handles are included with Starter or Pro; Enterprise access is provisioned via custom entitlement.
         </p>
       </div>
 
@@ -272,7 +272,7 @@ export function HandlesClaim() {
                         Upgrade to claim this handle
                       </div>
                       <div className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-                        Handles are included with Starter, Pro, or Enterprise — upgrade your plan to register @{result.handle}.
+                        Standard 5+ character handles are included with Starter or Pro. Enterprise access is provisioned separately. Upgrade your plan to register @{result.handle}.
                       </div>
                       <a
                         href="/pricing"

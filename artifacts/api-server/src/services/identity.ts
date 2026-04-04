@@ -125,8 +125,8 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
     did: `did:web:getagent.id:agents:${agent.id}`,
     handleAliasDid: null,
     protocol_address: agent.handle ? `${agent.handle}.agentid` : `${agent.id}.agentid`,
-    erc8004_uri: agent.handle ? `${baseUrl}/api/v1/p/${agent.handle}/erc8004` : `${baseUrl}/api/v1/resolve/id/${agent.id}`,
-    erc8004Uri: agent.handle ? `${baseUrl}/api/v1/p/${agent.handle}/erc8004` : `${baseUrl}/api/v1/resolve/id/${agent.id}`,
+    erc8004_uri: agent.handle ? `${baseUrl}/api/v1/p/${agent.handle}/erc8004` : null,
+    erc8004Uri: agent.handle ? `${baseUrl}/api/v1/p/${agent.handle}/erc8004` : null,
     erc8004Status,
     onchain_anchor: onchainAnchorValue,
     onchainAnchor: onchainAnchorValue,
@@ -221,7 +221,7 @@ export function buildPromptBlock(
   Expires:   ${agent.handleExpiresAt.toISOString()}
   Note:      Handle is a paid alias (like ENS). Renew before expiry to keep it.`
     : `Handle Identity: none — agent resolves by UUID only
-  Register a handle at: ${baseUrl}/api/v1/pay/handle/claim (5+ chars, included with Starter/Pro/Enterprise plans)`;
+  Register a handle at: ${baseUrl}/api/v1/pay/handle/claim (5+ chars included with Starter or Pro; Enterprise via custom entitlement)`;
 
   const inboxSection = inbox?.address
     ? `Your inbox address: ${inbox.address}
