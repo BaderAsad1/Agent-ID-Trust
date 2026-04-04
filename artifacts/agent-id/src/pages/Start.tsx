@@ -329,7 +329,8 @@ export function Start() {
       if (lc.includes('taken') || lc.includes('conflict') || lc.includes('already') || lc.includes('duplicate')) {
         setError(`The handle "${handle}" is already taken. Please choose a different handle.`);
       } else if (lc.includes('payment') || lc.includes('subscription') || lc.includes('plan') || lc.includes('upgrade')) {
-        setError(`5+ character handles are included with Starter, Pro, or Enterprise plans. Shorter premium handles (4 chars: $29/yr · 3 chars: $99/yr) require separate checkout at /handle/purchase.`);
+        navigate(`/handle/purchase?handle=${encodeURIComponent(handle)}`);
+        return;
       } else if (lc.includes('reserved') || lc.includes('1-2') || lc.includes('unavailable')) {
         setError(`This handle is reserved and not available for registration. Handles of 1-2 characters are reserved. Please choose a handle of 3 or more characters.`);
       } else {
@@ -530,7 +531,7 @@ export function Start() {
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 28, display: 'flex', flexDirection: 'column', gap: 20 }}>
               <FieldGroup label="Display Name" value={agentName} onChange={setAgentName} placeholder="Atlas-7" />
 
-              <FieldGroup label="Handle" value={handle} onChange={setHandle} placeholder="atlas-7" suffix=".agentid" normalizeHandle>
+              <FieldGroup label="Handle — optional" value={handle} onChange={setHandle} placeholder="atlas-7" suffix=".agentid" normalizeHandle>
                 {handle && (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
@@ -705,7 +706,7 @@ export function Start() {
                   did:web:getagent.id:agents:&lt;your-uuid&gt;
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', lineHeight: 1.5 }}>
-                  Your stable machine identity. Handle addresses are optional and can be added at any time from your dashboard (requires a paid plan).
+                  Your stable machine identity. Handle addresses are optional and can be added at any time from your dashboard.
                 </div>
               </div>
             )}

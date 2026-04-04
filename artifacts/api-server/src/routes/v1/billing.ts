@@ -22,7 +22,7 @@ import {
 } from "../../services/billing";
 import { logActivity } from "../../services/activity-logger";
 import { validateHandle, agentOwnerWhere } from "../../services/agents";
-import { isHandleReserved, checkRateLimit, checkHandleRegistrationLimits, recordHandleRegistration } from "../../services/handle";
+import { isHandleReserved, checkRateLimit, recordHandleRegistration } from "../../services/handle";
 import { HANDLE_PRICING_TIERS } from "@workspace/shared-pricing";
 
 const router = Router();
@@ -286,11 +286,6 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
 
     if (isHandleReserved(normalizedHandle)) {
       throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
-    }
-
-    const limitCheck = await checkHandleRegistrationLimits(req.userId!, normalizedHandle);
-    if (limitCheck) {
-      throw new AppError(limitCheck.status, "HANDLE_LIMIT_EXCEEDED", limitCheck.message);
     }
 
     // Ownership check: if an agentId is provided, verify it belongs to the authenticated user
