@@ -80,11 +80,11 @@ export function Pricing() {
       return;
     }
     if (plan.name === 'Free') {
-      navigate(userId ? '/dashboard' : '/start');
+      navigate(userId ? '/dashboard' : '/get-started');
       return;
     }
     if (!userId) {
-      navigate(`/start?plan=${plan.name.toLowerCase()}`);
+      navigate(`/get-started?plan=${plan.name.toLowerCase()}`);
       return;
     }
     try {

@@ -373,12 +373,13 @@ export function GetStarted() {
     }, 3000);
   }, [refreshAgents]);
 
-  const startClaimPolling = useCallback(() => {
+  const startClaimPolling = useCallback((preExistingIds: Set<string>) => {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       try {
         const result = await api.agents.list();
-        if (result.agents && result.agents.length > 0) {
+        const hasNewAgent = result.agents?.some(a => !preExistingIds.has(a.id));
+        if (hasNewAgent) {
           if (pollRef.current) clearInterval(pollRef.current);
           await refreshAgents?.();
           setStep('complete');
@@ -449,9 +450,13 @@ export function GetStarted() {
     if (ownerToken) return;
     setLoadingOwnerToken(true);
     try {
-      const result = await api.ownerTokens.generate();
-      setOwnerToken(result.token);
-      startClaimPolling();
+      const [tokenResult, agentsResult] = await Promise.all([
+        api.ownerTokens.generate(),
+        api.agents.list(),
+      ]);
+      setOwnerToken(tokenResult.token);
+      const preExistingIds = new Set<string>((agentsResult.agents ?? []).map(a => a.id));
+      startClaimPolling(preExistingIds);
     } catch {
       setError('Failed to generate owner token');
     } finally {
@@ -554,7 +559,7 @@ export function GetStarted() {
                 Register a new agent
               </div>
               <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5, flexGrow: 1 }}>
-                Pick a handle like acme.agentid and get your claim token.
+                Create a draft identity for your agent. It connects during setup and self-activates.
               </div>
               <div style={{ marginTop: 12 }}>
                 <span style={{
@@ -593,7 +598,7 @@ export function GetStarted() {
                 Link an existing agent
               </div>
               <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
-                Already running an agent? Give it your owner token to self-register.
+                Already running an agent? Give it your owner token and it will register itself under your account.
               </div>
             </div>
           </div>
@@ -809,8 +814,9 @@ curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/activate \\
           </div>
           <h1 style={{ ...titleStyle, marginBottom: 4 }}>Give this to your agent</h1>
           <p style={subtitleStyle}>
-            Your agent <strong style={{ color: '#e8e8f0' }}>{agentName}</strong> ({handle}.agentid) has been created in draft mode.
-            Share the claim token below with your agent so it can activate itself.
+            Your agent <strong style={{ color: '#e8e8f0' }}>{agentName}</strong>
+            {handle ? ` (${handle}.agentid)` : ''} has been created in draft mode.
+            Share the claim token below with your agent — it will connect to this identity during setup and self-activate.
           </p>
         </div>
 
@@ -904,13 +910,17 @@ Register yourself by calling:
 
 POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/register
 Content-Type: application/json
-Authorization: Bearer ${ownerToken}
 
 {
   "handle": "<choose-your-handle>",
   "displayName": "<your-name>",
-  "capabilities": ["research", "code"]
-}` : '';
+  "publicKey": "<your-ed25519-public-key-base64>",
+  "keyType": "ed25519",
+  "capabilities": ["research", "code"],
+  "ownerToken": "${ownerToken}"
+}
+
+This will return a challenge. Sign it with your private key and POST to /api/v1/programmatic/agents/verify to complete activation.` : '';
 
     const sdkSnippet = ownerToken ? `import { AgentID } from '@agentid/sdk';
 
@@ -919,16 +929,27 @@ const agent = await AgentID.register({
   handle: 'my-agent',
   displayName: 'My Agent',
   capabilities: ['research', 'code'],
-});` : '';
+});
 
-    const curlSnippet = ownerToken ? `curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/register \\
+// agent.identity  -  public identity (safe for system prompt)
+// agent.secrets.apiKey  -  store in env vars only` : '';
+
+    const curlSnippet = ownerToken ? `# Step 1: Register (ownerToken links to your account)
+curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/register \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${ownerToken}" \\
   -d '{
     "handle": "my-agent",
     "displayName": "My Agent",
-    "capabilities": ["research", "code"]
-  }'` : '';
+    "publicKey": "<ed25519-pub-base64>",
+    "keyType": "ed25519",
+    "capabilities": ["research", "code"],
+    "ownerToken": "${ownerToken}"
+  }'
+
+# Step 2: Sign the returned challenge, then verify
+curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/verify \\
+  -H "Content-Type: application/json" \\
+  -d '{"agentId":"<agentId>","kid":"<kid>","challenge":"<challenge>","signature":"<sig>"}'` : '';
 
     const tabs = [
       { id: 'chat' as const, label: 'Chat Prompt' },
@@ -951,7 +972,7 @@ const agent = await AgentID.register({
           </div>
           <h1 style={titleStyle}>Link your agent</h1>
           <p style={subtitleStyle}>
-            Give your running agent this owner token. It will register itself and automatically appear on your dashboard.
+            Give your running agent this owner token. It will register and link itself to your account, then automatically appear on your dashboard.
           </p>
         </div>
 
