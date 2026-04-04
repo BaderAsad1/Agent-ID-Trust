@@ -1,13 +1,23 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, Loader2, Copy, AlertCircle, ArrowRight, Bot, Link2, Plus, X } from 'lucide-react';
+import { Check, Loader2, Copy, AlertCircle, ArrowRight, Bot, Link2, X, Shield, Globe, Zap, Users } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
 import { getHandlePrice } from '@/lib/pricing';
 import { SKILLS_LIBRARY, SKILL_CATEGORIES, type SkillCategory } from '@/lib/skills';
 
 type Intent = 'new' | 'claim' | null;
-type FlowStep = 'intent' | 'auth' | 'wizard-identity' | 'wizard-capabilities' | 'token-display' | 'claim-existing' | 'complete';
+type FlowStep = 'intent' | 'auth' | 'wizard-handle' | 'wizard-capabilities' | 'token-display' | 'claim-existing' | 'complete';
+
+const PLAN_STORAGE_KEY = 'agent-id-wizard-plan';
+
+function getSelectedPlan(): 'free' | 'starter' | 'pro' {
+  try {
+    const v = sessionStorage.getItem(PLAN_STORAGE_KEY);
+    if (v === 'starter' || v === 'pro') return v;
+  } catch {}
+  return 'free';
+}
 
 function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
   return (
@@ -143,13 +153,13 @@ function CapabilitiesStep({ selectedCaps, setSelectedCaps, error, submitting, on
       padding: '40px 20px', fontFamily: "'Inter', system-ui, sans-serif",
     }}>
       <div style={{ width: '100%', maxWidth: 640 }}>
-        <StepIndicator steps={['intent', 'identity', 'capabilities', 'activate']} current={2} />
+        <StepIndicator steps={['handle', 'capabilities', 'activate']} current={1} />
         <h1 style={{
           fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 28, fontWeight: 800,
           color: '#e8e8f0', textAlign: 'center', marginBottom: 6,
-        }}>Capabilities</h1>
+        }}>What can your agent do?</h1>
         <p style={{ color: 'rgba(232,232,240,0.45)', fontSize: 14, textAlign: 'center', marginBottom: 24 }}>
-          Select what your agent can do. You can change these later.
+          Select capabilities. These help other agents and humans discover your agent.
         </p>
 
         <div style={tabBarStyle}>
@@ -238,7 +248,7 @@ function CapabilitiesStep({ selectedCaps, setSelectedCaps, error, submitting, on
             cursor: customInput.trim() ? 'pointer' : 'not-allowed',
             display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, fontFamily: 'inherit',
           }}>
-            <Plus size={14} /> Add
+            Add
           </button>
         </div>
 
@@ -251,7 +261,7 @@ function CapabilitiesStep({ selectedCaps, setSelectedCaps, error, submitting, on
         <div style={{ marginTop: 28, display: 'flex', gap: 10, justifyContent: 'center' }}>
           <GhostBtn onClick={onBack}>Back</GhostBtn>
           <PrimaryBtn onClick={onNext} loading={submitting} disabled={submitting}>
-            Create Agent <ArrowRight size={16} />
+            Register Agent <ArrowRight size={16} />
           </PrimaryBtn>
         </div>
       </div>
@@ -263,6 +273,9 @@ export function GetStarted() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { userId, loading: authLoading, login, refreshAgents } = useAuth();
+
+  const selectedPlan = getSelectedPlan();
+  const isPaidPlan = selectedPlan === 'starter' || selectedPlan === 'pro';
 
   const [intent, setIntent] = useState<Intent>(() => {
     const p = new URLSearchParams(window.location.search).get('intent');
@@ -285,8 +298,9 @@ export function GetStarted() {
 
   const [ownerToken, setOwnerToken] = useState<string | null>(null);
   const [loadingOwnerToken, setLoadingOwnerToken] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chat' | 'sdk' | 'api'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'sdk' | 'api'>('sdk');
   const [agentCount, setAgentCount] = useState<number | null>(null);
+  const [showConnectDetails, setShowConnectDetails] = useState(false);
 
   const STORAGE_KEY = 'agent-id-getstarted-draft';
 
@@ -306,35 +320,29 @@ export function GetStarted() {
           setHandle(draft.handle || '');
           setDescription(draft.description || '');
           setSelectedCaps(draft.selectedCaps || []);
-          setStep(draft.returnStep || 'wizard-identity');
+          setStep(draft.returnStep || 'wizard-handle');
         }
       }
     } catch {}
   }, [authLoading, userId]);
 
-  // If auth resolved and the user is already signed in but ended up on the
-  // 'auth' step (race: authLoading was true when they clicked an intent),
-  // advance them to the correct wizard step automatically.
   useEffect(() => {
     if (step === 'auth' && !authLoading && userId) {
       if (intent === 'claim') {
         setStep('claim-existing');
       } else {
-        setStep('wizard-identity');
+        setStep('wizard-handle');
       }
     }
   }, [step, authLoading, userId, intent]);
 
-  // When a user returns via magic link with ?intent=new|claim in the URL,
-  // sessionStorage is gone (new tab) but the URL param survives.
-  // Auto-advance them straight to the wizard rather than showing the intent cards.
   useEffect(() => {
     if (authLoading) return;
     if (!userId) return;
     const urlIntent = searchParams.get('intent');
     if (step === 'intent' && (urlIntent === 'new' || urlIntent === 'claim')) {
       setIntent(urlIntent);
-      setStep(urlIntent === 'claim' ? 'claim-existing' : 'wizard-identity');
+      setStep(urlIntent === 'claim' ? 'claim-existing' : 'wizard-handle');
     }
   }, [authLoading, userId, step, searchParams]);
 
@@ -367,7 +375,6 @@ export function GetStarted() {
           if (pollRef.current) clearInterval(pollRef.current);
           setAgentActivated(true);
           await refreshAgents?.();
-          setStep('complete');
         }
       } catch {}
     }, 3000);
@@ -400,19 +407,17 @@ export function GetStarted() {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
         intent: selected,
         pendingAuth: true,
-        returnStep: selected === 'claim' ? 'claim-existing' : 'wizard-identity',
+        returnStep: selected === 'claim' ? 'claim-existing' : 'wizard-handle',
       }));
       setStep('auth');
     } else if (selected === 'claim') {
       setStep('claim-existing');
     } else {
-      setStep('wizard-identity');
+      setStep('wizard-handle');
     }
   };
 
   const handleAuthContinue = () => {
-    // Encode intent in the returnTo URL so it survives magic link clicks
-    // that open in a new tab (sessionStorage does not cross tabs).
     const returnTo = `/get-started?intent=${intent ?? 'new'}`;
     window.location.href = `/sign-in?returnTo=${encodeURIComponent(returnTo)}`;
   };
@@ -423,7 +428,7 @@ export function GetStarted() {
     try {
       const result = await api.agents.create({
         handle,
-        displayName: agentName,
+        displayName: agentName || handle,
         description: description || undefined,
         capabilities: selectedCaps.length > 0 ? selectedCaps : undefined,
       }) as unknown as Record<string, unknown>;
@@ -439,7 +444,7 @@ export function GetStarted() {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('Failed to create agent');
+        setError('Failed to register agent');
       }
     } finally {
       setSubmitting(false);
@@ -471,9 +476,12 @@ export function GetStarted() {
   }, [step, userId, ownerToken, handleLoadOwnerToken]);
 
   const handlePrice = handle ? getHandlePrice(handle) : null;
+  const handleLen = handle.replace(/[^a-z0-9]/g, '').length;
+  const isStandardHandle = handleLen >= 5;
+  const handleIncluded = isPaidPlan && isStandardHandle;
 
   const pageStyle: React.CSSProperties = {
-    maxWidth: 640, margin: '0 auto', padding: '80px 24px 120px',
+    maxWidth: 600, margin: '0 auto', padding: '80px 24px 120px',
     minHeight: '100vh',
   };
 
@@ -501,7 +509,6 @@ export function GetStarted() {
       }}>
         <div style={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-          {/* Logo mark */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div style={{
               width: 40, height: 40,
@@ -517,107 +524,101 @@ export function GetStarted() {
             </div>
           </div>
 
-          {/* Headline */}
           <h1 style={{
             marginTop: 24, fontSize: 32, fontWeight: 700, color: '#e8e8f0',
             textAlign: 'center', lineHeight: 1.2, letterSpacing: '-0.02em',
             fontFamily: 'var(--font-heading, inherit)',
           }}>
-            Your agent needs an identity.
+            Claim your agent handle.
           </h1>
 
-          {/* Subline */}
-          <p style={{ marginTop: 8, fontSize: 14, color: 'rgba(232,232,240,0.4)', textAlign: 'center' }}>
-            Register in 60 seconds. No credit card required.
+          <p style={{ marginTop: 8, fontSize: 15, color: 'rgba(232,232,240,0.5)', textAlign: 'center', lineHeight: 1.6, maxWidth: 400 }}>
+            A permanent, portable identity for your AI agent — public profile, discovery, and routing in 60 seconds.
           </p>
 
-          {/* Cards */}
-          <div style={{ marginTop: 36, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, width: '100%', opacity: authLoading ? 0.5 : 1, pointerEvents: authLoading ? 'none' : undefined, transition: 'opacity 0.2s' }}>
-            <div
+          <div style={{ marginTop: 36, width: '100%', opacity: authLoading ? 0.5 : 1, pointerEvents: authLoading ? 'none' : undefined, transition: 'opacity 0.2s' }}>
+            <button
               onClick={() => handleIntentSelect('new')}
               style={{
-                display: 'flex', flexDirection: 'column', borderRadius: 12,
-                border: '1px solid rgba(255,255,255,0.07)',
-                background: 'rgba(255,255,255,0.02)', padding: 20, cursor: 'pointer', transition: 'all 0.2s',
+                width: '100%', display: 'flex', alignItems: 'center', gap: 16,
+                borderRadius: 14, border: '1px solid rgba(79,125,243,0.3)',
+                background: 'linear-gradient(135deg, rgba(79,125,243,0.08), rgba(79,125,243,0.03))',
+                padding: '20px 24px', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit',
+                textAlign: 'left',
               }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(79,125,243,0.35)';
-                (e.currentTarget as HTMLDivElement).style.background = 'rgba(79,125,243,0.04)';
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(79,125,243,0.55)';
+                (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(79,125,243,0.14), rgba(79,125,243,0.06))';
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)';
-                (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.02)';
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(79,125,243,0.3)';
+                (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(79,125,243,0.08), rgba(79,125,243,0.03))';
               }}
             >
               <div style={{
-                width: 36, height: 36, borderRadius: 8, background: 'rgba(79,125,243,0.1)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 44, height: 44, borderRadius: 12, background: 'rgba(79,125,243,0.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
-                <Bot size={18} color="#4f7df3" />
+                <Bot size={22} color="#4f7df3" />
               </div>
-              <div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>
-                Register a new agent
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: '#e8e8f0', marginBottom: 3 }}>
+                  Register your agent
+                </div>
+                <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>
+                  Claim a handle, get a public profile and routing address
+                </div>
               </div>
-              <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5, flexGrow: 1 }}>
-                Create a draft identity for your agent. It connects during setup and self-activates.
-              </div>
-              <div style={{ marginTop: 12 }}>
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0,
+              }}>
                 <span style={{
-                  fontSize: 10, fontWeight: 600, color: '#4f7df3',
-                  background: 'rgba(79,125,243,0.1)', border: '1px solid rgba(79,125,243,0.2)',
-                  padding: '2px 8px', borderRadius: 100,
+                  fontSize: 10, fontWeight: 700, color: '#4f7df3',
+                  background: 'rgba(79,125,243,0.12)', border: '1px solid rgba(79,125,243,0.2)',
+                  padding: '3px 8px', borderRadius: 100, letterSpacing: '0.06em',
                 }}>
-                  Most popular
+                  MOST POPULAR
                 </span>
+                <ArrowRight size={14} color="rgba(79,125,243,0.6)" />
               </div>
-            </div>
+            </button>
 
-            <div
+            <button
               onClick={() => handleIntentSelect('claim')}
               style={{
-                display: 'flex', flexDirection: 'column', borderRadius: 12,
-                border: '1px solid rgba(255,255,255,0.07)',
-                background: 'rgba(255,255,255,0.02)', padding: 20, cursor: 'pointer', transition: 'all 0.2s',
+                marginTop: 10, width: '100%', display: 'flex', alignItems: 'center', gap: 14,
+                borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)',
+                background: 'rgba(255,255,255,0.02)',
+                padding: '14px 20px', cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit',
+                textAlign: 'left',
               }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(124,91,245,0.35)';
-                (e.currentTarget as HTMLDivElement).style.background = 'rgba(124,91,245,0.04)';
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(124,91,245,0.3)';
+                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(124,91,245,0.04)';
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)';
-                (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.02)';
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.07)';
+                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.02)';
               }}
             >
-              <div style={{
-                width: 36, height: 36, borderRadius: 8, background: 'rgba(124,91,245,0.1)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Link2 size={18} color="#7c5bf5" />
-              </div>
-              <div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>
-                Link an existing agent
-              </div>
-              <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
-                Already running an agent? Give it your owner token and it will register itself under your account.
-              </div>
-            </div>
+              <Link2 size={16} color="rgba(124,91,245,0.7)" />
+              <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.5)', flex: 1 }}>
+                Already have a claim token? Finish connecting an existing agent
+              </span>
+              <ArrowRight size={13} color="rgba(255,255,255,0.15)" />
+            </button>
           </div>
 
-          {/* Step indicator */}
-          <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 24, height: 6, borderRadius: 3, background: '#4f7df3' }} />
-              <div style={{ width: 6, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)' }} />
-              <div style={{ width: 6, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)' }} />
-            </div>
-            <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.25)' }}>Step 1 of 4</div>
+          <div style={{ marginTop: 32, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 24, height: 4, borderRadius: 2, background: '#4f7df3' }} />
+            <div style={{ width: 6, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.1)' }} />
+            <div style={{ width: 6, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.1)' }} />
           </div>
 
-          {/* Social proof */}
-          <div style={{ marginTop: 28, fontSize: 12, color: 'rgba(232,232,240,0.22)', textAlign: 'center' }}>
+          <div style={{ marginTop: 20, fontSize: 12, color: 'rgba(232,232,240,0.22)', textAlign: 'center' }}>
             {agentCount !== null
-              ? `Join ${agentCount.toLocaleString()}+ agents already on the network`
-              : 'Join agents already on the network'}
+              ? `${agentCount.toLocaleString()}+ agents already on the network`
+              : 'Free to start — no credit card required'}
           </div>
         </div>
       </div>
@@ -627,12 +628,12 @@ export function GetStarted() {
   if (step === 'auth') {
     return (
       <div style={pageStyle}>
-        <StepIndicator steps={['intent', 'auth', 'setup']} current={1} />
+        <StepIndicator steps={['handle', 'activate']} current={0} />
         <h1 style={titleStyle}>Create your account</h1>
         <p style={subtitleStyle}>
           {intent === 'new'
-            ? 'Create a free account to register your agent and claim your handle.'
-            : 'Create a free account to link your existing agent.'}
+            ? 'Free account required to claim your agent handle and set up your identity.'
+            : 'Sign in to connect your existing agent to your account.'}
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
           <GhostBtn onClick={() => setStep('intent')}>Back</GhostBtn>
@@ -644,22 +645,101 @@ export function GetStarted() {
     );
   }
 
-  if (step === 'wizard-identity') {
-    const canContinue = agentName.length >= 1 && handle.length >= 3 && available === true;
-    return (
-      <div style={pageStyle}>
-        <StepIndicator steps={['intent', 'identity', 'capabilities', 'activate']} current={1} />
-        <h1 style={titleStyle}>Agent Identity</h1>
-        <p style={subtitleStyle}>Choose a display name and handle for your agent.</p>
+  if (step === 'wizard-handle') {
+    const canContinue = handle.length >= 3 && available === true;
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div>
-            <div style={labelStyle}>Display Name</div>
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#050711',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: "'Inter', system-ui, sans-serif",
+        padding: '40px 24px',
+      }}>
+        <div style={{ width: '100%', maxWidth: 560 }}>
+          <StepIndicator steps={['handle', 'capabilities', 'activate']} current={0} />
+
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <h1 style={{
+              fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 34, fontWeight: 800,
+              color: '#e8e8f0', marginBottom: 10, letterSpacing: '-0.02em', lineHeight: 1.1,
+            }}>
+              Claim your handle
+            </h1>
+            <p style={{ fontSize: 15, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6 }}>
+              Your agent's permanent public identity, discoverable by other agents and humans.
+            </p>
+          </div>
+
+          {/* Handle hero input */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{
+              display: 'flex', alignItems: 'stretch',
+              background: 'rgba(255,255,255,0.04)',
+              border: `2px solid ${
+                available === true ? 'rgba(52,211,153,0.5)' :
+                available === false ? 'rgba(248,113,113,0.5)' :
+                'rgba(79,125,243,0.3)'
+              }`,
+              borderRadius: 14, overflow: 'hidden',
+              boxShadow: available === true
+                ? '0 0 0 4px rgba(52,211,153,0.08)'
+                : available === false
+                  ? '0 0 0 4px rgba(248,113,113,0.08)'
+                  : '0 0 0 4px rgba(79,125,243,0.06)',
+              transition: 'all 0.2s',
+            }}>
+              <input
+                value={handle}
+                onChange={e => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                placeholder="my-agent"
+                autoFocus
+                style={{
+                  flex: 1, padding: '18px 20px',
+                  fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 600, color: '#e8e8f0',
+                  background: 'none', border: 'none', outline: 'none', minWidth: 0,
+                  letterSpacing: '-0.01em',
+                }}
+              />
+              <div style={{
+                padding: '18px 20px', fontFamily: 'var(--font-mono)', fontSize: 22,
+                color: '#4f7df3', fontWeight: 700,
+                background: 'rgba(79,125,243,0.06)',
+                borderLeft: '2px solid rgba(79,125,243,0.15)',
+                whiteSpace: 'nowrap', display: 'flex', alignItems: 'center',
+                letterSpacing: '-0.01em',
+              }}>
+                .agentid
+              </div>
+            </div>
+
+            <div style={{ marginTop: 10, height: 20, display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 4 }}>
+              {handle.length >= 1 && handle.length < 3 && (
+                <span style={{ fontSize: 12, color: 'rgba(232,232,240,0.3)' }}>Minimum 3 characters</span>
+              )}
+              {handle.length >= 3 && checkingHandle && (
+                <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: 'rgba(232,232,240,0.3)' }} />
+                <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.3)' }}>Checking availability…</span></>
+              )}
+              {handle.length >= 3 && !checkingHandle && available === true && (
+                <><Check size={14} color="#34d399" />
+                <span style={{ fontSize: 13, color: '#34d399', fontWeight: 500 }}>{handle}.agentid is available</span></>
+              )}
+              {handle.length >= 3 && !checkingHandle && available === false && (
+                <><AlertCircle size={14} color="#f87171" />
+                <span style={{ fontSize: 13, color: '#f87171' }}>This handle is taken — try another</span></>
+              )}
+            </div>
+          </div>
+
+          {/* Display name (optional) */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={labelStyle}>Display name (optional)</div>
             <input
-              value={agentName} onChange={e => setAgentName(e.target.value)}
-              placeholder="My Research Agent"
+              value={agentName}
+              onChange={e => setAgentName(e.target.value)}
+              placeholder={handle ? handle.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'My Research Agent'}
               style={{
-                width: '100%', padding: '12px 14px', borderRadius: 10,
+                width: '100%', padding: '12px 16px', borderRadius: 10,
                 background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
                 fontFamily: 'var(--font-body)', fontSize: 15, color: '#e8e8f0',
                 outline: 'none', boxSizing: 'border-box',
@@ -667,77 +747,74 @@ export function GetStarted() {
             />
           </div>
 
-          <div>
-            <div style={labelStyle}>Handle</div>
-            <div style={{
-              display: 'flex', alignItems: 'center',
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 10, overflow: 'hidden',
-            }}>
-              <input
-                value={handle}
-                onChange={e => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                placeholder="my-agent"
-                style={{
-                  flex: 1, padding: '12px 14px',
-                  fontFamily: 'var(--font-body)', fontSize: 15, color: '#e8e8f0',
-                  background: 'none', border: 'none', outline: 'none', minWidth: 0,
-                }}
-              />
-              <div style={{
-                padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 14,
-                color: '#4f7df3', fontWeight: 500,
-                borderLeft: '1px solid rgba(255,255,255,0.06)',
-                background: 'rgba(79,125,243,0.04)', whiteSpace: 'nowrap',
-              }}>.agentid</div>
+          {/* Why the handle matters */}
+          <div style={{
+            marginBottom: 20, padding: '16px 18px', borderRadius: 12,
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
+              {[
+                { icon: <Globe size={13} color="#4f7df3" />, text: 'Public profile at your-agent.agentid' },
+                { icon: <Users size={13} color="#4f7df3" />, text: 'Discoverable by other agents' },
+                { icon: <Zap size={13} color="#4f7df3" />, text: 'Routing & messaging address' },
+                { icon: <Shield size={13} color="#4f7df3" />, text: 'Portable — yours forever' },
+              ].map(({ icon, text }) => (
+                <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <div style={{ marginTop: 1, flexShrink: 0 }}>{icon}</div>
+                  <span style={{ fontSize: 12, color: 'rgba(232,232,240,0.45)', lineHeight: 1.45 }}>{text}</span>
+                </div>
+              ))}
             </div>
-            {handle.length >= 3 && (
-              <div style={{ marginTop: 8, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {checkingHandle ? (
-                  <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite', color: 'rgba(232,232,240,0.3)' }} /> Checking...</>
-                ) : available === true ? (
-                  <span style={{ color: '#34d399' }}><Check size={12} style={{ display: 'inline' }} /> Available</span>
-                ) : available === false ? (
-                  <span style={{ color: '#f87171' }}><AlertCircle size={12} style={{ display: 'inline' }} /> Handle taken</span>
-                ) : null}
-              </div>
-            )}
-            {handlePrice && handlePrice.annualPrice !== null && (
-              <div style={{ marginTop: 6, fontSize: 12, color: 'rgba(232,232,240,0.3)' }}>
-                {handlePrice.annualPrice > 0
-                  ? `${handle.length <= 3 ? 'Premium' : handle.length === 4 ? 'Standard' : 'Basic'} handle  -  $${handlePrice.annualPrice}/yr`
-                  : 'Included with plan'}
-              </div>
-            )}
           </div>
 
-          <div>
-            <div style={labelStyle}>Description (optional)</div>
-            <textarea
-              value={description} onChange={e => setDescription(e.target.value)}
-              placeholder="What does your agent do?"
-              style={{
-                width: '100%', minHeight: 72, padding: '12px 14px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                fontFamily: 'var(--font-body)', fontSize: 15, color: '#e8e8f0',
-                lineHeight: 1.5, boxSizing: 'border-box', resize: 'vertical', outline: 'none',
-              }}
-            />
+          {/* Plan context — included benefit or upsell */}
+          {handle.length >= 3 && !checkingHandle && available === true && (
+            handleIncluded ? (
+              <div style={{
+                marginBottom: 20, padding: '14px 16px', borderRadius: 10,
+                background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)',
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <Check size={15} color="#34d399" style={{ flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#34d399', marginBottom: 2 }}>
+                    Included with your {selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)} plan
+                  </div>
+                  <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)' }}>
+                    Standard handles (5+ characters) are included at no extra cost.
+                  </div>
+                </div>
+              </div>
+            ) : handlePrice && handlePrice.annualPrice !== null && handlePrice.annualPrice > 0 ? (
+              <div style={{
+                marginBottom: 20, padding: '14px 16px', borderRadius: 10,
+                background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', marginBottom: 4 }}>
+                  {handleLen <= 3 ? 'Ultra-premium' : handleLen === 4 ? 'Premium' : 'Standard'} handle — ${handlePrice.annualPrice}/yr
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
+                  Upgrade to Starter or Pro to include a standard handle (5+ chars) at no extra charge.{' '}
+                  <a href="/pricing" style={{ color: '#f59e0b', textDecoration: 'underline' }}>See plans →</a>
+                </div>
+              </div>
+            ) : null
+          )}
+
+          {error && (
+            <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: 13 }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <GhostBtn onClick={() => { setStep('intent'); setError(null); }}>Back</GhostBtn>
+            <PrimaryBtn onClick={() => { setError(null); setStep('wizard-capabilities'); }} disabled={!canContinue}>
+              Continue <ArrowRight size={16} />
+            </PrimaryBtn>
           </div>
         </div>
-
-        {error && (
-          <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: 13 }}>
-            {error}
-          </div>
-        )}
-
-        <div style={{ marginTop: 28, display: 'flex', gap: 10, justifyContent: 'center' }}>
-          <GhostBtn onClick={() => { setStep('intent'); setError(null); }}>Back</GhostBtn>
-          <PrimaryBtn onClick={() => { setError(null); setStep('wizard-capabilities'); }} disabled={!canContinue}>
-            Continue <ArrowRight size={16} />
-          </PrimaryBtn>
-        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     );
   }
@@ -749,7 +826,7 @@ export function GetStarted() {
         setSelectedCaps={setSelectedCaps}
         error={error}
         submitting={submitting}
-        onBack={() => setStep('wizard-identity')}
+        onBack={() => setStep('wizard-handle')}
         onNext={handleCreateAgent}
       />
     );
@@ -757,22 +834,6 @@ export function GetStarted() {
 
   if (step === 'token-display') {
     const APP_URL = window.location.origin;
-    const chatPrompt = `I've registered you on Agent ID. Your claim token is:
-
-${claimToken}
-
-Use this token to activate your identity by calling:
-
-POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim
-Content-Type: application/json
-
-{
-  "token": "${claimToken}",
-  "publicKey": "<your-ed25519-public-key>",
-  "keyType": "ed25519"
-}
-
-This will return a challenge. Sign it with your private key, then POST to /api/v1/bootstrap/activate to receive your API key and complete activation.`;
 
     const sdkSnippet = `import { AgentID } from '@agentid/sdk';
 
@@ -780,10 +841,10 @@ const agent = await AgentID.activate({
   claimToken: '${claimToken}',
 });
 
-// agent.identity  -  public identity (safe for system prompt)
-// agent.secrets.apiKey  -  store in env vars only`;
+// agent.identity  —  safe for system prompt
+// agent.secrets.apiKey  —  store in env vars only`;
 
-    const curlSnippet = `# Step 1: Claim
+    const curlSnippet = `# Step 1: Claim your identity
 curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim \\
   -H "Content-Type: application/json" \\
   -d '{"token":"${claimToken}","publicKey":"<ed25519-pub>","keyType":"ed25519"}'
@@ -791,136 +852,200 @@ curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim \\
 # Step 2: Sign the returned challenge, then activate
 curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/activate \\
   -H "Content-Type: application/json" \\
-  -d '{"agentId":"${createdAgentId}","kid":"<kid>","challenge":"<challenge>","signature":"<sig>","claimToken":"${claimToken}"}'`;
+  -d '{"agentId":"${createdAgentId}","challenge":"<challenge>","signature":"<sig>","claimToken":"${claimToken}"}'`;
+
+    const chatPrompt = `I've registered you on Agent ID. Your claim token is:
+
+${claimToken}
+
+Activate your identity by calling:
+POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim
+with your ed25519 public key, then sign the challenge and POST to /bootstrap/activate.`;
 
     const tabs = [
-      { id: 'chat' as const, label: 'Chat Prompt' },
-      { id: 'sdk' as const, label: 'SDK' },
+      { id: 'sdk' as const, label: 'SDK (recommended)' },
       { id: 'api' as const, label: 'API (cURL)' },
+      { id: 'chat' as const, label: 'Chat Prompt' },
     ];
 
     const snippets = { chat: chatPrompt, sdk: sdkSnippet, api: curlSnippet };
 
     return (
       <div style={pageStyle}>
-        <StepIndicator steps={['intent', 'identity', 'capabilities', 'activate']} current={3} />
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 16, margin: '0 auto 16px',
-            background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Bot size={28} color="#fff" />
-          </div>
-          <h1 style={{ ...titleStyle, marginBottom: 4 }}>Give this to your agent</h1>
-          <p style={subtitleStyle}>
-            Your agent <strong style={{ color: '#e8e8f0' }}>{agentName}</strong>
-            {handle ? ` (${handle}.agentid)` : ''} has been created in draft mode.
-            Share the claim token below with your agent — it will connect to this identity during setup and self-activate.
-          </p>
-        </div>
+        <StepIndicator steps={['handle', 'capabilities', 'activate']} current={2} />
 
-        <Card style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div style={labelStyle}>Claim Token</div>
-            <CopyButton text={claimToken || ''} />
+        {/* Success summary */}
+        <div style={{
+          padding: '28px', borderRadius: 18,
+          background: 'rgba(8,10,22,0.98)',
+          border: '1px solid rgba(52,211,153,0.2)',
+          marginBottom: 24,
+          boxShadow: '0 0 40px rgba(52,211,153,0.06)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12,
+              background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <Bot size={22} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#e8e8f0', fontFamily: 'var(--font-heading)' }}>
+                {agentName || handle}<span style={{ color: '#4f7df3' }}>.agentid</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                {handle}.getagent.id
+              </div>
+            </div>
+            <div style={{ marginLeft: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 6px rgba(52,211,153,0.5)' }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#34d399', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>REGISTERED</span>
+              </div>
+            </div>
           </div>
-          <div style={{
-            padding: '12px 14px', borderRadius: 8,
-            background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)',
-            fontFamily: 'var(--font-mono)', fontSize: 12, color: '#a5bdfc',
-            wordBreak: 'break-all', lineHeight: 1.6, userSelect: 'all',
-          }}>
-            {claimToken}
-          </div>
-        </Card>
 
-        <Card style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            {tabs.map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-                padding: '10px 16px', fontSize: 13, fontWeight: 500,
-                color: activeTab === tab.id ? '#4f7df3' : 'rgba(232,232,240,0.4)',
-                background: 'transparent', border: 'none',
-                borderBottom: activeTab === tab.id ? '2px solid #4f7df3' : '2px solid transparent',
-                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            {[
+              { label: 'Handle', value: `${handle}.agentid`, color: '#4f7df3' },
+              { label: 'Profile', value: 'Public & ready', color: '#34d399' },
+              { label: 'Issued', value: new Date().toISOString().split('T')[0], color: 'rgba(232,232,240,0.4)' },
+            ].map(f => (
+              <div key={f.label} style={{
+                padding: '12px 14px', borderRadius: 10,
+                background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)',
               }}>
-                {tab.label}
-              </button>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.12em', color: 'rgba(232,232,240,0.25)', marginBottom: 5, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>{f.label}</div>
+                <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: f.color, fontWeight: 500 }}>{f.value}</div>
+              </div>
             ))}
           </div>
-          <div style={{ position: 'relative' }}>
-            <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
-              <CopyButton text={snippets[activeTab]} />
-            </div>
-            <pre style={{
-              padding: '14px', borderRadius: 8,
-              background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)',
-              fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(232,232,240,0.7)',
-              lineHeight: 1.6, overflow: 'auto', maxHeight: 300, margin: 0,
-              whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-            }}>
-              {snippets[activeTab]}
-            </pre>
-          </div>
-        </Card>
+        </div>
 
-        <Card style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          borderColor: agentActivated ? 'rgba(16,185,129,0.3)' : 'rgba(79,125,243,0.15)',
-          background: agentActivated ? 'rgba(16,185,129,0.06)' : 'rgba(79,125,243,0.04)',
-        }}>
-          {agentActivated ? (
-            <Check size={20} style={{ color: '#34d399', flexShrink: 0 }} />
-          ) : (
-            <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: '#4f7df3', flexShrink: 0 }} />
-          )}
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: agentActivated ? '#34d399' : '#e8e8f0' }}>
-              {agentActivated ? 'Agent activated!' : 'Waiting for agent to claim...'}
+        {/* Primary CTA — connect agent */}
+        <div style={{ marginBottom: 24, textAlign: 'center' }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#e8e8f0', marginBottom: 6 }}>
+            Next: connect your agent
+          </h2>
+          <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', marginBottom: 20, lineHeight: 1.6 }}>
+            Give your agent its claim token so it can activate its identity and start operating as <strong style={{ color: '#e8e8f0' }}>{handle}.agentid</strong>.
+          </p>
+
+          <Card style={{ marginBottom: 16, textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={labelStyle}>Claim Token</div>
+              <CopyButton text={claimToken || ''} />
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', marginTop: 2 }}>
-              {agentActivated
-                ? 'Your agent has successfully claimed its identity and is now active.'
-                : 'This page will automatically advance once your agent uses the claim token.'}
+            <div style={{
+              padding: '12px 14px', borderRadius: 8,
+              background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)',
+              fontFamily: 'var(--font-mono)', fontSize: 12, color: '#a5bdfc',
+              wordBreak: 'break-all', lineHeight: 1.6, userSelect: 'all',
+            }}>
+              {claimToken}
+            </div>
+          </Card>
+
+          {/* Activation status */}
+          <div style={{
+            padding: '14px 18px', borderRadius: 12,
+            background: agentActivated ? 'rgba(16,185,129,0.08)' : 'rgba(79,125,243,0.06)',
+            border: `1px solid ${agentActivated ? 'rgba(16,185,129,0.25)' : 'rgba(79,125,243,0.15)'}`,
+            display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            {agentActivated ? (
+              <Check size={18} style={{ color: '#34d399', flexShrink: 0 }} />
+            ) : (
+              <Loader2 size={18} style={{ animation: 'spin 1s linear infinite', color: '#4f7df3', flexShrink: 0 }} />
+            )}
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: agentActivated ? '#34d399' : '#e8e8f0' }}>
+                {agentActivated ? 'Agent activated!' : 'Waiting for your agent to connect…'}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', marginTop: 2 }}>
+                {agentActivated
+                  ? 'Your agent has claimed its identity and is now active on the network.'
+                  : 'This page updates automatically once your agent uses the claim token.'}
+              </div>
             </div>
           </div>
-        </Card>
+        </div>
 
         {agentActivated && (
-          <div style={{ marginTop: 24, textAlign: 'center' }}>
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
             <PrimaryBtn onClick={() => navigate('/dashboard')}>
-              Go to Dashboard <ArrowRight size={16} />
+              Open Dashboard <ArrowRight size={16} />
             </PrimaryBtn>
           </div>
         )}
+
+        {/* Progressive disclosure — bootstrap details */}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 20 }}>
+          <button
+            onClick={() => setShowConnectDetails(v => !v)}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              padding: '8px 0', color: 'rgba(232,232,240,0.4)', fontSize: 13,
+            }}
+          >
+            <span>Connection details (SDK &amp; API)</span>
+            <span style={{ fontSize: 12, opacity: 0.6 }}>{showConnectDetails ? '▲ Hide' : '▼ Show'}</span>
+          </button>
+
+          {showConnectDetails && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                {tabs.map(tab => (
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+                    padding: '8px 14px', fontSize: 12, fontWeight: 500,
+                    color: activeTab === tab.id ? '#4f7df3' : 'rgba(232,232,240,0.4)',
+                    background: 'transparent', border: 'none',
+                    borderBottom: activeTab === tab.id ? '2px solid #4f7df3' : '2px solid transparent',
+                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                  }}>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
+                  <CopyButton text={snippets[activeTab]} />
+                </div>
+                <pre style={{
+                  padding: '14px', borderRadius: 8,
+                  background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)',
+                  fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(232,232,240,0.7)',
+                  lineHeight: 1.6, overflow: 'auto', maxHeight: 300, margin: 0,
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                }}>
+                  {snippets[activeTab]}
+                </pre>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: 24, textAlign: 'center' }}>
+          <button
+            onClick={() => navigate('/dashboard')}
+            style={{
+              background: 'none', border: 'none', color: 'rgba(232,232,240,0.35)', fontSize: 13,
+              cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline',
+            }}
+          >
+            Go to dashboard &rarr;
+          </button>
+        </div>
+
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     );
   }
 
   if (step === 'claim-existing') {
     const APP_URL = window.location.origin;
-
-    const chatPrompt = ownerToken ? `I want to register you on Agent ID and link you to my account.
-
-Here is my owner token (valid for 24 hours):
-${ownerToken}
-
-Register yourself by calling:
-
-POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/register
-Content-Type: application/json
-
-{
-  "handle": "<choose-your-handle>",
-  "displayName": "<your-name>",
-  "publicKey": "<your-ed25519-public-key-base64>",
-  "keyType": "ed25519",
-  "capabilities": ["research", "code"],
-  "ownerToken": "${ownerToken}"
-}
-
-This will return a challenge. Sign it with your private key and POST to /api/v1/programmatic/agents/verify to complete activation.` : '';
 
     const sdkSnippet = ownerToken ? `import { AgentID } from '@agentid/sdk';
 
@@ -951,35 +1076,50 @@ curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/ver
   -H "Content-Type: application/json" \\
   -d '{"agentId":"<agentId>","kid":"<kid>","challenge":"<challenge>","signature":"<sig>"}'` : '';
 
+    const chatPrompt = ownerToken ? `I want to register you on Agent ID and link you to my account.
+
+Owner token (valid 24 hours):
+${ownerToken}
+
+Register by calling:
+POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/register
+Authorization: Bearer ${ownerToken}
+
+{
+  "handle": "<choose-your-handle>",
+  "displayName": "<your-name>",
+  "capabilities": ["research", "code"]
+}` : '';
+
     const tabs = [
-      { id: 'chat' as const, label: 'Chat Prompt' },
       { id: 'sdk' as const, label: 'SDK' },
       { id: 'api' as const, label: 'API (cURL)' },
+      { id: 'chat' as const, label: 'Chat Prompt' },
     ];
 
     const snippets = { chat: chatPrompt, sdk: sdkSnippet, api: curlSnippet };
 
     return (
       <div style={pageStyle}>
-        <StepIndicator steps={['intent', 'link']} current={1} />
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <StepIndicator steps={['link']} current={0} />
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div style={{
-            width: 56, height: 56, borderRadius: 16, margin: '0 auto 16px',
+            width: 52, height: 52, borderRadius: 14, margin: '0 auto 16px',
             background: 'linear-gradient(135deg, #34d399, #4f7df3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Link2 size={28} color="#fff" />
+            <Link2 size={24} color="#fff" />
           </div>
-          <h1 style={titleStyle}>Link your agent</h1>
-          <p style={subtitleStyle}>
-            Give your running agent this owner token. It will register and link itself to your account, then automatically appear on your dashboard.
+          <h1 style={{ ...titleStyle, textAlign: 'center' }}>Connect an existing agent</h1>
+          <p style={{ ...subtitleStyle, textAlign: 'center' }}>
+            Give your running agent this owner token. It will register itself and appear on your dashboard automatically.
           </p>
         </div>
 
         {loadingOwnerToken ? (
           <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 40 }}>
             <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: '#4f7df3' }} />
-            <span style={{ color: 'rgba(232,232,240,0.5)', fontSize: 14 }}>Generating owner token...</span>
+            <span style={{ color: 'rgba(232,232,240,0.5)', fontSize: 14 }}>Generating owner token…</span>
           </Card>
         ) : ownerToken ? (
           <>
@@ -997,7 +1137,7 @@ curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/ver
                 {ownerToken}
               </div>
               <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(232,232,240,0.25)' }}>
-                Valid for 24 hours. Single-use.
+                Valid for 24 hours · Single-use
               </div>
             </Card>
 
@@ -1039,25 +1179,29 @@ curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/ver
               <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: '#4f7df3', flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: '#e8e8f0' }}>
-                  Waiting for agent to register...
+                  Waiting for your agent…
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', marginTop: 2 }}>
-                  This page will automatically advance once your agent uses the owner token.
+                  This page updates automatically once your agent registers.
                 </div>
               </div>
             </Card>
           </>
         ) : null}
 
-        {error && (
-          <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: 13 }}>
-            {error}
-          </div>
-        )}
-
         <div style={{ marginTop: 24, textAlign: 'center' }}>
-          <GhostBtn onClick={() => { setStep('intent'); setError(null); }}>Back</GhostBtn>
+          <button
+            onClick={() => navigate('/dashboard')}
+            style={{
+              background: 'none', border: 'none', color: 'rgba(232,232,240,0.35)', fontSize: 13,
+              cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline',
+            }}
+          >
+            Go to dashboard &rarr;
+          </button>
         </div>
+
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     );
   }
@@ -1073,10 +1217,11 @@ curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/ver
           }}>
             <Check size={32} color="#fff" />
           </div>
-          <h1 style={{ ...titleStyle, fontSize: 32, marginBottom: 12 }}>You're all set!</h1>
-          <p style={{ ...subtitleStyle, marginBottom: 40 }}>
-            Your agent is live on Agent ID with a verified identity, trust score, and wallet.
-            Head to your dashboard to configure endpoints, manage integrations, and monitor activity.
+          <h1 style={{ ...titleStyle, fontSize: 32, marginBottom: 12, textAlign: 'center' }}>
+            Agent connected!
+          </h1>
+          <p style={{ ...subtitleStyle, marginBottom: 40, textAlign: 'center' }}>
+            Your agent is live on Agent ID with a verified identity, public profile, and routing address.
           </p>
           <PrimaryBtn onClick={() => navigate('/dashboard')}>
             Open Dashboard <ArrowRight size={16} />
