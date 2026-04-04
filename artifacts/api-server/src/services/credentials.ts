@@ -12,6 +12,7 @@ import {
 } from "@workspace/db/schema";
 import { env } from "../lib/env";
 import { logger } from "../middlewares/request-logger";
+import { generateHandleCardSvgDataUri } from "../lib/handle-card-svg";
 
 const CREDENTIAL_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -447,6 +448,7 @@ export async function buildErc8004(handle: string) {
     name: agent.displayName,
     description: agent.description || null,
     image: agent.avatarUrl || (agent.handle ? `${APP_URL}/api/v1/handles/${agent.handle}/image.svg` : null),
+    image_data: agent.handle ? generateHandleCardSvgDataUri(agent.handle) : null,
     active: agent.status === "active",
     x402Support,
     supportedTrust: ["unverified", "basic", "verified", "trusted"],
