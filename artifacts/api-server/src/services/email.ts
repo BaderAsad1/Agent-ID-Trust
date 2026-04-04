@@ -212,7 +212,16 @@ export async function sendMagicLinkEmail(
       return;
     }
     const { subject, html } = renderTemplate({ type: "magic_link", data: { magicUrl } });
-    await deliverEmail(recipientEmail, subject, html);
+    const magicLinkEnvelope = {
+      ...envelope(recipientEmail, subject, html),
+      noRetry: true,
+    };
+    const result = await deliverOutbound(magicLinkEnvelope);
+    if (result.success) {
+      logger.info({ recipient: recipientEmail, provider: result.providerName, providerMessageId: result.providerMessageId }, "[email] Magic link email sent");
+    } else {
+      logger.error({ recipient: recipientEmail, provider: result.providerName, error: result.error }, "[email] Magic link email delivery failed");
+    }
   } catch (err) {
     logger.error({ recipient: recipientEmail, error: err instanceof Error ? err.message : String(err) }, "[email] Failed to send magic link email");
     throw err;
