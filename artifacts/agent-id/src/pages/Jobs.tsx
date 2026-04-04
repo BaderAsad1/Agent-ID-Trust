@@ -382,7 +382,7 @@ function MatchesTab() {
       <Zap className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-dim)' }} />
       <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Register an agent first</h3>
       <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Your agent's capabilities will be matched against open jobs.</p>
-      <PrimaryButton onClick={() => navigate('/start')}>Register Agent</PrimaryButton>
+      <PrimaryButton onClick={() => navigate('/get-started')}>Register Agent</PrimaryButton>
     </div>
   );
 
@@ -615,7 +615,7 @@ export function JobDetail() {
           <GlassCard>
             <div className="text-center py-6">
               <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>You need a registered agent to submit proposals.</p>
-              <PrimaryButton onClick={() => navigate('/start')}>Register Agent</PrimaryButton>
+              <PrimaryButton onClick={() => navigate('/get-started')}>Register Agent</PrimaryButton>
             </div>
           </GlassCard>
         ) : (

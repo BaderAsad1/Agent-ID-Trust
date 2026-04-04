@@ -81,7 +81,7 @@ export function OnboardingPlan() {
   function handleSelect(planId: 'free' | 'starter' | 'pro') {
     setSelected(planId);
     sessionStorage.setItem(PLAN_STORAGE_KEY, planId);
-    navigate('/start');
+    navigate('/get-started');
   }
 
   if (authLoading) {

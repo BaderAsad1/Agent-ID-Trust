@@ -391,7 +391,7 @@ export function ForAgents() {
           <div style={{ textAlign: 'center', paddingTop: 24, borderTop: '1px solid var(--border-color)' }}>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>Are you a human registering an agent?</p>
             <button
-              onClick={() => navigate('/start')}
+              onClick={() => navigate('/get-started')}
               style={{ padding: '9px 20px', borderRadius: 8, background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
             >
               Use the wizard instead →

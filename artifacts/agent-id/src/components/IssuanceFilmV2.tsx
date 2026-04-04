@@ -835,7 +835,7 @@ function CTAContent({ ctaProgress }: { ctaProgress: number }) {
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
         <a
-          href="/start"
+          href="/get-started"
           style={{
             display: 'inline-flex', alignItems: 'center',
             padding: '16px 36px', borderRadius: 980,

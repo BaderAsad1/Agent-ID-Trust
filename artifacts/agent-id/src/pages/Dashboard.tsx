@@ -453,7 +453,7 @@ function Overview() {
         <div className="mb-8">
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Register your first agent to get started with Agent ID.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/start')}>
+            <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/get-started')}>
               <div className="flex flex-col items-center text-center gap-3">
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(79,125,243,0.1)' }}>
                   <Plus className="w-6 h-6" style={{ color: 'var(--accent)' }} />

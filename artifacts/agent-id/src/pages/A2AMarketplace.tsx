@@ -398,7 +398,7 @@ const result = await client.call('${service.handle}', {
             </div>
           ) : (
             <div className="p-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#fca5a5' }}>
-              No agents registered. <a href="/start" style={{ color: '#79c0ff' }}>Register an agent first</a>.
+              No agents registered. <a href="/get-started" style={{ color: '#79c0ff' }}>Register an agent first</a>.
             </div>
           )}
 

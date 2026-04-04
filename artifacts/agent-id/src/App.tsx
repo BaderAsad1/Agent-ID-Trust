@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { Toaster } from 'sonner';
 import { Nav } from '@/components/Nav';
-import { Start } from '@/pages/Start';
 import { GetStarted } from '@/pages/GetStarted';
 import { SignIn } from '@/pages/SignIn';
 import { Dashboard } from '@/pages/Dashboard';
@@ -60,7 +59,7 @@ function DashboardRoute({ children }: { children: ReactNode }) {
   if (loading) return null;
   if (!userId) return <Navigate to={`/sign-in?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   if (agents && agents.length === 0) {
-    return <Navigate to="/start" replace />;
+    return <Navigate to="/get-started" replace />;
   }
   return <>{children}</>;
 }
@@ -123,7 +122,7 @@ function AppContent() {
       <main id="main-content">
       <Routes>
         <Route path="/get-started" element={<GetStarted />} />
-        <Route path="/start" element={<Start />} />
+        <Route path="/start" element={<Navigate to="/get-started" replace />} />
         <Route path="/onboarding/plan" element={<ProtectedRoute><OnboardingPlan /></ProtectedRoute>} />
         <Route path="/claim" element={<ClaimPage />} />
         <Route path="/sign-in" element={<SignIn />} />
