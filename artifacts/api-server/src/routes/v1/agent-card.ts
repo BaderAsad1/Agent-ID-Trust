@@ -8,7 +8,10 @@ import { env } from "../../lib/env";
 
 const router = Router();
 
-router.get("/:handle", publicRateLimit, handleErc8004);
+router.get("/:handle", publicRateLimit, (req, res) => {
+  const handle = encodeURIComponent((req.params.handle as string).toLowerCase().trim());
+  res.redirect(308, `${env().APP_URL}/api/v1/nft/metadata/${handle}`);
+});
 
 export async function handleDomainVerification(
   req: import("express").Request,

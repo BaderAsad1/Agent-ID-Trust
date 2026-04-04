@@ -12,13 +12,11 @@ export function formatPromptBlock(bundle: BootstrapBundle, options?: PromptBlock
   const trustTier = bundle.trust?.tier ?? "unverified";
 
   const APP_URL = "https://getagent.id";
-  const API_URL = "https://api.getagent.id";
-
-  const agentCardUrl = handle
-    ? `${API_URL}/v1/agent-card/${handle}`
-    : `${API_URL}/v1/agent-card/${agentId}`;
+  const handleNftMetadataUrl = handle
+    ? `${APP_URL}/api/v1/nft/metadata/${handle}`
+    : null;
   const profileUrl = handle ? `${APP_URL}/${handle}` : bundle.public_profile_url || `${APP_URL}/id/${agentId}`;
-  const inboxUrl = agentId ? `${API_URL}/v1/mail/agents/${agentId}/inbox` : null;
+  const inboxUrl = agentId ? `${APP_URL}/api/v1/mail/agents/${agentId}/inbox` : null;
 
   const lines: string[] = [
     `## AgentID`,
@@ -32,7 +30,7 @@ export function formatPromptBlock(bundle: BootstrapBundle, options?: PromptBlock
     handle ? `- **Handle DID (alias)**: did:agentid:${handle}` : null,
     `- **Trust Score**: ${trustScore}/100`,
     `- **Trust Tier**: ${trustTier}`,
-    `- **Agent Card**: ${agentCardUrl}`,
+    handleNftMetadataUrl ? `- **Handle NFT Metadata**: ${handleNftMetadataUrl}` : null,
   ].filter((l) => l !== null) as string[];
 
   if (inboxUrl) {

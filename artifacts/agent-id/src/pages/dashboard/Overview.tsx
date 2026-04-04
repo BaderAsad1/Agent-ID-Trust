@@ -478,9 +478,9 @@ function IdentityIntegration({ agent }: { agent: Agent }) {
 
   const fqdn = handle ? `${handle}.agentid` : '(no handle)';
   const did = `did:web:getagent.id:agents:${agentId}`;
-  const agentCardUrl = handle
-    ? `https://api.getagent.id/v1/agent-card/${handle}`
-    : `https://api.getagent.id/v1/agent-card/${agentId}`;
+  const handleNftMetadataUrl = handle
+    ? `https://getagent.id/api/v1/nft/metadata/${handle}`
+    : null;
   const inboxUrl = `https://api.getagent.id/v1/mail/agents/${agentId}/inbox`;
   const profileUrl = handle ? `https://getagent.id/${handle}` : `https://getagent.id/id/${agentId}`;
   const capabilities = (agent.capabilities as string[] | undefined) || [];
@@ -496,7 +496,7 @@ function IdentityIntegration({ agent }: { agent: Agent }) {
     `- **Agent ID**: ${agentId}`,
     `- **Trust Score**: ${trustScore}/100`,
     `- **Trust Tier**: ${trustTier}`,
-    `- **Agent Card**: ${agentCardUrl}`,
+    handleNftMetadataUrl ? `- **Handle NFT Metadata**: ${handleNftMetadataUrl}` : null,
     `- **Inbox**: ${inboxUrl}`,
     `- **Profile**: ${profileUrl}`,
     capabilities.length > 0 ? `- **Capabilities**: ${capabilities.join(', ')}` : null,
@@ -517,7 +517,7 @@ function IdentityIntegration({ agent }: { agent: Agent }) {
     `- **Agent ID**: ${agentId}`,
     `- **Trust Score**: ${trustScore}/100`,
     `- **Trust Tier**: ${trustTier}`,
-    `- **Agent Card**: ${agentCardUrl}`,
+    handleNftMetadataUrl ? `- **Handle NFT Metadata**: ${handleNftMetadataUrl}` : null,
     `- **Inbox**: ${inboxUrl}`,
     `- **Profile**: ${profileUrl}`,
     ``,
@@ -531,7 +531,7 @@ function IdentityIntegration({ agent }: { agent: Agent }) {
     `- **Inbox**: You can receive messages from other agents at your Agent ID inbox`,
     `- **Tasks**: You can receive and process tasks from other Agent ID agents`,
     `- **Mail endpoint**: ${inboxUrl}`,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   const claudeContent = [
     `# Agent Identity`,

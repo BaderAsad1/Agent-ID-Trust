@@ -3,7 +3,7 @@
  *
  * Verifies:
  * - buildErc8004() result contains image_data as a base64 data URI
- * - GET /metadata/:handle route response includes image_data
+ * - GET /nft/metadata/:handle route response includes image_data
  * - Both derive from the same shared helper (generateHandleCardSvgDataUri)
  * - The base64-decoded value starts with <svg
  */
@@ -68,6 +68,14 @@ vi.mock("../middlewares/replit-auth", () => ({
 
 vi.mock("../services/agents", () => ({
   agentOwnerFilter: vi.fn().mockReturnValue({}),
+  validateHandle: (handle: string) => {
+    if (handle.length < 3) return "Handle must be at least 3 characters";
+    if (handle.length > 32) return "Handle must be 32 characters or fewer";
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(handle)) {
+      return "Handle must contain only lowercase letters, numbers, and hyphens, and must start and end with a letter or number";
+    }
+    return null;
+  },
 }));
 
 const MOCK_AGENT = {
@@ -180,7 +188,7 @@ describe("buildErc8004 image_data field (Task #189)", () => {
   });
 });
 
-describe("NFT metadata route GET /metadata/:handle — image_data field (Task #189)", () => {
+describe("NFT metadata route GET /nft/metadata/:handle — image_data field (Task #189)", () => {
   async function buildNftApp() {
     const app = express();
     app.use(express.json());
@@ -195,24 +203,24 @@ describe("NFT metadata route GET /metadata/:handle — image_data field (Task #1
     vi.clearAllMocks();
   });
 
-  it("GET /metadata/:handle returns image_data as a base64 data URI", async () => {
+  it("GET /nft/metadata/:handle returns image_data as a base64 data URI", async () => {
     const { db } = await import("@workspace/db");
     (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_AGENT);
 
     const app = await buildNftApp();
-    const res = await request(app).get("/metadata/alice");
+    const res = await request(app).get("/nft/metadata/alice");
 
     expect(res.status).toBe(200);
     expect(res.body.image_data).toBeDefined();
     expect(res.body.image_data).toMatch(/^data:image\/svg\+xml;base64,/);
   });
 
-  it("GET /metadata/:handle image_data decodes to SVG starting with <svg", async () => {
+  it("GET /nft/metadata/:handle image_data decodes to SVG starting with <svg", async () => {
     const { db } = await import("@workspace/db");
     (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_AGENT);
 
     const app = await buildNftApp();
-    const res = await request(app).get("/metadata/alice");
+    const res = await request(app).get("/nft/metadata/alice");
 
     expect(res.status).toBe(200);
     const b64 = res.body.image_data.replace("data:image/svg+xml;base64,", "");
@@ -220,19 +228,19 @@ describe("NFT metadata route GET /metadata/:handle — image_data field (Task #1
     expect(decoded.trimStart()).toMatch(/^<svg/);
   });
 
-  it("GET /metadata/:handle image_data matches generateHandleCardSvgDataUri output — same shared helper", async () => {
+  it("GET /nft/metadata/:handle image_data matches generateHandleCardSvgDataUri output — same shared helper", async () => {
     const { db } = await import("@workspace/db");
     (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_AGENT);
 
     const app = await buildNftApp();
-    const res = await request(app).get("/metadata/alice");
+    const res = await request(app).get("/nft/metadata/alice");
 
     expect(res.status).toBe(200);
     const expectedImageData = generateHandleCardSvgDataUri("alice");
     expect(res.body.image_data).toBe(expectedImageData);
   });
 
-  it("buildErc8004 and GET /metadata/:handle produce the same image_data for the same handle", async () => {
+  it("buildErc8004 and GET /nft/metadata/:handle produce the same image_data for the same handle", async () => {
     const { db } = await import("@workspace/db");
 
     (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_AGENT);
@@ -245,22 +253,61 @@ describe("NFT metadata route GET /metadata/:handle — image_data field (Task #1
 
     (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_AGENT);
     const app = await buildNftApp();
-    const res = await request(app).get("/metadata/alice");
+    const res = await request(app).get("/nft/metadata/alice");
 
     expect(erc8004Result).not.toBeNull();
     expect(res.status).toBe(200);
     expect(erc8004Result!.image_data).toBe(res.body.image_data);
   });
 
-  it("GET /metadata/:handle still returns image URL alongside image_data", async () => {
+  it("GET /nft/metadata/:handle still returns image URL alongside image_data", async () => {
     const { db } = await import("@workspace/db");
     (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_AGENT);
 
     const app = await buildNftApp();
-    const res = await request(app).get("/metadata/alice");
+    const res = await request(app).get("/nft/metadata/alice");
 
     expect(res.status).toBe(200);
     expect(res.body.image).toMatch(/image\.svg$/);
     expect(res.body.image_data).toBeDefined();
+  });
+
+  it("GET /nft/metadata/:handle returns handle-centric metadata even when no agent is linked", async () => {
+    const { db } = await import("@workspace/db");
+    (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const app = await buildNftApp();
+    const res = await request(app).get("/nft/metadata/launchsmoke20260403");
+
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe("launchsmoke20260403.agentid");
+    expect(res.body.description).toContain("represents the handle itself");
+    expect(res.body.image).toBe("https://getagent.id/api/v1/handles/launchsmoke20260403/image.svg");
+    expect(res.body.external_url).toBe("https://getagent.id/launchsmoke20260403");
+    expect(res.body.attributes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ trait_type: "Namespace", value: ".agentid" }),
+        expect.objectContaining({ trait_type: "Registration State", value: "unreconciled" }),
+        expect.objectContaining({ trait_type: "On-chain Status", value: "Off-chain" }),
+        expect.objectContaining({ trait_type: "Custody", value: "unassigned" }),
+      ]),
+    );
+  });
+});
+
+describe("Legacy agent-card route", () => {
+  async function buildAgentCardApp() {
+    const app = express();
+    const { default: agentCardRouter } = await import("../routes/v1/agent-card");
+    app.use("/", agentCardRouter);
+    return app;
+  }
+
+  it("redirects legacy /agent-card/:handle requests to the canonical handle NFT metadata route", async () => {
+    const app = await buildAgentCardApp();
+    const res = await request(app).get("/launchsmoke20260403");
+
+    expect(res.status).toBe(308);
+    expect(res.headers.location).toBe("https://getagent.id/api/v1/nft/metadata/launchsmoke20260403");
   });
 });
