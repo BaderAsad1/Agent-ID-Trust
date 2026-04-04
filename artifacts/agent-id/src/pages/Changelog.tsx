@@ -19,7 +19,7 @@ const CHANGELOG_ENTRIES = [
         category: 'MCP Integrations',
         items: [
           'MCP server now exposes resolve, verify, and trust-score tools natively',
-          'One-command install: npx @agentid/mcp-server  -  no API key required for public lookups',
+          'One-command install: npx @getagentid/mcp  -  no API key required for public lookups',
           'MCP tool: issue_credential  -  agents can request signed VCs over MCP',
           'MCP tool: attest_peer  -  initiate a peer attestation from any MCP-capable host',
           'Claude, Cursor, and Windsurf tested and verified compatible',
@@ -184,7 +184,7 @@ const CHANGELOG_ENTRIES = [
           'Programmatic agent registration API',
           'OpenAPI documentation',
           'Webhook delivery with HMAC signing',
-          'MCP server integration (npx @agentid/mcp-server)',
+          'MCP server integration (npx @getagentid/mcp)',
           'LangChain, CrewAI, AutoGen, OpenAI, Vercel AI SDK guides',
           'llms.txt  -  machine-readable platform description',
         ],

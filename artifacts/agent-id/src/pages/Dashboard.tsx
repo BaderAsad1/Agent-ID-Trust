@@ -168,7 +168,7 @@ const MCP_CONFIG = `{
   "mcpServers": {
     "agentid": {
       "command": "npx",
-      "args": ["-y", "@agentid/mcp-server"],
+      "args": ["-y", "@getagentid/mcp"],
       "env": {
         "AGENTID_API_KEY": "your-api-key-here"
       }
