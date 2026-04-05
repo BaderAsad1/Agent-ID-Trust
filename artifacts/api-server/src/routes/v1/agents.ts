@@ -190,14 +190,26 @@ router.post("/", requireAuth, async (req, res, next) => {
         }
 
         if (!isEligibleForIncludedHandle(userPlan)) {
+          // User doesn't have an included handle benefit — route them to the paid checkout
+          // (same flow as premium handles). Standard handles are $9/yr for non-plan users.
           res.status(402).json({
-            code: "PLAN_REQUIRED",
-            message: "Standard handles (5+ characters) are included with Starter or Pro plans. Enterprise handles are provisioned via custom entitlement. Upgrade at /pricing to register a handle.",
+            code: "HANDLE_PAYMENT_REQUIRED",
+            message: `Standard handles (5+ characters) are included free with Starter or Pro plans, or available for $${(handlePriceCents / 100).toFixed(2)}/year. Use POST /api/v1/billing/handle-checkout to start checkout.`,
             handle: normalizedHandle,
+            priceCents: handlePriceCents,
+            priceDollars: handlePriceCents / 100,
             tier: pricingTier,
             characterLength: handleLen,
             includedWithPaidPlan: true,
+            checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
             upgradeUrl: `${APP_URL}/pricing`,
+            handlePricing: {
+              annualPriceCents: handlePriceCents,
+              annualPriceDollars: handlePriceCents / 100,
+              tier: pricingTier,
+              characterLength: handleLen,
+              includedWithPaidPlan: true,
+            },
           });
           return;
         }
