@@ -344,6 +344,8 @@ router.post("/auth/magic-link/send", magicLinkSendRateLimit, async (req: Request
     await sendMagicLinkEmail(email, magicUrl);
   } catch (err) {
     logger.error({ err, email }, "Failed to send magic link email");
+    res.status(500).json({ error: "EMAIL_SEND_FAILED", message: "Failed to send sign-in email. Please try again." });
+    return;
   }
 
   res.json({ sent: true, email });
