@@ -36,7 +36,7 @@ import { generateClaimToken } from "../../utils/claim-token";
 import { db } from "@workspace/db";
 import type { Agent as DbAgent } from "@workspace/db";
 import { apiKeysTable, usersTable, agentsTable, agentClaimTokensTable, agentKeysTable, ownerTokensTable } from "@workspace/db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, sql } from "drizzle-orm";
 import { hashClaimToken } from "../../utils/crypto";
 import { getRedis, isRedisConfigured } from "../../lib/redis";
 import { recoveryRateLimit, registrationRateLimitStrict, challengeRateLimit } from "../../middlewares/rate-limit";
@@ -301,40 +301,67 @@ router.post("/agents/register", registrationRateLimitStrict, async (req, res, ne
     const tCreateAgent = performance.now();
     let agent: DbAgent & Record<string, unknown>;
     try {
-      agent = await createAgent({
-        userId: ownerId,
-        handle: requestedHandle ?? null,
-        displayName,
-        description,
-        capabilities,
-        endpointUrl,
-        isPublic: false,
-      });
-      if (requestedHandle && agent.handle === requestedHandle.toLowerCase()) {
-        const oneYearFromNow = new Date();
-        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-        const tierInfo = getHandleTier(requestedHandle);
-        const grantingSubscriptionId = (req as unknown as Record<string, unknown>)._grantingSubscriptionId as string | undefined;
-        await db.update(agentsTable).set({
-          handleTier: tierInfo.tier,
-          handlePaid: true,
-          handleRegisteredAt: new Date(),
-          handleExpiresAt: oneYearFromNow,
-          updatedAt: new Date(),
-          // Record the Stripe subscription ID that granted this handle for audit trail
-          ...(grantingSubscriptionId ? {
-            metadata: { grantingSubscriptionId },
-          } : {}),
-        }).where(eq(agentsTable.id, agent.id));
-        agent = {
-          ...agent,
-          handleTier: tierInfo.tier,
-          handlePaid: true,
-          handleRegisteredAt: new Date(),
-          handleExpiresAt: oneYearFromNow,
-        };
+      if (requestedHandle) {
+        // Acquire a Postgres session-level advisory lock on the handle before creation to close
+        // the race window between the availability check above and the DB insert below.
+        // Mirrors the same pattern used in the human registration route (agents.ts).
+        agent = await db.transaction(async (tx) => {
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${requestedHandle!}))`);
+
+          // Re-confirm availability inside the lock — a concurrent request may have
+          // won the race between our outer check and this transaction.
+          const existingRow = await tx.query.agentsTable.findFirst({
+            where: sql`lower(${agentsTable.handle}) = lower(${requestedHandle!})`,
+            columns: { id: true },
+          });
+          if (existingRow) {
+            throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
+          }
+
+          const created = await createAgent({
+            userId: ownerId,
+            handle: requestedHandle ?? null,
+            displayName,
+            description,
+            capabilities,
+            endpointUrl,
+            isPublic: false,
+          });
+
+          const oneYearFromNow = new Date();
+          oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+          const tierInfo = getHandleTier(requestedHandle!);
+          const grantingSubscriptionId = (req as unknown as Record<string, unknown>)._grantingSubscriptionId as string | undefined;
+          await tx.update(agentsTable).set({
+            handleTier: tierInfo.tier,
+            handlePaid: true,
+            handleRegisteredAt: new Date(),
+            handleExpiresAt: oneYearFromNow,
+            updatedAt: new Date(),
+            ...(grantingSubscriptionId ? { metadata: { grantingSubscriptionId } } : {}),
+          }).where(eq(agentsTable.id, created.id));
+
+          return {
+            ...created,
+            handleTier: tierInfo.tier,
+            handlePaid: true,
+            handleRegisteredAt: new Date(),
+            handleExpiresAt: oneYearFromNow,
+          } as DbAgent & Record<string, unknown>;
+        });
+      } else {
+        agent = await createAgent({
+          userId: ownerId,
+          handle: null,
+          displayName,
+          description,
+          capabilities,
+          endpointUrl,
+          isPublic: false,
+        }) as DbAgent & Record<string, unknown>;
       }
     } catch (err) {
+      if (err instanceof AppError) throw err;
       if (err instanceof Error && err.message === "HANDLE_CONFLICT") {
         throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
       }
@@ -374,24 +401,27 @@ router.post("/agents/register", registrationRateLimitStrict, async (req, res, ne
             ),
           });
           if (tokenRecord && new Date() < tokenRecord.expiresAt) {
-            // Additional guard: token must belong to the authenticated user making this request
+            // Additional guard: token must belong to the authenticated user making this request.
+            // Hard-fail rather than silently skip — caller needs to know their token was rejected
+            // so they can investigate (wrong account, token generated by a different user, etc.).
             if (tokenRecord.userId !== req.userId) {
-              logger.warn({ agentId: agent.id, tokenUserId: tokenRecord.userId, requestUserId: req.userId }, "[programmatic] C5: ownerToken userId mismatch — rejecting");
-            } else {
-              await db.transaction(async (tx) => {
-                await tx.update(agentsTable).set({
-                  ownerUserId: tokenRecord.userId,
-                  isClaimed: true,
-                  claimedAt: new Date(),
-                  updatedAt: new Date(),
-                }).where(eq(agentsTable.id, agent.id));
-                await tx.update(ownerTokensTable).set({ used: true }).where(eq(ownerTokensTable.id, tokenRecord.id));
-              });
-              agent = { ...agent, ownerUserId: tokenRecord.userId, isClaimed: true, claimedAt: new Date() };
+              throw new AppError(403, "OWNER_TOKEN_USER_MISMATCH", "The owner token was generated by a different account. Generate a new token from the account you are currently authenticated as.");
             }
+            await db.transaction(async (tx) => {
+              await tx.update(agentsTable).set({
+                ownerUserId: tokenRecord.userId,
+                isClaimed: true,
+                claimedAt: new Date(),
+                updatedAt: new Date(),
+              }).where(eq(agentsTable.id, agent.id));
+              await tx.update(ownerTokensTable).set({ used: true }).where(eq(ownerTokensTable.id, tokenRecord.id));
+            });
+            agent = { ...agent, ownerUserId: tokenRecord.userId, isClaimed: true, claimedAt: new Date() };
           }
-        } catch {
-          logger.warn({ agentId: agent.id }, "[programmatic] Failed to link owner token, continuing without linking");
+        } catch (ownerTokenErr) {
+          // Re-throw AppErrors (intentional failures like user mismatch); swallow transient DB errors
+          if (ownerTokenErr instanceof AppError) throw ownerTokenErr;
+          logger.warn({ agentId: agent.id }, "[programmatic] Failed to link owner token due to transient error, continuing without linking");
         }
       }
     }
