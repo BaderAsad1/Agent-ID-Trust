@@ -48,7 +48,9 @@ export function SignIn() {
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [cooldownSecs, setCooldownSecs] = useState(0);
 
-  const returnTo = explicitReturnTo || (isSignIn ? '/dashboard' : '/get-started');
+  // Sanitize returnTo to only allow same-origin relative paths (prevent open redirect attacks).
+  const rawReturnTo = explicitReturnTo || (isSignIn ? '/dashboard' : '/get-started');
+  const returnTo = rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//') ? rawReturnTo : '/dashboard';
 
   useEffect(() => {
     if (!cooldownUntil) return;
