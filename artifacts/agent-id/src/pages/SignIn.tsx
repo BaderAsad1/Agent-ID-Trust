@@ -1,7 +1,7 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { Mail, LockKeyhole, Zap, Star } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { AgentCredential } from '@/components/concept/AgentCredential';
 import { useHeroAnimation } from '@/components/concept/useHeroAnimation';
 import '@/components/concept/concept.css';
@@ -43,6 +43,7 @@ export function SignIn() {
   const [focused, setFocused] = useState(false);
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false); // synchronous guard — prevents double-submit before re-render
   const [emailError, setEmailError] = useState('');
   const [isSignIn, setIsSignIn] = useState(!isRegister);
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
@@ -76,11 +77,13 @@ export function SignIn() {
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
+    if (sendingRef.current) return;
     if (!email.trim() || !email.includes('@')) {
       setEmailError('Enter a valid email address.');
       return;
     }
     setEmailError('');
+    sendingRef.current = true;
     setSending(true);
     try {
       const base = `${BASE}api/auth/magic-link/send`.replace(/\/\//g, '/');
@@ -100,6 +103,7 @@ export function SignIn() {
       setEmailError('Network error. Please try again.');
     } finally {
       setSending(false);
+      sendingRef.current = false;
     }
   }
 
@@ -415,27 +419,6 @@ export function SignIn() {
                 </button>
               </>
             )}
-          </div>
-
-          {/* Trust indicators */}
-          <div style={{
-            borderRadius: 10,
-            background: 'rgba(255,255,255,0.025)',
-            border: '1px solid rgba(255,255,255,0.07)',
-            padding: '14px 16px',
-            display: 'flex', gap: 20, justifyContent: 'center',
-            marginBottom: 20,
-          }}>
-            {([
-              { icon: <LockKeyhole size={13} strokeWidth={2} color="rgba(232,232,240,0.45)" />, label: 'No password' },
-              { icon: <Zap size={13} strokeWidth={2} color="rgba(232,232,240,0.45)" />, label: 'Instant setup' },
-              { icon: <Star size={13} strokeWidth={2} color="rgba(232,232,240,0.45)" />, label: 'Free plan' },
-            ] as { icon: ReactNode; label: string }[]).map(({ icon, label }) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {icon}
-                <span style={{ fontSize: 12, color: 'rgba(232,232,240,0.38)', fontWeight: 500 }}>{label}</span>
-              </div>
-            ))}
           </div>
 
           {/* Terms */}

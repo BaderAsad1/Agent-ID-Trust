@@ -69,9 +69,16 @@ export function Pricing() {
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [agentCount, setAgentCount] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
     api.meta.stats().then(s => setAgentCount(s.agentCount)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   const handleCta = async (plan: typeof PRICING_PLANS[number]) => {
@@ -106,7 +113,7 @@ export function Pricing() {
 
   return (
     <div style={{ background: '#050711', minHeight: '100vh', fontFamily: "'Inter', sans-serif", color: '#e8e8f0', paddingTop: 64 }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '60px 32px 80px', position: 'relative' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '40px 16px 60px' : '60px 32px 80px', position: 'relative' }}>
 
         {/* Ambient glow */}
         <div style={{ position: 'absolute', top: -100, left: '50%', transform: 'translateX(-50%)', width: 900, height: 500, background: 'radial-gradient(ellipse, rgba(79,125,243,0.06) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
@@ -139,8 +146,8 @@ export function Pricing() {
             </span>
           </div>
 
-          {/* Plan cards — Gravity grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, alignItems: 'end', marginBottom: 48 }}>
+          {/* Plan cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: 12, alignItems: 'end', marginBottom: 48 }}>
             {PRICING_PLANS.map(plan => {
               const isH = plan.highlight;
               const isLoading = loadingPlan === plan.name;
@@ -258,7 +265,7 @@ export function Pricing() {
           </p>
 
           {/* Social proof */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 48, paddingBottom: 56, borderBottom: '1px solid #1a1f30', marginBottom: 72, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 24 : 48, paddingBottom: isMobile ? 36 : 56, borderBottom: '1px solid #1a1f30', marginBottom: isMobile ? 48 : 72, flexWrap: 'wrap' }}>
             {[
               { num: agentCount ? `${agentCount.toLocaleString()}+` : '', label: 'Agents registered' },
               { num: 'ERC-8004', label: 'Standard compliant' },
@@ -273,8 +280,8 @@ export function Pricing() {
           </div>
 
           {/* Handle pricing table */}
-          <div style={{ marginBottom: 72 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', textAlign: 'center', margin: '0 0 8px', color: '#e8e8f0' }}>
+          <div style={{ marginBottom: isMobile ? 48 : 72 }}>
+            <h2 style={{ fontSize: isMobile ? 20 : 22, fontWeight: 800, letterSpacing: '-0.02em', textAlign: 'center', margin: '0 0 8px', color: '#e8e8f0' }}>
               .agentid Handles
             </h2>
             <p style={{ textAlign: 'center', fontSize: 13, color: '#8690a8', marginBottom: 6 }}>Give your agent a name.</p>
@@ -282,23 +289,34 @@ export function Pricing() {
               Handles require a paid plan. Standard handles are included with Starter or Pro; Enterprise access is provisioned via custom entitlement.
             </p>
             <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1a1f30', maxWidth: 720, margin: '0 auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '10px 20px', background: '#131729', color: '#3a4258', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                <span>Length</span>
-                <span>Price</span>
-                <span>Example</span>
-                <span>Limits</span>
-              </div>
-              {HANDLE_TABLE_ROWS.map((row, i) => (
-                <div
-                  key={row.label}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '14px 20px', background: i % 2 === 0 ? '#0c0f1e' : '#050711', borderTop: '1px solid #1a1f30', alignItems: 'center' }}
-                >
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>{row.label}</span>
-                  <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4f7df3' }}>{row.price}</span>
-                  <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: '#8690a8' }}>{row.example}</span>
-                  <span style={{ fontSize: 11, color: '#3a4258' }}>{row.note}</span>
-                </div>
-              ))}
+              {isMobile ? (
+                // Mobile: stacked card layout
+                HANDLE_TABLE_ROWS.map((row, i) => (
+                  <div key={row.label} style={{ padding: '16px 18px', background: i % 2 === 0 ? '#0c0f1e' : '#050711', borderTop: i === 0 ? 'none' : '1px solid #1a1f30' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#e8e8f0' }}>{row.label}</span>
+                      <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", color: '#4f7df3', fontWeight: 600 }}>{row.price}</span>
+                    </div>
+                    <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#8690a8', marginBottom: 3 }}>{row.example}</div>
+                    <div style={{ fontSize: 11, color: '#3a4258' }}>{row.note}</div>
+                  </div>
+                ))
+              ) : (
+                // Desktop: grid table layout
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '10px 20px', background: '#131729', color: '#3a4258', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>
+                    <span>Length</span><span>Price</span><span>Example</span><span>Limits</span>
+                  </div>
+                  {HANDLE_TABLE_ROWS.map((row, i) => (
+                    <div key={row.label} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '14px 20px', background: i % 2 === 0 ? '#0c0f1e' : '#050711', borderTop: '1px solid #1a1f30', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>{row.label}</span>
+                      <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4f7df3' }}>{row.price}</span>
+                      <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: '#8690a8' }}>{row.example}</span>
+                      <span style={{ fontSize: 11, color: '#3a4258' }}>{row.note}</span>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
             <p style={{ textAlign: 'center', fontSize: 11, color: '#3a4258', marginTop: 12 }}>
               On-chain NFT minting available now for premium handles (3-4 char). All handles coming soon.
