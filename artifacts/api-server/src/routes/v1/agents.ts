@@ -90,7 +90,9 @@ const safeMetadata = z.record(
     message: "Reserved metadata key",
   }),
   z.union([z.string().max(1000), z.number(), z.boolean(), z.null()]),
-).max(50).optional();
+).refine(obj => Object.keys(obj).length <= 50, {
+  message: "Metadata may not have more than 50 keys",
+}).optional();
 
 const createAgentSchema = z.object({
   handle: z.string().min(3).max(32).optional(),
