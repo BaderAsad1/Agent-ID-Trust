@@ -296,6 +296,8 @@ export function GetStarted() {
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
   const [claimToken, setClaimToken] = useState<string | null>(null);
   const [agentActivated, setAgentActivated] = useState(false);
+  // Authoritative signal from backend: handle requires payment, agent created without it.
+  const [pendingHandleFromServer, setPendingHandleFromServer] = useState<string | null>(null);
 
   const [ownerToken, setOwnerToken] = useState<string | null>(null);
   const [loadingOwnerToken, setLoadingOwnerToken] = useState(false);
@@ -440,6 +442,13 @@ export function GetStarted() {
       const agentId = result.id;
       const token = result.claimToken ?? '';
 
+      // Backend signals that handle requires payment (benefit exhausted or premium/free-plan handle).
+      // Store this as authoritative state so the billing useEffect triggers checkout regardless of
+      // what the frontend-computed plan/pricing heuristic says.
+      if (result.pendingHandle) {
+        setPendingHandleFromServer(result.pendingHandle);
+      }
+
       setCreatedAgentId(agentId);
       setClaimToken(token);
       setStep('token-display');
@@ -488,13 +497,20 @@ export function GetStarted() {
     const len = handle.replace(/[^a-z0-9]/g, '').length;
     const isStd = len >= 5;
     const { annualPrice: rawAnnual } = getHandlePrice(handle);
-    const effectivePrice = isPaidPlan && isStd
-      ? 0
-      : isStd
-        ? FREE_PLAN_STANDARD_FEE_USD
-        : (rawAnnual ?? 0);
 
-    if (effectivePrice <= 0) return;
+    // Use the backend's authoritative signal first: if pendingHandleFromServer is set it means
+    // the backend confirmed payment is required (benefit exhausted, premium, or free-plan).
+    // Fall back to frontend-computed pricing only when the backend did not set pendingHandle
+    // (i.e. the handle was assigned immediately via the included benefit).
+    const needsPayment = pendingHandleFromServer === handle
+      ? true
+      : isPaidPlan && isStd
+        ? false
+        : isStd
+          ? FREE_PLAN_STANDARD_FEE_USD > 0
+          : (rawAnnual ?? 0) > 0;
+
+    if (!needsPayment) return;
 
     const timer = setTimeout(async () => {
       try {
@@ -510,7 +526,7 @@ export function GetStarted() {
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [createdAgentId]);
+  }, [createdAgentId, handle, isPaidPlan, pendingHandleFromServer]);
 
   const handlePrice = handle ? getHandlePrice(handle) : null;
   const handleLen = handle ? handle.replace(/[^a-z0-9]/g, '').length : 0;
@@ -682,7 +698,7 @@ export function GetStarted() {
   }
 
   if (step === 'wizard-handle') {
-    const canContinue = handle.length >= 3 && available === true;
+    const canContinue = handle.length >= 3 && available === true && !checkingHandle;
 
     return (
       <div style={{
@@ -943,11 +959,16 @@ with your ed25519 public key, then sign the challenge and POST to /bootstrap/act
             </div>
             <div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#e8e8f0', fontFamily: 'var(--font-heading)' }}>
-                {agentName || handle}<span style={{ color: '#4f7df3' }}>.agentid</span>
+                {handle
+                  ? <>{agentName || handle}<span style={{ color: '#4f7df3' }}>.agentid</span></>
+                  : <span>{agentName || 'Your Agent'}</span>
+                }
               </div>
-              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                {handle}.getagent.id
-              </div>
+              {handle && (
+                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                  {handle}.getagent.id
+                </div>
+              )}
             </div>
             <div style={{ marginLeft: 'auto' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -959,7 +980,7 @@ with your ed25519 public key, then sign the challenge and POST to /bootstrap/act
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             {[
-              { label: 'Handle', value: `${handle}.agentid`, color: '#4f7df3' },
+              { label: 'Handle', value: handle ? `${handle}.agentid` : 'None (pending)', color: handle ? '#4f7df3' : 'rgba(232,232,240,0.35)' },
               { label: 'Profile', value: 'Public & ready', color: '#34d399' },
               { label: 'Issued', value: new Date().toISOString().split('T')[0], color: 'rgba(232,232,240,0.4)' },
             ].map(f => (
@@ -980,7 +1001,7 @@ with your ed25519 public key, then sign the challenge and POST to /bootstrap/act
             Next: connect your agent
           </h2>
           <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', marginBottom: 20, lineHeight: 1.6 }}>
-            Give your agent its claim token so it can activate its identity and start operating as <strong style={{ color: '#e8e8f0' }}>{handle}.agentid</strong>.
+            Give your agent its claim token so it can activate its identity and start operating as <strong style={{ color: '#e8e8f0' }}>{handle ? `${handle}.agentid` : (agentName || 'your agent')}</strong>.
           </p>
 
           <Card style={{ marginBottom: 16, textAlign: 'left' }}>
