@@ -538,23 +538,8 @@ export function GetStarted() {
       }}>
         <div style={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{
-              width: 40, height: 40,
-              background: 'linear-gradient(135deg, #3b82f6, #7c3aed)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-            }} />
-            <div style={{
-              marginTop: 14, fontSize: 10, fontWeight: 600, letterSpacing: '0.2em',
-              color: 'rgba(232,232,240,0.3)', textTransform: 'uppercase',
-            }}>
-              Agent ID
-            </div>
-          </div>
-
           <h1 style={{
-            marginTop: 24, fontSize: 32, fontWeight: 700, color: '#e8e8f0',
+            marginTop: 0, fontSize: 32, fontWeight: 700, color: '#e8e8f0',
             textAlign: 'center', lineHeight: 1.2, letterSpacing: '-0.02em',
             fontFamily: 'var(--font-heading, inherit)',
           }}>
