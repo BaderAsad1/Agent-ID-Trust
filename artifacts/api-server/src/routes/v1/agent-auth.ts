@@ -8,10 +8,11 @@
  */
 import { Router } from "express";
 import { z } from "zod/v4";
+import { timingSafeEqual } from "crypto";
 import { createAuthChallenge, verifyAndIssueSession, introspectToken, revokeSession } from "../../services/auth-session";
 import { introspectOAuthToken } from "../../services/oauth";
 import { AppError } from "../../middlewares/error-handler";
-import { registrationRateLimit, authChallengeRateLimit } from "../../middlewares/rate-limit";
+import { registrationRateLimit, authChallengeRateLimit, introspectRateLimit } from "../../middlewares/rate-limit";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 
 const router = Router();
@@ -79,7 +80,9 @@ router.post("/session", authChallengeRateLimit, registrationRateLimit, async (re
     }
 
     const { agentId, nonce, signature, kid, scope } = parsed.data;
-    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip;
+    // Use req.ip which respects Express trust proxy settings (de-spoofable when proxy trust is configured).
+    // Never parse X-Forwarded-For directly — callers can spoof it to bypass IP-based rate limits.
+    const ip = req.ip ?? req.socket?.remoteAddress ?? "unknown";
     const ua = req.headers["user-agent"];
     const requestedScopes = scope ? scope.split(" ").filter(Boolean) : undefined;
 
@@ -107,7 +110,17 @@ function checkIntrospectionAuth(req: import("express").Request, res: import("exp
   const providedSecret = req.headers["x-introspection-secret"] as string | undefined;
   const introspectionSecret = process.env.OAUTH_INTROSPECTION_SECRET;
 
-  if (introspectionSecret && providedSecret === introspectionSecret) return true;
+  if (introspectionSecret && providedSecret) {
+    const a = Buffer.from(providedSecret, "utf8");
+    const b = Buffer.from(introspectionSecret, "utf8");
+    // Use constant-length comparison to prevent timing oracle attacks
+    const maxLen = Math.max(a.length, b.length);
+    const aPadded = Buffer.alloc(maxLen);
+    const bPadded = Buffer.alloc(maxLen);
+    a.copy(aPadded);
+    b.copy(bPadded);
+    if (timingSafeEqual(aPadded, bPadded) && a.length === b.length) return true;
+  }
 
   res.status(401).json({
     error: "INTROSPECT_UNAUTHORIZED",
@@ -116,7 +129,7 @@ function checkIntrospectionAuth(req: import("express").Request, res: import("exp
   return false;
 }
 
-router.post("/introspect", async (req, res, next) => {
+router.post("/introspect", introspectRateLimit, async (req, res, next) => {
   try {
     if (!checkIntrospectionAuth(req, res)) return;
 

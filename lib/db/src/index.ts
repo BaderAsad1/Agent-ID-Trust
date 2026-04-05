@@ -10,9 +10,11 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+const poolMax = process.env.DB_POOL_MAX ? parseInt(process.env.DB_POOL_MAX, 10) : 20;
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 20,
+  max: Number.isFinite(poolMax) && poolMax > 0 ? poolMax : 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
   allowExitOnIdle: false,

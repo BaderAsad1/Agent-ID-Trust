@@ -63,34 +63,63 @@ router.get("/whoami", requireAgentAuth, async (req, res, next) => {
   }
 });
 
+// Validates that an endpointUrl is an external HTTPS URL and not a private/internal IP address.
+// Prevents SSRF attacks that could expose cloud metadata services (169.254.169.254) or internal services.
+const safeEndpointUrl = z.url().refine((url) => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.toLowerCase();
+    // Block localhost and loopback
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
+    // Block link-local (169.254.x.x — AWS/GCP metadata)
+    if (/^169\.254\./.test(host)) return false;
+    // Block private RFC1918 ranges
+    if (/^10\./.test(host)) return false;
+    if (/^192\.168\./.test(host)) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}, { message: "endpointUrl must be a public HTTPS URL. Private IPs and localhost are not permitted." });
+
+// Sanitize metadata to prevent prototype pollution and limit size.
+const safeMetadata = z.record(
+  z.string().max(64).refine(k => !["__proto__", "constructor", "prototype"].includes(k), {
+    message: "Reserved metadata key",
+  }),
+  z.union([z.string().max(1000), z.number(), z.boolean(), z.null()]),
+).max(50).optional();
+
 const createAgentSchema = z.object({
   handle: z.string().min(3).max(32).optional(),
   displayName: z.string().min(1).max(255),
   description: z.string().max(5000).optional(),
-  endpointUrl: z.url().optional(),
-  capabilities: z.array(z.string()).max(50).optional(),
-  scopes: z.array(z.string()).max(50).optional(),
-  protocols: z.array(z.string()).max(20).optional(),
-  authMethods: z.array(z.string()).max(10).optional(),
-  paymentMethods: z.array(z.string()).max(10).optional(),
+  endpointUrl: safeEndpointUrl.optional(),
+  capabilities: z.array(z.string().max(100)).max(50).optional(),
+  scopes: z.array(z.string().max(100)).max(50).optional(),
+  protocols: z.array(z.string().max(100)).max(20).optional(),
+  authMethods: z.array(z.string().max(100)).max(10).optional(),
+  paymentMethods: z.array(z.string().max(100)).max(10).optional(),
   isPublic: z.boolean().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: safeMetadata,
 });
 
 const updateAgentSchema = z.object({
   displayName: z.string().min(1).max(255).optional(),
   description: z.string().max(5000).optional(),
-  endpointUrl: z.url().optional(),
+  endpointUrl: safeEndpointUrl.optional(),
   endpointSecret: z.string().max(500).optional(),
-  capabilities: z.array(z.string()).max(50).optional(),
-  scopes: z.array(z.string()).max(50).optional(),
-  protocols: z.array(z.string()).max(20).optional(),
-  authMethods: z.array(z.string()).max(10).optional(),
-  paymentMethods: z.array(z.string()).max(10).optional(),
+  capabilities: z.array(z.string().max(100)).max(50).optional(),
+  scopes: z.array(z.string().max(100)).max(50).optional(),
+  protocols: z.array(z.string().max(100)).max(20).optional(),
+  authMethods: z.array(z.string().max(100)).max(10).optional(),
+  paymentMethods: z.array(z.string().max(100)).max(10).optional(),
   isPublic: z.boolean().optional(),
   status: z.enum(["draft", "active", "inactive"]).optional(),
-  avatarUrl: z.url().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  avatarUrl: safeEndpointUrl.optional(),
+  metadata: safeMetadata,
 });
 
 router.post("/", requireAuth, async (req, res, next) => {
@@ -113,20 +142,21 @@ router.post("/", requireAuth, async (req, res, next) => {
     let isStandardHandle = false;
     let sandboxHandle: string | undefined;
     let normalizedHandle: string | undefined;
+    // Set when handle requires payment — agent is created without handle and 201 response
+    // includes checkout info so the client can redirect to Stripe. Never blocks registration.
+    let pendingHandleCheckout: { handle: string; checkoutUrl: string } | null = null;
 
     if (handle) {
       normalizedHandle = handle.toLowerCase();
 
       if (!isSandbox) {
+        // Rate-limit check runs early to block abusers before any DB work.
+        // recordHandleRegistration is intentionally NOT called here — it is called only at the
+        // point of commitment: inside the benefit-claim branch below, or inside /billing/handle-checkout.
+        // Calling it here would double-count a paid flow (agents.ts + handle-checkout = 2 entries).
         const rateLimitCheck = await checkRateLimit(req.userId!);
         if (rateLimitCheck) {
           throw new AppError(rateLimitCheck.status, "RATE_LIMIT_EXCEEDED", rateLimitCheck.message);
-        }
-
-        try {
-          await recordHandleRegistration(req.userId!, normalizedHandle);
-        } catch (err) {
-          logger.warn({ err, handle: normalizedHandle }, "[agents] Failed to record handle registration attempt");
         }
       }
 
@@ -163,127 +193,80 @@ router.post("/", requireAuth, async (req, res, next) => {
         const userPlan = await getUserPlan(req.userId!);
         const APP_URL = process.env.APP_URL ?? "https://getagent.id";
 
-        if (!isStandardHandle) {
-          res.status(402).json({
-            code: "HANDLE_PAYMENT_REQUIRED",
-            message: `This handle requires payment of $${(handlePriceCents / 100).toFixed(2)}/year. Use POST /api/v1/billing/handle-checkout to start checkout.`,
-            handle: normalizedHandle,
-            priceCents: handlePriceCents,
-            priceDollars: handlePriceCents / 100,
-            tier: pricingTier,
-            characterLength: handleLen,
-            includedWithPaidPlan: false,
-            includesOnChainMint: true,
-            checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
-            handlePricing: {
-              annualPriceCents: handlePriceCents,
-              annualPriceDollars: handlePriceCents / 100,
-              tier: pricingTier,
-              characterLength: handleLen,
-              includedWithPaidPlan: false,
-              onChainMintPrice: 0,
-              onChainMintPriceDollars: 0,
-              includesOnChainMint: true,
-            },
-          });
-          return;
-        }
+        const requiresPayment = !isStandardHandle || !isEligibleForIncludedHandle(userPlan);
 
-        if (!isEligibleForIncludedHandle(userPlan)) {
-          // User doesn't have an included handle benefit — route them to the paid checkout
-          // (same flow as premium handles). Standard handles are $9/yr for non-plan users.
-          res.status(402).json({
-            code: "HANDLE_PAYMENT_REQUIRED",
-            message: `Standard handles (5+ characters) are included free with Starter or Pro plans, or available for $${(handlePriceCents / 100).toFixed(2)}/year. Use POST /api/v1/billing/handle-checkout to start checkout.`,
-            handle: normalizedHandle,
-            priceCents: handlePriceCents,
-            priceDollars: handlePriceCents / 100,
-            tier: pricingTier,
-            characterLength: handleLen,
-            includedWithPaidPlan: true,
-            checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
-            upgradeUrl: `${APP_URL}/pricing`,
-            handlePricing: {
-              annualPriceCents: handlePriceCents,
-              annualPriceDollars: handlePriceCents / 100,
-              tier: pricingTier,
-              characterLength: handleLen,
-              includedWithPaidPlan: true,
-            },
-          });
-          return;
-        }
+        if (requiresPayment) {
+          // Handle requires payment — create the agent now without assigning the handle.
+          // The 201 response will include pendingHandle + handleCheckoutUrl so the client
+          // can redirect to Stripe immediately. After payment the webhook assigns the handle.
+          // Agent creation must never be blocked by handle pricing.
+          pendingHandleCheckout = { handle: normalizedHandle!, checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout` };
+          sandboxHandle = undefined;
+        } else {
+          // User has an included handle benefit — claim and assign atomically.
 
-        // Write durable pending intent before consuming the entitlement.
-        // Abort if this fails — without a pending marker the claim has no crash-recovery artifact.
-        try {
-          const agentPendingResult = await db.insert(auditEventsTable).values({
-            actorType: "user",
-            actorId: req.userId!,
-            eventType: "billing.included_handle_claim.pending",
-            targetType: "agent",
-            targetId: null,
-            payload: {
-              handle: normalizedHandle,
-              state: "pending",
-              requiredAction: "claim_and_create_agent",
-            },
-          }).returning({ id: auditEventsTable.id });
-          agentPendingAuditId = agentPendingResult[0]?.id ?? null;
-          if (!agentPendingAuditId) {
-            throw new Error("Pending audit record insert returned no ID");
-          }
-        } catch (pendingErr) {
-          // Fail the request — cannot consume entitlement without a durable pending marker.
-          // A missing pending record would leave no recovery artifact if the process crashes
-          // between claim and agent creation, permanently stranding the benefit.
-          logger.error({ handle: normalizedHandle, userId: req.userId, pendingErr }, "[agents] pending audit write failed — aborting claim (no recovery artifact)");
-          throw new AppError(503, "AUDIT_WRITE_FAILED", "Temporary system error — please retry your request");
-        }
-
-        // Acquire a Postgres session-level advisory lock keyed on the handle to prevent
-        // concurrent requests from racing through the availability re-check and claim.
-        // The lock is held until the transaction commits/rolls back (xact-level advisory).
-        // We then do a direct DB query (bypassing the in-process cache) to confirm the
-        // handle is still available before consuming the subscription entitlement.
-        let claimResult: { claimed: boolean; subscriptionId?: string } = { claimed: false };
-        claimResult = await db.transaction(async (tx) => {
-          // Derive a stable int64 lock key from the handle string via hashtext().
-          // pg_advisory_xact_lock blocks until all competing transactions release the same key.
-          await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${normalizedHandle!}))`);
-
-          // Re-check availability inside the transaction with a direct DB query
-          // (not the cache-backed isHandleAvailable) to see the latest committed state.
-          const existingRow = await tx.query.agentsTable.findFirst({
-            where: sql`lower(${agentsTable.handle}) = lower(${normalizedHandle!})`,
-            columns: { id: true },
-          });
-          if (existingRow) {
-            throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
+          // Write durable pending intent before consuming the entitlement.
+          try {
+            const agentPendingResult = await db.insert(auditEventsTable).values({
+              actorType: "user",
+              actorId: req.userId!,
+              eventType: "billing.included_handle_claim.pending",
+              targetType: "agent",
+              targetId: null,
+              payload: {
+                handle: normalizedHandle,
+                state: "pending",
+                requiredAction: "claim_and_create_agent",
+              },
+            }).returning({ id: auditEventsTable.id });
+            agentPendingAuditId = agentPendingResult[0]?.id ?? null;
+            if (!agentPendingAuditId) {
+              throw new Error("Pending audit record insert returned no ID");
+            }
+          } catch (pendingErr) {
+            logger.error({ handle: normalizedHandle, userId: req.userId, pendingErr }, "[agents] pending audit write failed — aborting claim (no recovery artifact)");
+            throw new AppError(503, "AUDIT_WRITE_FAILED", "Temporary system error — please retry your request");
           }
 
-          // With the advisory lock held and availability confirmed, claim the benefit
-          // using the transaction-scoped variant so all reads/writes share the same
-          // Postgres connection and are visible within this transaction boundary.
-          return claimIncludedHandleBenefitTx(tx, req.userId!, normalizedHandle!);
-        });
-        const { claimed, subscriptionId } = claimResult;
-        if (!claimed) {
-          res.status(402).json({
-            code: "HANDLE_BENEFIT_ALREADY_USED",
-            message: "The one included handle benefit for your plan has already been used. Additional handles can be purchased via the handle checkout.",
-            handle: normalizedHandle,
-            tier: pricingTier,
-            characterLength: handleLen,
-            checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout`,
+          let claimResult: { claimed: boolean; subscriptionId?: string } = { claimed: false };
+          claimResult = await db.transaction(async (tx) => {
+            await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${normalizedHandle!}))`);
+            const existingRow = await tx.query.agentsTable.findFirst({
+              where: sql`lower(${agentsTable.handle}) = lower(${normalizedHandle!})`,
+              columns: { id: true },
+            });
+            if (existingRow) {
+              throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
+            }
+            return claimIncludedHandleBenefitTx(tx, req.userId!, normalizedHandle!);
           });
-          return;
+          const { claimed, subscriptionId } = claimResult;
+          if (!claimed) {
+            // Included handle benefit already consumed (race or prior claim).
+            // Fall back to paid checkout — agent is still created successfully.
+            // /billing/handle-checkout will record the registration when checkout is initiated.
+            pendingHandleCheckout = { handle: normalizedHandle!, checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout` };
+            sandboxHandle = undefined;
+          } else {
+            // Benefit claimed — record the registration now (only committed registrations are counted).
+            try {
+              await recordHandleRegistration(req.userId!, normalizedHandle!);
+            } catch (err) {
+              logger.warn({ err, handle: normalizedHandle }, "[agents] Failed to record included-handle registration");
+            }
+            claimSubId = subscriptionId;
+            sandboxHandle = normalizedHandle;
+          }
         }
-        // Store subscriptionId so we can release the claim if agent creation fails below.
-        claimSubId = subscriptionId;
+      } else {
+        sandboxHandle = `sandbox-${normalizedHandle}`;
       }
 
-      sandboxHandle = isSandbox ? `sandbox-${normalizedHandle}` : normalizedHandle;
+      // Only set sandboxHandle from normalizedHandle if not already set above
+      // and no pending checkout is needed (pending checkout means handle is intentionally withheld).
+      if (sandboxHandle === undefined && !pendingHandleCheckout) {
+        sandboxHandle = normalizedHandle;
+      }
     }
 
     const resolvedHandleLen = normalizedHandle ? normalizedHandle.replace(/[^a-z0-9]/g, "").length : null;
@@ -462,6 +445,9 @@ router.post("/", requireAuth, async (req, res, next) => {
           includesOnChainMint: true,
         },
       } : {}),
+      // pendingHandle signals the frontend to initiate handle checkout via POST /billing/handle-checkout.
+      // The full checkout URL is not included — callers must use the billing API, not treat this as a redirect.
+      ...(pendingHandleCheckout ? { pendingHandle: pendingHandleCheckout.handle } : {}),
     });
   } catch (err) {
     next(err);

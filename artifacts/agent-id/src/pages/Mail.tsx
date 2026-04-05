@@ -20,14 +20,26 @@ const DOMPURIFY_CONFIG: DOMPurifyConfig = {
   ],
   ALLOWED_ATTR: [
     'href', 'title', 'alt', 'src', 'width', 'height',
-    'style', 'class', 'id', 'target', 'rel',
+    'style', 'class', 'id', 'rel',
+    // 'target' intentionally excluded — allows open-redirect from crafted email content
     'colspan', 'rowspan', 'align', 'valign',
   ],
   ALLOW_DATA_ATTR: false,
   FORBID_TAGS: ['svg', 'math', 'script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange'],
   FORCE_BODY: true,
+  // Force all links to open safely — prevents email-crafted navigation attacks
+  RETURN_DOM_FRAGMENT: false,
 };
+
+// After sanitization, enforce rel="noopener noreferrer" on all anchor tags
+// to prevent window.opener hijacking and cross-origin navigation attacks from email content.
+DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+  if (node.tagName === "A") {
+    node.setAttribute("rel", "noopener noreferrer");
+    node.setAttribute("target", "_blank");
+  }
+});
 
 function sanitizeHtml(html: string): string {
   return String(DOMPurify.sanitize(html, DOMPURIFY_CONFIG));

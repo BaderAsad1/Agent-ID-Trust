@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { api, type Agent } from './api';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { api, setUnauthorizedHandler, type Agent } from './api';
 
 interface AuthUser {
   id: string;
@@ -42,16 +42,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const logoutRef = useRef<() => void>(() => {});
 
   const login = useCallback(() => {
+    // Only allow same-origin return paths to prevent open redirect attacks.
     const returnTo = window.location.pathname + window.location.search;
-    window.location.href = `/sign-in?returnTo=${encodeURIComponent(returnTo)}`;
+    const safePath = returnTo.startsWith('/') ? returnTo : '/';
+    window.location.href = `/sign-in?returnTo=${encodeURIComponent(safePath)}`;
   }, []);
 
   const logout = useCallback(() => {
     const base = import.meta.env.BASE_URL || '/';
+    setUser(null);
+    setAgents([]);
+    // Clear any draft/plan data stored in sessionStorage to prevent data leakage on shared devices.
+    sessionStorage.clear();
     window.location.href = `${base}api/logout`;
   }, []);
+
+  // Register 401 handler so the api client can trigger logout on session expiry.
+  useEffect(() => {
+    logoutRef.current = logout;
+    setUnauthorizedHandler(() => {
+      logoutRef.current();
+    });
+  }, [logout]);
 
   const refreshAgents = useCallback(async () => {
     if (!user) return;

@@ -228,3 +228,11 @@ export function addressLookupRateLimit(req: Request, res: Response, next: NextFu
 export function handleCheckRateLimit(req: Request, res: Response, next: NextFunction): void {
   void applyLimiter(2_000, "rl:handle:chk:", 60_000, req, res, next);
 }
+
+// Rate limiter for the /introspect endpoint.
+// This endpoint is a resource-server-only internal call; brute-force attempts against session IDs
+// must be blocked. Limit to 60 req/min per IP.
+export function introspectRateLimit(req: Request, res: Response, next: NextFunction): void {
+  void applyLimiter(60, "rl:introspect:", 60_000, req, res, next);
+}
+

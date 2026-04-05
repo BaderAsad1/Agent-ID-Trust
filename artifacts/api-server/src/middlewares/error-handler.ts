@@ -31,7 +31,8 @@ export function errorHandler(
     return;
   }
 
-  const isProd = process.env.NODE_ENV === "production";
+  // Always log the full error server-side (stack, request context).
+  // Never return stack traces to clients — they leak DB schema, file paths, and code structure.
   logger.error(
     { err, requestId, method: req.method, path: req.path },
     "Unhandled error",
@@ -39,8 +40,7 @@ export function errorHandler(
 
   res.status(500).json({
     error: "INTERNAL_ERROR",
-    message: isProd ? "Internal server error" : err.message,
+    message: "Internal server error",
     requestId,
-    ...(isProd ? {} : { stack: err.stack }),
   });
 }

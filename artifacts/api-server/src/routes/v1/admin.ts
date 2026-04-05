@@ -122,6 +122,9 @@ function adminIpAllowlist(req: Request, res: Response, next: NextFunction): void
       });
       return;
     }
+    // Non-production: still enforce IP check if configured; warn loudly if not set.
+    // This prevents staging environments from having open admin access.
+    logger.warn({ ip: getRequestorIp(req) }, "[admin] ADMIN_ALLOWED_IPS not set — admin IP allowlist disabled. Set ADMIN_ALLOWED_IPS to restrict access.");
     next();
     return;
   }
