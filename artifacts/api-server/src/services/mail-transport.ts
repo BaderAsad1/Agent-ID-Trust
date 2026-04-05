@@ -231,7 +231,10 @@ export async function deliverOutbound(envelope: TransportEnvelope): Promise<Tran
   if (queue && provider.name === "resend") {
     try {
       const jobAttempts = envelope.noRetry ? 1 : 3;
+      // Use messageId as stable jobId — BullMQ rejects duplicate insertions for the same ID,
+      // preventing double-delivery if deliverOutbound is called twice for the same message.
       await queue.add("send", { envelope }, {
+        jobId: `outbound-${envelope.messageId}`,
         attempts: jobAttempts,
         ...(envelope.noRetry ? {} : { backoff: { type: "exponential", delay: 2000 } }),
         removeOnComplete: { age: 3600 },

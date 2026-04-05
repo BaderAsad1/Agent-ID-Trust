@@ -180,7 +180,7 @@ export async function createAgent(input: CreateAgentInput & { _skipHandleValidat
     const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, input.userId) });
     if (user?.email) {
       const { sendAgentRegisteredEmail } = await import("./email");
-      await sendAgentRegisteredEmail(user.email, agent.handle ?? "", agent.displayName);
+      await sendAgentRegisteredEmail(user.email, agent.handle ?? "", agent.displayName, agent.id);
     }
   } catch (err) {
     logger.error({ err: err instanceof Error ? err.message : err, agentId: agent.id }, "[agents] Failed to send registration email for agent");
