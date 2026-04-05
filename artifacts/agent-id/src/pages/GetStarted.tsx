@@ -284,6 +284,8 @@ export function GetStarted() {
   const [selectedCaps, setSelectedCaps] = useState<string[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
+  // Synchronous guard — prevents double-submission before React can re-render with submitting=true.
+  const agentCreatingRef = useRef(false);
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
   const [claimToken, setClaimToken] = useState<string | null>(null);
   const [agentActivated, setAgentActivated] = useState(false);
@@ -426,6 +428,8 @@ export function GetStarted() {
   // Creates the agent, stores the result, then advances to token-display.
   // Handle checkout (if needed) is presented as an explicit button on token-display — never auto-redirect.
   const handleCreateAgent = async (plan: WizardPlan) => {
+    if (agentCreatingRef.current) return;
+    agentCreatingRef.current = true;
     setSubmitting(true);
     setError(null);
     try {
@@ -454,6 +458,7 @@ export function GetStarted() {
       setError(err instanceof Error ? err.message : 'Failed to register agent');
     } finally {
       setSubmitting(false);
+      agentCreatingRef.current = false;
     }
   };
 
