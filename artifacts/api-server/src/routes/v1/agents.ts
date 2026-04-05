@@ -106,6 +106,11 @@ const createAgentSchema = z.object({
   paymentMethods: z.array(z.string().max(100)).max(10).optional(),
   isPublic: z.boolean().optional(),
   metadata: safeMetadata,
+  // Wizard-selected plan before the user has an active subscription. Used to determine
+  // whether a standard handle should be held as "awaiting_plan_subscription" (will be
+  // assigned free once the Starter/Pro subscription is confirmed) vs "awaiting_payment"
+  // (requires a separate $5/yr handle checkout on the free plan).
+  intendedPlan: z.enum(["free", "starter", "pro"]).optional(),
 });
 
 const updateAgentSchema = z.object({
@@ -194,13 +199,13 @@ router.post("/", requireAuth, async (req, res, next) => {
       if (!isSandbox) {
         const userPlan = await getUserPlan(req.userId!);
         const APP_URL = process.env.APP_URL ?? "https://getagent.id";
+        const intendedPlan = parsed.data.intendedPlan;
 
         const requiresPayment = !isStandardHandle || !isEligibleForIncludedHandle(userPlan);
 
         if (requiresPayment) {
           // Handle requires payment — create the agent now without assigning the handle.
-          // The 201 response will include pendingHandle + handleCheckoutUrl so the client
-          // can redirect to Stripe immediately. After payment the webhook assigns the handle.
+          // The 201 response will include pendingHandle so the client can initiate checkout.
           // Agent creation must never be blocked by handle pricing.
           pendingHandleCheckout = { handle: normalizedHandle!, checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout` };
           sandboxHandle = undefined;
@@ -293,10 +298,18 @@ router.post("/", requireAuth, async (req, res, next) => {
               registeredAt: new Date().toISOString(),
             },
           } : {}),
-          // When handle payment is deferred, mark the handle as pending so the bootstrap
-          // activate endpoint knows to hold the registration email until payment completes.
+          // When handle assignment is deferred, write a flag so bootstrap /activate knows to
+          // hold the registration email until the handle is fully resolved.
+          // "awaiting_plan_subscription" — user chose Starter/Pro in the wizard but hasn't
+          //   subscribed yet; handle will be assigned free once subscription is confirmed.
+          // "awaiting_payment"           — free plan user; requires explicit $5/yr checkout.
           ...(pendingHandleCheckout ? {
-            pendingHandleRegistration: { handle: normalizedHandle!, status: "awaiting_payment" },
+            pendingHandleRegistration: {
+              handle: normalizedHandle!,
+              status: (isStandardHandle && (intendedPlan === "starter" || intendedPlan === "pro"))
+                ? "awaiting_plan_subscription"
+                : "awaiting_payment",
+            },
           } : {}),
         },
       });

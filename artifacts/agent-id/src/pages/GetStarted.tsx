@@ -438,6 +438,7 @@ export function GetStarted() {
         displayName: agentName || handle || 'My Agent',
         description: description || undefined,
         capabilities: selectedCaps.length > 0 ? selectedCaps : undefined,
+        intendedPlan: plan,
       });
 
       const agentId = result.id;
@@ -1045,6 +1046,8 @@ export function GetStarted() {
   if (step === 'token-display') {
     const APP_URL = window.location.origin;
     const showHandleCheckout = !!pendingHandleFromServer && wizardSelectedPlan === 'free';
+    // Starter/Pro users: handle is included in the plan — show subscribe CTA instead of $5 checkout.
+    const showPlanSubscribeCta = !!pendingHandleFromServer && (wizardSelectedPlan === 'starter' || wizardSelectedPlan === 'pro');
 
     const sdkInstall = `npm install @agentid/sdk`;
     const sdkSnippet = `import { AgentID } from '@agentid/sdk';
@@ -1125,7 +1128,7 @@ Step 2 — sign the challenge returned, then POST to /bootstrap/activate
           </div>
         </div>
 
-        {/* Handle checkout CTA — only for free plan + pending handle */}
+        {/* Handle checkout CTA — free plan + pending handle */}
         {showHandleCheckout && (
           <div style={{
             marginBottom: 20, padding: '16px 20px', borderRadius: 14,
@@ -1157,6 +1160,47 @@ Step 2 — sign the challenge returned, then POST to /bootstrap/activate
                 ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Processing…</>
                 : <>Pay $5/yr <ArrowRight size={13} /></>
               }
+            </button>
+          </div>
+        )}
+
+        {/* Plan subscribe CTA — Starter/Pro selected in wizard but not yet subscribed */}
+        {showPlanSubscribeCta && (
+          <div style={{
+            marginBottom: 20, padding: '16px 20px', borderRadius: 14,
+            background: 'rgba(79,125,243,0.06)', border: '1px solid rgba(79,125,243,0.2)',
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#e8e8f0', marginBottom: 3 }}>
+                Get @{pendingHandleFromServer}.agentid free with {wizardSelectedPlan === 'starter' ? 'Starter' : 'Pro'}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>
+                Your handle is reserved. Subscribe to {wizardSelectedPlan === 'starter' ? 'Starter ($29/mo)' : 'Pro ($79/mo)'} and it's included at no extra cost.
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  const base = window.location.origin;
+                  const r = await api.billing.checkout({
+                    plan: wizardSelectedPlan as 'starter' | 'pro',
+                    billingInterval: 'monthly',
+                    successUrl: `${base}/dashboard?subscribed=1`,
+                    cancelUrl: `${base}/get-started`,
+                  });
+                  if (r.url) window.location.href = r.url;
+                } catch { /* non-fatal */ }
+              }}
+              style={{
+                padding: '10px 18px', borderRadius: 10,
+                background: 'rgba(79,125,243,0.15)', border: '1px solid rgba(79,125,243,0.35)',
+                color: '#a5bdfc', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >
+              Subscribe <ArrowRight size={13} />
             </button>
           </div>
         )}
