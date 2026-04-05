@@ -256,8 +256,18 @@ export function validateEnv(): Env {
   if (!env.STRIPE_SECRET_KEY) {
     envLogger.warn("[env] STRIPE_SECRET_KEY not set — payment processing disabled.");
   }
+  if (isProd && env.STRIPE_SECRET_KEY && !env.STRIPE_WEBHOOK_SECRET) {
+    envLogger.fatal("[env] STRIPE_WEBHOOK_SECRET is required in production when Stripe is enabled. Without it, all incoming webhooks will be rejected and payment events will not be processed.");
+    process.exit(1);
+  }
+  if (!env.STRIPE_WEBHOOK_SECRET && !isProd) {
+    envLogger.warn("[env] STRIPE_WEBHOOK_SECRET not set — Stripe webhook signature verification disabled. This must be set in production.");
+  }
   if (!env.RESEND_API_KEY) {
     envLogger.warn("[env] RESEND_API_KEY not set — external email delivery disabled.");
+  }
+  if (env.LAUNCH_MODE === "true" && isProd) {
+    envLogger.warn("[env] LAUNCH_MODE is enabled in PRODUCTION — all billing controls, agent limits, and subscription enforcement are BYPASSED. This must not be enabled in production.");
   }
   if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ZONE_ID) {
     envLogger.warn("[env] Cloudflare credentials not set — domain provisioning disabled.");
