@@ -595,6 +595,9 @@ export interface CreateAgentInput {
   description?: string;
   capabilities?: string[];
   endpointUrl?: string;
+  /** Wizard-selected plan before the user has an active subscription. Tells the backend
+   *  whether to hold the handle as awaiting_plan_subscription (Starter/Pro) vs awaiting_payment (Free). */
+  intendedPlan?: 'free' | 'starter' | 'pro';
 }
 
 export interface AgentDomain {

@@ -264,7 +264,14 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
       try {
         const meta = (freshAgent?.metadata as Record<string, unknown>) ?? {};
         const pendingReg = meta.pendingHandleRegistration as { status?: string } | undefined;
-        if (pendingReg?.status === "awaiting_payment") return; // wait for Stripe webhook
+        // awaiting_payment          → billing webhook sends email after $5/yr handle checkout
+        // awaiting_plan_subscription → billing webhook sends email after Starter/Pro subscription
+        // email_sent                 → billing webhook already sent it; don't duplicate
+        if (
+          pendingReg?.status === "awaiting_payment" ||
+          pendingReg?.status === "awaiting_plan_subscription" ||
+          pendingReg?.status === "email_sent"
+        ) return;
 
         const ownerUserId = freshAgent?.ownerUserId ?? freshAgent?.userId;
         if (!ownerUserId) return;
