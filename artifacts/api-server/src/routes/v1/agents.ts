@@ -199,7 +199,6 @@ router.post("/", requireAuth, async (req, res, next) => {
       if (!isSandbox) {
         const userPlan = await getUserPlan(req.userId!);
         const APP_URL = process.env.APP_URL ?? "https://getagent.id";
-        const intendedPlan = parsed.data.intendedPlan;
 
         const requiresPayment = !isStandardHandle || !isEligibleForIncludedHandle(userPlan);
 
@@ -306,7 +305,7 @@ router.post("/", requireAuth, async (req, res, next) => {
           ...(pendingHandleCheckout ? {
             pendingHandleRegistration: {
               handle: normalizedHandle!,
-              status: (isStandardHandle && (intendedPlan === "starter" || intendedPlan === "pro"))
+              status: (isStandardHandle && (parsed.data.intendedPlan === "starter" || parsed.data.intendedPlan === "pro"))
                 ? "awaiting_plan_subscription"
                 : "awaiting_payment",
             },
