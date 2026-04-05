@@ -1448,9 +1448,11 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
 
         const fullAgent = await db.query.agentsTable.findFirst({
           where: eq(agentsTable.id, agentRecord.id),
-          columns: { id: true, metadata: true },
+          columns: { id: true, metadata: true, displayName: true },
         });
         const existingMeta = (fullAgent?.metadata as Record<string, unknown>) ?? {};
+        // Clear the pending-payment flag now that payment has completed.
+        const { pendingHandleRegistration: _cleared, ...metaWithoutPending } = existingMeta;
 
         await Promise.all([
           markHandlePaymentComplete(agentRecord.id),
@@ -1465,7 +1467,7 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
               nftStatus: isNftEligible ? "pending_anchor" : "none",
               nftCustodian: isNftEligible ? "platform" : null,
               metadata: {
-                ...existingMeta,
+                ...metaWithoutPending,
                 ...(isNftEligible ? { nftQueuedAt: new Date().toISOString() } : {}),
               },
               updatedAt: new Date(),
@@ -1474,6 +1476,21 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
         ]);
 
         logger.info({ agentId: agentRecord.id, handle: normalizedHandle, tier: tier.tier, isNftEligible }, "[billing] Handle activated from checkout");
+
+        // Send the registration confirmation email now that payment is complete.
+        // This is the authoritative completion point for users who chose a paid handle.
+        try {
+          const user = await db.query.usersTable.findFirst({
+            where: eq(usersTable.id, userId),
+            columns: { email: true },
+          });
+          if (user?.email) {
+            const { sendAgentRegisteredEmail } = await import("./email");
+            await sendAgentRegisteredEmail(user.email, normalizedHandle, fullAgent?.displayName ?? "", agentRecord.id);
+          }
+        } catch (emailErr) {
+          logger.error({ err: emailErr instanceof Error ? emailErr.message : emailErr, agentId: agentRecord.id }, "[billing] Failed to send registration email after handle checkout");
+        }
 
         if (isNftEligible) {
           logger.info({ agentId: agentRecord.id, handle: normalizedHandle, handleLen }, "[billing] Handle is NFT-eligible (<=4 char), attempting registerOnChain");

@@ -257,6 +257,39 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
       getAgentById(agentId),
     ]);
 
+    // Send the registration confirmation email once the agent is fully connected.
+    // Skip if the user still has a handle payment pending — billing.ts will send
+    // the email after the Stripe checkout completes instead.
+    setImmediate(async () => {
+      try {
+        const meta = (freshAgent?.metadata as Record<string, unknown>) ?? {};
+        const pendingReg = meta.pendingHandleRegistration as { status?: string } | undefined;
+        if (pendingReg?.status === "awaiting_payment") return; // wait for Stripe webhook
+
+        const ownerUserId = freshAgent?.ownerUserId ?? freshAgent?.userId;
+        if (!ownerUserId) return;
+
+        const { db: dbInner } = await import("@workspace/db");
+        const { usersTable: usersT } = await import("@workspace/db/schema");
+        const { eq: eqFn } = await import("drizzle-orm");
+        const user = await dbInner.query.usersTable.findFirst({
+          where: eqFn(usersT.id, ownerUserId),
+          columns: { email: true },
+        });
+        if (!user?.email) return;
+
+        const { sendAgentRegisteredEmail } = await import("../../services/email");
+        await sendAgentRegisteredEmail(
+          user.email,
+          freshAgent?.handle ?? "",
+          freshAgent?.displayName ?? "",
+          agentId,
+        );
+      } catch (err) {
+        logger.error({ agentId, err: err instanceof Error ? err.message : err }, "[bootstrap] Failed to send registration email after activation");
+      }
+    });
+
     const bootstrap = await buildBootstrapBundle(freshAgent!);
 
     setImmediate(async () => {
