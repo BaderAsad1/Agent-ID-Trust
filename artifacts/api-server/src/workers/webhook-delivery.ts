@@ -105,25 +105,29 @@ export function initWebhookDeliveryWorker(): void {
     }, "[webhook-worker] Delivery failed");
 
     if (job.attemptsMade >= MAX_ATTEMPTS) {
-      await db
-        .update(inboxWebhooksTable)
-        .set({
-          failureCount: sql`${inboxWebhooksTable.failureCount} + 1`,
-          updatedAt: new Date(),
-        })
-        .where(eq(inboxWebhooksTable.id, webhookId));
+      try {
+        await db
+          .update(inboxWebhooksTable)
+          .set({
+            failureCount: sql`${inboxWebhooksTable.failureCount} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(inboxWebhooksTable.id, webhookId));
 
-      await db.insert(messageEventsTable).values({
-        messageId,
-        eventType: "webhook.failed",
-        payload: {
-          webhookId,
-          url: webhookUrl,
-          error: err.message,
-          totalAttempts: job.attemptsMade,
-          queueBacked: true,
-        },
-      });
+        await db.insert(messageEventsTable).values({
+          messageId,
+          eventType: "webhook.failed",
+          payload: {
+            webhookId,
+            url: webhookUrl,
+            error: err.message,
+            totalAttempts: job.attemptsMade,
+            queueBacked: true,
+          },
+        });
+      } catch (dbErr) {
+        logger.error({ dbErr, webhookId, messageId }, "[webhook-worker] Failed to record final delivery failure");
+      }
     }
   });
 

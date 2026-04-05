@@ -12,6 +12,7 @@ import { initOutboundMailWorker, closeOutboundMailWorker } from "./workers/outbo
 import { startAgentExpiryWorker, stopAgentExpiryWorker } from "./workers/agent-expiry";
 import { closeOutboundQueue } from "./services/mail-transport";
 import { closeRedis } from "./lib/redis";
+import { pool } from "@workspace/db";
 import { expireJobs } from "./services/jobs";
 import { logger } from "./middlewares/request-logger";
 
@@ -128,6 +129,7 @@ async function gracefulShutdown(signal: string) {
   await closeOutboundMailWorker();
   await closeOutboundQueue();
   await closeRedis();
+  await pool.end();
   process.exit(0);
 }
 
