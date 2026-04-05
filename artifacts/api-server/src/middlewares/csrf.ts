@@ -28,11 +28,18 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
   const hasApiKey = !!(req.headers["x-agent-key"] || req.headers["x-api-key"]);
   const hasBearer = !!req.headers.authorization?.startsWith("Bearer ");
 
+  // API key / Bearer token auth is not cookie-based, so CSRF doesn't apply.
+  // Cross-site requests with custom headers (X-Agent-Key, Authorization) require a CORS preflight,
+  // which is blocked by the server's CORS policy — so an attacker cannot forge these from a third-party page.
+  // NOTE: if a request carries BOTH a session cookie AND an API key, the API key takes precedence here.
+  // This is safe because the API key is a secret the attacker does not know.
   if (hasApiKey || hasBearer) {
     next();
     return;
   }
 
+  // No session cookie means the request is not browser-session-authenticated.
+  // requireAuth will reject it independently — CSRF check is redundant for unauthenticated requests.
   const sessionId = getSessionId(req);
   if (!sessionId) {
     next();
