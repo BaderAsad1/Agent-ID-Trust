@@ -164,22 +164,39 @@ export async function handleSubscriptionCreatedOrUpdated(subscription: Stripe.Su
   const billingInterval: BillingInterval = subscription.items.data[0]?.price.recurring?.interval === "year" ? "yearly" : "monthly";
   const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id ?? null;
 
+  // Map Stripe subscription status to our enum.
+  // Only mark the user plan as active when Stripe confirms active/trialing status.
+  const stripeStatus = subscription.status;
+  type SubStatus = "active" | "past_due" | "cancelled" | "paused" | "trialing";
+  const dbStatus: SubStatus = (() => {
+    if (stripeStatus === "active") return "active";
+    if (stripeStatus === "trialing") return "trialing";
+    if (stripeStatus === "past_due") return "past_due";
+    if (stripeStatus === "canceled" || stripeStatus === "incomplete_expired") return "cancelled";
+    if (stripeStatus === "paused") return "paused";
+    return "active"; // default for unknown statuses
+  })();
+
+  // Only update the user's plan to paid when their subscription is live.
+  const effectivePlan = (dbStatus === "active" || dbStatus === "trialing") ? resolvedPlan : "free";
+
   await db.update(usersTable)
-    .set({ plan: resolvedPlan, stripeCustomerId: customerId, updatedAt: new Date() })
+    .set({ plan: effectivePlan, stripeCustomerId: customerId, updatedAt: new Date() })
     .where(eq(usersTable.id, userId));
 
+  // Look up existing subscription by Stripe subscription ID for idempotent upsert.
   const existingSub = await db.select().from(subscriptionsTable)
-    .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+    .where(eq(subscriptionsTable.providerSubscriptionId, subscription.id))
     .limit(1);
 
   const item = subscription.items.data[0];
   const periodStart = new Date((item?.current_period_start ?? subscription.start_date) * 1000);
   const periodEnd = new Date((item?.current_period_end ?? Math.floor(Date.now() / 1000) + 30 * 24 * 3600) * 1000);
-
   if (existingSub.length > 0) {
     await db.update(subscriptionsTable)
       .set({
         plan: resolvedPlan,
+        status: dbStatus,
         provider: "stripe",
         providerCustomerId: customerId,
         providerSubscriptionId: subscription.id,
@@ -193,7 +210,7 @@ export async function handleSubscriptionCreatedOrUpdated(subscription: Stripe.Su
     await db.insert(subscriptionsTable).values({
       userId,
       plan: resolvedPlan,
-      status: "active",
+      status: dbStatus,
       provider: "stripe",
       providerCustomerId: customerId,
       providerSubscriptionId: subscription.id,
@@ -203,7 +220,7 @@ export async function handleSubscriptionCreatedOrUpdated(subscription: Stripe.Su
     });
   }
 
-  logger.info({ userId, plan: resolvedPlan, status: subscription.status }, "[billing] Subscription upserted from webhook");
+  logger.info({ userId, plan: resolvedPlan, stripeStatus, dbStatus }, "[billing] Subscription upserted from webhook");
 }
 
 export async function getUserSubscriptions(userId: string): Promise<Subscription[]> {

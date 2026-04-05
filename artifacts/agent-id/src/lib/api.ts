@@ -15,6 +15,13 @@ export class ApiError extends Error {
 const MAX_RETRIES = 2;
 const RETRY_DELAYS = [500, 1500];
 const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504]);
+const REQUEST_TIMEOUT_MS = 30_000;
+
+// Session-expiry callback — set by AuthContext to clear auth state and redirect on 401.
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: () => void): void {
+  onUnauthorized = fn;
+}
 
 function isRetryable(method: string | undefined, status: number): boolean {
   if (!RETRYABLE_STATUSES.has(status)) return false;
@@ -43,11 +50,19 @@ async function request<T>(
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const res = await fetch(`${BASE}${path}`, {
-        ...options,
-        headers,
-        credentials: 'include',
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      let res: Response;
+      try {
+        res = await fetch(`${BASE}${path}`, {
+          ...options,
+          headers,
+          credentials: 'include',
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -57,6 +72,11 @@ async function request<T>(
           body.message || body.error || `HTTP ${res.status}`,
           body,
         );
+
+        // Session expired or invalidated — notify AuthContext to clear state and redirect to login.
+        if (res.status === 401 && onUnauthorized) {
+          onUnauthorized();
+        }
 
         if (attempt < MAX_RETRIES && isRetryable(options.method, res.status)) {
           lastError = err;
@@ -108,7 +128,7 @@ export const api = {
     list: () => request<{ agents: Agent[] }>("/agents"),
     get: (id: string) => request<Agent>(`/agents/${id}`),
     create: (data: CreateAgentInput) =>
-      request<Agent>("/agents", { method: "POST", body: JSON.stringify(data) }),
+      request<AgentCreateResponse>("/agents", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) =>
       request<Agent>(`/agents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: string) => request(`/agents/${id}`, { method: "DELETE" }),
@@ -480,6 +500,15 @@ export const api = {
 };
 
 export type VerificationStatus = 'verified' | 'pending' | 'unverified';
+
+/** Returned only on initial agent creation — includes the one-time claim token. */
+export interface AgentCreateResponse extends Agent {
+  claimToken?: string;
+  /** Set when the requested handle requires payment (premium tier, or free plan with standard handle,
+   * or included benefit already consumed). The agent is created immediately without the handle.
+   * Call POST /api/v1/billing/handle-checkout with this handle value to start the Stripe checkout. */
+  pendingHandle?: string;
+}
 
 export interface Agent {
   id: string;
