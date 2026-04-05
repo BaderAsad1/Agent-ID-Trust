@@ -723,7 +723,7 @@ export function GetStarted() {
             }}>
               <input
                 value={handle}
-                onChange={e => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                onChange={e => { setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')); setError(null); }}
                 placeholder="my-agent"
                 autoFocus
                 style={{
@@ -874,7 +874,7 @@ export function GetStarted() {
         setSelectedCaps={setSelectedCaps}
         error={error}
         submitting={submitting}
-        onBack={() => setStep('wizard-handle')}
+        onBack={() => { setError(null); setStep('wizard-handle'); }}
         onNext={handleCreateAgent}
       />
     );
