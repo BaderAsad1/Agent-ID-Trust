@@ -10,6 +10,7 @@ type Intent = 'new' | 'claim' | null;
 type FlowStep = 'intent' | 'auth' | 'wizard-handle' | 'wizard-capabilities' | 'token-display' | 'claim-existing' | 'complete';
 
 const PLAN_STORAGE_KEY = 'agent-id-wizard-plan';
+const FREE_PLAN_STANDARD_FEE_USD = 5;
 
 function getSelectedPlan(): 'free' | 'starter' | 'pro' {
   try {
@@ -427,8 +428,8 @@ export function GetStarted() {
     setError(null);
     try {
       const result = await api.agents.create({
-        handle,
-        displayName: agentName || handle,
+        ...(handle ? { handle } : {}),
+        displayName: agentName || handle || 'My Agent',
         description: description || undefined,
         capabilities: selectedCaps.length > 0 ? selectedCaps : undefined,
       }) as unknown as Record<string, unknown>;
@@ -475,10 +476,42 @@ export function GetStarted() {
     }
   }, [step, userId, ownerToken, handleLoadOwnerToken]);
 
+  // After agent creation: trigger handle checkout if a handle was chosen and payment is needed.
+  // Ported from Start.tsx — Starter/Pro sessionStorage hint still respected so returning
+  // paid-plan users aren't sent to checkout for their included handle.
+  useEffect(() => {
+    if (!createdAgentId || !handle) return;
+
+    const len = handle.replace(/[^a-z0-9]/g, '').length;
+    const isStd = len >= 5;
+    const { annualPrice: rawAnnual } = getHandlePrice(handle);
+    const effectivePrice = isPaidPlan && isStd
+      ? 0
+      : isStd
+        ? FREE_PLAN_STANDARD_FEE_USD
+        : (rawAnnual ?? 0);
+
+    if (effectivePrice <= 0) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const base = window.location.origin;
+        const r = await api.billing.handleCheckout(
+          handle,
+          createdAgentId,
+          `${base}/dashboard?payment=success`,
+          `${base}/dashboard?payment=cancelled`,
+        );
+        if (r.url) { window.location.href = r.url; }
+      } catch { /* non-fatal — user proceeds to dashboard */ }
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [createdAgentId]);
+
   const handlePrice = handle ? getHandlePrice(handle) : null;
-  const handleLen = handle.replace(/[^a-z0-9]/g, '').length;
+  const handleLen = handle ? handle.replace(/[^a-z0-9]/g, '').length : 0;
   const isStandardHandle = handleLen >= 5;
-  const handleIncluded = isPaidPlan && isStandardHandle;
 
   const pageStyle: React.CSSProperties = {
     maxWidth: 600, margin: '0 auto', padding: '80px 24px 120px',
@@ -529,11 +562,11 @@ export function GetStarted() {
             textAlign: 'center', lineHeight: 1.2, letterSpacing: '-0.02em',
             fontFamily: 'var(--font-heading, inherit)',
           }}>
-            Claim your agent handle.
+            Register your agent.
           </h1>
 
           <p style={{ marginTop: 8, fontSize: 15, color: 'rgba(232,232,240,0.5)', textAlign: 'center', lineHeight: 1.6, maxWidth: 400 }}>
-            A permanent, portable identity for your AI agent — public profile, discovery, and routing in 60 seconds.
+            Get a portable identity for your AI agent — public profile, discovery, and routing. A handle is optional and can be added any time.
           </p>
 
           <div style={{ marginTop: 36, width: '100%', opacity: authLoading ? 0.5 : 1, pointerEvents: authLoading ? 'none' : undefined, transition: 'opacity 0.2s' }}>
@@ -566,7 +599,7 @@ export function GetStarted() {
                   Register your agent
                 </div>
                 <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>
-                  Claim a handle, get a public profile and routing address
+                  Get a public profile and routing address — handle optional
                 </div>
               </div>
               <div style={{
@@ -663,10 +696,10 @@ export function GetStarted() {
               fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 34, fontWeight: 800,
               color: '#e8e8f0', marginBottom: 10, letterSpacing: '-0.02em', lineHeight: 1.1,
             }}>
-              Claim your handle
+              Claim a handle <span style={{ fontSize: 18, fontWeight: 400, color: 'rgba(232,232,240,0.3)' }}>(optional)</span>
             </h1>
             <p style={{ fontSize: 15, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6 }}>
-              Your agent's permanent public identity, discoverable by other agents and humans.
+              A permanent public identity for your agent — you can add or buy one later too.
             </p>
           </div>
 
@@ -767,21 +800,24 @@ export function GetStarted() {
             </div>
           </div>
 
-          {/* Plan context — included benefit or upsell */}
+          {/* Handle pricing info — shown once handle is available, no plan gate */}
           {handle.length >= 3 && !checkingHandle && available === true && (
-            handleIncluded ? (
+            isStandardHandle ? (
               <div style={{
                 marginBottom: 20, padding: '14px 16px', borderRadius: 10,
-                background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)',
+                background: 'rgba(79,125,243,0.05)', border: '1px solid rgba(79,125,243,0.15)',
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
-                <Check size={15} color="#34d399" style={{ flexShrink: 0 }} />
+                <Check size={15} color="#4f7df3" style={{ flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#34d399', marginBottom: 2 }}>
-                    Included with your {selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)} plan
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0', marginBottom: 2 }}>
+                    <span style={{ textDecoration: 'line-through', color: 'rgba(232,232,240,0.35)', marginRight: 6 }}>
+                      ${FREE_PLAN_STANDARD_FEE_USD}/yr
+                    </span>
+                    <span style={{ color: '#34d399' }}>Free with Starter or Pro</span>
                   </div>
-                  <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)' }}>
-                    Standard handles (5+ characters) are included at no extra cost.
+                  <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
+                    Standard handles (5+ chars) are included in paid plans. Otherwise $5/yr — plan selection at checkout.
                   </div>
                 </div>
               </div>
@@ -791,11 +827,10 @@ export function GetStarted() {
                 background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
               }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', marginBottom: 4 }}>
-                  {handleLen <= 3 ? 'Ultra-premium' : handleLen === 4 ? 'Premium' : 'Standard'} handle — ${handlePrice.annualPrice}/yr
+                  {handleLen === 3 ? 'Ultra-premium' : 'Premium'} handle — ${handlePrice.annualPrice}/yr
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
-                  Upgrade to Starter or Pro to include a standard handle (5+ chars) at no extra charge.{' '}
-                  <a href="/pricing" style={{ color: '#f59e0b', textDecoration: 'underline' }}>See plans →</a>
+                  Short handles (3–4 chars) include an on-chain mint and are priced by character length.
                 </div>
               </div>
             ) : null
@@ -812,6 +847,19 @@ export function GetStarted() {
             <PrimaryBtn onClick={() => { setError(null); setStep('wizard-capabilities'); }} disabled={!canContinue}>
               Continue <ArrowRight size={16} />
             </PrimaryBtn>
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <button
+              onClick={() => { setHandle(''); setAvailable(null); setError(null); setStep('wizard-capabilities'); }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 13, color: 'rgba(232,232,240,0.3)',
+                fontFamily: 'inherit', textDecoration: 'underline',
+                textUnderlineOffset: 3,
+              }}
+            >
+              Skip for now — register agent without a handle
+            </button>
           </div>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>

@@ -863,17 +863,9 @@ export async function createHandleCheckoutSession(
 ): Promise<{ url: string | null; error?: string; priceCents: number; included?: boolean }> {
   const priceCents = getHandlePriceCents(handle);
 
-  // Policy gate: all handles (standard and premium) require a paid plan.
-  // Free and unauthenticated users can only have UUID-based identity.
-  // Use canonical subscription-backed plan state (not denormalized users.plan).
+  // All users may purchase handles. Starter/Pro users get their first standard handle (5+)
+  // included free via the entitlement path below; everyone else pays the retail price.
   const normalizedUserPlan = await getUserPlan(userId);
-  if (normalizedUserPlan === "none" || normalizedUserPlan === "free") {
-    return {
-      url: null,
-      error: "PLAN_REQUIRED_FOR_HANDLE",
-      priceCents,
-    };
-  }
 
   // Included-handle entitlement path: check eligibility first (read-only).
   // If the user is eligible for a free included handle but has not provided an agentId,
@@ -888,13 +880,12 @@ export async function createHandleCheckoutSession(
       priceCents: 0,
     };
   }
-  // Guard: if the user's included benefit is already exhausted AND the handle has no paid tier
-  // (standard 5+ handles have priceCents=0), there is no valid checkout path — surface an error
-  // rather than attempting a 0-amount Stripe subscription (which would fail at runtime).
+  // Guard: if no included entitlement and no retail price, there is no checkout path.
+  // (All current tiers have a non-zero price, so this is a safety net for future tiers.)
   if (!isEligible && priceCents === 0) {
     return {
       url: null,
-      error: "HANDLE_BENEFIT_ALREADY_USED",
+      error: "HANDLE_NO_PRICE",
       priceCents: 0,
     };
   }

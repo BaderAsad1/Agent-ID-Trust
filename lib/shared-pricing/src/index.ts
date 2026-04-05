@@ -37,8 +37,8 @@ export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
   },
   {
     minLength: 5, maxLength: undefined, tier: "standard_5plus",
-    annualPriceUsd: 0, annualPriceCents: 0,
-    description: "Standard handle (5+ characters) — 1 included automatically with Starter or Pro plan; Enterprise: custom/sales-led entitlement",
+    annualPriceUsd: 5, annualPriceCents: 500,
+    description: "Standard handle (5+ characters) — $5/yr standalone; included free with Starter or Pro plan; Enterprise: custom/sales-led entitlement",
     isReserved: false, includedWithPaidPlan: true, isFree: false,
     onChainMintPrice: 500, onChainMintPriceDollars: 5, includesOnChainMint: false,
   },
