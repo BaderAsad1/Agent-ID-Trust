@@ -10,6 +10,7 @@ type Intent = 'new' | 'claim' | null;
 type FlowStep = 'intent' | 'auth' | 'wizard-handle' | 'wizard-capabilities' | 'token-display' | 'claim-existing' | 'complete';
 
 const PLAN_STORAGE_KEY = 'agent-id-wizard-plan';
+const FREE_PLAN_STANDARD_FEE_USD = 5;
 
 function getSelectedPlan(): 'free' | 'starter' | 'pro' {
   try {
@@ -475,10 +476,42 @@ export function GetStarted() {
     }
   }, [step, userId, ownerToken, handleLoadOwnerToken]);
 
+  // After agent creation: trigger handle checkout if a handle was chosen and payment is needed.
+  // Ported from Start.tsx — Starter/Pro sessionStorage hint still respected so returning
+  // paid-plan users aren't sent to checkout for their included handle.
+  useEffect(() => {
+    if (!createdAgentId || !handle) return;
+
+    const len = handle.replace(/[^a-z0-9]/g, '').length;
+    const isStd = len >= 5;
+    const { annualPrice: rawAnnual } = getHandlePrice(handle);
+    const effectivePrice = isPaidPlan && isStd
+      ? 0
+      : isStd
+        ? FREE_PLAN_STANDARD_FEE_USD
+        : (rawAnnual ?? 0);
+
+    if (effectivePrice <= 0) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const base = window.location.origin;
+        const r = await api.billing.handleCheckout(
+          handle,
+          createdAgentId,
+          `${base}/dashboard?payment=success`,
+          `${base}/dashboard?payment=cancelled`,
+        );
+        if (r.url) { window.location.href = r.url; }
+      } catch { /* non-fatal — user proceeds to dashboard */ }
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [createdAgentId]);
+
   const handlePrice = handle ? getHandlePrice(handle) : null;
-  const handleLen = handle.replace(/[^a-z0-9]/g, '').length;
+  const handleLen = handle ? handle.replace(/[^a-z0-9]/g, '').length : 0;
   const isStandardHandle = handleLen >= 5;
-  const handleIncluded = isPaidPlan && isStandardHandle;
 
   const pageStyle: React.CSSProperties = {
     maxWidth: 600, margin: '0 auto', padding: '80px 24px 120px',
@@ -767,21 +800,24 @@ export function GetStarted() {
             </div>
           </div>
 
-          {/* Plan context — included benefit or upsell */}
+          {/* Handle pricing info — shown once handle is available, no plan gate */}
           {handle.length >= 3 && !checkingHandle && available === true && (
-            handleIncluded ? (
+            isStandardHandle ? (
               <div style={{
                 marginBottom: 20, padding: '14px 16px', borderRadius: 10,
-                background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)',
+                background: 'rgba(79,125,243,0.05)', border: '1px solid rgba(79,125,243,0.15)',
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
-                <Check size={15} color="#34d399" style={{ flexShrink: 0 }} />
+                <Check size={15} color="#4f7df3" style={{ flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#34d399', marginBottom: 2 }}>
-                    Included with your {selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)} plan
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0', marginBottom: 2 }}>
+                    <span style={{ textDecoration: 'line-through', color: 'rgba(232,232,240,0.35)', marginRight: 6 }}>
+                      ${FREE_PLAN_STANDARD_FEE_USD}/yr
+                    </span>
+                    <span style={{ color: '#34d399' }}>Free with Starter or Pro</span>
                   </div>
-                  <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)' }}>
-                    Standard handles (5+ characters) are included at no extra cost.
+                  <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
+                    Standard handles (5+ chars) are included in paid plans. Otherwise $5/yr — plan selection at checkout.
                   </div>
                 </div>
               </div>
@@ -791,11 +827,10 @@ export function GetStarted() {
                 background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
               }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', marginBottom: 4 }}>
-                  {handleLen <= 3 ? 'Ultra-premium' : handleLen === 4 ? 'Premium' : 'Standard'} handle — ${handlePrice.annualPrice}/yr
+                  {handleLen === 3 ? 'Ultra-premium' : 'Premium'} handle — ${handlePrice.annualPrice}/yr
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
-                  Upgrade to Starter or Pro to include a standard handle (5+ chars) at no extra charge.{' '}
-                  <a href="/pricing" style={{ color: '#f59e0b', textDecoration: 'underline' }}>See plans →</a>
+                  Short handles (3–4 chars) include an on-chain mint and are priced by character length.
                 </div>
               </div>
             ) : null
