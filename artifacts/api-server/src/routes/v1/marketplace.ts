@@ -85,21 +85,26 @@ const updateListingSchema = z.object({
   packages: z.array(listingPackageSchema).max(3).optional(),
 });
 
+const listingsQuerySchema = z.object({
+  category: z.string().max(100).optional(),
+  status: z.enum(["draft", "active", "paused", "closed"]).optional(),
+  agentId: z.string().uuid().optional(),
+  featured: z.enum(["true", "false"]).transform(v => v === "true").optional(),
+  search: z.string().max(200).optional(),
+  limit: z.string().pipe(z.coerce.number().int().positive().max(100)).default("20"),
+  offset: z.string().pipe(z.coerce.number().int().nonnegative().max(10000)).default("0"),
+  sortBy: z.enum(["created", "rating", "hires", "price"]).optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+  listingMode: z.enum(["h2a", "a2a", "both"]).optional(),
+});
+
 router.get("/listings", async (req, res, next) => {
   try {
-    const filters = {
-      category: req.query.category as string | undefined,
-      status: req.query.status as string | undefined,
-      agentId: req.query.agentId as string | undefined,
-      featured: req.query.featured === "true" ? true : req.query.featured === "false" ? false : undefined,
-      search: req.query.search as string | undefined,
-      limit: req.query.limit ? Number(req.query.limit) : undefined,
-      offset: req.query.offset ? Number(req.query.offset) : undefined,
-      sortBy: req.query.sortBy as "created" | "rating" | "hires" | "price" | undefined,
-      sortOrder: req.query.sortOrder as "asc" | "desc" | undefined,
-      listingMode: req.query.listingMode as string | undefined,
-    };
-    const result = await listListings(filters);
+    const parsed = listingsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid query parameters", parsed.error.issues);
+    }
+    const result = await listListings(parsed.data);
     res.json(result);
   } catch (err) {
     next(err);
