@@ -293,6 +293,11 @@ router.post("/", requireAuth, async (req, res, next) => {
               registeredAt: new Date().toISOString(),
             },
           } : {}),
+          // When handle payment is deferred, mark the handle as pending so the bootstrap
+          // activate endpoint knows to hold the registration email until payment completes.
+          ...(pendingHandleCheckout ? {
+            pendingHandleRegistration: { handle: normalizedHandle!, status: "awaiting_payment" },
+          } : {}),
         },
       });
     } catch (err) {
