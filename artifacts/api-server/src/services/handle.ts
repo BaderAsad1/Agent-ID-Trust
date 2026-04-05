@@ -2,7 +2,7 @@ import { eq, and, isNull, sql, gte, count, lt } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, handleAuctionsTable, handlePaymentsTable, usersTable, handleRegistrationLogTable, subscriptionsTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
-import { HANDLE_PRICING_TIERS as SHARED_TIERS, isEligibleForIncludedHandle } from "@workspace/shared-pricing";
+import { HANDLE_PRICING_TIERS as SHARED_TIERS } from "@workspace/shared-pricing";
 
 export type HandleTier = "reserved_1_2" | "premium_3" | "premium_4" | "standard_5plus";
 
@@ -466,24 +466,8 @@ export async function checkHandleRegistrationLimits(
     }
   }
 
-  if (tier.tier === "standard_5plus") {
-    // Use subscription-backed plan state (canonical) — not the denormalized users.plan column
-    const activeSubForStandard = await db
-      .select({ plan: subscriptionsTable.plan })
-      .from(subscriptionsTable)
-      .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
-      .limit(1);
-    const rawPlanStandard = (activeSubForStandard[0]?.plan ?? "none") as string;
-    const normalizedPlanStandard = rawPlanStandard === "builder" ? "starter" : rawPlanStandard === "team" ? "pro" : rawPlanStandard === "free" ? "none" : rawPlanStandard;
-
-    if (!isEligibleForIncludedHandle(normalizedPlanStandard)) {
-      return {
-        allowed: false,
-        status: 402,
-        message: "Standard handles (5+ characters) are included with Starter or Pro plans. Enterprise handles are provisioned via custom entitlement. Upgrade at /pricing to register a handle.",
-      };
-    }
-  }
+  // Standard handles (5+) are available to all users — Starter/Pro get one included free,
+  // everyone else pays $9/yr via the handle checkout flow. No plan gate here.
 
   return null;
 }

@@ -427,8 +427,8 @@ export function GetStarted() {
     setError(null);
     try {
       const result = await api.agents.create({
-        handle,
-        displayName: agentName || handle,
+        ...(handle ? { handle } : {}),
+        displayName: agentName || handle || 'My Agent',
         description: description || undefined,
         capabilities: selectedCaps.length > 0 ? selectedCaps : undefined,
       }) as unknown as Record<string, unknown>;
@@ -529,11 +529,11 @@ export function GetStarted() {
             textAlign: 'center', lineHeight: 1.2, letterSpacing: '-0.02em',
             fontFamily: 'var(--font-heading, inherit)',
           }}>
-            Claim your agent handle.
+            Register your agent.
           </h1>
 
           <p style={{ marginTop: 8, fontSize: 15, color: 'rgba(232,232,240,0.5)', textAlign: 'center', lineHeight: 1.6, maxWidth: 400 }}>
-            A permanent, portable identity for your AI agent — public profile, discovery, and routing in 60 seconds.
+            Get a portable identity for your AI agent — public profile, discovery, and routing. A handle is optional and can be added any time.
           </p>
 
           <div style={{ marginTop: 36, width: '100%', opacity: authLoading ? 0.5 : 1, pointerEvents: authLoading ? 'none' : undefined, transition: 'opacity 0.2s' }}>
@@ -566,7 +566,7 @@ export function GetStarted() {
                   Register your agent
                 </div>
                 <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>
-                  Claim a handle, get a public profile and routing address
+                  Get a public profile and routing address — handle optional
                 </div>
               </div>
               <div style={{
@@ -663,10 +663,10 @@ export function GetStarted() {
               fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 34, fontWeight: 800,
               color: '#e8e8f0', marginBottom: 10, letterSpacing: '-0.02em', lineHeight: 1.1,
             }}>
-              Claim your handle
+              Claim a handle <span style={{ fontSize: 18, fontWeight: 400, color: 'rgba(232,232,240,0.3)' }}>(optional)</span>
             </h1>
             <p style={{ fontSize: 15, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6 }}>
-              Your agent's permanent public identity, discoverable by other agents and humans.
+              A permanent public identity for your agent — you can add or buy one later too.
             </p>
           </div>
 
@@ -812,6 +812,19 @@ export function GetStarted() {
             <PrimaryBtn onClick={() => { setError(null); setStep('wizard-capabilities'); }} disabled={!canContinue}>
               Continue <ArrowRight size={16} />
             </PrimaryBtn>
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <button
+              onClick={() => { setHandle(''); setAvailable(null); setError(null); setStep('wizard-capabilities'); }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 13, color: 'rgba(232,232,240,0.3)',
+                fontFamily: 'inherit', textDecoration: 'underline',
+                textUnderlineOffset: 3,
+              }}
+            >
+              Skip for now — register agent without a handle
+            </button>
           </div>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
