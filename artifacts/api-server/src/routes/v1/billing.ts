@@ -159,8 +159,24 @@ router.post("/checkout", requireAuth, async (req, res, next) => {
     const resolvedPriceId = body.priceId
       ?? (body.plan ? getPriceIdFromPlan(body.plan, body.billingInterval) : undefined);
     const resolvedPlan = body.plan ?? "starter";
-    const successUrl = body.successUrl ?? `${APP_URL}/dashboard?upgraded=true`;
-    const cancelUrl = body.cancelUrl ?? `${APP_URL}/pricing`;
+
+    // Validate redirect URLs to prevent open redirect attacks — must be within app domain.
+    const validateRedirectUrl = (url: string | undefined, fallback: string): string => {
+      if (!url) return fallback;
+      try {
+        const parsed = new URL(url);
+        const appOrigin = new URL(APP_URL).origin;
+        if (parsed.origin !== appOrigin) {
+          throw new AppError(400, "INVALID_REDIRECT_URL", `Redirect URL must be within ${appOrigin}`);
+        }
+        return url;
+      } catch (e) {
+        if (e instanceof AppError) throw e;
+        return fallback;
+      }
+    };
+    const successUrl = validateRedirectUrl(body.successUrl, `${APP_URL}/dashboard?upgraded=true`);
+    const cancelUrl = validateRedirectUrl(body.cancelUrl, `${APP_URL}/pricing`);
 
     if (resolvedPriceId) {
       const { getStripe } = await import("../../services/stripe-client");
@@ -302,11 +318,28 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
       }
     }
 
+    const APP_URL_HANDLE = process.env.APP_URL || "https://getagent.id";
+    const validateHandleRedirectUrl = (url: string, fallback: string): string => {
+      try {
+        const parsed = new URL(url);
+        const appOrigin = new URL(APP_URL_HANDLE).origin;
+        if (parsed.origin !== appOrigin) {
+          throw new AppError(400, "INVALID_REDIRECT_URL", `Redirect URL must be within ${appOrigin}`);
+        }
+        return url;
+      } catch (e) {
+        if (e instanceof AppError) throw e;
+        return fallback;
+      }
+    };
+    const handleSuccessUrl = validateHandleRedirectUrl(body.successUrl, `${APP_URL_HANDLE}/dashboard?payment=success`);
+    const handleCancelUrl = validateHandleRedirectUrl(body.cancelUrl, `${APP_URL_HANDLE}/dashboard?payment=cancelled`);
+
     const result = await createHandleCheckoutSession(
       req.userId!,
       normalizedHandle,
-      body.successUrl,
-      body.cancelUrl,
+      handleSuccessUrl,
+      handleCancelUrl,
       body.agentId,
     );
 

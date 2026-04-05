@@ -7,10 +7,20 @@ import { redactSecrets } from "../lib/redact";
 const REDACT_PATHS = [
   "req.headers.authorization",
   'req.headers["x-agent-key"]',
+  'req.headers["x-api-key"]',
+  'req.headers["x-admin-key"]',
+  'req.headers["x-introspection-secret"]',
   "*.apiKey",
   "*.api_key",
   "*.hashedKey",
   "*.rawKey",
+  "*.signature",
+  "*.privateKey",
+  "*.private_key",
+  "*.secretKey",
+  "*.secret_key",
+  "*.stripePaymentMethodId",
+  "*.webhookSecret",
 ];
 
 export const logger = pino({

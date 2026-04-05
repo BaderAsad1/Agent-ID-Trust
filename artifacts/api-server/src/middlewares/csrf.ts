@@ -50,15 +50,16 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  if (cookieToken.length !== headerToken.length) {
-    res.status(403).json({ error: "CSRF_INVALID", message: "CSRF token mismatch." });
-    return;
-  }
-
-  const valid = crypto.timingSafeEqual(
-    Buffer.from(cookieToken, "utf8"),
-    Buffer.from(headerToken, "utf8"),
-  );
+  // Compare using constant-time comparison only — do NOT short-circuit on length mismatch.
+  // A length check before timingSafeEqual leaks token length as a timing oracle side-channel.
+  const cookieBuf = Buffer.from(cookieToken, "utf8");
+  const headerBuf = Buffer.from(headerToken, "utf8");
+  const maxLen = Math.max(cookieBuf.length, headerBuf.length);
+  const a = Buffer.alloc(maxLen);
+  const b = Buffer.alloc(maxLen);
+  cookieBuf.copy(a);
+  headerBuf.copy(b);
+  const valid = crypto.timingSafeEqual(a, b) && cookieBuf.length === headerBuf.length;
 
   if (!valid) {
     res.status(403).json({ error: "CSRF_INVALID", message: "CSRF token mismatch." });

@@ -6,6 +6,7 @@ import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { env } from "../../lib/env";
 import { z } from "zod/v4";
+import { recoveryRateLimit } from "../../middlewares/rate-limit";
 
 const router = Router();
 
@@ -49,7 +50,9 @@ router.patch("/me", requireAuth, async (req, res, next) => {
   }
 });
 
-router.delete("/me", requireAuth, async (req, res, next) => {
+// Account deletion is rate-limited aggressively (5 req per 10 min) to prevent CSRF/session-theft abuse.
+// The `recoveryRateLimit` (5/10min) is intentionally reused — it matches the sensitivity of this operation.
+router.delete("/me", requireAuth, recoveryRateLimit, async (req, res, next) => {
   try {
     const userId = req.user!.id;
     await db.transaction(async (tx) => {
