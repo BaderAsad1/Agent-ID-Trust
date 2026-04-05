@@ -1,4 +1,4 @@
-import { eq, or, and, lt, isNull, isNotNull, sql } from "drizzle-orm";
+import { eq, or, and, lt, isNull, isNotNull, sql, asc } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, agentKeysTable, agentReputationEventsTable } from "@workspace/db/schema";
 import { recomputeAndStore, determineTier } from "../services/trust-score";
@@ -154,35 +154,54 @@ async function syncOnchainReputation(agentId: string): Promise<void> {
   }
 }
 
+const TRUST_BATCH_SIZE = 100;
+
 async function recalculateAllTrust() {
   await expireOverdueKeys();
 
   try {
-    const agents = await db.query.agentsTable.findMany({
-      where: or(
-        eq(agentsTable.status, "active"),
-        eq(agentsTable.status, "draft"),
-      ),
-      columns: { id: true, handle: true },
-    });
-
-    logger.info(`[trust-worker] Starting hourly trust recalculation for ${agents.length} agents`);
-
+    let offset = 0;
     let success = 0;
     let failed = 0;
+    let totalProcessed = 0;
 
-    for (const agent of agents) {
-      try {
-        await syncOnchainReputation(agent.id);
-        await recomputeAndStore(agent.id);
-        success++;
-      } catch (err) {
-        failed++;
-        logger.error({ err, agentId: agent.id }, "[trust-worker] Failed to recalculate trust");
+    // Paginate through agents to avoid loading all records into memory at once (OOM risk at scale).
+    while (true) {
+      const batch = await db.query.agentsTable.findMany({
+        where: or(
+          eq(agentsTable.status, "active"),
+          eq(agentsTable.status, "draft"),
+        ),
+        columns: { id: true, handle: true },
+        limit: TRUST_BATCH_SIZE,
+        offset,
+        orderBy: asc(agentsTable.id),
+      });
+
+      if (batch.length === 0) break;
+
+      if (offset === 0) {
+        logger.info(`[trust-worker] Starting hourly trust recalculation (paginated, batch size ${TRUST_BATCH_SIZE})`);
       }
+
+      for (const agent of batch) {
+        try {
+          await syncOnchainReputation(agent.id);
+          await recomputeAndStore(agent.id);
+          success++;
+        } catch (err) {
+          failed++;
+          logger.error({ err, agentId: agent.id }, "[trust-worker] Failed to recalculate trust");
+        }
+      }
+
+      totalProcessed += batch.length;
+      offset += TRUST_BATCH_SIZE;
+
+      if (batch.length < TRUST_BATCH_SIZE) break;
     }
 
-    logger.info(`[trust-worker] Completed: ${success} succeeded, ${failed} failed`);
+    logger.info(`[trust-worker] Completed: ${success} succeeded, ${failed} failed, ${totalProcessed} total`);
 
     await applyInactivityDecay();
   } catch (err) {

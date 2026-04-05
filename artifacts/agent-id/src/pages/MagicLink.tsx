@@ -26,7 +26,9 @@ export function MagicLinkPage() {
     const token = hashParams.get('token');
 
     const searchParams = new URLSearchParams(window.location.search);
-    const returnTo = searchParams.get('returnTo') || '/dashboard';
+    // Only allow same-origin relative paths to prevent open redirect attacks via the returnTo param.
+    const rawReturnTo = searchParams.get('returnTo') || '/dashboard';
+    const returnTo = rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//') ? rawReturnTo : '/dashboard';
 
     if (!token) {
       setStatus('invalid');

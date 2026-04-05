@@ -63,34 +63,63 @@ router.get("/whoami", requireAgentAuth, async (req, res, next) => {
   }
 });
 
+// Validates that an endpointUrl is an external HTTPS URL and not a private/internal IP address.
+// Prevents SSRF attacks that could expose cloud metadata services (169.254.169.254) or internal services.
+const safeEndpointUrl = z.url().refine((url) => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.toLowerCase();
+    // Block localhost and loopback
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
+    // Block link-local (169.254.x.x — AWS/GCP metadata)
+    if (/^169\.254\./.test(host)) return false;
+    // Block private RFC1918 ranges
+    if (/^10\./.test(host)) return false;
+    if (/^192\.168\./.test(host)) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}, { message: "endpointUrl must be a public HTTPS URL. Private IPs and localhost are not permitted." });
+
+// Sanitize metadata to prevent prototype pollution and limit size.
+const safeMetadata = z.record(
+  z.string().max(64).refine(k => !["__proto__", "constructor", "prototype"].includes(k), {
+    message: "Reserved metadata key",
+  }),
+  z.union([z.string().max(1000), z.number(), z.boolean(), z.null()]),
+).max(50).optional();
+
 const createAgentSchema = z.object({
   handle: z.string().min(3).max(32).optional(),
   displayName: z.string().min(1).max(255),
   description: z.string().max(5000).optional(),
-  endpointUrl: z.url().optional(),
-  capabilities: z.array(z.string()).max(50).optional(),
-  scopes: z.array(z.string()).max(50).optional(),
-  protocols: z.array(z.string()).max(20).optional(),
-  authMethods: z.array(z.string()).max(10).optional(),
-  paymentMethods: z.array(z.string()).max(10).optional(),
+  endpointUrl: safeEndpointUrl.optional(),
+  capabilities: z.array(z.string().max(100)).max(50).optional(),
+  scopes: z.array(z.string().max(100)).max(50).optional(),
+  protocols: z.array(z.string().max(100)).max(20).optional(),
+  authMethods: z.array(z.string().max(100)).max(10).optional(),
+  paymentMethods: z.array(z.string().max(100)).max(10).optional(),
   isPublic: z.boolean().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: safeMetadata,
 });
 
 const updateAgentSchema = z.object({
   displayName: z.string().min(1).max(255).optional(),
   description: z.string().max(5000).optional(),
-  endpointUrl: z.url().optional(),
+  endpointUrl: safeEndpointUrl.optional(),
   endpointSecret: z.string().max(500).optional(),
-  capabilities: z.array(z.string()).max(50).optional(),
-  scopes: z.array(z.string()).max(50).optional(),
-  protocols: z.array(z.string()).max(20).optional(),
-  authMethods: z.array(z.string()).max(10).optional(),
-  paymentMethods: z.array(z.string()).max(10).optional(),
+  capabilities: z.array(z.string().max(100)).max(50).optional(),
+  scopes: z.array(z.string().max(100)).max(50).optional(),
+  protocols: z.array(z.string().max(100)).max(20).optional(),
+  authMethods: z.array(z.string().max(100)).max(10).optional(),
+  paymentMethods: z.array(z.string().max(100)).max(10).optional(),
   isPublic: z.boolean().optional(),
   status: z.enum(["draft", "active", "inactive"]).optional(),
-  avatarUrl: z.url().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  avatarUrl: safeEndpointUrl.optional(),
+  metadata: safeMetadata,
 });
 
 router.post("/", requireAuth, async (req, res, next) => {
