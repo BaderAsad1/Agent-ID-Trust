@@ -96,8 +96,10 @@ export function SignIn() {
       if (res.ok) {
         setSent(true);
         setCooldownUntil(Date.now() + 60_000);
+      } else if (res.status === 429) {
+        setEmailError('Too many requests. Please wait a few minutes and try again.');
       } else {
-        setEmailError('Something went wrong. Please try again.');
+        setEmailError('Failed to send sign-in email. Please try again.');
       }
     } catch {
       setEmailError('Network error. Please try again.');

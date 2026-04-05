@@ -224,6 +224,10 @@ export async function sendMagicLinkEmail(
     const magicLinkEnvelope = {
       ...envelope(recipientEmail, subject, html),
       noRetry: true,
+      // System notification: bypasses agent-message delivery tracking in the worker.
+      // Magic link emails are transactional auth emails, not agent-to-user messages,
+      // so they have no corresponding agentMessagesTable row to update.
+      isSystemNotification: true,
     };
     const result = await deliverOutbound(magicLinkEnvelope);
     if (result.success) {
