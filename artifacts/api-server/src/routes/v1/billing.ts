@@ -21,6 +21,7 @@ import {
   pollForCryptoPayment,
 } from "../../services/billing";
 import { logActivity } from "../../services/activity-logger";
+import { logger } from "../../middlewares/request-logger";
 import { validateHandle, agentOwnerWhere } from "../../services/agents";
 import { isHandleReserved, checkRateLimit, recordHandleRegistration } from "../../services/handle";
 import { HANDLE_PRICING_TIERS } from "@workspace/shared-pricing";
@@ -172,6 +173,8 @@ router.post("/checkout", requireAuth, async (req, res, next) => {
         return url;
       } catch (e) {
         if (e instanceof AppError) throw e;
+        // URL is malformed — fall back to safe internal path and warn so developers notice misconfigured callers.
+        logger.warn({ url, fallback }, "[billing] validateRedirectUrl: malformed URL, using fallback");
         return fallback;
       }
     };
@@ -304,8 +307,11 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
       throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
     }
 
-    // Ownership check: if an agentId is provided, verify it belongs to the authenticated user
-    // before passing it into the checkout flow where it may receive a handle assignment.
+    // Ownership check: agentId must belong to the authenticated user.
+    // Note: we intentionally do NOT require that agentId matches the specific agent that was created
+    // with a pendingHandle from POST /agents. Handles are assignable to any owned agent — the user
+    // may legitimately reassign which agent receives the handle before completing checkout.
+    // The ownership check here is sufficient: a user cannot attach a handle to another user's agent.
     if (body.agentId) {
       const { db } = await import("@workspace/db");
       const { agentsTable } = await import("@workspace/db/schema");
@@ -329,6 +335,7 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
         return url;
       } catch (e) {
         if (e instanceof AppError) throw e;
+        logger.warn({ url, fallback }, "[billing] validateHandleRedirectUrl: malformed URL, using fallback");
         return fallback;
       }
     };

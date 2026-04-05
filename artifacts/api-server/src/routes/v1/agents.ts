@@ -150,15 +150,13 @@ router.post("/", requireAuth, async (req, res, next) => {
       normalizedHandle = handle.toLowerCase();
 
       if (!isSandbox) {
+        // Rate-limit check runs early to block abusers before any DB work.
+        // recordHandleRegistration is intentionally NOT called here — it is called only at the
+        // point of commitment: inside the benefit-claim branch below, or inside /billing/handle-checkout.
+        // Calling it here would double-count a paid flow (agents.ts + handle-checkout = 2 entries).
         const rateLimitCheck = await checkRateLimit(req.userId!);
         if (rateLimitCheck) {
           throw new AppError(rateLimitCheck.status, "RATE_LIMIT_EXCEEDED", rateLimitCheck.message);
-        }
-
-        try {
-          await recordHandleRegistration(req.userId!, normalizedHandle);
-        } catch (err) {
-          logger.warn({ err, handle: normalizedHandle }, "[agents] Failed to record handle registration attempt");
         }
       }
 
@@ -246,9 +244,16 @@ router.post("/", requireAuth, async (req, res, next) => {
           if (!claimed) {
             // Included handle benefit already consumed (race or prior claim).
             // Fall back to paid checkout — agent is still created successfully.
+            // /billing/handle-checkout will record the registration when checkout is initiated.
             pendingHandleCheckout = { handle: normalizedHandle!, checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout` };
             sandboxHandle = undefined;
           } else {
+            // Benefit claimed — record the registration now (only committed registrations are counted).
+            try {
+              await recordHandleRegistration(req.userId!, normalizedHandle!);
+            } catch (err) {
+              logger.warn({ err, handle: normalizedHandle }, "[agents] Failed to record included-handle registration");
+            }
             claimSubId = subscriptionId;
             sandboxHandle = normalizedHandle;
           }
@@ -440,10 +445,9 @@ router.post("/", requireAuth, async (req, res, next) => {
           includesOnChainMint: true,
         },
       } : {}),
-      ...(pendingHandleCheckout ? {
-        pendingHandle: pendingHandleCheckout.handle,
-        handleCheckoutUrl: pendingHandleCheckout.checkoutUrl,
-      } : {}),
+      // pendingHandle signals the frontend to initiate handle checkout via POST /billing/handle-checkout.
+      // The full checkout URL is not included — callers must use the billing API, not treat this as a redirect.
+      ...(pendingHandleCheckout ? { pendingHandle: pendingHandleCheckout.handle } : {}),
     });
   } catch (err) {
     next(err);

@@ -504,10 +504,10 @@ export type VerificationStatus = 'verified' | 'pending' | 'unverified';
 /** Returned only on initial agent creation — includes the one-time claim token. */
 export interface AgentCreateResponse extends Agent {
   claimToken?: string;
-  /** Set when the requested handle requires payment. The agent is created without
-   * the handle; redirect to handleCheckoutUrl to complete handle registration. */
+  /** Set when the requested handle requires payment (premium tier, or free plan with standard handle,
+   * or included benefit already consumed). The agent is created immediately without the handle.
+   * Call POST /api/v1/billing/handle-checkout with this handle value to start the Stripe checkout. */
   pendingHandle?: string;
-  handleCheckoutUrl?: string;
 }
 
 export interface Agent {

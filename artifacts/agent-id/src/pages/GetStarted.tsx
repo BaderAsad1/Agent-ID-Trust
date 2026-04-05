@@ -307,47 +307,51 @@ export function GetStarted() {
 
   const STORAGE_KEY = 'agent-id-getstarted-draft';
 
+  // Single unified step-initialization effect — replaces three previously separate effects that could
+  // fire in undefined order within the same render cycle. Priority order is explicit and deterministic:
+  //   1. sessionStorage draft (post-OAuth redirect — highest priority, restores full form state)
+  //   2. Advance out of 'auth' step once the user is authenticated
+  //   3. Advance out of 'intent' step when user arrives already logged-in with a URL intent param
   useEffect(() => {
     if (authLoading) return;
+
+    // Priority 1: restore draft written before redirecting to /sign-in
     const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    try {
-      const draft = JSON.parse(raw);
-      if (draft.pendingAuth && userId) {
-        sessionStorage.removeItem(STORAGE_KEY);
-        setIntent(draft.intent || 'new');
-        if (draft.intent === 'claim') {
-          setStep('claim-existing');
-        } else {
-          setAgentName(draft.agentName || '');
-          setHandle(draft.handle || '');
-          setDescription(draft.description || '');
-          setSelectedCaps(draft.selectedCaps || []);
-          setStep(draft.returnStep || 'wizard-handle');
+    if (raw) {
+      try {
+        const draft = JSON.parse(raw);
+        if (draft.pendingAuth && userId) {
+          sessionStorage.removeItem(STORAGE_KEY);
+          setIntent(draft.intent || 'new');
+          if (draft.intent === 'claim') {
+            setStep('claim-existing');
+          } else {
+            setAgentName(draft.agentName || '');
+            setHandle(draft.handle || '');
+            setDescription(draft.description || '');
+            setSelectedCaps(draft.selectedCaps || []);
+            setStep(draft.returnStep || 'wizard-handle');
+          }
+          return;
         }
-      }
-    } catch {}
-  }, [authLoading, userId]);
+      } catch {}
+    }
 
-  useEffect(() => {
-    if (step === 'auth' && !authLoading && userId) {
-      if (intent === 'claim') {
-        setStep('claim-existing');
-      } else {
-        setStep('wizard-handle');
+    // Priority 2: advance out of the 'auth' interstitial once authenticated
+    if (step === 'auth' && userId) {
+      setStep(intent === 'claim' ? 'claim-existing' : 'wizard-handle');
+      return;
+    }
+
+    // Priority 3: skip 'intent' selection when user arrives already logged-in with ?intent= in the URL
+    if (step === 'intent' && userId) {
+      const urlIntent = searchParams.get('intent');
+      if (urlIntent === 'new' || urlIntent === 'claim') {
+        setIntent(urlIntent);
+        setStep(urlIntent === 'claim' ? 'claim-existing' : 'wizard-handle');
       }
     }
-  }, [step, authLoading, userId, intent]);
-
-  useEffect(() => {
-    if (authLoading) return;
-    if (!userId) return;
-    const urlIntent = searchParams.get('intent');
-    if (step === 'intent' && (urlIntent === 'new' || urlIntent === 'claim')) {
-      setIntent(urlIntent);
-      setStep(urlIntent === 'claim' ? 'claim-existing' : 'wizard-handle');
-    }
-  }, [authLoading, userId, step, searchParams]);
+  }, [authLoading, userId, step, intent, searchParams]);
 
   useEffect(() => {
     if (!handle) { setAvailable(null); return; }
@@ -383,6 +387,9 @@ export function GetStarted() {
     }, 3000);
   }, [refreshAgents]);
 
+  // Only used by the claim-existing path. The new-agent path stays on token-display and shows
+  // activation status inline via agentActivated state — it never transitions to 'complete'.
+  // The 'complete' step is therefore intentionally reachable only from claim-existing.
   const startClaimPolling = useCallback((preExistingIds: Set<string>) => {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
@@ -1016,6 +1023,9 @@ with your ed25519 public key, then sign the challenge and POST to /bootstrap/act
               wordBreak: 'break-all', lineHeight: 1.6, userSelect: 'all',
             }}>
               {claimToken}
+            </div>
+            <div style={{ marginTop: 10, fontSize: 11, color: 'rgba(232,232,240,0.3)', lineHeight: 1.5 }}>
+              Keep this token private — treat it like a password. Do not paste it into AI chat interfaces, public forums, or share it with anyone. It expires in 7 days and can only be used once.
             </div>
           </Card>
 
