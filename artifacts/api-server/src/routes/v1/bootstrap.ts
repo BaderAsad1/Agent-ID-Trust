@@ -81,7 +81,7 @@ router.post("/claim", registrationRateLimitStrict, async (req, res, next) => {
       throw new AppError(403, "AGENT_REVOKED", "This agent has been revoked");
     }
 
-    if (agent.isClaimed && agent.verificationStatus === "verified") {
+    if (agent.isClaimed && agent.verificationStatus === "verified" && agent.status !== "revoked") {
       const APP_URL = process.env.APP_URL || "https://getagent.id";
       res.status(200).json({
         message: "This agent is already activated and claimed",
