@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, Loader2, Copy, AlertCircle, ArrowRight, Bot, Link2, X, Shield, Globe, Zap, Users } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
-import { api } from '@/lib/api';
+import { api, type AgentCreateResponse } from '@/lib/api';
 import { getHandlePrice } from '@/lib/pricing';
 import { SKILLS_LIBRARY, SKILL_CATEGORIES, type SkillCategory } from '@/lib/skills';
 
@@ -427,15 +427,15 @@ export function GetStarted() {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await api.agents.create({
+      const result: AgentCreateResponse = await api.agents.create({
         ...(handle ? { handle } : {}),
         displayName: agentName || handle || 'My Agent',
         description: description || undefined,
         capabilities: selectedCaps.length > 0 ? selectedCaps : undefined,
-      }) as unknown as Record<string, unknown>;
+      });
 
-      const agentId = result.id as string;
-      const token = result.claimToken as string;
+      const agentId = result.id;
+      const token = result.claimToken ?? '';
 
       setCreatedAgentId(agentId);
       setClaimToken(token);

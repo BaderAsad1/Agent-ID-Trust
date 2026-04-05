@@ -128,7 +128,7 @@ export const api = {
     list: () => request<{ agents: Agent[] }>("/agents"),
     get: (id: string) => request<Agent>(`/agents/${id}`),
     create: (data: CreateAgentInput) =>
-      request<Agent>("/agents", { method: "POST", body: JSON.stringify(data) }),
+      request<AgentCreateResponse>("/agents", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) =>
       request<Agent>(`/agents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: string) => request(`/agents/${id}`, { method: "DELETE" }),
@@ -500,6 +500,11 @@ export const api = {
 };
 
 export type VerificationStatus = 'verified' | 'pending' | 'unverified';
+
+/** Returned only on initial agent creation — includes the one-time claim token. */
+export interface AgentCreateResponse extends Agent {
+  claimToken?: string;
+}
 
 export interface Agent {
   id: string;
