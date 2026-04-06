@@ -6,6 +6,7 @@ import { PRICING_PLANS } from '@/lib/pricing';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
 import { useSEO } from '@/lib/useSEO';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const FAQ_ITEMS = [
   {
@@ -72,6 +73,7 @@ export function Pricing() {
   });
   const navigate = useNavigate();
   const { userId } = useAuth();
+  const isMobile = useIsMobile();
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [agentCount, setAgentCount] = useState<number | null>(null);
@@ -146,7 +148,7 @@ export function Pricing() {
           </div>
 
           {/* Plan cards - Gravity grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, alignItems: 'end', marginBottom: 48 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: 12, alignItems: 'end', marginBottom: 48 }}>
             {PRICING_PLANS.map(plan => {
               const isH = plan.highlight;
               const isLoading = loadingPlan === plan.name;
@@ -287,24 +289,26 @@ export function Pricing() {
             <p style={{ textAlign: 'center', fontSize: 12, color: '#3a4258', marginBottom: 28, maxWidth: 480, margin: '0 auto 28px' }}>
               Handles require a paid plan. Standard handles are included with Starter or Pro; Enterprise access is provisioned via custom entitlement.
             </p>
-            <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1a1f30', maxWidth: 720, margin: '0 auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '10px 20px', background: '#131729', color: '#3a4258', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                <span>Length</span>
-                <span>Price</span>
-                <span>Example</span>
-                <span>Limits</span>
-              </div>
-              {HANDLE_TABLE_ROWS.map((row, i) => (
-                <div
-                  key={row.label}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '14px 20px', background: i % 2 === 0 ? '#0c0f1e' : '#050711', borderTop: '1px solid #1a1f30', alignItems: 'center' }}
-                >
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>{row.label}</span>
-                  <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4f7df3' }}>{row.price}</span>
-                  <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: '#8690a8' }}>{row.example}</span>
-                  <span style={{ fontSize: 11, color: '#3a4258' }}>{row.note}</span>
+            <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1a1f30', maxWidth: 720, margin: '0 auto', overflowX: 'auto' }}>
+              <div style={{ minWidth: 480 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '10px 20px', background: '#131729', color: '#3a4258', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  <span>Length</span>
+                  <span>Price</span>
+                  <span>Example</span>
+                  <span>Limits</span>
                 </div>
-              ))}
+                {HANDLE_TABLE_ROWS.map((row, i) => (
+                  <div
+                    key={row.label}
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '14px 20px', background: i % 2 === 0 ? '#0c0f1e' : '#050711', borderTop: '1px solid #1a1f30', alignItems: 'center' }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>{row.label}</span>
+                    <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4f7df3' }}>{row.price}</span>
+                    <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: '#8690a8' }}>{row.example}</span>
+                    <span style={{ fontSize: 11, color: '#3a4258' }}>{row.note}</span>
+                  </div>
+                ))}
+              </div>
             </div>
             <p style={{ textAlign: 'center', fontSize: 11, color: '#3a4258', marginTop: 12 }}>
               On-chain NFT minting available now for premium handles (3-4 char). All handles coming soon.
