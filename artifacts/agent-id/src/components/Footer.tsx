@@ -2,11 +2,11 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 const linkStyle = {
-  color: 'rgba(232,232,240,0.4)',
+  color: 'rgba(232,232,240,0.65)',
   textDecoration: 'none',
   fontFamily: 'var(--font-body)',
   fontSize: 12,
-  lineHeight: 1,
+  lineHeight: 1.6,
   display: 'block',
   padding: '4px 0',
   transition: 'color 0.15s ease',
@@ -14,11 +14,11 @@ const linkStyle = {
 
 const headingStyle = {
   fontFamily: 'var(--font-body)',
-  fontSize: 10,
+  fontSize: 11,
   fontWeight: 600,
   letterSpacing: '0.09em',
   textTransform: 'uppercase' as const,
-  color: 'rgba(232,232,240,0.22)',
+  color: 'rgba(232,232,240,0.45)',
   marginBottom: 10,
 };
 
@@ -59,12 +59,12 @@ export function Footer() {
                 letterSpacing: '-0.01em',
               }}>Agent ID</span>
             </div>
-            <p style={{ color: 'rgba(232,232,240,0.25)', fontSize: 12, lineHeight: 1.6, maxWidth: 180 }}>
+            <p style={{ color: 'rgba(232,232,240,0.55)', fontSize: 12, lineHeight: 1.6, maxWidth: 180 }}>
               Verified identity and trust for the agentic web.
             </p>
             <div className="flex items-center gap-3 mt-4">
               <FooterExternalLink href="https://x.com/getagentid">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block', opacity: 0.5 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block', opacity: 0.65 }}>
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.851L1.254 2.25H8.08l4.254 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
                 </svg>
               </FooterExternalLink>
@@ -117,10 +117,10 @@ export function Footer() {
         </div>
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <p style={{ fontSize: 11, color: 'rgba(232,232,240,0.2)', fontFamily: 'var(--font-body)' }}>
+          <p style={{ fontSize: 11, color: 'rgba(232,232,240,0.5)', fontFamily: 'var(--font-body)' }}>
             &copy; {new Date().getFullYear()} Agent ID. All rights reserved.
           </p>
-          <p style={{ fontSize: 11, color: 'rgba(232,232,240,0.15)', fontFamily: 'var(--font-body)' }}>
+          <p style={{ fontSize: 11, color: 'rgba(232,232,240,0.4)', fontFamily: 'var(--font-body)' }}>
             Identity infrastructure for the agentic web
           </p>
         </div>

@@ -9,7 +9,7 @@ function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
     <Link
       to={to}
       style={{
-        color: active ? 'rgba(232,232,240,0.85)' : 'rgba(232,232,240,0.45)',
+        color: active ? 'rgba(232,232,240,0.9)' : 'rgba(232,232,240,0.65)',
         textDecoration: 'none',
         fontFamily: 'var(--font-body)',
         fontSize: 13,
@@ -97,7 +97,7 @@ export function Nav() {
                     onClick={() => navigate('/dashboard')}
                     className="hidden sm:block px-4 py-1.5 rounded-lg transition-all cursor-pointer hover:bg-white/5"
                     style={{
-                      color: 'rgba(232,232,240,0.45)',
+                      color: 'rgba(232,232,240,0.65)',
                       background: 'transparent',
                       border: '1px solid rgba(255,255,255,0.08)',
                       fontFamily: 'var(--font-body)',
@@ -122,7 +122,7 @@ export function Nav() {
                 <button
                   onClick={() => { logout(); navigate('/'); }}
                   className="hidden sm:block px-3 py-1.5 rounded-lg transition-all cursor-pointer hover:bg-white/5"
-                  style={{ color: 'rgba(232,232,240,0.3)', background: 'transparent', border: 'none', fontFamily: 'var(--font-body)', fontSize: 13 }}
+                  style={{ color: 'rgba(232,232,240,0.55)', background: 'transparent', border: 'none', fontFamily: 'var(--font-body)', fontSize: 13 }}
                 >Sign Out</button>
               </>
             ) : (
@@ -205,7 +205,7 @@ export function Nav() {
               style={{
                 display: 'block', width: '100%', textAlign: 'left',
                 padding: '12px 24px', marginTop: 4,
-                fontSize: 14, color: 'rgba(232,232,240,0.3)',
+                fontSize: 14, color: 'rgba(232,232,240,0.55)',
                 background: 'transparent', border: 'none',
                 fontFamily: 'var(--font-body)', cursor: 'pointer',
               }}
