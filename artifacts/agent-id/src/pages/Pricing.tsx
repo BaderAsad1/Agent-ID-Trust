@@ -6,6 +6,7 @@ import { PRICING_PLANS } from '@/lib/pricing';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
 import { useSEO } from '@/lib/useSEO';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const FAQ_ITEMS = [
   {
@@ -72,19 +73,13 @@ export function Pricing() {
   });
   const navigate = useNavigate();
   const { userId } = useAuth();
+  const isMobile = useIsMobile();
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [agentCount, setAgentCount] = useState<number | null>(null);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
     api.meta.stats().then(s => setAgentCount(s.agentCount)).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   const handleCta = async (plan: typeof PRICING_PLANS[number]) => {

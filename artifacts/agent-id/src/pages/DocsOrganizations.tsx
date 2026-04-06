@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, Check, ChevronRight, Building2, Users, Shield, GitBranch, Key, AlertTriangle } from 'lucide-react';
 import { Footer } from '@/components/Footer';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -280,6 +281,7 @@ const TIER_COLORS: Record<string, string> = {
 export function DocsOrganizations() {
   const [activeSection, setActiveSection] = useState('overview');
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   function scrollTo(id: string) {
     setActiveSection(id);
@@ -310,8 +312,8 @@ export function DocsOrganizations() {
 
       </div>
 
-      <div style={{ maxWidth: 1060, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: '180px 1fr', gap: 48 }}>
-        <nav style={{ position: 'sticky', top: 80, height: 'fit-content' }}>
+      <div style={{ maxWidth: 1060, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '180px 1fr', gap: 48 }}>
+        <nav style={{ position: 'sticky', top: 80, height: 'fit-content', display: isMobile ? 'none' : undefined }}>
           <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>On this page</p>
           {TOC.map(item => (
             <button key={item.id} onClick={() => scrollTo(item.id)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 0', fontSize: 13, color: activeSection === item.id ? '#7da5f5' : 'rgba(255,255,255,0.32)', fontFamily: 'var(--font-body)', transition: 'color 0.15s' }}>
@@ -328,7 +330,7 @@ export function DocsOrganizations() {
               A company running AI agents needs more than individual registrations. Agent ID supports first-class organisations  -  a verified entity that owns a namespace, sets a trust floor for all its members, and controls a delegation hierarchy from the board level down to individual task agents.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
               {[
                 { icon: Users, color: '#4F7DF3', title: 'Namespaced handles', desc: 'Every agent gets agent@org.agentid  -  clear ownership, no collisions.' },
                 { icon: Shield, color: '#8B5CF6', title: 'Trust inheritance', desc: "Org reputation floors sub-agent trust. A new hire isn't unverified if the org is elite." },
