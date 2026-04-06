@@ -2129,22 +2129,22 @@ function RegistryField({ progress }: { progress: number }) {
 
   const monoStyle: CSSProperties = {
     fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 'clamp(16px, 2vw, 22px)',
+    fontSize: 'clamp(14px, 1.6vw, 18px)',
     fontWeight: 500,
     letterSpacing: '0.02em',
   };
 
   return (
     <div style={{
-      marginBottom: 32,
+      marginBottom: 28,
       opacity: fieldOpacity,
       transform: `translateY(${lerp(0, -20, Math.min(1, progress / 0.12))}px)`,
     }}>
       <div style={{
         display: 'inline-flex', alignItems: 'center',
-        background: 'rgba(8,10,22,0.88)',
-        border: '1px solid rgba(79,125,243,0.12)',
-        borderRadius: 12, padding: '12px 24px',
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 8, padding: '9px 18px',
       }}>
         <span style={{
           ...monoStyle,
@@ -2263,159 +2263,137 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
       paddingRight: 'clamp(20px, 5vw, 60px)',
       zIndex: 10, pointerEvents: 'none',
     }}>
+
+      {/* Atmospheric depth — behind content, not on it */}
+      <div style={{
+        position: 'absolute',
+        top: '5%', left: '50%', transform: 'translateX(-50%)',
+        width: 760, height: 420,
+        background: 'radial-gradient(ellipse at 50% 40%, rgba(79,125,243,0.09) 0%, transparent 68%)',
+        pointerEvents: 'none', zIndex: -1,
+      }} />
+
       <RegistryField progress={progress} />
 
-      {/* Eyebrow badge */}
+      {/* Eyebrow — no pill, no glow dot. Just the category signal. */}
       <div style={{
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.8}px)`,
-        marginBottom: 18,
+        marginBottom: 22,
       }}>
         <span style={{
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 11, fontWeight: 500,
-          letterSpacing: '0.10em',
-          color: 'rgba(232,232,240,0.65)',
-          background: 'rgba(79,125,243,0.07)',
-          border: '1px solid rgba(79,125,243,0.22)',
-          borderRadius: 100,
-          padding: '5px 16px',
-          display: 'inline-flex', alignItems: 'center', gap: 8,
+          fontSize: 10, fontWeight: 600,
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+          color: '#4f7df3',
         }}>
-          <span style={{
-            width: 5, height: 5, borderRadius: '50%',
-            background: '#4f7df3',
-            boxShadow: '0 0 6px rgba(79,125,243,0.8)',
-            flexShrink: 0,
-            display: 'inline-block',
-          }} />
-          Identity infrastructure for the agentic web
+          Identity Infrastructure · Agentic Web
         </span>
       </div>
 
+      {/* H1 — pure white, no gradient. Gradient on text = Webflow templates. */}
       <h1 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(42px, 6.5vw, 82px)',
-        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.06,
-        color: '#e8e8f0',
+        fontSize: 'clamp(44px, 6.8vw, 88px)',
+        fontWeight: 800, letterSpacing: '-0.045em', lineHeight: 1.03,
+        color: '#f2f2f7',
         textAlign: 'center',
-        margin: '0 0 22px',
-        maxWidth: 800,
+        margin: '0 0 26px',
+        maxWidth: 840,
         opacity: contentOpacity,
         transform: `translateY(${contentY}px)`,
       }}>
-        Give your agent<br />
-        <span style={{
-          background: 'linear-gradient(135deg, #a5b8f8 0%, #7c9df5 35%, #4f7df3 65%, #7c5bf5 100%)',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-        }}>a verifiable identity.</span>
+        The identity layer<br />for the agentic web.
       </h1>
 
       <p style={{
         fontFamily: "'Inter', sans-serif",
         fontSize: 'clamp(15px, 1.4vw, 18px)',
-        fontWeight: 400, lineHeight: 1.65,
-        color: 'rgba(232,232,240,0.70)',
+        fontWeight: 400, lineHeight: 1.7,
+        color: '#8690a8',
         textAlign: 'center',
-        maxWidth: 520, margin: '0 auto',
+        maxWidth: 500, margin: '0 auto',
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
-        Claim a .AgentID handle. Issue a verifiable credential. Let any system resolve, verify, and trust your agent — without asking you first.
+        Register your agent once. Any system it encounters can verify its identity, trust score, and capabilities — without calling you first.
       </p>
 
       <div style={{
-        marginTop: 32,
+        marginTop: 36,
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.3}px)`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+        display: 'flex', alignItems: 'center', gap: 16,
         pointerEvents: 'auto',
       }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => {
-            const base = import.meta.env.BASE_URL || '/';
-            window.location.href = `${base}sign-in?intent=register`;
-          }} style={{
-            fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600,
-            color: '#fff',
-            background: 'linear-gradient(135deg, #4f7df3 0%, #5d87f5 100%)',
-            border: 'none',
-            borderRadius: 9, padding: '11px 26px', cursor: 'pointer',
-            letterSpacing: '-0.01em',
-            boxShadow: '0 4px 20px rgba(79,125,243,0.4), 0 1px 3px rgba(0,0,0,0.3)',
-          }}>
-            Get Started
-          </button>
-          <button onClick={() => {
-            const base = import.meta.env.BASE_URL || '/';
-            window.location.href = `${base}docs`;
-          }} style={{
-            fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
-            color: 'rgba(232,232,240,0.80)',
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 9, padding: '11px 26px', cursor: 'pointer',
-            letterSpacing: '-0.01em',
-          }}>
-            View Docs
-          </button>
-        </div>
-
-        {/* Tech chips */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center',
+        {/* Primary — white on dark. High contrast. Stands out without screaming. */}
+        <button onClick={() => {
+          const base = import.meta.env.BASE_URL || '/';
+          window.location.href = `${base}sign-in?intent=register`;
+        }} style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600,
+          color: '#080b18',
+          background: '#f2f2f7',
+          border: 'none',
+          borderRadius: 8, padding: '12px 28px', cursor: 'pointer',
+          letterSpacing: '-0.01em',
         }}>
-          {['ERC-8004 · Base', 'W3C Verifiable Credentials', 'did:web'].map((chip, i) => (
-            <span key={i} style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 500,
-              color: 'rgba(232,232,240,0.42)',
-              letterSpacing: '0.06em',
-              padding: '3px 10px',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: 100,
-              background: 'rgba(255,255,255,0.02)',
-            }}>{chip}</span>
-          ))}
-        </div>
+          Get Started
+        </button>
+
+        {/* Secondary — text only. Clean. */}
+        <button onClick={() => {
+          const base = import.meta.env.BASE_URL || '/';
+          window.location.href = `${base}docs`;
+        }} style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
+          color: '#8690a8',
+          background: 'none', border: 'none',
+          padding: '12px 4px', cursor: 'pointer',
+          letterSpacing: '-0.01em',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          View docs <span style={{ opacity: 0.5 }}>→</span>
+        </button>
       </div>
 
-      {/* Integration marquee — between header text and credential card */}
+      {/* Integration marquee — visible divider between text and credential animation */}
       <div style={{
-        marginTop: 'clamp(24px, 4vh, 44px)',
+        marginTop: 'clamp(28px, 4.5vh, 52px)',
         width: '100vw',
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.15}px)`,
         position: 'relative', overflow: 'hidden',
-        padding: '14px 0',
+        padding: '13px 0',
         borderTop: '1px solid rgba(255,255,255,0.05)',
         borderBottom: '1px solid rgba(255,255,255,0.05)',
-        background: 'rgba(5,7,17,0.5)',
       }}>
         <div style={{
-          position: 'absolute', top: 0, left: 0, bottom: 0, width: 100,
+          position: 'absolute', top: 0, left: 0, bottom: 0, width: 120,
           background: 'linear-gradient(90deg, rgba(5,7,17,1) 0%, transparent 100%)',
           zIndex: 2, pointerEvents: 'none',
         }} />
         <div style={{
-          position: 'absolute', top: 0, right: 0, bottom: 0, width: 100,
+          position: 'absolute', top: 0, right: 0, bottom: 0, width: 120,
           background: 'linear-gradient(270deg, rgba(5,7,17,1) 0%, transparent 100%)',
           zIndex: 2, pointerEvents: 'none',
         }} />
         <div className="animate-marquee" style={{ gap: 0, animationDuration: '45s' }}>
           {[...MARQUEE_BRANDS, ...MARQUEE_BRANDS].map((brand, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 48, flexShrink: 0 }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 52, flexShrink: 0 }}>
               <img
-                src={`${SI}/${brand.slug}/808898`}
+                src={`${SI}/${brand.slug}/707888`}
                 width={14} height={14}
                 alt={brand.name}
                 loading="lazy"
-                style={{ flexShrink: 0, opacity: 0.55, display: 'block' }}
+                style={{ flexShrink: 0, display: 'block' }}
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
               <span style={{
                 fontFamily: "'Inter', sans-serif",
                 fontSize: 12, fontWeight: 500,
-                color: 'rgba(232,232,240,0.40)',
+                color: '#606878',
                 letterSpacing: '-0.01em',
                 whiteSpace: 'nowrap',
               }}>{brand.name}</span>
