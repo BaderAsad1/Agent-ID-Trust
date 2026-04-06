@@ -325,7 +325,9 @@ function toResolvedAgent(
     verificationStatus: agent.verificationStatus,
     verificationMethod: agent.verificationMethod,
     verifiedAt: agent.verifiedAt,
-    status: agent.status === "revoked" ? "revoked" : (agent.handleStatus ?? agent.status),
+    // Non-active agent statuses (suspended, revoked, draft, etc.) always take priority
+    // over handleStatus so operational states are correctly surfaced to callers.
+    status: agent.status !== "active" ? agent.status : (agent.handleStatus ?? "active"),
     handleStatus: agent.handleStatus ?? null,
     avatarUrl: agent.avatarUrl,
     ownerKey,

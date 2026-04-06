@@ -16,6 +16,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import express from "express";
 import { errorHandler } from "../middlewares/error-handler";
+import { _resetEnvCacheForTests } from "../lib/env";
 
 vi.mock("../services/activity-logger", () => ({
   logActivity: vi.fn().mockResolvedValue(undefined),
@@ -47,11 +48,13 @@ describe("Admin Auth — X-Admin-Key enforcement", () => {
 
   beforeEach(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
     app = await buildAdminApp();
   });
 
   afterEach(() => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
   });
 
   it("returns 401 when X-Admin-Key header is missing", async () => {

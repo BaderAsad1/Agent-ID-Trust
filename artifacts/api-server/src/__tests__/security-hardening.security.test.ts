@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import express from "express";
 import { timingSafeEqual } from "crypto";
+import { _resetEnvCacheForTests } from "../lib/env";
 
 // ─── Pre-flight: set PORT so env validation does not abort ──────────────────
 // Some of our route imports trigger env() which validates PORT.
@@ -169,6 +170,7 @@ describe("C — Admin constant-time comparison: integration", () => {
   async function buildAdminApp() {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
     process.env.PORT = "0";
+    _resetEnvCacheForTests();
     const app = express();
     app.set("trust proxy", 1);
     app.use(express.json());
@@ -179,7 +181,10 @@ describe("C — Admin constant-time comparison: integration", () => {
     return app;
   }
 
-  afterEach(() => { delete process.env.ADMIN_SECRET_KEY; });
+  afterEach(() => {
+    delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
+  });
 
   it("missing X-Admin-Key → 401 ADMIN_UNAUTHORIZED", async () => {
     const app = await buildAdminApp();

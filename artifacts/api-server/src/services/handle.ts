@@ -417,9 +417,9 @@ export async function checkHandleRegistrationLimits(
 
   if (!user) return { allowed: false, status: 404, message: "User not found" };
 
-  // Fetch active subscription to determine plan for tier-based checks below.
-  // Free/no-subscription users are NOT blocked here — they can pay for handles
-  // separately via the /handle/purchase checkout flow.
+  // All handle tiers — standard_5plus and premium — require an active paid plan subscription.
+  // Plan is read from subscriptionsTable (canonical, real-time) rather than the denormalized
+  // users.plan column so that cancelled subscriptions are reflected immediately.
   const activeSub = await db
     .select({ plan: subscriptionsTable.plan })
     .from(subscriptionsTable)
@@ -427,6 +427,11 @@ export async function checkHandleRegistrationLimits(
     .limit(1);
   const rawPlanForGate = (activeSub[0]?.plan ?? "none") as string;
   const normalizedPlanForGate = rawPlanForGate === "builder" ? "starter" : rawPlanForGate === "team" ? "pro" : rawPlanForGate === "free" ? "none" : rawPlanForGate;
+
+  // Handles require a paid plan — block free/unsubscribed users for all tiers.
+  if (normalizedPlanForGate === "none") {
+    return { allowed: false, status: 402, message: "Handles require a paid plan" };
+  }
 
   const accountAgeMs = Date.now() - new Date(user.createdAt).getTime();
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
@@ -465,9 +470,6 @@ export async function checkHandleRegistrationLimits(
       };
     }
   }
-
-  // Standard handles (5+) are available to all users — Starter/Pro get one included free,
-  // everyone else pays $9/yr via the handle checkout flow. No plan gate here.
 
   return null;
 }

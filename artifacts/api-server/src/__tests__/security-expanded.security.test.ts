@@ -19,6 +19,7 @@ import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
 import { errorHandler } from "../middlewares/error-handler";
+import { _resetEnvCacheForTests } from "../lib/env";
 
 vi.mock("../services/activity-logger", () => ({
   logActivity: vi.fn().mockResolvedValue(undefined),
@@ -108,11 +109,13 @@ describe("Security Expansion — Admin bypass (all admin endpoints require X-Adm
 
   beforeAll(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
     app = await buildAdminApp();
   });
 
   afterAll(() => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
   });
 
   it("POST /admin/agents/:id/revoke — 401 ADMIN_UNAUTHORIZED without header", async () => {
@@ -161,11 +164,13 @@ describe("Security Expansion — Privilege escalation: agent key rejected on adm
 
   beforeAll(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
     app = await buildAdminApp();
   });
 
   afterAll(() => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
   });
 
   it("x-agent-key header does NOT bypass admin auth", async () => {
@@ -194,11 +199,13 @@ describe("Security Expansion — Oversized payload rejection (413) on real admin
 
   beforeAll(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
     app = await buildAdminApp();
   });
 
   afterAll(() => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
   });
 
   it("JSON payload >100kb is rejected with 413 on admin route", async () => {
@@ -230,11 +237,13 @@ describe("Security Expansion — Malformed JSON returns 400 on real admin route"
 
   beforeAll(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
     app = await buildAdminApp();
   });
 
   afterAll(() => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
   });
 
   it("malformed JSON body returns 400 on admin route", async () => {

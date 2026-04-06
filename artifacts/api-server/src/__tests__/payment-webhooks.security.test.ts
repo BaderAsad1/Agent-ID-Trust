@@ -146,6 +146,7 @@ describe("Payment Webhooks — Billing endpoints require authentication", () => 
 
 describe("Payment Webhooks — activatePlanForUser persists plan to DB (end-to-end checkout outcome)", () => {
   let testUserId: string;
+  const subIdSuffix = Date.now().toString(36);
 
   beforeAll(async () => {
     const { createTestUser } = await import("../test-support/factories");
@@ -155,15 +156,16 @@ describe("Payment Webhooks — activatePlanForUser persists plan to DB (end-to-e
 
   afterAll(async () => {
     const { db } = await import("@workspace/db");
-    const { usersTable } = await import("@workspace/db/schema");
+    const { usersTable, subscriptionsTable } = await import("@workspace/db/schema");
     const { eq } = await import("drizzle-orm");
+    await db.delete(subscriptionsTable).where(eq(subscriptionsTable.userId, testUserId)).catch(() => {});
     await db.delete(usersTable).where(eq(usersTable.id, testUserId)).catch(() => {});
   });
 
   it("activatePlanForUser with plan=starter persists the plan in userPlanCache (getUserPlan reflects starter)", async () => {
     const { activatePlanForUser, getUserPlan } = await import("../services/billing");
 
-    await activatePlanForUser(testUserId, "starter", "sub_test_starter");
+    await activatePlanForUser(testUserId, "starter", `sub_test_starter_${subIdSuffix}`);
 
     const plan = await getUserPlan(testUserId);
     expect(plan).toBe("starter");
@@ -186,7 +188,7 @@ describe("Payment Webhooks — activatePlanForUser persists plan to DB (end-to-e
       object: "checkout.session",
       payment_status: "paid",
       customer: "cus_paid_test",
-      subscription: "sub_paid_test",
+      subscription: `sub_paid_test_${subIdSuffix}`,
       metadata: { userId: testUserId, plan: "pro", billingInterval: "monthly" },
     } as unknown as import("stripe").Stripe.Checkout.Session);
 
@@ -525,7 +527,7 @@ describe("Payment Webhooks — end-to-end Stripe signature: valid signed events 
           status: "active",
           customer: "cus_e2e_test",
           start_date: Math.floor(Date.now() / 1000),
-          metadata: { userId: testUserId, plan: "pro", billingInterval: "monthly" },
+          metadata: { userId: testUserId, billingInterval: "monthly" },
           items: {
             object: "list",
             data: [{
@@ -550,7 +552,7 @@ describe("Payment Webhooks — end-to-end Stripe signature: valid signed events 
     const { subscriptionsTable } = await import("@workspace/db/schema");
     const { eq } = await import("drizzle-orm");
     const sub = await db.query.subscriptionsTable.findFirst({
-      where: eq(subscriptionsTable.userId, testUserId),
+      where: eq(subscriptionsTable.providerSubscriptionId, subscriptionId),
       columns: { status: true, providerSubscriptionId: true },
     });
     expect(sub).toBeDefined();

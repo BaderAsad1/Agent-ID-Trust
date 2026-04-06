@@ -27,8 +27,8 @@ const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
 export const MARKETPLACE_FEE_BPS = 250;
 
 const PLAN_LIMITS: Record<string, { maxPublicAgents: number; maxPrivateAgents: number; agentLimit: number; maxSubagents: number }> = {
-  none: { maxPublicAgents: 1, maxPrivateAgents: 1, agentLimit: 1, maxSubagents: 0 },
-  free: { maxPublicAgents: 1, maxPrivateAgents: 1, agentLimit: 1, maxSubagents: 0 },
+  none: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
+  free: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
   starter: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
   builder: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
   pro: { maxPublicAgents: 25, maxPrivateAgents: 25, agentLimit: 25, maxSubagents: 100 },
@@ -960,9 +960,12 @@ export async function createHandleCheckoutSession(
 ): Promise<{ url: string | null; error?: string; priceCents: number; included?: boolean }> {
   const priceCents = getHandlePriceCents(handle);
 
-  // All users may purchase handles. Starter/Pro users get their first standard handle (5+)
-  // included free via the entitlement path below; everyone else pays the retail price.
+  // Handles require a paid plan. Free/unsubscribed users cannot register handles of any tier.
+  // Starter/Pro users get their first standard handle included; other paid tiers pay the retail price.
   const normalizedUserPlan = await getUserPlan(userId);
+  if (normalizedUserPlan === "none") {
+    return { url: null, error: "PLAN_REQUIRED_FOR_HANDLE", priceCents: 0 };
+  }
 
   // Included-handle entitlement path: check eligibility first (read-only).
   // If the user is eligible for a free included handle but has not provided an agentId,
