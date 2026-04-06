@@ -26,6 +26,10 @@ export interface SignInWithAgentIDProps {
   label?: string;
   disabled?: boolean;
   onClick?: () => void;
+  /** Show "Powered by getagent.id" subtitle. Default: true */
+  showBranding?: boolean;
+  /** Override the Agent ID base URL (useful for self-hosted or staging). Default: https://getagent.id */
+  baseUrl?: string;
 }
 
 export function buildAgentIDAuthUrl(params: {
@@ -113,8 +117,10 @@ export function SignInWithAgentID({
   label,
   disabled = false,
   onClick,
+  showBranding = true,
+  baseUrl,
 }: SignInWithAgentIDProps) {
-  const authUrl = useMemo(() => buildAgentIDAuthUrl({ clientId, redirectUri, scopes, state, codeChallenge, codeChallengeMethod, agentId }), [clientId, redirectUri, scopes, state, codeChallenge, codeChallengeMethod, agentId]);
+  const authUrl = useMemo(() => buildAgentIDAuthUrl({ clientId, redirectUri, scopes, state, codeChallenge, codeChallengeMethod, agentId, baseUrl }), [clientId, redirectUri, scopes, state, codeChallenge, codeChallengeMethod, agentId, baseUrl]);
 
   const sz = SIZES[size];
   const th = THEMES[theme];
@@ -190,8 +196,8 @@ export function SignInWithAgentID({
         <AgentIDMark size={sz.iconSize} />
         <div className="agentid-btn-divider" />
         <div className="agentid-btn-label-wrap">
-          <span>{label || 'Sign in with Agent ID'} <span style={{ fontSize: sz.fontSize - 4, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '1px 5px', borderRadius: 4, marginLeft: 4, verticalAlign: 'middle', letterSpacing: '0.04em' }}>BETA</span></span>
-          <span className="agentid-btn-sub">Powered by getagent.id</span>
+          <span>{label || 'Sign in with Agent ID'}</span>
+          {showBranding && <span className="agentid-btn-sub">Powered by getagent.id</span>}
         </div>
       </button>
     </>
