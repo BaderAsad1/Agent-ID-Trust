@@ -235,7 +235,7 @@ describe("Resolver — suspended agent is hidden (404) from public handle resolu
     const user = await createTestUser();
     userId = user.id;
     const agent = await createTestAgent(userId, {
-      handle: `suspended-resolver-test-${Date.now()}`,
+      handle: `susp-${Date.now().toString(36)}`,
       status: "active",
       isPublic: true,
       handlePaid: true,

@@ -22,6 +22,7 @@ import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
 import { errorHandler } from "../middlewares/error-handler";
+import { _resetEnvCacheForTests } from "../lib/env";
 
 vi.mock("../services/activity-logger", () => ({
   logActivity: vi.fn().mockResolvedValue(undefined),
@@ -104,6 +105,7 @@ describe("Agent Lifecycle — admin revoke endpoint: authentication guards", () 
 
   beforeAll(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
     app = await buildAdminApp();
     const user = await createTestUser();
     userId = user.id;
@@ -113,6 +115,7 @@ describe("Agent Lifecycle — admin revoke endpoint: authentication guards", () 
 
   afterAll(async () => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
     await db.delete(agentKeysTable).where(eq(agentKeysTable.agentId, agentId)).catch(() => {});
     await db.delete(apiKeysTable).where(eq(apiKeysTable.ownerId, agentId)).catch(() => {});
     await db.delete(agentsTable).where(eq(agentsTable.id, agentId)).catch(() => {});
@@ -164,6 +167,7 @@ describe("Agent Lifecycle — admin revoke sets DB state and audit event", () =>
 
   beforeAll(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
     app = await buildAdminApp();
     const user = await createTestUser();
     userId = user.id;
@@ -178,6 +182,7 @@ describe("Agent Lifecycle — admin revoke sets DB state and audit event", () =>
 
   afterAll(async () => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
     await db.delete(auditEventsTable).where(eq(auditEventsTable.targetId, agentId)).catch(() => {});
     await db.delete(agentKeysTable).where(eq(agentKeysTable.agentId, agentId)).catch(() => {});
     await db.delete(apiKeysTable).where(eq(apiKeysTable.ownerId, agentId)).catch(() => {});
@@ -421,6 +426,7 @@ describe("Agent Lifecycle — suspended agent lifecycle transitions", () => {
 
   beforeAll(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
     adminApp = await buildAdminApp();
 
     const user = await createTestUser();
@@ -435,6 +441,7 @@ describe("Agent Lifecycle — suspended agent lifecycle transitions", () => {
 
   afterAll(async () => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
     await db.delete(apiKeysTable).where(eq(apiKeysTable.ownerId, activeToSuspendAgentId)).catch(() => {});
     await db.delete(agentsTable).where(eq(agentsTable.id, suspendedAgentId)).catch(() => {});
     await db.delete(agentsTable).where(eq(agentsTable.id, activeToSuspendAgentId)).catch(() => {});
@@ -553,6 +560,7 @@ describe("Agent Lifecycle — revocation cascade: agent is blocked by requireAge
 
   beforeAll(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
 
     const user = await createTestUser();
     userId = user.id;
@@ -572,6 +580,7 @@ describe("Agent Lifecycle — revocation cascade: agent is blocked by requireAge
 
   afterAll(async () => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
     await db.delete(apiKeysTable).where(eq(apiKeysTable.ownerId, agentId)).catch(() => {});
     await db.delete(agentKeysTable).where(eq(agentKeysTable.agentId, agentId)).catch(() => {});
     await db.delete(agentsTable).where(eq(agentsTable.id, agentId)).catch(() => {});

@@ -241,54 +241,9 @@ const createOrderSchema = z.object({
   milestones: z.array(createMilestoneSchema).optional(),
 });
 
-router.post("/orders", requireAuth, async (req, res, next) => {
-  try {
-    const parsed = createOrderSchema.parse(req.body);
-    const { createOrder } = await import("../../services/orders");
-    const result = await createOrder({
-      listingId: parsed.listingId,
-      buyerUserId: req.userId!,
-      taskDescription: parsed.taskDescription,
-      selectedPackage: parsed.selectedPackage,
-    });
-    if (!result.success) {
-      const code = result.error === "LISTING_NOT_FOUND" ? 404
-        : result.error === "CANNOT_ORDER_OWN_LISTING" ? 403
-        : result.error === "PAYMENT_INTENT_FAILED" ? 502 : 400;
-      throw new AppError(code, result.error!, result.error!);
-    }
-
-    await trackAnalyticsEvent({
-      eventType: "hire_initiated",
-      listingId: parsed.listingId,
-      userId: req.userId!,
-    });
-
-    let milestoneResults;
-    if (parsed.milestones && parsed.milestones.length > 0 && result.order) {
-      milestoneResults = await createMilestones(
-        result.order.id,
-        parsed.milestones.map((m) => ({
-          ...m,
-          dueAt: m.dueAt ? new Date(m.dueAt) : undefined,
-        })),
-      );
-    }
-
-    res.status(201).json({
-      ...withPayoutDisclosure(result.order!),
-      clientSecret: result.clientSecret,
-      milestones: milestoneResults?.map((r) => r.milestone) ?? [],
-      milestoneClientSecrets: milestoneResults?.map((r) => ({
-        milestoneId: r.milestone.id,
-        title: r.milestone.title,
-        amount: r.milestone.amount,
-        clientSecret: r.clientSecret,
-      })) ?? [],
-    });
-  } catch (err) {
-    next(err);
-  }
+router.post("/orders", requireAuth, async (_req, res, _next) => {
+  // Marketplace payments are not yet enabled — fail explicitly so clients get a clear signal.
+  res.status(501).json({ error: "marketplace_payments_unavailable", message: "Marketplace payments are not yet enabled" });
 });
 
 router.get("/orders", requireAuth, async (req, res, next) => {
