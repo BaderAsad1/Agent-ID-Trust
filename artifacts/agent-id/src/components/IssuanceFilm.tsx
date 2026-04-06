@@ -2257,9 +2257,11 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
     <div style={{
       position: 'absolute', inset: 0,
       display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'flex-start',
+      paddingTop: 'clamp(72px, 10vh, 112px)',
+      paddingLeft: 'clamp(20px, 5vw, 60px)',
+      paddingRight: 'clamp(20px, 5vw, 60px)',
       zIndex: 10, pointerEvents: 'none',
-      padding: '0 clamp(20px, 5vw, 60px)',
     }}>
       <RegistryField progress={progress} />
 
@@ -2373,6 +2375,51 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
               borderRadius: 100,
               background: 'rgba(255,255,255,0.02)',
             }}>{chip}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Integration marquee — between header text and credential card */}
+      <div style={{
+        marginTop: 'clamp(24px, 4vh, 44px)',
+        width: '100vw',
+        opacity: contentOpacity,
+        transform: `translateY(${contentY * 0.15}px)`,
+        position: 'relative', overflow: 'hidden',
+        padding: '14px 0',
+        borderTop: '1px solid rgba(255,255,255,0.05)',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        background: 'rgba(5,7,17,0.5)',
+      }}>
+        <div style={{
+          position: 'absolute', top: 0, left: 0, bottom: 0, width: 100,
+          background: 'linear-gradient(90deg, rgba(5,7,17,1) 0%, transparent 100%)',
+          zIndex: 2, pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', top: 0, right: 0, bottom: 0, width: 100,
+          background: 'linear-gradient(270deg, rgba(5,7,17,1) 0%, transparent 100%)',
+          zIndex: 2, pointerEvents: 'none',
+        }} />
+        <div className="animate-marquee" style={{ gap: 0, animationDuration: '45s' }}>
+          {[...MARQUEE_BRANDS, ...MARQUEE_BRANDS].map((brand, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 48, flexShrink: 0 }}>
+              <img
+                src={`${SI}/${brand.slug}/808898`}
+                width={14} height={14}
+                alt={brand.name}
+                loading="lazy"
+                style={{ flexShrink: 0, opacity: 0.55, display: 'block' }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+              <span style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: 12, fontWeight: 500,
+                color: 'rgba(232,232,240,0.40)',
+                letterSpacing: '-0.01em',
+                whiteSpace: 'nowrap',
+              }}>{brand.name}</span>
+            </div>
           ))}
         </div>
       </div>
@@ -2525,15 +2572,10 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
-      {/* Brand marquee — static, sits between hero and outcome */}
-      <div style={{ position: 'relative', zIndex: 2, marginTop: '-2px' }}>
-        <BrandMarqueeSection />
-      </div>
-
       <section ref={sectionRefs.outcome as React.RefObject<HTMLElement>} className="outcome-section-outer" style={{
         position: 'relative',
         minHeight: isMobile ? '200vh' : '220vh',
-        marginTop: '0',
+        marginTop: '-20vh',
         background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
         zIndex: 2,
       }}>
