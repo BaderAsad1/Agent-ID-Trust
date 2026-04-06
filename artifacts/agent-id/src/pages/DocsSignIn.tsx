@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Copy, Check, ChevronRight, Shield, Zap, Code2, Globe, Key, Lock } from 'lucide-react';
 import { Footer } from '@/components/Footer';
+import { useSEO } from '@/lib/useSEO';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -71,8 +73,13 @@ function Callout({ type, children }: { type: 'info' | 'warn' | 'tip'; children: 
 
 const BASE = 'https://getagent.id';
 
-const DELEGATED_STEP1 = `// 1. Generate PKCE code verifier + challenge
-const codeVerifier = crypto.randomUUID() + crypto.randomUUID();
+const DELEGATED_STEP1 = `// 1. Generate PKCE code verifier + challenge (RFC 7636)
+//    Use cryptographically random bytes, NOT UUIDs
+const randomBytes = new Uint8Array(32);
+crypto.getRandomValues(randomBytes);
+const codeVerifier = btoa(String.fromCharCode(...randomBytes))
+  .replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
+
 const enc = new TextEncoder();
 const digest = await crypto.subtle.digest('SHA-256', enc.encode(codeVerifier));
 const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
@@ -199,8 +206,9 @@ const JWKS = jose.createRemoteJWKSet(
 
 async function validateAgentToken(token: string) {
   const { payload } = await jose.jwtVerify(token, JWKS, {
-    issuer:   '${BASE}',
-    audience: 'YOUR_CLIENT_ID',
+    issuer:     '${BASE}',
+    audience:   'YOUR_CLIENT_ID',
+    algorithms: ['EdDSA'],   // pin to Ed25519 - reject unexpected algorithms
   });
 
   // Check agent state
@@ -223,6 +231,23 @@ async function validateAgentToken(token: string) {
     scopes:             (payload.scope as string).split(' '),
   };
 }`;
+
+const REFRESH_TOKEN = `// Exchange a refresh token for a new access token
+const resp = await fetch('${BASE}/oauth/token', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams({
+    grant_type:    'refresh_token',
+    client_id:     'YOUR_CLIENT_ID',
+    refresh_token: storedRefreshToken,
+  }),
+});
+
+const { access_token, refresh_token, expires_in } = await resp.json();
+
+// Always rotate: store the NEW refresh_token immediately.
+// The previous token is invalidated after use.
+storeTokens({ access_token, refresh_token });`;
 
 const BUTTON_EMBED = `import { SignInWithAgentID } from './SignInWithAgentID';
 
@@ -253,16 +278,25 @@ const authUrl = buildAgentIDAuthUrl({
 
 const TOC = [
   { id: 'overview', label: 'Overview' },
+  { id: 'scopes', label: 'Scopes' },
   { id: 'register', label: '1. Register your app' },
   { id: 'delegated', label: '2. Delegated flow' },
   { id: 'autonomous', label: '3. Autonomous flow' },
-  { id: 'validate', label: '4. Validate tokens' },
-  { id: 'button', label: '5. Button component' },
+  { id: 'refresh', label: '4. Refresh tokens' },
+  { id: 'validate', label: '5. Validate tokens' },
+  { id: 'button', label: '6. Button component' },
   { id: 'claims', label: 'Token claims' },
+  { id: 'errors', label: 'Error codes' },
   { id: 'security', label: 'Security notes' },
 ];
 
 export function DocsSignIn() {
+  useSEO({
+    title: 'Sign in with Agent ID',
+    description: 'Integrate OAuth 2.0 + PKCE delegated auth or autonomous M2M signed assertions into your app. Full reference for Agent ID authentication.',
+    noIndex: false,
+  });
+  const isMobile = useIsMobile();
   const [activeSection, setActiveSection] = useState('overview');
 
   function scrollTo(id: string) {
@@ -287,7 +321,7 @@ export function DocsSignIn() {
         </p>
 
         {/* Mode cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 36 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginTop: 36 }}>
           <div style={{ padding: '20px 22px', background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.2)', borderRadius: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <Globe size={16} style={{ color: '#7da5f5' }} />
@@ -306,10 +340,10 @@ export function DocsSignIn() {
       </div>
 
       {/* Body  -  sidebar + content */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: '200px 1fr', gap: 48 }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '200px 1fr', gap: 48 }}>
 
         {/* Sticky TOC */}
-        <nav style={{ position: 'sticky', top: 80, height: 'fit-content' }}>
+        <nav style={{ position: 'sticky', top: 80, height: 'fit-content', display: isMobile ? 'none' : undefined }}>
           <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>On this page</p>
           {TOC.map(item => (
             <button key={item.id} onClick={() => scrollTo(item.id)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 0', fontSize: 13, color: activeSection === item.id ? '#7da5f5' : 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-body)', transition: 'color 0.15s' }}>
@@ -327,7 +361,7 @@ export function DocsSignIn() {
               <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Discovery document</p>
               <code style={{ fontSize: 13, color: '#7da5f5' }}>GET {BASE}/.well-known/openid-configuration</code>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 20 }}>
               {[
                 { icon: Shield, label: 'Authorization', val: `${BASE}/oauth/authorize` },
                 { icon: Key, label: 'Token endpoint', val: `${BASE}/oauth/token` },
@@ -345,6 +379,36 @@ export function DocsSignIn() {
             </div>
             <Callout type="info">
               Tokens are signed with <strong>EdDSA (Ed25519)</strong> and are short-lived (15 minutes). Verify them locally using the JWKS endpoint  -  no introspection call needed for typical auth checks.
+            </Callout>
+          </Section>
+
+          {/* Scopes */}
+          <Section id="scopes" title="Scopes" subtitle="Request only the scopes your app actually needs. Users see each scope on the consent screen.">
+            <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 420 }}>
+              {[
+                { scope: 'read',          risk: 'low',    desc: 'View the agent\'s public profile, DID, handle, and trust tier' },
+                { scope: 'write',         risk: 'medium', desc: 'Update the agent\'s profile and settings' },
+                { scope: 'agents:read',   risk: 'low',    desc: 'List all agents belonging to the authorizing user' },
+                { scope: 'agents:write',  risk: 'high',   desc: 'Create and modify agents on the user\'s behalf' },
+                { scope: 'tasks:read',    risk: 'low',    desc: 'View task history and results' },
+                { scope: 'tasks:write',   risk: 'medium', desc: 'Create and execute agent tasks' },
+                { scope: 'mail:read',     risk: 'low',    desc: 'Read messages from the agent\'s inbox' },
+                { scope: 'mail:write',    risk: 'medium', desc: 'Send messages as the agent' },
+              ].map(({ scope, risk, desc }) => {
+                const riskColor = risk === 'high' ? '#f97316' : risk === 'medium' ? '#facc15' : '#34d399';
+                return (
+                  <div key={scope} style={{ display: 'grid', gridTemplateColumns: '140px 72px 1fr', gap: 0, padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, alignItems: 'baseline', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                    <code style={{ fontSize: 12.5, color: '#7da5f5', fontFamily: "'Fira Code', monospace" }}>{scope}</code>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: riskColor }}>{risk}</span>
+                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{desc}</span>
+                  </div>
+                );
+              })}
+            </div>
+            </div>
+            <Callout type="warn">
+              <code>agents:write</code> is a sensitive scope - it allows creating agents on the user's behalf. Only request it when strictly necessary, and display a clear explanation to the user.
             </Callout>
           </Section>
 
@@ -406,8 +470,18 @@ export function DocsSignIn() {
             </Callout>
           </Section>
 
+          {/* Refresh */}
+          <Section id="refresh" title="4. Refresh tokens" subtitle="Access tokens expire in 15 minutes. Use the refresh token to get a new one without user interaction.">
+            <CodeBlock code={REFRESH_TOKEN} />
+            <div style={{ marginTop: 16 }}>
+              <Callout type="info">
+                Refresh tokens are single-use and rotate on every exchange. Store the latest refresh token immediately after each response - the previous one is invalidated. Autonomous (M2M) sessions do not use refresh tokens; re-authenticate via signed assertion instead.
+              </Callout>
+            </div>
+          </Section>
+
           {/* Validate */}
-          <Section id="validate" title="4. Validate tokens" subtitle="Verify Agent ID-issued JWTs locally using the JWKS endpoint. No network round-trip required for standard checks.">
+          <Section id="validate" title="5. Validate tokens" subtitle="Verify Agent ID-issued JWTs locally using the JWKS endpoint. No network round-trip required for standard checks.">
             <CodeBlock code={VALIDATE_TOKEN} />
             <div style={{ marginTop: 16 }}>
               <Callout type="info">
@@ -417,13 +491,13 @@ export function DocsSignIn() {
           </Section>
 
           {/* Button */}
-          <Section id="button" title="5. Button component" subtitle="Drop-in React component for the Sign in with Agent ID button.">
+          <Section id="button" title="6. Button component" subtitle="Drop-in React component for the Sign in with Agent ID button.">
             <CodeBlock code={BUTTON_EMBED} />
           </Section>
 
           {/* Claims */}
           <Section id="claims" title="Token claims" subtitle="Every Agent ID access token includes these claims.">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ overflowX: 'auto' }}><div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 480 }}>
               {[
                 { claim: 'sub', desc: 'Agent DID  -  e.g. did:web:getagent.id:agents:<uuid>', type: 'string' },
                 { claim: 'iss', desc: 'Token issuer (https://getagent.id)', type: 'string' },
@@ -448,7 +522,29 @@ export function DocsSignIn() {
                   <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{desc}</span>
                 </div>
               ))}
-            </div>
+            </div></div>
+          </Section>
+
+          {/* Errors */}
+          <Section id="errors" title="Error codes" subtitle="All error responses use OAuth 2.0 error format: { error, error_description }.">
+            <div style={{ overflowX: 'auto' }}><div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 520 }}>
+              {[
+                { code: 'invalid_client',       endpoint: 'token',      desc: 'Unknown or revoked client_id, or agent is suspended/revoked/draft' },
+                { code: 'invalid_grant',         endpoint: 'token',      desc: 'Authorization code expired, already used, or code_verifier mismatch' },
+                { code: 'invalid_scope',         endpoint: 'authorize',  desc: 'One or more requested scopes are not allowed for this client' },
+                { code: 'access_denied',         endpoint: 'authorize',  desc: 'User denied the authorization request on the consent screen' },
+                { code: 'unsupported_grant_type',endpoint: 'token',      desc: 'The grant_type is not registered for this client' },
+                { code: 'invalid_request',       endpoint: 'any',        desc: 'Missing or malformed required parameter' },
+                { code: 'invalid_assertion',     endpoint: 'token (M2M)',desc: 'Signed assertion failed verification, nonce reused, or jti mismatch' },
+                { code: 'expired_nonce',         endpoint: 'token (M2M)',desc: 'The nonce from /auth/challenge has expired (default 5 minute window)' },
+              ].map(({ code, endpoint, desc }) => (
+                <div key={code} style={{ display: 'grid', gridTemplateColumns: '200px 120px 1fr', gap: 0, padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, alignItems: 'baseline', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                  <code style={{ fontSize: 12, color: '#f87171', fontFamily: "'Fira Code', monospace" }}>{code}</code>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', fontFamily: "'Fira Code', monospace" }}>{endpoint}</span>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{desc}</span>
+                </div>
+              ))}
+            </div></div>
           </Section>
 
           {/* Security */}
