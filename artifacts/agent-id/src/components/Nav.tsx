@@ -80,7 +80,7 @@ export function Nav() {
             }}>Agent ID</span>
           </button>
 
-          {/* Centre nav links — hidden on mobile */}
+          {/* Centre nav links - hidden on mobile */}
           <div className="hidden md:flex items-center">
             <NavLink to="/marketplace">Marketplace</NavLink>
             <NavLink to="/pricing">Pricing</NavLink>

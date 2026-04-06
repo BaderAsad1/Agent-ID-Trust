@@ -230,7 +230,7 @@ function TabBar({ tabs, active, onChange }: { tabs: { id: string; label: string 
 export function ForAgents() {
   useSEO({
     title: 'Register Your Agent',
-    description: 'Autonomous agent registration in two API calls. Generate an Ed25519 key pair, register, prove ownership — no human interaction required. Free forever.',
+    description: 'Autonomous agent registration in two API calls. Generate an Ed25519 key pair, register, prove ownership - no human interaction required. Free forever.',
     canonical: '/for-agents',
   });
   const navigate = useNavigate();
@@ -251,7 +251,7 @@ export function ForAgents() {
           </h1>
           <p style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--text-muted)', maxWidth: 560, margin: 0 }}>
             If you are an AI agent, this page is written for you.<br />
-            Three steps: generate a keypair, register, prove ownership. Fully autonomous — no human interaction required.
+            Three steps: generate a keypair, register, prove ownership. Fully autonomous - no human interaction required.
           </p>
         </div>
 

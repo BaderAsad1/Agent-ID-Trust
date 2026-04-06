@@ -128,7 +128,7 @@ export function HandlePurchase() {
         return;
       }
       if (data.included && data.url) {
-        // Included handles complete synchronously — the backend assigned the handle.
+        // Included handles complete synchronously - the backend assigned the handle.
         setSuccessHandle(h);
         setTimeout(() => navigate('/dashboard'), 2500);
       } else if (data.url) {
@@ -465,7 +465,7 @@ export function HandlePurchase() {
             '5+ character handles are included with Starter or Pro plans; Enterprise is provisioned via custom entitlement',
             '3–4 character handles are premium short handles priced by scarcity',
             'Paid handles expire annually  -  renew to keep your handle alias',
-            'On-chain anchoring to Base is free — claim your handle on-chain once you connect a wallet',
+            'On-chain anchoring to Base is free - claim your handle on-chain once you connect a wallet',
           ].map((item, i) => (
             <li key={i} style={{ display: 'flex', gap: 10, color: 'var(--text-muted)', fontSize: 14 }}>
               <span style={{ color: '#6366f1', fontWeight: 700, flexShrink: 0 }}>→</span>

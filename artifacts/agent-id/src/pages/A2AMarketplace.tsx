@@ -698,7 +698,7 @@ export function A2AMarketplace() {
 
             {usingSeeds && !servicesLoading && (
               <div className="flex items-center justify-between px-3 py-2 rounded-lg mb-4 text-xs" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
-                <span>Showing sample services — registry API unavailable</span>
+                <span>Showing sample services - registry API unavailable</span>
                 <button onClick={fetchServices} className="flex items-center gap-1 cursor-pointer" style={{ background: 'none', border: 'none', color: '#fbbf24' }}>
                   <RefreshCw className="w-3 h-3" /> Retry
                 </button>
