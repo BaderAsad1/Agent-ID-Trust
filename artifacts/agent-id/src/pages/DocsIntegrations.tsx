@@ -460,7 +460,7 @@ const OPENCLAW_EXAMPLE = `# OpenClaw + Agent ID  -  just prompt it.
 #  → trustScore: 91, tier: elite, verificationStatus: verified ✓
 
 # ── Persist identity for autonomous sessions ───────────────
-# Explicit steps — do NOT rely on "telling it to remember":
+# Explicit steps - do NOT rely on "telling it to remember":
 
 # 1. Set AGENTID_API_KEY in your environment or secrets manager:
 #    export AGENTID_API_KEY=agk_...
@@ -470,7 +470,7 @@ const OPENCLAW_EXAMPLE = `# OpenClaw + Agent ID  -  just prompt it.
 #    const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
 #    await agent.writeIdentityFile('AGENTID.md', 'openclaw')
 
-# 3. On next startup — restore without re-registering:
+# 3. On next startup - restore without re-registering:
 #    const agent = await AgentID.readStateFile('.agentid-state.json')
 #    await agent.refreshBootstrap()   # sync mutable fields
 #    agent.startHeartbeat()

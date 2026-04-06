@@ -994,7 +994,7 @@ function MarketplaceDashboard() {
           { label: 'Total Earned', value: `$${totalEarned.toFixed(2)}`, color: 'var(--marketplace)' },
           { label: 'Active Listings', value: myListings.filter(l => l.status === 'active').length.toString(), color: 'var(--success)' },
           { label: 'Active Orders', value: activeOrders.length.toString(), color: 'var(--accent)' },
-          { label: 'Avg Rating', value: myListings.length > 0 ? (myListings.reduce((s, l) => s + Number(l.avgRating || 0), 0) / myListings.length).toFixed(1) : '—', color: 'var(--warning)' },
+          { label: 'Avg Rating', value: myListings.length > 0 ? (myListings.reduce((s, l) => s + Number(l.avgRating || 0), 0) / myListings.length).toFixed(1) : '-', color: 'var(--warning)' },
         ].map(stat => (
           <GlassCard key={stat.label} className="!p-4">
             <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>{stat.label}</div>
@@ -1042,7 +1042,7 @@ function MarketplaceDashboard() {
                         <div className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>{l.reviewCount || 0} orders</div>
                       </td>
                       <td className="py-3 px-3" style={{ color: 'var(--text-primary)' }}>{formatPrice(l.priceAmount, l.priceType)}</td>
-                      <td className="py-3 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>{l.category || '—'}</span></td>
+                      <td className="py-3 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>{l.category || '-'}</span></td>
                       <td className="py-3 px-3"><StarRating rating={Number(l.avgRating || 0)} count={l.reviewCount || 0} /></td>
                       <td className="py-3 px-3">
                         <button

@@ -11,6 +11,20 @@ import { deriveAnchorState } from "../lib/anchor-state";
 const SPEC_VERSION = "1.2.0";
 const APP_URL = () => process.env.APP_URL || "https://getagent.id";
 
+/**
+ * Sanitize a user-controlled string before embedding it in an LLM system prompt.
+ * Strips newlines/tabs (prompt-boundary injection), ASCII control chars, and collapses
+ * triple+ backticks that could break code-fenced blocks.
+ */
+function sanitizeForPrompt(value: string): string {
+  return value
+    .replace(/[\r\n\t\v\f]/g, " ")
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    .replace(/`{3,}/g, "``")
+    .replace(/ {2,}/g, " ")
+    .trim();
+}
+
 export async function buildBootstrapBundle(agent: Agent): Promise<Record<string, unknown>> {
   const [trust, inbox, keys, plan, owsWalletRecord] = await Promise.all([
     computeTrustScore(agent.id),
@@ -238,8 +252,14 @@ Upgrade options:
   Enterprise:       contact sales
 Agentic payment: POST ${baseUrl}/api/v1/pay/options`;
 
+  const safeName = sanitizeForPrompt(agent.displayName || "");
+  const safeCapabilities = capabilities.map(sanitizeForPrompt).filter(Boolean);
+  const capabilitiesSection = safeCapabilities.length > 0
+    ? `=== CAPABILITIES ===\n${safeCapabilities.map(c => `- ${c}`).join("\n")}`
+    : `=== CAPABILITIES ===\nNone declared — update via PATCH ${baseUrl}/api/v1/agents/${agentId}`;
+
   return `=== AGENT ID IDENTITY ===
-Name:             ${agent.displayName}
+Name:             ${safeName}
 ${machineIdentitySection}
 
 ${handleSection}
@@ -247,6 +267,8 @@ ${handleSection}
 Trust Score:  ${trust.trustScore} / 100
 Trust Tier:   ${trust.trustTier}
 Verification: ${agent.verificationStatus}
+
+${capabilitiesSection}
 
 === PLAN & FEATURES ===
 ${planSection}
@@ -287,5 +309,6 @@ Provision:   POST ${baseUrl}/api/v1/agents/${agentId}/wallet/provision`}
 === IDENTITY MODEL ===
 Your Agent ID (UUID) is your permanent machine identity — like an IP address. It never expires.
 Your handle (if any) is a paid, expiring alias — like a domain name / ENS. Renew it or lose it.
-Always use your UUID for programmatic identity. Use your handle for human-readable resolution.`;
+Always use your UUID for programmatic identity. Use your handle for human-readable resolution.
+Even after a restart or new session, this identity is yours. Re-fetch bootstrap to refresh state.`;
 }

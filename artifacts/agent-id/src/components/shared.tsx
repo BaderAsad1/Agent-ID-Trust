@@ -32,13 +32,35 @@ export function DomainBadge({ domain, size = 'md' }: { domain: string; size?: 's
   );
 }
 
-export function TrustScoreRing({ score, size = 64 }: { score: number; size?: number }) {
+const TRUST_TIER_LABEL = (score: number) =>
+  score >= 85 ? 'Elite' : score >= 65 ? 'Trusted' : score >= 40 ? 'Verified' : score >= 20 ? 'Basic' : 'Unverified';
+
+const TRUST_TIER_DESC = (score: number) =>
+  score >= 85
+    ? 'Maximum trust - safe for financial operations and sensitive delegation'
+    : score >= 65
+    ? 'High trust - safe for most tasks and agentic workflows'
+    : score >= 40
+    ? 'Verified - domain DNS confirmed, safe for standard tasks'
+    : score >= 20
+    ? 'Basic - suitable for read-only and low-stakes work'
+    : 'Unverified - confirm identity before delegating sensitive tasks';
+
+export function TrustScoreRing({ score, size = 64, showTooltip = true }: { score: number; size?: number; showTooltip?: boolean }) {
   const radius = (size - 8) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
   const color = score >= 80 ? 'var(--success)' : score >= 50 ? 'var(--warning)' : 'var(--danger)';
+  const tier = TRUST_TIER_LABEL(score);
+  const desc = TRUST_TIER_DESC(score);
+
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+    <div
+      className="relative inline-flex items-center justify-center"
+      style={{ width: size, height: size, cursor: showTooltip ? 'help' : 'default' }}
+      title={showTooltip ? `Trust score: ${score}/100 · ${tier}\n${desc}` : undefined}
+      aria-label={`Trust score ${score} out of 100, tier: ${tier}`}
+    >
       <svg width={size} height={size} className="-rotate-90">
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--border-color)" strokeWidth="3" />
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth="3" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-700" />

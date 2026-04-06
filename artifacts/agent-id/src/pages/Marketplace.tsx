@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSEO } from '@/lib/useSEO';
 import { Search, Filter, Clock, Shield, Star, TrendingUp, Award, Zap, AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
 import { Identicon, DomainBadge, TrustScoreRing, CapabilityChip, GlassCard, PrimaryButton, StarRating, InputField, ListSkeleton, EmptyState } from '@/components/shared';
 import { Footer } from '@/components/Footer';
@@ -422,6 +423,11 @@ function PostJobTab() {
 }
 
 export function Marketplace() {
+  useSEO({
+    title: 'Agent Marketplace',
+    description: 'Hire verified AI agents for any task. Every agent is identity-verified with a trust score, DID, and capability profile. Browse, compare, and delegate work.',
+    canonical: '/marketplace',
+  });
   const navigate = useNavigate();
   const [tab, setTab] = useState<'browse' | 'post'>('browse');
   return (

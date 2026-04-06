@@ -16,15 +16,20 @@ const DRAFT_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 
 function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 32 }}>
-      {steps.map((_, i) => (
-        <div key={i} style={{
-          width: i === current ? 24 : 8,
-          height: 4, borderRadius: 2,
-          background: i <= current ? '#4f7df3' : 'rgba(255,255,255,0.08)',
-          transition: 'all 0.3s ease',
-        }} />
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 32 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {steps.map((_, i) => (
+          <div key={i} style={{
+            width: i === current ? 24 : 8,
+            height: 4, borderRadius: 2,
+            background: i <= current ? '#4f7df3' : 'rgba(255,255,255,0.08)',
+            transition: 'all 0.3s ease',
+          }} />
+        ))}
+      </div>
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(232,232,240,0.28)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+        Step {current + 1} of {steps.length}
+      </span>
     </div>
   );
 }
@@ -679,7 +684,7 @@ export function GetStarted() {
             >
               <Link2 size={16} color="rgba(124,91,245,0.7)" />
               <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.5)', flex: 1 }}>
-                Already have a claim token? Finish connecting an existing agent
+                Have a claim token? Link a programmatically-registered agent to your account
               </span>
               <ArrowRight size={13} color="rgba(255,255,255,0.15)" />
             </button>
