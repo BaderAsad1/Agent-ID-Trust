@@ -2202,10 +2202,10 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         fontFamily: "'Inter', sans-serif",
         fontSize: 'clamp(15px, 1.5vw, 19px)',
         fontWeight: 400, lineHeight: 1.6,
-        color: 'rgba(232,232,240,0.45)',
+        color: 'rgba(232,232,240,0.72)',
         textAlign: 'center',
         maxWidth: 540, margin: '0 auto',
-        opacity: contentOpacity * 0.8,
+        opacity: contentOpacity,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
         Claim a .AgentID handle. Issue an Agent Credential. Let any system resolve, verify, and trust your agent  -  without asking you first.
@@ -2236,9 +2236,9 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
             window.location.href = `${base}docs`;
           }} style={{
             fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
-            color: 'rgba(232,232,240,0.55)',
-            background: 'rgba(255,255,255,0.02)',
-            border: '1px solid rgba(255,255,255,0.07)',
+            color: 'rgba(232,232,240,0.72)',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.10)',
             borderRadius: 9, padding: '10px 22px', cursor: 'pointer',
             letterSpacing: '-0.01em',
           }}>
@@ -2248,7 +2248,7 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 500,
           letterSpacing: '0.12em',
-          color: 'rgba(232,232,240,0.22)',
+          color: 'rgba(232,232,240,0.5)',
         }}>
           Verifiable. Resolvable. Trusted.
         </div>

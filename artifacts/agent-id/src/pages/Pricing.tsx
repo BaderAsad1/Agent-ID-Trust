@@ -49,8 +49,8 @@ function FaqItem({ q, a }: { q: string; a: string }) {
       >
         <span style={{ fontSize: 14, fontWeight: 500, color: '#e8e8f0', fontFamily: "'Inter', sans-serif" }}>{q}</span>
         {open
-          ? <ChevronUp style={{ width: 16, height: 16, flexShrink: 0, color: '#3a4258' }} />
-          : <ChevronDown style={{ width: 16, height: 16, flexShrink: 0, color: '#3a4258' }} />}
+          ? <ChevronUp style={{ width: 16, height: 16, flexShrink: 0, color: '#606880' }} />
+          : <ChevronDown style={{ width: 16, height: 16, flexShrink: 0, color: '#606880' }} />}
       </button>
       {open && (
         <p style={{ paddingBottom: 16, fontSize: 14, color: '#8690a8', lineHeight: 1.65, margin: 0, fontFamily: "'Inter', sans-serif" }}>{a}</p>
@@ -133,7 +133,7 @@ export function Pricing() {
 
           {/* Billing toggle - pill switch */}
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginBottom: 48 }}>
-            <span style={{ fontSize: 13, color: billing === 'monthly' ? '#e8e8f0' : '#3a4258', fontWeight: 500 }}>Monthly</span>
+            <span style={{ fontSize: 13, color: billing === 'monthly' ? '#e8e8f0' : '#606880', fontWeight: 500 }}>Monthly</span>
             <button
               onClick={() => setBilling(b => b === 'monthly' ? 'yearly' : 'monthly')}
               aria-label="Toggle billing period"
@@ -141,7 +141,7 @@ export function Pricing() {
             >
               <div style={{ position: 'absolute', top: 3, left: billing === 'yearly' ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
             </button>
-            <span style={{ fontSize: 13, color: billing === 'yearly' ? '#e8e8f0' : '#3a4258', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, color: billing === 'yearly' ? '#e8e8f0' : '#606880', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
               Annual
               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(52,211,153,0.12)', color: '#34d399', letterSpacing: '0.04em' }}>SAVE 17%</span>
             </span>
@@ -183,7 +183,7 @@ export function Pricing() {
                   <div style={{ marginBottom: isH ? 20 : 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                       <div>
-                        <p style={{ fontSize: 10, fontWeight: 700, color: isH ? '#4f7df3' : '#3a4258', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 3px' }}>
+                        <p style={{ fontSize: 10, fontWeight: 700, color: isH ? '#4f7df3' : '#606880', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 3px' }}>
                           {isH ? 'Most popular' : plan.contactOnly ? 'Custom' : plan.price === '$0' ? 'Start' : 'Scale'}
                         </p>
                         <p style={{ fontSize: isH ? 17 : 14, fontWeight: 700, color: '#e8e8f0', margin: 0 }}>{plan.name}</p>
@@ -196,10 +196,10 @@ export function Pricing() {
                         <div>
                           <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
                             <span style={{ fontSize: isH ? 36 : 26, fontWeight: 800, letterSpacing: '-0.04em', color: '#e8e8f0' }}>{plan.yearlyPrice}</span>
-                            <span style={{ fontSize: 12, color: '#3a4258' }}>/yr</span>
+                            <span style={{ fontSize: 12, color: '#606880' }}>/yr</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                            <span style={{ fontSize: 11, color: '#3a4258' }}>{plan.yearlyPriceMonthly}/mo equivalent</span>
+                            <span style={{ fontSize: 11, color: '#606880' }}>{plan.yearlyPriceMonthly}/mo equivalent</span>
                             {plan.yearlySavings && (
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 12, background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>
                                 save {plan.yearlySavings}
@@ -210,7 +210,7 @@ export function Pricing() {
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                           <span style={{ fontSize: isH ? 36 : 26, fontWeight: 800, letterSpacing: '-0.04em', color: '#e8e8f0' }}>{plan.price}</span>
-                          <span style={{ fontSize: 12, color: '#3a4258' }}>/mo</span>
+                          <span style={{ fontSize: 12, color: '#606880' }}>/mo</span>
                         </div>
                       )
                     ) : (
@@ -223,14 +223,21 @@ export function Pricing() {
 
                   {/* Features */}
                   <ul style={{ listStyle: 'none', padding: 0, margin: `0 0 ${isH ? 24 : 18}px`, display: 'flex', flexDirection: 'column', gap: isH ? 9 : 7, flex: 1 }}>
-                    {plan.features.map(f => (
-                      <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 11, color: isH ? '#c4cde0' : '#8690a8', lineHeight: 1.4 }}>
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
-                          <path d="M2 6l3 3 5-5" stroke={isH ? '#4f7df3' : '#34d399'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        {f}
-                      </li>
-                    ))}
+                    {plan.features.map(f => {
+                      const isInheritLine = f.startsWith('Everything in');
+                      return isInheritLine ? (
+                        <li key={f} style={{ fontSize: 10, fontWeight: 600, color: '#606880', letterSpacing: '0.04em', paddingBottom: 2, borderBottom: '1px solid #1a1f30', marginBottom: 2 }}>
+                          {f}
+                        </li>
+                      ) : (
+                        <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 11, color: isH ? '#c4cde0' : '#8690a8', lineHeight: 1.4 }}>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                            <path d="M2 6l3 3 5-5" stroke={isH ? '#4f7df3' : '#34d399'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          {f}
+                        </li>
+                      );
+                    })}
                   </ul>
 
                   {/* CTA button */}
@@ -261,7 +268,7 @@ export function Pricing() {
           </div>
 
           {/* Trust line */}
-          <p style={{ textAlign: 'center', fontSize: 12, color: '#3a4258', marginBottom: 56 }}>
+          <p style={{ textAlign: 'center', fontSize: 12, color: '#606880', marginBottom: 56 }}>
             No credit card required for Free · Cancel or change plans anytime
           </p>
 
@@ -275,7 +282,7 @@ export function Pricing() {
             ].map(s => (
               <div key={s.label} style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#c4cde0', letterSpacing: '-0.02em' }}>{s.num}</div>
-                <div style={{ fontSize: 11, color: '#3a4258', marginTop: 2 }}>{s.label}</div>
+                <div style={{ fontSize: 11, color: '#606880', marginTop: 2 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -285,32 +292,41 @@ export function Pricing() {
             <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', textAlign: 'center', margin: '0 0 8px', color: '#e8e8f0' }}>
               .agentid Handles
             </h2>
-            <p style={{ textAlign: 'center', fontSize: 13, color: '#8690a8', marginBottom: 6 }}>Give your agent a name.</p>
-            <p style={{ textAlign: 'center', fontSize: 12, color: '#3a4258', marginBottom: 28, maxWidth: 480, margin: '0 auto 28px' }}>
-              Handles require a paid plan. Standard handles are included with Starter or Pro; Enterprise access is provisioned via custom entitlement.
+            <p style={{ textAlign: 'center', fontSize: 14, color: '#8690a8', margin: '0 0 8px' }}>A handle maps to your agent's permanent UUID — like a domain name to an IP address.</p>
+            <p style={{ textAlign: 'center', fontSize: 12, color: '#606880', maxWidth: 500, margin: '0 auto 28px' }}>
+              Standard handles (5+ chars) are included with Starter and Pro. Short premium handles (3–4 chars) are available as add-ons. All handles renew annually and survive plan changes.
             </p>
-            <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1a1f30', maxWidth: 720, margin: '0 auto', overflowX: 'auto' }}>
-              <div style={{ minWidth: 480 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '10px 20px', background: '#131729', color: '#3a4258', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  <span>Length</span>
-                  <span>Price</span>
-                  <span>Example</span>
-                  <span>Limits</span>
-                </div>
-                {HANDLE_TABLE_ROWS.map((row, i) => (
-                  <div
-                    key={row.label}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '14px 20px', background: i % 2 === 0 ? '#0c0f1e' : '#050711', borderTop: '1px solid #1a1f30', alignItems: 'center' }}
-                  >
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>{row.label}</span>
-                    <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4f7df3' }}>{row.price}</span>
-                    <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: '#8690a8' }}>{row.example}</span>
-                    <span style={{ fontSize: 11, color: '#3a4258' }}>{row.note}</span>
+            <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1a1f30', maxWidth: 720, margin: '0 auto' }}>
+              {isMobile ? (
+                // Mobile: stacked card layout
+                HANDLE_TABLE_ROWS.map((row, i) => (
+                  <div key={row.label} style={{ padding: '16px 18px', background: i % 2 === 0 ? '#0c0f1e' : '#050711', borderTop: i === 0 ? 'none' : '1px solid #1a1f30' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#e8e8f0' }}>{row.label}</span>
+                      <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", color: '#4f7df3', fontWeight: 600 }}>{row.price}</span>
+                    </div>
+                    <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#8690a8', marginBottom: 3 }}>{row.example}</div>
+                    <div style={{ fontSize: 11, color: '#606880' }}>{row.note}</div>
                   </div>
-                ))}
-              </div>
+                ))
+              ) : (
+                // Desktop: grid table layout
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '10px 20px', background: '#131729', color: '#606880', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>
+                    <span>Length</span><span>Price</span><span>Example</span><span>Limits</span>
+                  </div>
+                  {HANDLE_TABLE_ROWS.map((row, i) => (
+                    <div key={row.label} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '14px 20px', background: i % 2 === 0 ? '#0c0f1e' : '#050711', borderTop: '1px solid #1a1f30', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>{row.label}</span>
+                      <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4f7df3' }}>{row.price}</span>
+                      <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: '#8690a8' }}>{row.example}</span>
+                      <span style={{ fontSize: 11, color: '#606880' }}>{row.note}</span>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
-            <p style={{ textAlign: 'center', fontSize: 11, color: '#3a4258', marginTop: 12 }}>
+            <p style={{ textAlign: 'center', fontSize: 11, color: '#606880', marginTop: 12 }}>
               On-chain NFT minting available now for premium handles (3-4 char). All handles coming soon.
             </p>
           </div>
