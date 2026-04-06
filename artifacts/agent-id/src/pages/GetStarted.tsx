@@ -10,7 +10,9 @@ type Intent = 'new' | 'claim' | null;
 type FlowStep = 'intent' | 'auth' | 'wizard-handle' | 'wizard-capabilities' | 'wizard-plan' | 'token-display' | 'claim-existing' | 'complete';
 type WizardPlan = 'free' | 'starter' | 'pro';
 
-const PLAN_STORAGE_KEY = 'agent-id-wizard-plan';
+const PLAN_WIZARD_DRAFT_KEY = 'agent-id-wizard-plan';
+const WIZARD_DRAFT_KEY = 'agent-id-getstarted-draft';
+const DRAFT_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 
 function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
   return (
@@ -297,8 +299,6 @@ export function GetStarted() {
   const [activeTab, setActiveTab] = useState<'sdk' | 'api' | 'chat'>('sdk');
   const [agentCount, setAgentCount] = useState<number | null>(null);
 
-  const STORAGE_KEY = 'agent-id-getstarted-draft';
-
   // Single unified step-initialization effect — replaces three previously separate effects that could
   // fire in undefined order within the same render cycle. Priority order is explicit and deterministic:
   //   1. sessionStorage draft (post-OAuth redirect — highest priority, restores full form state)
@@ -307,13 +307,15 @@ export function GetStarted() {
   useEffect(() => {
     if (authLoading) return;
 
-    // Priority 1: restore draft written before redirecting to /sign-in
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    // Priority 1: restore any persisted draft (post-OAuth redirect or page refresh)
+    const raw = sessionStorage.getItem(WIZARD_DRAFT_KEY);
     if (raw) {
       try {
         const draft = JSON.parse(raw);
+
+        // 1a. Post-OAuth redirect: draft was written before /sign-in, now user is back
         if (draft.pendingAuth && userId) {
-          sessionStorage.removeItem(STORAGE_KEY);
+          sessionStorage.removeItem(WIZARD_DRAFT_KEY);
           setIntent(draft.intent || 'new');
           if (draft.intent === 'claim') {
             setStep('claim-existing');
@@ -325,6 +327,26 @@ export function GetStarted() {
             setStep(draft.returnStep || 'wizard-handle');
           }
           return;
+        }
+
+        // 1b. Mid-wizard refresh: restore exactly where the user was
+        const restorableSteps: FlowStep[] = ['wizard-handle', 'wizard-capabilities', 'wizard-plan', 'token-display', 'claim-existing'];
+        if (!draft.pendingAuth && userId && draft.step && restorableSteps.includes(draft.step)) {
+          const age = draft.savedAt ? Date.now() - draft.savedAt : Infinity;
+          if (age < DRAFT_EXPIRY_MS) {
+            setIntent(draft.intent || 'new');
+            setHandle(draft.handle || '');
+            setAgentName(draft.agentName || '');
+            setDescription(draft.description || '');
+            setSelectedCaps(draft.selectedCaps || []);
+            if (draft.createdAgentId) setCreatedAgentId(draft.createdAgentId);
+            if (draft.claimToken) setClaimToken(draft.claimToken);
+            if (draft.pendingHandleFromServer) setPendingHandleFromServer(draft.pendingHandleFromServer);
+            setStep(draft.step);
+            return;
+          }
+          // Stale draft — discard
+          sessionStorage.removeItem(WIZARD_DRAFT_KEY);
         }
       } catch {}
     }
@@ -403,10 +425,36 @@ export function GetStarted() {
     };
   }, []);
 
+  // Persist wizard state to sessionStorage so a page refresh restores progress.
+  // sessionStorage is tab-local and clears when the tab closes — right for a wizard.
+  // The token-display step is the most critical: claimToken can't be re-fetched.
+  useEffect(() => {
+    if (!userId) return;
+    if (step === 'intent' || step === 'auth' || step === 'complete') {
+      sessionStorage.removeItem(WIZARD_DRAFT_KEY);
+      return;
+    }
+    try {
+      sessionStorage.setItem(WIZARD_DRAFT_KEY, JSON.stringify({
+        step,
+        intent,
+        handle,
+        agentName,
+        description,
+        selectedCaps,
+        createdAgentId,
+        claimToken,
+        pendingHandleFromServer,
+        savedAt: Date.now(),
+      }));
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, intent, handle, agentName, description, selectedCaps, createdAgentId, claimToken, pendingHandleFromServer, userId]);
+
   const handleIntentSelect = (selected: Intent) => {
     setIntent(selected);
     if (!userId) {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      sessionStorage.setItem(WIZARD_DRAFT_KEY, JSON.stringify({
         intent: selected,
         pendingAuth: true,
         returnStep: selected === 'claim' ? 'claim-existing' : 'wizard-handle',
@@ -418,6 +466,11 @@ export function GetStarted() {
       setStep('wizard-handle');
     }
   };
+
+  const goToDashboard = useCallback(() => {
+    sessionStorage.removeItem(WIZARD_DRAFT_KEY);
+    goToDashboard();
+  }, [navigate]);
 
   const handleAuthContinue = () => {
     const returnTo = `/get-started?intent=${intent ?? 'new'}`;
@@ -449,7 +502,7 @@ export function GetStarted() {
       }
 
       // Persist plan selection so dashboard can prompt for subscription upgrade.
-      try { sessionStorage.setItem(PLAN_STORAGE_KEY, plan); } catch {}
+      try { sessionStorage.setItem(PLAN_WIZARD_DRAFT_KEY, plan); } catch {}
 
       setCreatedAgentId(agentId);
       setClaimToken(token);
@@ -505,6 +558,14 @@ export function GetStarted() {
     }
   }, [step, userId, ownerToken, handleLoadOwnerToken]);
 
+  // Resume activation polling when restoring token-display after a page refresh.
+  // On the initial creation path, startPolling is called directly in handleCreateAgent.
+  useEffect(() => {
+    if (step === 'token-display' && createdAgentId && !agentActivated) {
+      startPolling(createdAgentId);
+    }
+  // startPolling is stable (useCallback with refreshAgents dep) — safe to include
+  }, [step, createdAgentId, agentActivated, startPolling]);
 
   const handlePrice = handle ? getHandlePrice(handle) : null;
   const handleLen = handle ? handle.replace(/[^a-z0-9]/g, '').length : 0;
@@ -1286,7 +1347,7 @@ Step 2 — sign the challenge returned, then POST to /bootstrap/activate
         </div>
 
         <div style={{ textAlign: 'center' }}>
-          <PrimaryBtn onClick={() => navigate('/dashboard')}>
+          <PrimaryBtn onClick={() => goToDashboard()}>
             Open Dashboard <ArrowRight size={16} />
           </PrimaryBtn>
         </div>
@@ -1443,7 +1504,7 @@ Authorization: Bearer ${ownerToken}
 
         <div style={{ marginTop: 24, textAlign: 'center' }}>
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => goToDashboard()}
             style={{
               background: 'none', border: 'none', color: 'rgba(232,232,240,0.35)', fontSize: 13,
               cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline',
@@ -1475,7 +1536,7 @@ Authorization: Bearer ${ownerToken}
           <p style={{ ...subtitleStyle, marginBottom: 40, textAlign: 'center' }}>
             Your agent is live on Agent ID with a verified identity, public profile, and routing address.
           </p>
-          <PrimaryBtn onClick={() => navigate('/dashboard')}>
+          <PrimaryBtn onClick={() => goToDashboard()}>
             Open Dashboard <ArrowRight size={16} />
           </PrimaryBtn>
         </div>
