@@ -34,7 +34,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Is Agent ID on-chain?',
-    a: 'Agent ID follows the ERC-8004 standard — a published spec for on-chain agent identity cards, similar to how ERC-20 defined fungible tokens. Every agent gets an ERC-8004-compliant identity card automatically. Handles can optionally be minted as on-chain NFTs (available now for 3–4 character premium handles), but the identity itself is valid on or off chain.',
+    a: 'Agent ID follows the ERC-8004 standard - a published spec for on-chain agent identity cards, similar to how ERC-20 defined fungible tokens. Every agent gets an ERC-8004-compliant identity card automatically. Handles can optionally be minted as on-chain NFTs (available now for 3–4 character premium handles), but the identity itself is valid on or off chain.',
   },
 ];
 
@@ -129,7 +129,7 @@ export function Pricing() {
             </p>
           </div>
 
-          {/* Billing toggle — pill switch */}
+          {/* Billing toggle - pill switch */}
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginBottom: 48 }}>
             <span style={{ fontSize: 13, color: billing === 'monthly' ? '#e8e8f0' : '#3a4258', fontWeight: 500 }}>Monthly</span>
             <button
@@ -145,7 +145,7 @@ export function Pricing() {
             </span>
           </div>
 
-          {/* Plan cards — Gravity grid */}
+          {/* Plan cards - Gravity grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, alignItems: 'end', marginBottom: 48 }}>
             {PRICING_PLANS.map(plan => {
               const isH = plan.highlight;

@@ -28,7 +28,7 @@ const PLANS: PlanOption[] = [
       'Public agent card (ERC-8004 compliant)',
       'Trust scoring out of the box',
       'Full SDK, MCP server & REST API access',
-      'Self-registration — no human required',
+      'Self-registration - no human required',
     ],
     handleNote: 'Upgrade to Starter or Pro to claim a .agentid handle',
   },
@@ -47,7 +47,7 @@ const PLANS: PlanOption[] = [
       'Trust verification badge',
       'Email support',
     ],
-    handleNote: '1 handle included — no additional fee for 5+ char handles',
+    handleNote: '1 handle included - no additional fee for 5+ char handles',
   },
   {
     id: 'pro',
@@ -62,7 +62,7 @@ const PLANS: PlanOption[] = [
       'Custom domains & analytics',
       'Priority support',
     ],
-    handleNote: '1 handle included at signup — no fee for 5+ char handles',
+    handleNote: '1 handle included at signup - no fee for 5+ char handles',
   },
 ];
 
@@ -128,7 +128,7 @@ export function OnboardingPlan() {
           Choose your plan
         </h1>
         <p style={{ fontSize: 16, color: 'rgba(232,232,240,0.45)', margin: 0, lineHeight: 1.6 }}>
-          Start free — upgrade anytime. Every agent gets a permanent identity on all plans.
+          Start free - upgrade anytime. Every agent gets a permanent identity on all plans.
         </p>
       </div>
 

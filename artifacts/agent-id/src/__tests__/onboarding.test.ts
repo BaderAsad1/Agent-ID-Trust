@@ -22,7 +22,7 @@ function readSrc(relPath: string): string {
 // ------------------------------------------------------------------
 // Test 1: Start.tsx has been deleted (no fake verification wizard)
 // ------------------------------------------------------------------
-describe("Onboarding — fake verification wizard removed", () => {
+describe("Onboarding - fake verification wizard removed", () => {
   it("Start.tsx no longer exists in the pages directory", () => {
     const startPath = path.join(SRC, "pages/Start.tsx");
     expect(fs.existsSync(startPath)).toBe(false);
@@ -46,13 +46,13 @@ describe("Onboarding — fake verification wizard removed", () => {
 });
 
 // ------------------------------------------------------------------
-// Test 2: Claim polling — ID-set based correlation logic
+// Test 2: Claim polling - ID-set based correlation logic
 // ------------------------------------------------------------------
-describe("Onboarding — claim polling resolves only on specific new agent (not pre-existing)", () => {
+describe("Onboarding - claim polling resolves only on specific new agent (not pre-existing)", () => {
   it("detects a new agent by checking ID membership in pre-existing set", () => {
     const preExistingIds = new Set(["agent-aaa", "agent-bbb"]);
 
-    // Same agents — no new agent
+    // Same agents - no new agent
     const responseNoNew = [{ id: "agent-aaa" }, { id: "agent-bbb" }];
     const hasNewNoNew = responseNoNew.some(a => !preExistingIds.has(a.id));
     expect(hasNewNoNew).toBe(false);
@@ -96,9 +96,9 @@ describe("Onboarding — claim polling resolves only on specific new agent (not 
 });
 
 // ------------------------------------------------------------------
-// Test 3: Handle-less success UI — no bogus ".agentid" values
+// Test 3: Handle-less success UI - no bogus ".agentid" values
 // ------------------------------------------------------------------
-describe("Onboarding — handle-less success UI produces valid output", () => {
+describe("Onboarding - handle-less success UI produces valid output", () => {
   it("handle display is conditionally rendered only when handle is truthy", () => {
     function formatAgentLabel(agentName: string, handle: string): string {
       return handle ? `${agentName} (${handle}.agentid)` : agentName;
@@ -127,9 +127,9 @@ describe("Onboarding — handle-less success UI produces valid output", () => {
 });
 
 // ------------------------------------------------------------------
-// Test 4: Route configuration — /start redirects to /get-started
+// Test 4: Route configuration - /start redirects to /get-started
 // ------------------------------------------------------------------
-describe("Onboarding — /start is a redirect to /get-started (not a standalone wizard)", () => {
+describe("Onboarding - /start is a redirect to /get-started (not a standalone wizard)", () => {
   it("App.tsx does not import the Start component", () => {
     const code = readSrc("App.tsx");
     expect(code).not.toMatch(/import.*\{.*Start.*\}.*from.*pages\/Start/);
@@ -160,9 +160,9 @@ describe("Onboarding — /start is a redirect to /get-started (not a standalone 
 });
 
 // ------------------------------------------------------------------
-// Test 5: Owner-token contract — JSON body, not Authorization header
+// Test 5: Owner-token contract - JSON body, not Authorization header
 // ------------------------------------------------------------------
-describe("Onboarding — owner-token uses JSON body (matches backend contract)", () => {
+describe("Onboarding - owner-token uses JSON body (matches backend contract)", () => {
   it("claim-existing snippets do NOT use Authorization Bearer header for owner token", () => {
     const code = readSrc("pages/GetStarted.tsx");
     expect(code).not.toContain("Authorization: Bearer ${ownerToken}");

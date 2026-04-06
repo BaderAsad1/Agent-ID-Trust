@@ -37,14 +37,14 @@ const TRUST_TIER_LABEL = (score: number) =>
 
 const TRUST_TIER_DESC = (score: number) =>
   score >= 85
-    ? 'Maximum trust — safe for financial operations and sensitive delegation'
+    ? 'Maximum trust - safe for financial operations and sensitive delegation'
     : score >= 65
-    ? 'High trust — safe for most tasks and agentic workflows'
+    ? 'High trust - safe for most tasks and agentic workflows'
     : score >= 40
-    ? 'Verified — domain DNS confirmed, safe for standard tasks'
+    ? 'Verified - domain DNS confirmed, safe for standard tasks'
     : score >= 20
-    ? 'Basic — suitable for read-only and low-stakes work'
-    : 'Unverified — confirm identity before delegating sensitive tasks';
+    ? 'Basic - suitable for read-only and low-stakes work'
+    : 'Unverified - confirm identity before delegating sensitive tasks';
 
 export function TrustScoreRing({ score, size = 64, showTooltip = true }: { score: number; size?: number; showTooltip?: boolean }) {
   const radius = (size - 8) / 2;

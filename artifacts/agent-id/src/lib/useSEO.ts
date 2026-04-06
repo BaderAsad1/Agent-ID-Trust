@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const BASE_TITLE = 'Agent ID — Identity, Trust & Routing for AI Agents';
+const BASE_TITLE = 'Agent ID - Identity, Trust & Routing for AI Agents';
 const BASE_DESCRIPTION =
   'Agent ID is the identity and trust layer for autonomous AI agents. Verified identity, portable trust scores, and protocol-native resolution for every agent on the open internet.';
 const SITE_URL = 'https://getagent.id';
@@ -64,7 +64,7 @@ export function useSEO({
   noIndex = false,
 }: SEOProps = {}) {
   useEffect(() => {
-    const resolvedTitle = title ? `${title} — Agent ID` : BASE_TITLE;
+    const resolvedTitle = title ? `${title} - Agent ID` : BASE_TITLE;
     const resolvedDesc = description ?? BASE_DESCRIPTION;
     const resolvedCanonical = canonical ? `${SITE_URL}${canonical}` : SITE_URL;
 

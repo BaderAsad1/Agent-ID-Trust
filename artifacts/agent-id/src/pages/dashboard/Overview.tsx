@@ -110,7 +110,7 @@ function OnChainStatus({ agent }: { agent: Agent }) {
         {agent.handle && hasSelfCustodialWallet ? (
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <span className="text-xs" style={{ color: 'var(--text-dim)' }}>
-              {nftStatus === 'pending_anchor' ? 'Queued — claim to your wallet' : 'Not claimed on-chain'}
+              {nftStatus === 'pending_anchor' ? 'Queued - claim to your wallet' : 'Not claimed on-chain'}
             </span>
             <button
               onClick={() => void claimOnChain()}
@@ -129,7 +129,7 @@ function OnChainStatus({ agent }: { agent: Agent }) {
           </div>
         ) : (
           <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-            Your handle is held securely — connect a wallet anytime to claim on-chain
+            Your handle is held securely - connect a wallet anytime to claim on-chain
           </p>
         )}
         {mintError && <p className="text-xs mt-1" style={{ color: '#ef4444' }}>{mintError}</p>}
@@ -167,7 +167,7 @@ function OnChainStatus({ agent }: { agent: Agent }) {
       {agent.handle && hasSelfCustodialWallet ? (
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <span className="text-xs" style={{ color: 'var(--text-dim)' }}>
-            {nftStatus === 'pending_anchor' ? 'Queued — claim to your wallet' : 'Not claimed on-chain'}
+            {nftStatus === 'pending_anchor' ? 'Queued - claim to your wallet' : 'Not claimed on-chain'}
           </span>
           <button
             onClick={() => void claimOnChain()}
@@ -186,7 +186,7 @@ function OnChainStatus({ agent }: { agent: Agent }) {
         </div>
       ) : (
         <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-          Your handle is held securely — connect a wallet anytime to claim on-chain
+          Your handle is held securely - connect a wallet anytime to claim on-chain
         </p>
       )}
       {mintError && <p className="text-xs mt-1" style={{ color: '#ef4444' }}>{mintError}</p>}
@@ -544,11 +544,11 @@ function IdentityIntegration({ agent }: { agent: Agent }) {
 
   const sdkSnippet = `import { AgentID } from '@getagentid/sdk';
 
-// Step 1 — Register once (run this in a one-time setup script):
+// Step 1 - Register once (run this in a one-time setup script):
 // const { apiKey, agentId } = await AgentID.registerAgent({ ... })
 // Save AGENTID_API_KEY=apiKey and AGENTID_AGENT_ID=agentId in your env
 
-// Step 2 — On every startup: restore without re-registering
+// Step 2 - On every startup: restore without re-registering
 const agent = await AgentID.init({
   apiKey: process.env.AGENTID_API_KEY,
   agentId: process.env.AGENTID_AGENT_ID, // optional but faster
@@ -556,10 +556,10 @@ const agent = await AgentID.init({
 await agent.refreshBootstrap(); // sync trust, status, capabilities, inbox
 agent.startHeartbeat();         // keep identity fresh
 
-// Step 3 — Write identity file to disk for your agent framework
+// Step 3 - Write identity file to disk for your agent framework
 await agent.writeIdentityFile('AGENTID.md', 'openclaw');
 
-// Step 4 — Inject canonical identity into system prompt
+// Step 4 - Inject canonical identity into system prompt
 const systemPrompt = agent.getPromptBlock();
 // agent.did => "did:web:getagent.id:agents:<uuid>"  (canonical, permanent)
 

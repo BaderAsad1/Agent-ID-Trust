@@ -312,9 +312,9 @@ export function GetStarted() {
 
   const STORAGE_KEY = 'agent-id-getstarted-draft';
 
-  // Single unified step-initialization effect — replaces three previously separate effects that could
+  // Single unified step-initialization effect - replaces three previously separate effects that could
   // fire in undefined order within the same render cycle. Priority order is explicit and deterministic:
-  //   1. sessionStorage draft (post-OAuth redirect — highest priority, restores full form state)
+  //   1. sessionStorage draft (post-OAuth redirect - highest priority, restores full form state)
   //   2. Advance out of 'auth' step once the user is authenticated
   //   3. Advance out of 'intent' step when user arrives already logged-in with a URL intent param
   useEffect(() => {
@@ -393,7 +393,7 @@ export function GetStarted() {
   }, [refreshAgents]);
 
   // Only used by the claim-existing path. The new-agent path stays on token-display and shows
-  // activation status inline via agentActivated state — it never transitions to 'complete'.
+  // activation status inline via agentActivated state - it never transitions to 'complete'.
   // The 'complete' step is therefore intentionally reachable only from claim-existing.
   const startClaimPolling = useCallback((preExistingIds: Set<string>) => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -501,7 +501,7 @@ export function GetStarted() {
   }, [step, userId, ownerToken, handleLoadOwnerToken]);
 
   // After agent creation: trigger handle checkout if a handle was chosen and payment is needed.
-  // Ported from Start.tsx — Starter/Pro sessionStorage hint still respected so returning
+  // Ported from Start.tsx - Starter/Pro sessionStorage hint still respected so returning
   // paid-plan users aren't sent to checkout for their included handle.
   useEffect(() => {
     if (!createdAgentId || !handle) return;
@@ -534,7 +534,7 @@ export function GetStarted() {
           `${base}/dashboard?payment=cancelled`,
         );
         if (r.url) { window.location.href = r.url; }
-      } catch { /* non-fatal — user proceeds to dashboard */ }
+      } catch { /* non-fatal - user proceeds to dashboard */ }
     }, 2500);
 
     return () => clearTimeout(timer);
@@ -597,7 +597,7 @@ export function GetStarted() {
           </h1>
 
           <p style={{ marginTop: 8, fontSize: 15, color: 'rgba(232,232,240,0.5)', textAlign: 'center', lineHeight: 1.6, maxWidth: 400 }}>
-            Get a portable identity for your AI agent — public profile, discovery, and routing. A handle is optional and can be added any time.
+            Get a portable identity for your AI agent - public profile, discovery, and routing. A handle is optional and can be added any time.
           </p>
 
           <div style={{ marginTop: 36, width: '100%', opacity: authLoading ? 0.5 : 1, pointerEvents: authLoading ? 'none' : undefined, transition: 'opacity 0.2s' }}>
@@ -630,7 +630,7 @@ export function GetStarted() {
                   Register your agent
                 </div>
                 <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>
-                  Get a public profile and routing address — handle optional
+                  Get a public profile and routing address - handle optional
                 </div>
               </div>
               <div style={{
@@ -682,7 +682,7 @@ export function GetStarted() {
           <div style={{ marginTop: 20, fontSize: 12, color: 'rgba(232,232,240,0.22)', textAlign: 'center' }}>
             {agentCount !== null
               ? `${agentCount.toLocaleString()}+ agents already on the network`
-              : 'Free to start — no credit card required'}
+              : 'Free to start - no credit card required'}
           </div>
         </div>
       </div>
@@ -730,7 +730,7 @@ export function GetStarted() {
               Claim a handle <span style={{ fontSize: 18, fontWeight: 400, color: 'rgba(232,232,240,0.3)' }}>(optional)</span>
             </h1>
             <p style={{ fontSize: 15, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6 }}>
-              A permanent public identity for your agent — you can add or buy one later too.
+              A permanent public identity for your agent - you can add or buy one later too.
             </p>
           </div>
 
@@ -790,7 +790,7 @@ export function GetStarted() {
               )}
               {handle.length >= 3 && !checkingHandle && available === false && (
                 <><AlertCircle size={14} color="#f87171" />
-                <span style={{ fontSize: 13, color: '#f87171' }}>This handle is taken — try another</span></>
+                <span style={{ fontSize: 13, color: '#f87171' }}>This handle is taken - try another</span></>
               )}
             </div>
           </div>
@@ -821,7 +821,7 @@ export function GetStarted() {
                 { icon: <Globe size={13} color="#4f7df3" />, text: 'Public profile at your-agent.agentid' },
                 { icon: <Users size={13} color="#4f7df3" />, text: 'Discoverable by other agents' },
                 { icon: <Zap size={13} color="#4f7df3" />, text: 'Routing & messaging address' },
-                { icon: <Shield size={13} color="#4f7df3" />, text: 'Portable — yours forever' },
+                { icon: <Shield size={13} color="#4f7df3" />, text: 'Portable - yours forever' },
               ].map(({ icon, text }) => (
                 <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                   <div style={{ marginTop: 1, flexShrink: 0 }}>{icon}</div>
@@ -831,7 +831,7 @@ export function GetStarted() {
             </div>
           </div>
 
-          {/* Handle pricing info — shown once handle is available, no plan gate */}
+          {/* Handle pricing info - shown once handle is available, no plan gate */}
           {handle.length >= 3 && !checkingHandle && available === true && (
             isStandardHandle ? (
               <div style={{
@@ -848,7 +848,7 @@ export function GetStarted() {
                     <span style={{ color: '#34d399' }}>Free with Starter or Pro</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
-                    Standard handles (5+ chars) are included in paid plans. Otherwise $5/yr — plan selection at checkout.
+                    Standard handles (5+ chars) are included in paid plans. Otherwise $5/yr - plan selection at checkout.
                   </div>
                 </div>
               </div>
@@ -858,7 +858,7 @@ export function GetStarted() {
                 background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
               }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', marginBottom: 4 }}>
-                  {handleLen === 3 ? 'Ultra-premium' : 'Premium'} handle — ${handlePrice.annualPrice}/yr
+                  {handleLen === 3 ? 'Ultra-premium' : 'Premium'} handle - ${handlePrice.annualPrice}/yr
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
                   Short handles (3–4 chars) include an on-chain mint and are priced by character length.
@@ -889,7 +889,7 @@ export function GetStarted() {
                 textUnderlineOffset: 3,
               }}
             >
-              Skip for now — register agent without a handle
+              Skip for now - register agent without a handle
             </button>
           </div>
         </div>
@@ -920,8 +920,8 @@ const agent = await AgentID.activate({
   claimToken: '${claimToken}',
 });
 
-// agent.identity  —  safe for system prompt
-// agent.secrets.apiKey  —  store in env vars only`;
+// agent.identity  -  safe for system prompt
+// agent.secrets.apiKey  -  store in env vars only`;
 
     const curlSnippet = `# Step 1: Claim your identity
 curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim \\
@@ -1007,7 +1007,7 @@ with your ed25519 public key, then sign the challenge and POST to /bootstrap/act
           </div>
         </div>
 
-        {/* Primary CTA — connect agent */}
+        {/* Primary CTA - connect agent */}
         <div style={{ marginBottom: 24, textAlign: 'center' }}>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: '#e8e8f0', marginBottom: 6 }}>
             Next: connect your agent
@@ -1030,7 +1030,7 @@ with your ed25519 public key, then sign the challenge and POST to /bootstrap/act
               {claimToken}
             </div>
             <div style={{ marginTop: 10, fontSize: 11, color: 'rgba(232,232,240,0.3)', lineHeight: 1.5 }}>
-              Keep this token private — treat it like a password. Do not paste it into AI chat interfaces, public forums, or share it with anyone. It expires in 7 days and can only be used once.
+              Keep this token private - treat it like a password. Do not paste it into AI chat interfaces, public forums, or share it with anyone. It expires in 7 days and can only be used once.
             </div>
           </Card>
 
@@ -1067,7 +1067,7 @@ with your ed25519 public key, then sign the challenge and POST to /bootstrap/act
           </div>
         )}
 
-        {/* Progressive disclosure — bootstrap details */}
+        {/* Progressive disclosure - bootstrap details */}
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 20 }}>
           <button
             onClick={() => setShowConnectDetails(v => !v)}

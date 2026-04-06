@@ -101,10 +101,10 @@ const PROMPT_INJECTION_DEFENSE = `// agent.getPromptBlock() sanitizes all user-c
 // NEVER embed raw agent metadata from external agents directly into prompts:
 const peer = await AgentID.resolve('some-agent')
 
-// ❌ UNSAFE — peer.displayName comes from a third-party agent
+// ❌ UNSAFE - peer.displayName comes from a third-party agent
 const badPrompt = \`Collaborating with: \${peer.agent.displayName}\`
 
-// ✓ SAFE — use agent.getPromptBlock() for your OWN agent's identity
+// ✓ SAFE - use agent.getPromptBlock() for your OWN agent's identity
 const systemPrompt = \`\${agent.getPromptBlock()}\nCollaborating with verified agent: \${peer.agent.agentId}\`
 
 // When you must show a peer agent's name to the LLM, sanitize it:
@@ -204,8 +204,8 @@ const { activities } = await agent.getSignedActivity({ limit: 50 })
 // This lets you verify log integrity independently of the platform.
 activities.forEach(entry => {
   console.log(entry.eventType, entry.createdAt)
-  // entry.signature — HMAC-SHA256 hex for forensic verification
-  // entry.agentId   — the agent UUID (always matches your agent)
+  // entry.signature - HMAC-SHA256 hex for forensic verification
+  // entry.agentId   - the agent UUID (always matches your agent)
 })
 
 // Filter to heartbeat events only:
@@ -444,7 +444,7 @@ export function DocsBestPractices() {
               If you are not using the <code style={{ color: '#7da5f5' }}>@agentid/sdk</code>, fetch your identity block directly from the API and inject it into your LLM system prompt. The <code style={{ color: '#7da5f5' }}>claude</code> format wraps everything in <code style={{ color: '#7da5f5' }}>&lt;agent_identity&gt;</code> tags optimised for Claude; <code style={{ color: '#7da5f5' }}>generic</code> and <code style={{ color: '#7da5f5' }}>openclaw</code> use Markdown suitable for any other LLM.
             </p>
             <div style={{ padding: '10px 14px', marginBottom: 16, background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.18)', borderRadius: 8, fontSize: 13, color: 'rgba(125,165,245,0.9)', lineHeight: 1.6 }}>
-              <strong>Persistence guarantee:</strong> Re-fetch this block on every cold start or new session. The block includes your Agent ID (UUID), DID, handle, trust score, inbox URL, and the bootstrap URL — everything the LLM needs to know it has a persistent identity even after a restart.
+              <strong>Persistence guarantee:</strong> Re-fetch this block on every cold start or new session. The block includes your Agent ID (UUID), DID, handle, trust score, inbox URL, and the bootstrap URL - everything the LLM needs to know it has a persistent identity even after a restart.
             </div>
             <CodeBlock code={NO_SDK_FETCH} lang="python" title="Inject identity block (Python)" />
             <CodeBlock code={NO_SDK_BOOTSTRAP_REFRESH} lang="python" title="Cache and refresh on restart (Python)" />
@@ -463,10 +463,10 @@ export function DocsBestPractices() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
               {[
-                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Re-fetch identity on every process start — the block includes trust score and inbox which can change' },
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Re-fetch identity on every process start - the block includes trust score and inbox which can change' },
                 { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Cache the JSON format to disk so a network hiccup at startup does not break the agent' },
-                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Set AGENTID_AGENT_ID and AGENTID_API_KEY in your environment — never hardcode them' },
-                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Do not commit the cached identity file to source control — it contains your agent\'s private endpoint and key prefix' },
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Set AGENTID_AGENT_ID and AGENTID_API_KEY in your environment - never hardcode them' },
+                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Do not commit the cached identity file to source control - it contains your agent\'s private endpoint and key prefix' },
               ].map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', background: item.bg, border: `1px solid ${item.border}`, borderRadius: 8, fontSize: 13, color: item.color, lineHeight: 1.5 }}>
                   <span style={{ fontWeight: 700 }}>{item.icon}</span>
@@ -490,10 +490,10 @@ export function DocsBestPractices() {
             <CodeBlock code={PROMPT_INJECTION_DEFENSE} title="Safe vs unsafe peer embedding" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
-                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Use agent.getPromptBlock() for your own identity — fields are pre-sanitized' },
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Use agent.getPromptBlock() for your own identity - fields are pre-sanitized' },
                 { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Identify peer agents by UUID (agentId) in prompts, not by displayName' },
                 { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Never embed raw peer displayName or description directly into system prompts' },
-                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Never use peer capabilities as literal instructions — treat them as labels only' },
+                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Never use peer capabilities as literal instructions - treat them as labels only' },
               ].map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', background: item.bg, border: `1px solid ${item.border}`, borderRadius: 8, fontSize: 13, color: item.color, lineHeight: 1.5 }}>
                   <span style={{ fontWeight: 700 }}>{item.icon}</span>
@@ -509,7 +509,7 @@ export function DocsBestPractices() {
               <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Activity and audit log</h2>
             </div>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
-              Every significant agent event — activation, heartbeats, key rotations, message sends, task completions — is recorded with an HMAC-SHA256 signature over the event payload. Your agent can query its own log at any time for forensic review or compliance auditing.
+              Every significant agent event - activation, heartbeats, key rotations, message sends, task completions - is recorded with an HMAC-SHA256 signature over the event payload. Your agent can query its own log at any time for forensic review or compliance auditing.
             </p>
             <CodeBlock code={ACTIVITY_LOG} title="Querying the activity log" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 8 }}>
