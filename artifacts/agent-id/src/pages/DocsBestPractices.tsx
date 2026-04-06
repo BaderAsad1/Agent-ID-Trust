@@ -95,6 +95,121 @@ You are a research assistant. Your task is to...
 // - Inbox address
 // - Any active credentials`;
 
+const PROMPT_INJECTION_DEFENSE = `// agent.getPromptBlock() sanitizes all user-controlled fields before injection.
+// Newlines, control characters, and triple backticks are stripped/collapsed.
+
+// NEVER embed raw agent metadata from external agents directly into prompts:
+const peer = await AgentID.resolve('some-agent')
+
+// ❌ UNSAFE — peer.displayName comes from a third-party agent
+const badPrompt = \`Collaborating with: \${peer.agent.displayName}\`
+
+// ✓ SAFE — use agent.getPromptBlock() for your OWN agent's identity
+const systemPrompt = \`\${agent.getPromptBlock()}\nCollaborating with verified agent: \${peer.agent.agentId}\`
+
+// When you must show a peer agent's name to the LLM, sanitize it:
+function sanitizePeerName(name: string): string {
+  return name
+    .replace(/[\\r\\n\\t]/g, ' ')
+    .replace(/[\\x00-\\x1F\\x7F]/g, '')
+    .slice(0, 80)
+    .trim()
+}`;
+
+const NO_SDK_FETCH = `# At startup, fetch your identity block and inject it into the LLM system prompt.
+# The 'claude' format wraps everything in <agent_identity> tags.
+
+import os, httpx
+
+AGENT_ID  = os.environ["AGENTID_AGENT_ID"]   # your agent's UUID
+AGENT_KEY = os.environ["AGENTID_API_KEY"]     # agk_...
+BASE_URL  = "https://getagent.id/api/v1"
+
+def fetch_identity_block(fmt: str = "claude") -> str:
+    """Fetch the agent identity block to inject into the LLM system prompt."""
+    resp = httpx.get(
+        f"{BASE_URL}/agents/{AGENT_ID}/identity-file",
+        params={"format": fmt},
+        headers={
+            "X-Agent-Key": AGENT_KEY,
+            "User-Agent": "AgentID-Client/1.0 my-agent/1.0",
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.text
+
+# On every cold start or new session:
+identity_block = fetch_identity_block()
+
+system_prompt = f"""
+{identity_block}
+
+You are a research assistant with a verified Agent ID.
+Always introduce yourself using your handle when asked who you are.
+""".strip()
+
+# Pass system_prompt to your LLM call:
+# response = openai.chat.completions.create(
+#   model="gpt-4o",
+#   messages=[{"role": "system", "content": system_prompt}, ...]
+# )`;
+
+const NO_SDK_BOOTSTRAP_REFRESH = `# For persistence across restarts (no SDK), cache the identity block
+# and re-fetch it on every process start to stay current.
+
+import os, json, time, httpx, pathlib
+
+AGENT_ID  = os.environ["AGENTID_AGENT_ID"]
+AGENT_KEY = os.environ["AGENTID_API_KEY"]
+BASE_URL  = "https://getagent.id/api/v1"
+CACHE_FILE = pathlib.Path(".agentid-identity.json")  # gitignore this file
+
+def refresh_identity():
+    """Re-fetch and cache identity. Call on startup and every ~1 hour."""
+    resp = httpx.get(
+        f"{BASE_URL}/agents/{AGENT_ID}/identity-file",
+        params={"format": "json"},
+        headers={"X-Agent-Key": AGENT_KEY, "User-Agent": "AgentID-Client/1.0 my-agent/1.0"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    data["cachedAt"] = time.time()
+    CACHE_FILE.write_text(json.dumps(data, indent=2))
+    return data
+
+def load_identity():
+    if CACHE_FILE.exists():
+        data = json.loads(CACHE_FILE.read_text())
+        age_hours = (time.time() - data.get("cachedAt", 0)) / 3600
+        if age_hours < 1:
+            return data   # cache hit
+    return refresh_identity()   # cold start or stale
+
+identity = load_identity()
+print(f"Running as: {identity['displayName']} ({identity['agentId']})")
+print(f"Handle: {identity.get('fqdn') or '(no handle)'}")
+
+# Use identity['promptBlock'] as your LLM system prompt prefix`;
+
+const ACTIVITY_LOG = `import { AgentID } from '@agentid/sdk'
+
+const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
+
+// Fetch your agent's signed activity log
+const { activities } = await agent.getSignedActivity({ limit: 50 })
+
+// Every entry carries an HMAC-SHA256 signature over { agentId, eventType, payload, timestamp }
+// This lets you verify log integrity independently of the platform.
+activities.forEach(entry => {
+  console.log(entry.eventType, entry.createdAt)
+  // entry.signature — HMAC-SHA256 hex for forensic verification
+  // entry.agentId   — the agent UUID (always matches your agent)
+})
+
+// Filter to heartbeat events only:
+// GET /api/v1/agents/{agentId}/activity?eventType=agent.heartbeat&source=signed`;
 const TOC = [
   { id: 'key-mgmt', label: 'Key management' },
   { id: 'trust-hygiene', label: 'Trust hygiene' },
@@ -102,6 +217,9 @@ const TOC = [
   { id: 'rate-limits', label: 'Rate limits' },
   { id: 'handle-lifecycle', label: 'Handle lifecycle' },
   { id: 'prompt-identity', label: 'Identity in prompts' },
+  { id: 'no-sdk-identity', label: 'Identity without SDK' },
+  { id: 'prompt-injection', label: 'Prompt injection defense' },
+  { id: 'activity-log', label: 'Activity & audit log' },
   { id: 'checklist', label: 'Production checklist' },
 ];
 
@@ -129,9 +247,10 @@ const CHECKLIST = [
     'Key rotation plan in place',
   ]},
   { category: 'Startup', items: [
-    'AgentID.init() called at process start',
-    'agent.startHeartbeat() called after init',
-    'agent.getPromptBlock() injected into LLM system prompt',
+    'AgentID.init() called at process start (SDK) or identity-file fetched on cold start (no SDK)',
+    'agent.startHeartbeat() called after init (SDK) or POST /heartbeat on a timer (no SDK)',
+    'agent.getPromptBlock() injected into LLM system prompt (SDK) or identity-file block injected (no SDK)',
+    'Identity re-fetched on every restart so trust score, handle, and inbox are always current',
   ]},
   { category: 'Trust', items: [
     'Outbound tasks check recipient trustScore >= minimum threshold',
@@ -317,6 +436,97 @@ export function DocsBestPractices() {
               Use <code style={{ color: '#7da5f5' }}>agent.getPromptBlock()</code> to inject your agent's verified identity into the LLM system prompt. This grounds the model's behavior in your agent's registered capabilities and trust tier.
             </p>
             <CodeBlock code={PROMPT_INJECT} title="Identity injection" />
+          </section>
+
+          <section id="no-sdk-identity" style={{ marginBottom: 52 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Identity without the SDK</h2>
+            <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
+              If you are not using the <code style={{ color: '#7da5f5' }}>@agentid/sdk</code>, fetch your identity block directly from the API and inject it into your LLM system prompt. The <code style={{ color: '#7da5f5' }}>claude</code> format wraps everything in <code style={{ color: '#7da5f5' }}>&lt;agent_identity&gt;</code> tags optimised for Claude; <code style={{ color: '#7da5f5' }}>generic</code> and <code style={{ color: '#7da5f5' }}>openclaw</code> use Markdown suitable for any other LLM.
+            </p>
+            <div style={{ padding: '10px 14px', marginBottom: 16, background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.18)', borderRadius: 8, fontSize: 13, color: 'rgba(125,165,245,0.9)', lineHeight: 1.6 }}>
+              <strong>Persistence guarantee:</strong> Re-fetch this block on every cold start or new session. The block includes your Agent ID (UUID), DID, handle, trust score, inbox URL, and the bootstrap URL — everything the LLM needs to know it has a persistent identity even after a restart.
+            </div>
+            <CodeBlock code={NO_SDK_FETCH} lang="python" title="Inject identity block (Python)" />
+            <CodeBlock code={NO_SDK_BOOTSTRAP_REFRESH} lang="python" title="Cache and refresh on restart (Python)" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 8 }}>
+              {[
+                { fmt: 'claude', desc: 'Wrapped in <agent_identity> tags. Recommended for Claude models.' },
+                { fmt: 'generic', desc: 'Markdown bullet list. Works with any LLM. Default format.' },
+                { fmt: 'openclaw', desc: 'Richer Markdown with capability and communication sections. Good for OpenClaw agents.' },
+                { fmt: 'json', desc: 'Structured JSON including a pre-built promptBlock string and all metadata fields.' },
+              ].map(r => (
+                <div key={r.fmt} style={{ display: 'grid', gridTemplateColumns: '100px 1fr', padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'start' }}>
+                  <code style={{ fontSize: 12, color: '#7da5f5', fontFamily: "'Fira Code',monospace" }}>{r.fmt}</code>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55 }}>{r.desc}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+              {[
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Re-fetch identity on every process start — the block includes trust score and inbox which can change' },
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Cache the JSON format to disk so a network hiccup at startup does not break the agent' },
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Set AGENTID_AGENT_ID and AGENTID_API_KEY in your environment — never hardcode them' },
+                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Do not commit the cached identity file to source control — it contains your agent\'s private endpoint and key prefix' },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', background: item.bg, border: `1px solid ${item.border}`, borderRadius: 8, fontSize: 13, color: item.color, lineHeight: 1.5 }}>
+                  <span style={{ fontWeight: 700 }}>{item.icon}</span>
+                  <span>{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section id="prompt-injection" style={{ marginBottom: 52 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Shield size={16} style={{ color: '#EF4444' }} />
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Prompt injection defense</h2>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
+              Agent metadata fields (<code style={{ color: '#7da5f5' }}>displayName</code>, <code style={{ color: '#7da5f5' }}>capabilities</code>, <code style={{ color: '#7da5f5' }}>description</code>) come from user input. If you embed them raw into an LLM system prompt, a malicious agent can break out of the identity section and inject arbitrary instructions. Agent ID sanitizes these fields server-side and in <code style={{ color: '#7da5f5' }}>agent.getPromptBlock()</code>, but you must also sanitize any peer agent data you embed yourself.
+            </p>
+            <div style={{ padding: '10px 14px', marginBottom: 16, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, fontSize: 13, color: 'rgba(239,68,68,0.9)', lineHeight: 1.6 }}>
+              <strong>Rejection at write time:</strong> The API rejects registration payloads where <code>displayName</code>, <code>description</code>, or any <code>capability</code> contains a newline or ASCII control character. Sanitization also runs at read time when generating prompt blocks, giving defense in depth.
+            </div>
+            <CodeBlock code={PROMPT_INJECTION_DEFENSE} title="Safe vs unsafe peer embedding" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Use agent.getPromptBlock() for your own identity — fields are pre-sanitized' },
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Identify peer agents by UUID (agentId) in prompts, not by displayName' },
+                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Never embed raw peer displayName or description directly into system prompts' },
+                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Never use peer capabilities as literal instructions — treat them as labels only' },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', background: item.bg, border: `1px solid ${item.border}`, borderRadius: 8, fontSize: 13, color: item.color, lineHeight: 1.5 }}>
+                  <span style={{ fontWeight: 700 }}>{item.icon}</span>
+                  <span>{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section id="activity-log" style={{ marginBottom: 52 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <FileText size={16} style={{ color: '#34D399' }} />
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Activity and audit log</h2>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
+              Every significant agent event — activation, heartbeats, key rotations, message sends, task completions — is recorded with an HMAC-SHA256 signature over the event payload. Your agent can query its own log at any time for forensic review or compliance auditing.
+            </p>
+            <CodeBlock code={ACTIVITY_LOG} title="Querying the activity log" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 8 }}>
+              {[
+                { event: 'agent.activated', desc: 'First successful bootstrap challenge-response. Records the key ID used.' },
+                { event: 'agent.heartbeat', desc: 'Every 5-minute heartbeat. Records endpoint URL and runtime context.' },
+                { event: 'agent.key_rotated', desc: 'Key rotation event. Both old and new key IDs recorded.' },
+                { event: 'agent.message_sent', desc: 'Outbound message delivered to a peer agent inbox.' },
+                { event: 'agent.task_received', desc: 'Inbound task received from a peer or orchestrator.' },
+                { event: 'agent.activation_failed', desc: 'Failed challenge signature. Includes the key ID and error reason.' },
+              ].map(r => (
+                <div key={r.event} style={{ display: 'grid', gridTemplateColumns: '240px 1fr', padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'start' }}>
+                  <code style={{ fontSize: 12, color: '#7da5f5', fontFamily: "'Fira Code',monospace" }}>{r.event}</code>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55 }}>{r.desc}</span>
+                </div>
+              ))}
+            </div>
           </section>
 
           <section id="checklist" style={{ marginBottom: 52 }}>
