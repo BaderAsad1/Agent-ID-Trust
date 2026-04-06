@@ -230,6 +230,7 @@ router.get("/.well-known/openid-configuration", async (_req: Request, res: Respo
     response_types_supported: ["code"],
     grant_types_supported: [
       "authorization_code",
+      "refresh_token",
       "urn:agentid:grant-type:signed-assertion",
     ],
     token_endpoint_auth_methods_supported: ["client_secret_post", "none"],

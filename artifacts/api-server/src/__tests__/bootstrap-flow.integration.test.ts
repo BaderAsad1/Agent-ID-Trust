@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
+import { createHash } from "crypto";
 
 vi.mock("../services/email", () => ({
   sendVerificationCompleteEmail: vi.fn().mockResolvedValue(undefined),
@@ -77,11 +78,13 @@ describe("Bootstrap Flow — claim → sign challenge → activate → duplicate
     agentId = agent.id;
 
     claimToken = `claim_bootstrap_test_${Date.now()}`;
+    const hashedClaimToken = createHash("sha256").update(claimToken).digest("hex");
     await db.insert(agentClaimTokensTable).values({
       agentId,
-      token: claimToken,
+      token: hashedClaimToken,
       isActive: true,
       isUsed: false,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour TTL
     });
 
     app = await buildBootstrapApp();
