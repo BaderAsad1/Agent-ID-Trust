@@ -1,8 +1,8 @@
 /**
- * OAuth 2.0 Authorization Server Routes — Phase 2
+ * OAuth 2.0 Authorization Server Routes
  *
  * GET  /oauth/authorize  — Initiate authorization code flow (with PKCE)
- * POST /oauth/token      — Exchange code for tokens; signed assertion grant
+ * POST /oauth/token      — Exchange code for tokens; signed assertion grant; refresh token rotation
  * POST /oauth/revoke     — Revoke access or refresh token (RFC 7009)
  */
 import { Router, type Request, type Response, type NextFunction } from "express";
@@ -18,6 +18,7 @@ import {
   createAuthorizationCode,
   exchangeAuthorizationCode,
   signedAssertionGrant,
+  refreshAccessToken,
   revokeOAuthToken,
   introspectOAuthToken,
   verifyJwt,
@@ -55,6 +56,13 @@ const tokenAssertionSchema = z.object({
   agent_id: z.string().uuid(),
   scope: z.string().optional(),
   assertion: z.string().min(1),
+});
+
+const tokenRefreshSchema = z.object({
+  grant_type: z.literal("refresh_token"),
+  refresh_token: z.string().min(1),
+  client_id: z.string().min(1),
+  client_secret: z.string().optional(),
 });
 
 const revokeSchema = z.object({
@@ -248,6 +256,25 @@ router.post("/token", registrationRateLimit, async (req: Request, res: Response,
 
       const result = await exchangeAuthorizationCode(code, client_id, redirect_uri, code_verifier);
       res.json(result);
+    } else if (grantType === "refresh_token") {
+      const parsed = tokenRefreshSchema.safeParse(req.body);
+      if (!parsed.success) throw new AppError(400, "invalid_request", "Invalid refresh token request");
+
+      const { refresh_token, client_id, client_secret } = parsed.data;
+      const client = await db.query.oauthClientsTable.findFirst({
+        where: and(eq(oauthClientsTable.clientId, client_id), isNull(oauthClientsTable.revokedAt)),
+      });
+      if (!client) throw new AppError(400, "invalid_client", "Unknown client_id");
+
+      if (client.clientSecretHash) {
+        if (!client_secret) throw new AppError(401, "invalid_client", "client_secret required for confidential client");
+        const { createHash } = await import("crypto");
+        const hash = createHash("sha256").update(client_secret).digest("hex");
+        if (hash !== client.clientSecretHash) throw new AppError(401, "invalid_client", "Invalid client credentials");
+      }
+
+      const result = await refreshAccessToken(refresh_token, client_id);
+      res.json(result);
     } else if (grantType === "urn:agentid:grant-type:signed-assertion") {
       const parsed = tokenAssertionSchema.safeParse(req.body);
       if (!parsed.success) throw new AppError(400, "invalid_request", "Invalid assertion token request");
@@ -280,9 +307,30 @@ router.post("/token", registrationRateLimit, async (req: Request, res: Response,
       const result = await signedAssertionGrant(agent_id, client_id, scopes, assertion);
       res.json(result);
     } else {
-      throw new AppError(400, "unsupported_grant_type", `Grant type '${grantType}' is not supported. Supported: authorization_code, urn:agentid:grant-type:signed-assertion`);
+      throw new AppError(400, "unsupported_grant_type", `Grant type '${grantType}' is not supported. Supported: authorization_code, refresh_token, urn:agentid:grant-type:signed-assertion`);
     }
   } catch (err) {
+    if (err instanceof AppError) {
+      next(err);
+      return;
+    }
+    // Convert service-level OAuth errors (e.g. "invalid_grant: PKCE verification failed")
+    // to proper 400 responses instead of falling through to the 500 handler.
+    const msg = (err as Error).message || "";
+    const colonIdx = msg.indexOf(":");
+    if (colonIdx > 0) {
+      const code = msg.slice(0, colonIdx).trim();
+      const description = msg.slice(colonIdx + 1).trim();
+      const oauthErrorCodes = [
+        "invalid_grant", "invalid_client", "invalid_request",
+        "invalid_scope", "unauthorized_client", "access_denied",
+        "policy_violation",
+      ];
+      if (oauthErrorCodes.includes(code)) {
+        next(new AppError(400, code, description));
+        return;
+      }
+    }
     next(err);
   }
 });
