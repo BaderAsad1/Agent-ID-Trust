@@ -2258,48 +2258,36 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
       position: 'absolute', inset: 0,
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'flex-start',
-      paddingTop: 'clamp(72px, 10vh, 112px)',
+      paddingTop: 'clamp(100px, 14vh, 150px)',
       paddingLeft: 'clamp(20px, 5vw, 60px)',
       paddingRight: 'clamp(20px, 5vw, 60px)',
       zIndex: 10, pointerEvents: 'none',
     }}>
 
-      {/* Atmospheric depth — behind content, not on it */}
+      {/* Primary glow — blue, centered behind headline */}
       <div style={{
         position: 'absolute',
-        top: '5%', left: '50%', transform: 'translateX(-50%)',
-        width: 760, height: 420,
-        background: 'radial-gradient(ellipse at 50% 40%, rgba(79,125,243,0.09) 0%, transparent 68%)',
+        top: '15%', left: '50%', transform: 'translateX(-50%)',
+        width: 1000, height: 580,
+        background: 'radial-gradient(ellipse at 50% 38%, rgba(79,125,243,0.22) 0%, rgba(79,125,243,0.07) 42%, transparent 70%)',
+        pointerEvents: 'none', zIndex: -1,
+      }} />
+      {/* Secondary glow — purple offset, creates color depth */}
+      <div style={{
+        position: 'absolute',
+        top: '25%', left: '62%', transform: 'translateX(-50%)',
+        width: 640, height: 400,
+        background: 'radial-gradient(ellipse at 50% 50%, rgba(124,91,245,0.13) 0%, transparent 65%)',
         pointerEvents: 'none', zIndex: -1,
       }} />
 
-      <RegistryField progress={progress} />
-
-      {/* Eyebrow — no pill, no glow dot. Just the category signal. */}
-      <div style={{
-        opacity: contentOpacity,
-        transform: `translateY(${contentY * 0.8}px)`,
-        marginBottom: 22,
-      }}>
-        <span style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.18em',
-          textTransform: 'uppercase',
-          color: '#4f7df3',
-        }}>
-          Identity Infrastructure · Agentic Web
-        </span>
-      </div>
-
-      {/* H1 — pure white, no gradient. Gradient on text = Webflow templates. */}
       <h1 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
         fontSize: 'clamp(44px, 6.8vw, 88px)',
         fontWeight: 800, letterSpacing: '-0.045em', lineHeight: 1.03,
         color: '#f2f2f7',
         textAlign: 'center',
-        margin: '0 0 26px',
+        margin: '0 0 24px',
         maxWidth: 840,
         opacity: contentOpacity,
         transform: `translateY(${contentY}px)`,
@@ -2317,7 +2305,7 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
-        Register your agent once. Any system it encounters can verify its identity, trust score, and capabilities — without calling you first.
+        Register your agent once. Any system it encounters can verify its identity, trust score, and capabilities without calling you first.
       </p>
 
       <div style={{
@@ -2327,7 +2315,6 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         display: 'flex', alignItems: 'center', gap: 16,
         pointerEvents: 'auto',
       }}>
-        {/* Primary — white on dark. High contrast. Stands out without screaming. */}
         <button onClick={() => {
           const base = import.meta.env.BASE_URL || '/';
           window.location.href = `${base}sign-in?intent=register`;
@@ -2342,7 +2329,6 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
           Get Started
         </button>
 
-        {/* Secondary — text only. Clean. */}
         <button onClick={() => {
           const base = import.meta.env.BASE_URL || '/';
           window.location.href = `${base}docs`;
@@ -2358,9 +2344,9 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         </button>
       </div>
 
-      {/* Integration marquee — visible divider between text and credential animation */}
+      {/* Integration marquee */}
       <div style={{
-        marginTop: 'clamp(28px, 4.5vh, 52px)',
+        marginTop: 'clamp(40px, 6vh, 68px)',
         width: '100vw',
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.15}px)`,
