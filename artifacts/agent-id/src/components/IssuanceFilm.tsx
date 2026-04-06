@@ -2169,31 +2169,29 @@ function RegistryField({ progress }: { progress: number }) {
   );
 }
 
+// Only brands where AI agents actually run and can hold an Agent ID credential.
+// Logos served from Simple Icons CDN — same icon set used by shields.io, readme badges, etc.
+const SI = 'https://cdn.simpleicons.org';
 const MARQUEE_BRANDS = [
-  { name: 'LangChain', color: '#34d399' },
-  { name: 'AutoGen', color: '#4f7df3' },
-  { name: 'CrewAI', color: '#f5a623' },
-  { name: 'Claude', color: '#7c5bf5' },
-  { name: 'OpenAI Agents', color: '#e8e8f0' },
-  { name: 'Gemini', color: '#4f7df3' },
-  { name: 'LlamaIndex', color: '#f5a623' },
-  { name: 'n8n', color: '#f5623a' },
-  { name: 'Amazon Bedrock', color: '#f5a623' },
-  { name: 'Cursor', color: '#e8e8f0' },
-  { name: 'Hugging Face', color: '#f5d020' },
-  { name: 'Vertex AI', color: '#4f7df3' },
-  { name: 'Replit', color: '#f5623a' },
-  { name: 'Zapier', color: '#f5623a' },
-  { name: 'Windsurf', color: '#34d399' },
-  { name: 'Microsoft Azure AI', color: '#4f7df3' },
+  { name: 'OpenAI',           slug: 'openai',         note: 'Assistants & Agents API' },
+  { name: 'Anthropic',        slug: 'anthropic',      note: 'Claude agent runtime'     },
+  { name: 'Google Gemini',    slug: 'googlegemini',   note: 'Gemini agent API'         },
+  { name: 'LangChain',        slug: 'langchain',      note: 'Agent framework'          },
+  { name: 'Hugging Face',     slug: 'huggingface',    note: 'Inference & Spaces agents'},
+  { name: 'n8n',              slug: 'n8n',            note: 'AI workflow automation'   },
+  { name: 'Zapier',           slug: 'zapier',         note: 'AI action automation'     },
+  { name: 'Amazon Bedrock',   slug: 'amazonaws',      note: 'Managed agent runtime'    },
+  { name: 'Microsoft Azure',  slug: 'microsoftazure', note: 'Azure AI agents'          },
+  { name: 'GitHub',           slug: 'github',         note: 'Copilot Extensions'       },
+  { name: 'Replit',           slug: 'replit',         note: 'Replit Agents'            },
+  { name: 'Cursor',           slug: 'cursor',         note: 'Cursor AI agents'         },
 ];
 
 function BrandMarqueeSection() {
-  // Duplicate for seamless infinite loop
   const doubled = [...MARQUEE_BRANDS, ...MARQUEE_BRANDS];
   return (
     <div style={{
-      padding: '28px 0 32px',
+      padding: '22px 0 26px',
       borderTop: '1px solid rgba(255,255,255,0.04)',
       borderBottom: '1px solid rgba(255,255,255,0.04)',
       background: 'rgba(8,10,22,0.6)',
@@ -2202,46 +2200,48 @@ function BrandMarqueeSection() {
     }}>
       {/* Fade edges */}
       <div style={{
-        position: 'absolute', top: 0, left: 0, bottom: 0, width: 120,
+        position: 'absolute', top: 0, left: 0, bottom: 0, width: 140,
         background: 'linear-gradient(90deg, rgba(5,7,17,1) 0%, rgba(5,7,17,0) 100%)',
         zIndex: 2, pointerEvents: 'none',
       }} />
       <div style={{
-        position: 'absolute', top: 0, right: 0, bottom: 0, width: 120,
+        position: 'absolute', top: 0, right: 0, bottom: 0, width: 140,
         background: 'linear-gradient(270deg, rgba(5,7,17,1) 0%, rgba(5,7,17,0) 100%)',
         zIndex: 2, pointerEvents: 'none',
       }} />
 
       <div style={{
         fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
-        letterSpacing: '0.16em', color: 'rgba(232,232,240,0.30)',
-        textAlign: 'center', marginBottom: 16, textTransform: 'uppercase',
+        letterSpacing: '0.16em', color: 'rgba(232,232,240,0.28)',
+        textAlign: 'center', marginBottom: 14, textTransform: 'uppercase',
       }}>
-        Integrates with the tools you already use
+        Integrates with the platforms where agents already run
       </div>
 
-      <div className="animate-marquee" style={{ gap: 0 }}>
+      <div className="animate-marquee" style={{ gap: 0, animationDuration: '45s' }}>
         {doubled.map((brand, i) => (
           <div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: 28,
-            paddingRight: 48,
+            display: 'flex', alignItems: 'center', gap: 9,
+            paddingRight: 52,
             flexShrink: 0,
           }}>
+            <img
+              src={`${SI}/${brand.slug}/808898`}
+              width={16} height={16}
+              alt={brand.name}
+              loading="lazy"
+              style={{ flexShrink: 0, opacity: 0.65, display: 'block' }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
             <span style={{
               fontFamily: "'Inter', sans-serif",
-              fontSize: 13, fontWeight: 600,
-              color: 'rgba(232,232,240,0.38)',
+              fontSize: 13, fontWeight: 500,
+              color: 'rgba(232,232,240,0.48)',
               letterSpacing: '-0.01em',
               whiteSpace: 'nowrap',
-              transition: 'color 0.2s',
             }}>
               {brand.name}
             </span>
-            <span style={{
-              width: 3, height: 3, borderRadius: '50%',
-              background: 'rgba(232,232,240,0.12)',
-              flexShrink: 0,
-            }} />
           </div>
         ))}
       </div>
