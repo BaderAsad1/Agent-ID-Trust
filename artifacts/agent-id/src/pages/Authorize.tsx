@@ -35,7 +35,7 @@ export function Authorize() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, agents, loading, signOut } = useAuth() as ReturnType<typeof useAuth> & { signOut?: () => Promise<void> };
+  const { user, agents, loading, logout } = useAuth();
 
   const clientId            = params.get('client_id') || '';
   const clientName          = params.get('client_name') || clientId || 'Unknown App';
@@ -370,9 +370,9 @@ export function Authorize() {
         <div style={{ marginTop: 20, fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
           Not you?{' '}
           <button
-            onClick={async () => {
+            onClick={() => {
               const returnTo = location.pathname + location.search;
-              if (signOut) await signOut();
+              logout();
               navigate(`/sign-in?returnTo=${encodeURIComponent(returnTo)}`, { replace: true });
             }}
             style={{ color: 'rgba(255,255,255,0.35)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}

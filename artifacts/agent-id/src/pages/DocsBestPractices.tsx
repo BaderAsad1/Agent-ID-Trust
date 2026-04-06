@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, Check, ChevronRight, Star, ShieldCheck, Key, Activity, AlertTriangle } from 'lucide-react';
 import { Footer } from '@/components/Footer';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -271,6 +272,7 @@ const CHECKLIST = [
 export function DocsBestPractices() {
   const [activeSection, setActiveSection] = useState('key-mgmt');
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   function scrollTo(id: string) {
     setActiveSection(id);
@@ -300,8 +302,8 @@ export function DocsBestPractices() {
         </p>
       </div>
 
-      <div style={{ maxWidth: 1060, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: '180px 1fr', gap: 48 }}>
-        <nav style={{ position: 'sticky', top: 80, height: 'fit-content' }}>
+      <div style={{ maxWidth: 1060, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '180px 1fr', gap: 48 }}>
+        <nav style={{ position: 'sticky', top: 80, height: 'fit-content', display: isMobile ? 'none' : undefined }}>
           <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>On this page</p>
           {TOC.map(item => (
             <button key={item.id} onClick={() => scrollTo(item.id)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 0', fontSize: 13, color: activeSection === item.id ? '#7da5f5' : 'rgba(255,255,255,0.32)', fontFamily: 'var(--font-body)', transition: 'color 0.15s' }}>

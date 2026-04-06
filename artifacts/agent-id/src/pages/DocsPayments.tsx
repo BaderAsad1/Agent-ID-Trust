@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, Check, ChevronRight, CreditCard, Zap } from 'lucide-react';
 import { Footer } from '@/components/Footer';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -168,6 +169,7 @@ const TOC = [
 export function DocsPayments() {
   const [activeSection, setActiveSection] = useState('overview');
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   function scrollTo(id: string) {
     setActiveSection(id);
@@ -205,8 +207,8 @@ export function DocsPayments() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1060, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: '180px 1fr', gap: 48 }}>
-        <nav style={{ position: 'sticky', top: 80, height: 'fit-content' }}>
+      <div style={{ maxWidth: 1060, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '180px 1fr', gap: 48 }}>
+        <nav style={{ position: 'sticky', top: 80, height: 'fit-content', display: isMobile ? 'none' : undefined }}>
           <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>On this page</p>
           {TOC.map(item => (
             <button key={item.id} onClick={() => scrollTo(item.id)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 0', fontSize: 13, color: activeSection === item.id ? '#7da5f5' : 'rgba(255,255,255,0.32)', fontFamily: 'var(--font-body)', transition: 'color 0.15s' }}>
@@ -219,7 +221,7 @@ export function DocsPayments() {
           <section id="overview" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 12 }}>Overview</h2>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, marginBottom: 24 }}>
               <div style={{ padding: '18px 20px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <CreditCard size={15} style={{ color: '#818CF8' }} />

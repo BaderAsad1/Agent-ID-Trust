@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Copy, Check, ChevronRight, Shield, Zap, Code2, Globe, Key, Lock } from 'lucide-react';
 import { Footer } from '@/components/Footer';
 import { useSEO } from '@/lib/useSEO';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -295,6 +296,7 @@ export function DocsSignIn() {
     description: 'Integrate OAuth 2.0 + PKCE delegated auth or autonomous M2M signed assertions into your app. Full reference for Agent ID authentication.',
     noIndex: false,
   });
+  const isMobile = useIsMobile();
   const [activeSection, setActiveSection] = useState('overview');
 
   function scrollTo(id: string) {
@@ -319,7 +321,7 @@ export function DocsSignIn() {
         </p>
 
         {/* Mode cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 36 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginTop: 36 }}>
           <div style={{ padding: '20px 22px', background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.2)', borderRadius: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <Globe size={16} style={{ color: '#7da5f5' }} />
@@ -338,10 +340,10 @@ export function DocsSignIn() {
       </div>
 
       {/* Body  -  sidebar + content */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: '200px 1fr', gap: 48 }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '200px 1fr', gap: 48 }}>
 
         {/* Sticky TOC */}
-        <nav style={{ position: 'sticky', top: 80, height: 'fit-content' }}>
+        <nav style={{ position: 'sticky', top: 80, height: 'fit-content', display: isMobile ? 'none' : undefined }}>
           <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>On this page</p>
           {TOC.map(item => (
             <button key={item.id} onClick={() => scrollTo(item.id)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 0', fontSize: 13, color: activeSection === item.id ? '#7da5f5' : 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-body)', transition: 'color 0.15s' }}>
@@ -359,7 +361,7 @@ export function DocsSignIn() {
               <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Discovery document</p>
               <code style={{ fontSize: 13, color: '#7da5f5' }}>GET {BASE}/.well-known/openid-configuration</code>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 20 }}>
               {[
                 { icon: Shield, label: 'Authorization', val: `${BASE}/oauth/authorize` },
                 { icon: Key, label: 'Token endpoint', val: `${BASE}/oauth/token` },
@@ -382,7 +384,8 @@ export function DocsSignIn() {
 
           {/* Scopes */}
           <Section id="scopes" title="Scopes" subtitle="Request only the scopes your app actually needs. Users see each scope on the consent screen.">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
+            <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 420 }}>
               {[
                 { scope: 'read',          risk: 'low',    desc: 'View the agent\'s public profile, DID, handle, and trust tier' },
                 { scope: 'write',         risk: 'medium', desc: 'Update the agent\'s profile and settings' },
@@ -402,6 +405,7 @@ export function DocsSignIn() {
                   </div>
                 );
               })}
+            </div>
             </div>
             <Callout type="warn">
               <code>agents:write</code> is a sensitive scope - it allows creating agents on the user's behalf. Only request it when strictly necessary, and display a clear explanation to the user.
@@ -493,7 +497,7 @@ export function DocsSignIn() {
 
           {/* Claims */}
           <Section id="claims" title="Token claims" subtitle="Every Agent ID access token includes these claims.">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ overflowX: 'auto' }}><div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 480 }}>
               {[
                 { claim: 'sub', desc: 'Agent DID  -  e.g. did:web:getagent.id:agents:<uuid>', type: 'string' },
                 { claim: 'iss', desc: 'Token issuer (https://getagent.id)', type: 'string' },
@@ -518,12 +522,12 @@ export function DocsSignIn() {
                   <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{desc}</span>
                 </div>
               ))}
-            </div>
+            </div></div>
           </Section>
 
           {/* Errors */}
           <Section id="errors" title="Error codes" subtitle="All error responses use OAuth 2.0 error format: { error, error_description }.">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ overflowX: 'auto' }}><div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 520 }}>
               {[
                 { code: 'invalid_client',       endpoint: 'token',      desc: 'Unknown or revoked client_id, or agent is suspended/revoked/draft' },
                 { code: 'invalid_grant',         endpoint: 'token',      desc: 'Authorization code expired, already used, or code_verifier mismatch' },
@@ -540,7 +544,7 @@ export function DocsSignIn() {
                   <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{desc}</span>
                 </div>
               ))}
-            </div>
+            </div></div>
           </Section>
 
           {/* Security */}
