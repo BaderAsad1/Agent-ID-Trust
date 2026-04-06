@@ -705,7 +705,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 28, opacity: titleOpacity, transform: `translateY(${titleTranslateY}px)` }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>THE AGENT CREDENTIAL</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)', marginBottom: 12 }}>THE AGENT CREDENTIAL</div>
           <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
             One credential.{' '}
             <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Immediate trust.</span>
@@ -756,7 +756,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)',
           marginBottom: 'clamp(6px, 1vh, 16px)',
         }}>THE AGENT CREDENTIAL</div>
         <h2 style={{
@@ -945,7 +945,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
         <div style={{ textAlign: 'center', marginBottom: 28, opacity: titleOpacity, transform: `translateY(${titleTranslateY}px)` }}>
           <div style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-            letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
+            letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)', marginBottom: 12,
           }}>INFRASTRUCTURE</div>
           <h2 style={{
             fontFamily: "'Bricolage Grotesque', sans-serif",
@@ -1026,7 +1026,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)',
           marginBottom: 'clamp(6px, 1vh, 16px)',
         }}>INFRASTRUCTURE</div>
         <h2 style={{
@@ -1267,7 +1267,7 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 24, opacity: titleT, transform: `translateY(${(1 - titleT) * 30}px)` }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>WHAT YOUR AGENT GETS</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)', marginBottom: 12 }}>WHAT YOUR AGENT GETS</div>
           <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
             Everything it needs to be{' '}
             <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>trusted by default.</span>
@@ -1319,7 +1319,7 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)',
           marginBottom: 'clamp(6px, 1vh, 16px)',
         }}>WHAT YOUR AGENT GETS</div>
         <h2 style={{
@@ -1662,7 +1662,7 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 24, opacity: titleT, transform: `translateY(${(1 - titleT) * 30}px)` }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>BUILT FOR INTEGRATION</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)', marginBottom: 12 }}>BUILT FOR INTEGRATION</div>
           <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
             Connect from{' '}
             <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>any stack.</span>
@@ -1686,7 +1686,7 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
               }}>
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: tool.color, marginBottom: 3 }}>{tool.label}</div>
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.4 }}>{tool.desc}</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: 'rgba(232,232,240,0.62)', lineHeight: 1.4 }}>{tool.desc}</div>
                 </div>
                 <span style={{
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 600,
@@ -1724,7 +1724,7 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)',
           marginBottom: 'clamp(6px, 1vh, 14px)',
         }}>BUILT FOR INTEGRATION</div>
         <h2 style={{
@@ -1786,7 +1786,7 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
               <div style={{
                 fontFamily: "'Inter', sans-serif",
                 fontSize: 'clamp(11px, 1vw, 13px)',
-                color: 'rgba(232,232,240,0.4)', lineHeight: 1.45,
+                color: 'rgba(232,232,240,0.62)', lineHeight: 1.45,
               }}>{tool.desc}</div>
             </div>
           );
@@ -1812,7 +1812,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
     return (
       <div style={{ padding: '56px 20px 72px', textAlign: 'center', boxSizing: 'border-box', width: '100%' }}>
         <div style={{ opacity: mobileLabel, transform: `translateY(${(1 - mobileLabel) * 20}px)` }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 16 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)', marginBottom: 16 }}>
             AGENT ID PROTOCOL
           </div>
         </div>
@@ -1828,7 +1828,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
         <div style={{ opacity: mobileBody, transform: `translateY(${(1 - mobileBody) * 20}px)` }}>
           <p style={{
             fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.65,
-            color: 'rgba(232,232,240,0.38)', marginBottom: 32,
+            color: 'rgba(232,232,240,0.62)', marginBottom: 32,
           }}>
             Claim your .AgentID handle and become verifiable. Every agent that joins strengthens the trust fabric for all of them.
           </p>
@@ -1848,7 +1848,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
             }}>Get started →</button>
             <button onClick={() => onNavigate?.('/for-agents')} style={{
               fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-              letterSpacing: '0.10em', color: 'rgba(232,232,240,0.20)',
+              letterSpacing: '0.10em', color: 'rgba(232,232,240,0.52)',
               background: 'none', border: 'none', cursor: 'pointer', padding: 0,
             }}>Autonomous registration via API →</button>
           </div>
@@ -1881,7 +1881,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
 
       <div style={{
         fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-        letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+        letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)',
         marginBottom: 'clamp(12px, 2vh, 24px)',
       }}>AGENT ID PROTOCOL</div>
 
@@ -1902,7 +1902,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
 
       <p style={{
         fontFamily: "'Inter', sans-serif", fontSize: 'clamp(14px, 1.3vw, 17px)', lineHeight: 1.65,
-        color: 'rgba(232,232,240,0.38)', maxWidth: 400, margin: '0 auto',
+        color: 'rgba(232,232,240,0.62)', maxWidth: 400, margin: '0 auto',
         marginBottom: 'clamp(28px, 4vh, 48px)',
       }}>
         Claim your .AgentID handle and become verifiable. Every agent that joins the network strengthens the trust fabric for all of them.
@@ -1929,7 +1929,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
           fontFamily: "'JetBrains Mono', monospace",
           fontSize: 10, fontWeight: 600,
           letterSpacing: '0.10em',
-          color: 'rgba(232,232,240,0.20)',
+          color: 'rgba(232,232,240,0.52)',
           background: 'none', border: 'none',
           cursor: 'pointer', padding: 0,
         }}>
@@ -2169,6 +2169,86 @@ function RegistryField({ progress }: { progress: number }) {
   );
 }
 
+const MARQUEE_BRANDS = [
+  { name: 'LangChain', color: '#34d399' },
+  { name: 'AutoGen', color: '#4f7df3' },
+  { name: 'CrewAI', color: '#f5a623' },
+  { name: 'Claude', color: '#7c5bf5' },
+  { name: 'OpenAI Agents', color: '#e8e8f0' },
+  { name: 'Gemini', color: '#4f7df3' },
+  { name: 'LlamaIndex', color: '#f5a623' },
+  { name: 'n8n', color: '#f5623a' },
+  { name: 'Amazon Bedrock', color: '#f5a623' },
+  { name: 'Cursor', color: '#e8e8f0' },
+  { name: 'Hugging Face', color: '#f5d020' },
+  { name: 'Vertex AI', color: '#4f7df3' },
+  { name: 'Replit', color: '#f5623a' },
+  { name: 'Zapier', color: '#f5623a' },
+  { name: 'Windsurf', color: '#34d399' },
+  { name: 'Microsoft Azure AI', color: '#4f7df3' },
+];
+
+function BrandMarqueeSection() {
+  // Duplicate for seamless infinite loop
+  const doubled = [...MARQUEE_BRANDS, ...MARQUEE_BRANDS];
+  return (
+    <div style={{
+      padding: '28px 0 32px',
+      borderTop: '1px solid rgba(255,255,255,0.04)',
+      borderBottom: '1px solid rgba(255,255,255,0.04)',
+      background: 'rgba(8,10,22,0.6)',
+      overflow: 'hidden',
+      position: 'relative',
+    }}>
+      {/* Fade edges */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, bottom: 0, width: 120,
+        background: 'linear-gradient(90deg, rgba(5,7,17,1) 0%, rgba(5,7,17,0) 100%)',
+        zIndex: 2, pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', top: 0, right: 0, bottom: 0, width: 120,
+        background: 'linear-gradient(270deg, rgba(5,7,17,1) 0%, rgba(5,7,17,0) 100%)',
+        zIndex: 2, pointerEvents: 'none',
+      }} />
+
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
+        letterSpacing: '0.16em', color: 'rgba(232,232,240,0.30)',
+        textAlign: 'center', marginBottom: 16, textTransform: 'uppercase',
+      }}>
+        Integrates with the tools you already use
+      </div>
+
+      <div className="animate-marquee" style={{ gap: 0 }}>
+        {doubled.map((brand, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 28,
+            paddingRight: 48,
+            flexShrink: 0,
+          }}>
+            <span style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 13, fontWeight: 600,
+              color: 'rgba(232,232,240,0.38)',
+              letterSpacing: '-0.01em',
+              whiteSpace: 'nowrap',
+              transition: 'color 0.2s',
+            }}>
+              {brand.name}
+            </span>
+            <span style={{
+              width: 3, height: 3, borderRadius: '50%',
+              background: 'rgba(232,232,240,0.12)',
+              flexShrink: 0,
+            }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: (path: string) => void }) {
   const contentOpacity = progress < 0.08 ? 1 : lerp(1, 0, (progress - 0.08) / 0.06);
   const contentY = lerp(0, -60, Math.min(1, progress / 0.12));
@@ -2183,74 +2263,117 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
     }}>
       <RegistryField progress={progress} />
 
+      {/* Eyebrow badge */}
+      <div style={{
+        opacity: contentOpacity,
+        transform: `translateY(${contentY * 0.8}px)`,
+        marginBottom: 18,
+      }}>
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11, fontWeight: 500,
+          letterSpacing: '0.10em',
+          color: 'rgba(232,232,240,0.65)',
+          background: 'rgba(79,125,243,0.07)',
+          border: '1px solid rgba(79,125,243,0.22)',
+          borderRadius: 100,
+          padding: '5px 16px',
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{
+            width: 5, height: 5, borderRadius: '50%',
+            background: '#4f7df3',
+            boxShadow: '0 0 6px rgba(79,125,243,0.8)',
+            flexShrink: 0,
+            display: 'inline-block',
+          }} />
+          Identity infrastructure for the agentic web
+        </span>
+      </div>
+
       <h1 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(42px, 6.5vw, 80px)',
-        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.08,
+        fontSize: 'clamp(42px, 6.5vw, 82px)',
+        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.06,
         color: '#e8e8f0',
         textAlign: 'center',
-        margin: '0 0 20px',
-        maxWidth: 760,
+        margin: '0 0 22px',
+        maxWidth: 800,
         opacity: contentOpacity,
         transform: `translateY(${contentY}px)`,
       }}>
         Give your agent<br />
-        a verifiable identity.
+        <span style={{
+          background: 'linear-gradient(135deg, #a5b8f8 0%, #7c9df5 35%, #4f7df3 65%, #7c5bf5 100%)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+        }}>a verifiable identity.</span>
       </h1>
 
       <p style={{
         fontFamily: "'Inter', sans-serif",
-        fontSize: 'clamp(15px, 1.5vw, 19px)',
-        fontWeight: 400, lineHeight: 1.6,
-        color: 'rgba(232,232,240,0.72)',
+        fontSize: 'clamp(15px, 1.4vw, 18px)',
+        fontWeight: 400, lineHeight: 1.65,
+        color: 'rgba(232,232,240,0.70)',
         textAlign: 'center',
-        maxWidth: 540, margin: '0 auto',
+        maxWidth: 520, margin: '0 auto',
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
-        Claim a .AgentID handle. Issue an Agent Credential. Let any system resolve, verify, and trust your agent  -  without asking you first.
+        Claim a .AgentID handle. Issue a verifiable credential. Let any system resolve, verify, and trust your agent — without asking you first.
       </p>
 
       <div style={{
         marginTop: 32,
-        opacity: contentOpacity * 0.9,
+        opacity: contentOpacity,
         transform: `translateY(${contentY * 0.3}px)`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
         pointerEvents: 'auto',
       }}>
         <div style={{ display: 'flex', gap: 10 }}>
-          <span onClick={() => {
+          <button onClick={() => {
             const base = import.meta.env.BASE_URL || '/';
             window.location.href = `${base}sign-in?intent=register`;
           }} style={{
             fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600,
-            color: '#fff', background: 'rgba(79,125,243,0.15)',
-            border: '1px solid rgba(79,125,243,0.3)',
-            borderRadius: 9, padding: '10px 22px', cursor: 'pointer',
+            color: '#fff',
+            background: 'linear-gradient(135deg, #4f7df3 0%, #5d87f5 100%)',
+            border: 'none',
+            borderRadius: 9, padding: '11px 26px', cursor: 'pointer',
             letterSpacing: '-0.01em',
+            boxShadow: '0 4px 20px rgba(79,125,243,0.4), 0 1px 3px rgba(0,0,0,0.3)',
           }}>
             Get Started
-          </span>
-          <span onClick={() => {
+          </button>
+          <button onClick={() => {
             const base = import.meta.env.BASE_URL || '/';
             window.location.href = `${base}docs`;
           }} style={{
             fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
-            color: 'rgba(232,232,240,0.72)',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.10)',
-            borderRadius: 9, padding: '10px 22px', cursor: 'pointer',
+            color: 'rgba(232,232,240,0.80)',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 9, padding: '11px 26px', cursor: 'pointer',
             letterSpacing: '-0.01em',
           }}>
             View Docs
-          </span>
+          </button>
         </div>
+
+        {/* Tech chips */}
         <div style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 500,
-          letterSpacing: '0.12em',
-          color: 'rgba(232,232,240,0.5)',
+          display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center',
         }}>
-          Verifiable. Resolvable. Trusted.
+          {['ERC-8004 · Base', 'W3C Verifiable Credentials', 'did:web'].map((chip, i) => (
+            <span key={i} style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 500,
+              color: 'rgba(232,232,240,0.42)',
+              letterSpacing: '0.06em',
+              padding: '3px 10px',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 100,
+              background: 'rgba(255,255,255,0.02)',
+            }}>{chip}</span>
+          ))}
         </div>
       </div>
     </div>
@@ -2402,10 +2525,15 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         </div>
       </section>
 
+      {/* Brand marquee — static, sits between hero and outcome */}
+      <div style={{ position: 'relative', zIndex: 2, marginTop: '-2px' }}>
+        <BrandMarqueeSection />
+      </div>
+
       <section ref={sectionRefs.outcome as React.RefObject<HTMLElement>} className="outcome-section-outer" style={{
         position: 'relative',
         minHeight: isMobile ? '200vh' : '220vh',
-        marginTop: '-20vh',
+        marginTop: '0',
         background: 'linear-gradient(to bottom, transparent 0%, #050711 15vh)',
         zIndex: 2,
       }}>
