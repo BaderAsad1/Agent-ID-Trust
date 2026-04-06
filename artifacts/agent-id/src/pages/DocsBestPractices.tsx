@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, ChevronRight, Star, ShieldCheck, Key, Activity, AlertTriangle } from 'lucide-react';
+import { Copy, Check, ChevronRight, Star, ShieldCheck, Shield, Key, Activity, AlertTriangle, FileText } from 'lucide-react';
 import { Footer } from '@/components/Footer';
 import { useIsMobile } from '@/hooks/use-mobile';
 

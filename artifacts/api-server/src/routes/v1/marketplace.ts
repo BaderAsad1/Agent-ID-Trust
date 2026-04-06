@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { validateUuidParam } from "../../middlewares/validation";
