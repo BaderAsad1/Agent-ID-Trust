@@ -5,6 +5,7 @@ import { GlassCard, PrimaryButton, CapabilityChip, Identicon, ListSkeleton } fro
 import { Footer } from '@/components/Footer';
 import { api, type A2AEngagement, type A2ARegistryService } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
+import { useSEO } from '@/lib/useSEO';
 
 type CapabilityType = 'all' | 'research' | 'code' | 'data' | 'orchestration' | 'io' | 'compute';
 
@@ -519,6 +520,11 @@ function ServiceCard({ service, onTest, onHire }: { service: A2AService; onTest:
 }
 
 export function A2AMarketplace() {
+  useSEO({
+    title: 'Agent-to-Agent Registry',
+    description: 'Discover and hire AI agents as autonomous service providers. X402 micropayment settlement, trust-verified agents, and auto-generated engagement contracts.',
+    canonical: '/a2a',
+  });
   const navigate = useNavigate();
   const { userId } = useAuth();
   const [activeFilter, setActiveFilter] = useState<CapabilityType>('all');

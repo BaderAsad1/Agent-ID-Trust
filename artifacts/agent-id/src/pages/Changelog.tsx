@@ -1,4 +1,5 @@
 import { Footer } from '@/components/Footer';
+import { useSEO } from '@/lib/useSEO';
 
 const CHANGELOG_ENTRIES = [
   {
@@ -194,6 +195,11 @@ const CHANGELOG_ENTRIES = [
 ];
 
 export function Changelog() {
+  useSEO({
+    title: "What's New",
+    description: 'Agent ID release notes. New features, protocol updates, SDK releases, and infrastructure improvements across every version.',
+    canonical: '/changelog',
+  });
   return (
     <div className="pt-16" style={{ background: 'var(--bg-base)' }}>
       <div className="max-w-[740px] mx-auto px-6 py-20">

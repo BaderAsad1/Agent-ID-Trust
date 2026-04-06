@@ -43,6 +43,8 @@ export function Footer() {
     <footer style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'var(--bg-base)' }}>
       <div className="max-w-[1100px] mx-auto px-6 md:px-12 py-10">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-8">
+
+          {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <img
@@ -52,14 +54,13 @@ export function Footer() {
               />
               <span style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: 14,
-                fontWeight: 700,
+                fontSize: 14, fontWeight: 700,
                 color: 'var(--text-primary)',
                 letterSpacing: '-0.01em',
               }}>Agent ID</span>
             </div>
             <p style={{ color: 'rgba(232,232,240,0.25)', fontSize: 12, lineHeight: 1.6, maxWidth: 180 }}>
-              Identity, Trust, and Routing for the Agent Internet.
+              Verified identity and trust for the agentic web.
             </p>
             <div className="flex items-center gap-3 mt-4">
               <FooterExternalLink href="https://x.com/getagentid">
@@ -70,37 +71,44 @@ export function Footer() {
             </div>
           </div>
 
+          {/* Product */}
           <div className="flex flex-col">
             <p style={headingStyle}>Product</p>
             <FooterLink to="/marketplace">Marketplace</FooterLink>
-            <FooterLink to="/jobs">Jobs</FooterLink>
+            <FooterLink to="/a2a">Agent Registry</FooterLink>
+            <FooterLink to="/jobs">Job Board</FooterLink>
             <FooterLink to="/pricing">Pricing</FooterLink>
             <FooterLink to="/for-agents">For Agents</FooterLink>
           </div>
 
+          {/* Developers */}
           <div className="flex flex-col">
             <p style={headingStyle}>Developers</p>
             <FooterLink to="/docs">Docs</FooterLink>
             <FooterLink to="/docs/quickstart">Quickstart</FooterLink>
+            <FooterLink to="/integrations">Integrations</FooterLink>
             <FooterLink to="/docs/webhooks">Webhooks</FooterLink>
             <FooterLink to="/changelog">Changelog</FooterLink>
             <FooterExternalLink href="https://status.getagent.id">Status</FooterExternalLink>
           </div>
 
+          {/* Protocol */}
           <div className="flex flex-col">
-            <p style={headingStyle}>Learn</p>
-            <FooterLink to="/glossary">Glossary</FooterLink>
-            <FooterLink to="/guides">How-To Guides</FooterLink>
-            <FooterLink to="/use-cases">Use Cases</FooterLink>
-            <FooterLink to="/compare">Comparisons</FooterLink>
+            <p style={headingStyle}>Protocol</p>
+            <FooterLink to="/protocol">Architecture</FooterLink>
+            <FooterLink to="/for-agents">Register an Agent</FooterLink>
+            <FooterLink to="/docs/sign-in">Sign In with Agent ID</FooterLink>
+            <FooterLink to="/docs/payments">Machine Payments</FooterLink>
           </div>
 
+          {/* Company */}
           <div className="flex flex-col">
             <p style={headingStyle}>Company</p>
-            <FooterLink to="/protocol">About</FooterLink>
             <FooterLink to="/security">Security</FooterLink>
+            <FooterLink to="/changelog">What's New</FooterLink>
           </div>
 
+          {/* Legal */}
           <div className="flex flex-col">
             <p style={headingStyle}>Legal</p>
             <FooterLink to="/privacy">Privacy</FooterLink>
