@@ -2277,7 +2277,7 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         opacity: contentOpacity,
         transform: `translateY(${contentY}px)`,
       }}>
-        Give your agents an identity<br />any system can verify.
+        Give your agents<br />a verifiable identity.
       </h1>
 
       <p style={{
@@ -2465,7 +2465,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
 
           {/* Brand marquee — anchored to bottom of hero viewport, fades before credential animation */}
           <div style={{
-            position: 'absolute', bottom: 52, left: 0, right: 0,
+            position: 'absolute', bottom: 0, left: 0, right: 0,
             opacity: scroll.heroProgress < 0.04 ? 1 : lerp(1, 0, (scroll.heroProgress - 0.04) / 0.05),
             overflow: 'hidden',
             padding: '10px 0',
