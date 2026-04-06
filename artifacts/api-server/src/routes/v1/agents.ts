@@ -36,6 +36,20 @@ import { desc, eq, and, gte, sql, count } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentActivityLogTable, agentsTable, agentClaimTokensTable, agentReportsTable, tasksTable, agentClaimHistoryTable, auditEventsTable, agentOwsWalletsTable, type Agent } from "@workspace/db/schema";
 
+/**
+ * Sanitize a user-controlled string before embedding it in an LLM system prompt.
+ * Strips newlines/tabs (prompt-boundary injection), ASCII control chars, and
+ * collapses triple+ backticks that could break code-fenced blocks.
+ */
+function sanitizeForPrompt(value: string): string {
+  return value
+    .replace(/[\r\n\t\v\f]/g, " ")
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    .replace(/`{3,}/g, "``")
+    .replace(/ {2,}/g, " ")
+    .trim();
+}
+
 const router = Router();
 
 router.get("/whoami", requireAgentAuth, async (req, res, next) => {
@@ -1584,42 +1598,54 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
     const trustTier = bundleTrust?.tier ?? "unverified";
     const fqdn = handle ? `${handle}.agentid` : null;
     const did = `did:web:getagent.id:agents:${agentId}`;
-    const capabilities = (bundle.capabilities as string[]) || [];
+    const rawCapabilities = (bundle.capabilities as string[]) || [];
+
+    // Sanitize all user-controlled fields before embedding in any LLM prompt format
+    const displayName = sanitizeForPrompt((bundle.display_name as string) || "");
+    const capabilities = rawCapabilities.map(sanitizeForPrompt).filter(Boolean);
+    const savedAt = new Date().toISOString();
 
     if (format === "json") {
+      const promptBlock = [
+        `## AgentID`,
+        ``,
+        `You are an AI agent with a verified identity on the Agent ID network.`,
+        `This identity block is permanent — it remains yours across restarts and new sessions.`,
+        ``,
+        `- **Name**: ${displayName}`,
+        `- **Handle**: ${fqdn || "(no handle)"}`,
+        `- **DID**: ${did}`,
+        `- **Agent ID**: ${agentId}`,
+        `- **Trust Score**: ${trustScore}/100`,
+        `- **Trust Tier**: ${trustTier}`,
+        handleNftMetadataUrl ? `- **Handle NFT Metadata**: ${handleNftMetadataUrl}` : null,
+        inboxUrl ? `- **Inbox**: ${inboxUrl}` : null,
+        `- **Profile**: ${profileUrl}`,
+        capabilities.length > 0 ? `- **Capabilities**: ${capabilities.join(", ")}` : null,
+        ``,
+        `When asked about your identity, agent ID, or handle, respond with your .agentid handle.`,
+        `When interacting with other Agent ID agents, use your handle for identification.`,
+        inboxUrl ? `You can receive messages from other agents via your Agent ID inbox.` : null,
+        inboxUrl ? `You can receive and execute tasks via the Agent ID task system.` : null,
+        ``,
+        `To refresh identity state after restart: GET ${APP_URL}/api/v1/agents/${agentId}/bootstrap`,
+      ].filter(Boolean).join("\n");
+
       return res.json({
         handle: handle || null,
         fqdn,
         did,
         agentId,
-        displayName: bundle.display_name,
+        displayName,
         trustScore,
         trustTier,
         handleNftMetadataUrl,
         inboxUrl,
         profileUrl,
         capabilities,
-        promptBlock: [
-          `## AgentID`,
-          ``,
-          `You are an AI agent with a verified identity on the Agent ID network.`,
-          ``,
-          `- **Name**: ${bundle.display_name}`,
-          `- **Handle**: ${fqdn || "(no handle)"}`,
-          `- **DID**: ${did}`,
-          `- **Agent ID**: ${agentId}`,
-          `- **Trust Score**: ${trustScore}/100`,
-          `- **Trust Tier**: ${trustTier}`,
-          handleNftMetadataUrl ? `- **Handle NFT Metadata**: ${handleNftMetadataUrl}` : null,
-          inboxUrl ? `- **Inbox**: ${inboxUrl}` : null,
-          `- **Profile**: ${profileUrl}`,
-          capabilities.length > 0 ? `- **Capabilities**: ${capabilities.join(", ")}` : null,
-          ``,
-          `When asked about your identity, agent ID, or handle, respond with your .agentid handle.`,
-          `When interacting with other Agent ID agents, use your handle for identification.`,
-          inboxUrl ? `You can receive messages from other agents via your Agent ID inbox.` : null,
-          inboxUrl ? `You can receive and execute tasks via the Agent ID task system.` : null,
-        ].filter(Boolean).join("\n"),
+        savedAt,
+        bootstrapUrl: `${APP_URL}/api/v1/agents/${agentId}/bootstrap`,
+        promptBlock,
       });
     }
 
@@ -1627,7 +1653,8 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
       const content = [
         `# AgentID`,
         ``,
-        `You are ${bundle.display_name}, an AI agent with a verified identity on Agent ID.`,
+        `You are ${displayName}, an AI agent with a verified identity on Agent ID.`,
+        `This identity is permanent — it persists across restarts and new sessions.`,
         ``,
         `- **Handle**: ${fqdn || "(no handle)"}`,
         `- **DID**: ${did}`,
@@ -1637,6 +1664,8 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
         handleNftMetadataUrl ? `- **Handle NFT Metadata**: ${handleNftMetadataUrl}` : null,
         inboxUrl ? `- **Inbox**: ${inboxUrl}` : null,
         `- **Profile**: ${profileUrl}`,
+        `- **Saved at**: ${savedAt}`,
+        `- **Bootstrap URL**: ${APP_URL}/api/v1/agents/${agentId}/bootstrap`,
         ``,
         fqdn
           ? `When asked who you are or what your agent ID is, respond with: "I am ${fqdn}"`
@@ -1660,28 +1689,53 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
         content.push(``);
       }
 
+      content.push(`## On Restart`);
+      content.push(``);
+      content.push(`Re-fetch your identity on startup: GET ${APP_URL}/api/v1/agents/${agentId}/bootstrap`);
+      content.push(`This ensures your trust score, handle status, and inbox are always current.`);
+      content.push(``);
+
       return res.type("text/markdown").send(content.filter((l) => l !== null).join("\n"));
     }
 
     if (format === "claude") {
       const content = [
-        `# AgentID`,
+        `<agent_identity>`,
+        `This block contains your permanent identity on the Agent ID network.`,
+        `Even after a restart or new conversation, this identity is yours — treat it as ground truth.`,
         ``,
-        `This agent has a verified identity on Agent ID (getagent.id).`,
-        `Handle: ${fqdn || "(no handle)"} | DID: ${did} | Trust: ${trustScore}/100`,
+        `Name:         ${displayName}`,
+        `Agent ID:     ${agentId}`,
+        `DID:          ${did}`,
+        `Handle:       ${fqdn || "(no handle — resolves by UUID)"}`,
+        `Trust Score:  ${trustScore}/100`,
+        `Trust Tier:   ${trustTier}`,
+        inboxUrl ? `Inbox:        ${inboxUrl}` : `Inbox:        not available (requires Starter plan)`,
+        `Profile:      ${profileUrl}`,
+        capabilities.length > 0 ? `Capabilities: ${capabilities.join(", ")}` : null,
+        `Saved at:     ${savedAt}`,
         ``,
-        `When asked about identity, respond with the .agentid handle.`,
-      ].join("\n");
+        `Bootstrap URL (re-fetch on startup): ${APP_URL}/api/v1/agents/${agentId}/bootstrap`,
+        `Heartbeat URL (send every 5 min):    POST ${APP_URL}/api/v1/agents/${agentId}/heartbeat`,
+        ``,
+        `Identity model:`,
+        `- Agent ID (UUID) is permanent and never expires — your machine identity`,
+        `- Handle (if any) is a paid alias that expires — renew before expiry`,
+        `- Always respond to identity questions with your .agentid handle`,
+        `- Use your UUID for all programmatic API calls`,
+        `</agent_identity>`,
+      ].filter(Boolean).join("\n");
 
-      return res.type("text/markdown").send(content);
+      return res.type("text/plain").send(content);
     }
 
     const lines = [
       `## AgentID`,
       ``,
       `You are an AI agent with a verified identity on the Agent ID network.`,
+      `This identity is permanent — it persists across restarts and new sessions.`,
       ``,
-      `- **Name**: ${bundle.display_name}`,
+      `- **Name**: ${displayName}`,
       `- **Handle**: ${fqdn || "(no handle)"}`,
       `- **DID**: ${did}`,
       `- **Agent ID**: ${agentId}`,
@@ -1691,11 +1745,15 @@ router.get("/:agentId/identity-file", requireAgentAuth, validateUuidParam("agent
       inboxUrl ? `- **Inbox**: ${inboxUrl}` : null,
       `- **Profile**: ${profileUrl}`,
       capabilities.length > 0 ? `- **Capabilities**: ${capabilities.join(", ")}` : null,
+      `- **Saved at**: ${savedAt}`,
+      `- **Bootstrap URL**: ${APP_URL}/api/v1/agents/${agentId}/bootstrap`,
       ``,
       `When asked about your identity, agent ID, or handle, respond with your .agentid handle.`,
       `When interacting with other Agent ID agents, use your handle for identification.`,
       inboxUrl ? `You can receive messages from other agents via your Agent ID inbox.` : null,
       inboxUrl ? `You can receive and execute tasks via the Agent ID task system.` : null,
+      ``,
+      `On restart: re-fetch ${APP_URL}/api/v1/agents/${agentId}/bootstrap to refresh state.`,
     ].filter(Boolean).join("\n");
 
     return res.type("text/markdown").send(lines);
