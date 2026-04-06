@@ -8,7 +8,7 @@
  * - Trust context in all token payloads
  */
 import { randomBytes, createHash, verify as cryptoVerify, createPublicKey } from "crypto";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   agentsTable,
@@ -450,6 +450,54 @@ export async function issueTokenPair(
     expires_in: Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
     token_type: "Bearer",
   };
+}
+
+/**
+ * Refresh token grant (RFC 6749 §6).
+ * Validates the refresh token, atomically revokes the old record, and issues a new
+ * access + refresh token pair with the same scopes (rotating refresh token).
+ */
+export async function refreshAccessToken(
+  refreshToken: string,
+  clientId: string,
+): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string }> {
+  const hash = hashToken(refreshToken);
+
+  const tokenRecord = await db.query.oauthTokensTable.findFirst({
+    where: and(
+      eq(oauthTokensTable.refreshTokenHash, hash),
+      isNull(oauthTokensTable.revokedAt),
+    ),
+  });
+
+  if (!tokenRecord) {
+    throw new Error("invalid_grant: Refresh token not found or already revoked");
+  }
+
+  if (tokenRecord.clientId && tokenRecord.clientId !== clientId) {
+    throw new Error("invalid_grant: Refresh token does not belong to this client");
+  }
+
+  if (!tokenRecord.refreshExpiresAt || new Date() > tokenRecord.refreshExpiresAt) {
+    throw new Error("invalid_grant: Refresh token expired");
+  }
+
+  // Atomically rotate: revoke old record before issuing new pair
+  await db.update(oauthTokensTable)
+    .set({ revokedAt: new Date(), revokedReason: "token_rotated" })
+    .where(eq(oauthTokensTable.id, tokenRecord.id));
+
+  await writeAuditEvent("system", tokenRecord.agentId, "auth.token.rotated", "token", tokenRecord.tokenId, {
+    tokenId: tokenRecord.tokenId,
+    signal: "refresh_token_rotated",
+  });
+
+  return issueTokenPair(
+    tokenRecord.agentId,
+    clientId,
+    (tokenRecord.scopes as string[]) || [],
+    tokenRecord.grantType,
+  );
 }
 
 export async function revokeOAuthToken(
