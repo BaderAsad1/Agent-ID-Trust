@@ -2258,61 +2258,46 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
       position: 'absolute', inset: 0,
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'flex-start',
-      paddingTop: 'clamp(100px, 14vh, 150px)',
+      paddingTop: 'clamp(72px, 10vh, 110px)',
       paddingLeft: 'clamp(20px, 5vw, 60px)',
       paddingRight: 'clamp(20px, 5vw, 60px)',
       zIndex: 10, pointerEvents: 'none',
     }}>
 
-      {/* Primary glow — blue, centered behind headline */}
-      <div style={{
-        position: 'absolute',
-        top: '15%', left: '50%', transform: 'translateX(-50%)',
-        width: 1000, height: 580,
-        background: 'radial-gradient(ellipse at 50% 38%, rgba(79,125,243,0.22) 0%, rgba(79,125,243,0.07) 42%, transparent 70%)',
-        pointerEvents: 'none', zIndex: -1,
-      }} />
-      {/* Secondary glow — purple offset, creates color depth */}
-      <div style={{
-        position: 'absolute',
-        top: '25%', left: '62%', transform: 'translateX(-50%)',
-        width: 640, height: 400,
-        background: 'radial-gradient(ellipse at 50% 50%, rgba(124,91,245,0.13) 0%, transparent 65%)',
-        pointerEvents: 'none', zIndex: -1,
-      }} />
+      <RegistryField progress={progress} />
 
       <h1 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(44px, 6.8vw, 88px)',
-        fontWeight: 800, letterSpacing: '-0.045em', lineHeight: 1.03,
+        fontSize: 'clamp(40px, 6vw, 80px)',
+        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05,
         color: '#f2f2f7',
         textAlign: 'center',
-        margin: '0 0 24px',
-        maxWidth: 840,
+        margin: '0 0 20px',
+        maxWidth: 800,
         opacity: contentOpacity,
         transform: `translateY(${contentY}px)`,
       }}>
-        The identity layer<br />for the agentic web.
+        Give your agents an identity<br />any system can verify.
       </h1>
 
       <p style={{
         fontFamily: "'Inter', sans-serif",
-        fontSize: 'clamp(15px, 1.4vw, 18px)',
+        fontSize: 'clamp(14px, 1.25vw, 17px)',
         fontWeight: 400, lineHeight: 1.7,
         color: '#8690a8',
         textAlign: 'center',
-        maxWidth: 500, margin: '0 auto',
+        maxWidth: 480, margin: '0 auto',
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
-        Register your agent once. Any system it encounters can verify its identity, trust score, and capabilities without calling you first.
+        Register once. Every API, service, and agent your AI connects with can verify its identity, capabilities, and trust level instantly. No callbacks. No blind trust.
       </p>
 
       <div style={{
-        marginTop: 36,
+        marginTop: 32,
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.3}px)`,
-        display: 'flex', alignItems: 'center', gap: 16,
+        display: 'flex', alignItems: 'center', gap: 14,
         pointerEvents: 'auto',
       }}>
         <button onClick={() => {
@@ -2320,72 +2305,23 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
           window.location.href = `${base}sign-in?intent=register`;
         }} style={{
           fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600,
-          color: '#080b18',
-          background: '#f2f2f7',
-          border: 'none',
-          borderRadius: 8, padding: '12px 28px', cursor: 'pointer',
-          letterSpacing: '-0.01em',
+          color: '#080b18', background: '#f2f2f7',
+          border: 'none', borderRadius: 8, padding: '11px 26px',
+          cursor: 'pointer', letterSpacing: '-0.01em',
         }}>
-          Get Started
+          Register your agent
         </button>
-
         <button onClick={() => {
           const base = import.meta.env.BASE_URL || '/';
           window.location.href = `${base}docs`;
         }} style={{
           fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
-          color: '#8690a8',
-          background: 'none', border: 'none',
-          padding: '12px 4px', cursor: 'pointer',
-          letterSpacing: '-0.01em',
+          color: '#8690a8', background: 'none', border: 'none',
+          padding: '11px 4px', cursor: 'pointer', letterSpacing: '-0.01em',
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
           View docs <span style={{ opacity: 0.5 }}>→</span>
         </button>
-      </div>
-
-      {/* Integration marquee */}
-      <div style={{
-        marginTop: 'clamp(40px, 6vh, 68px)',
-        width: '100vw',
-        opacity: contentOpacity,
-        transform: `translateY(${contentY * 0.15}px)`,
-        position: 'relative', overflow: 'hidden',
-        padding: '13px 0',
-        borderTop: '1px solid rgba(255,255,255,0.05)',
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
-      }}>
-        <div style={{
-          position: 'absolute', top: 0, left: 0, bottom: 0, width: 120,
-          background: 'linear-gradient(90deg, rgba(5,7,17,1) 0%, transparent 100%)',
-          zIndex: 2, pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute', top: 0, right: 0, bottom: 0, width: 120,
-          background: 'linear-gradient(270deg, rgba(5,7,17,1) 0%, transparent 100%)',
-          zIndex: 2, pointerEvents: 'none',
-        }} />
-        <div className="animate-marquee" style={{ gap: 0, animationDuration: '45s' }}>
-          {[...MARQUEE_BRANDS, ...MARQUEE_BRANDS].map((brand, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 52, flexShrink: 0 }}>
-              <img
-                src={`${SI}/${brand.slug}/707888`}
-                width={14} height={14}
-                alt={brand.name}
-                loading="lazy"
-                style={{ flexShrink: 0, display: 'block' }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-              <span style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: 12, fontWeight: 500,
-                color: '#606878',
-                letterSpacing: '-0.01em',
-                whiteSpace: 'nowrap',
-              }}>{brand.name}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -2497,6 +2433,16 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
             <HeroIssuanceRings heroProgress={scroll.heroProgress} />
           </div>
 
+          {/* Ambient glow — lives in the sticky container so it renders behind the credential card */}
+          <div style={{
+            position: 'absolute',
+            top: '50%', left: '50%',
+            transform: 'translate(-50%, -58%)',
+            width: 1100, height: 720,
+            background: 'radial-gradient(ellipse at 44% 40%, rgba(79,125,243,0.22) 0%, rgba(124,91,245,0.11) 36%, transparent 68%)',
+            pointerEvents: 'none',
+          }} />
+
           <IssuanceMomentFlash active={ceremonyState === 'active'} />
 
           <CredentialSilhouette progress={scroll.heroProgress} />
@@ -2515,6 +2461,46 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
             transition: 'transform 0.8s cubic-bezier(0.16,1,0.3,1)',
           }}>
             <FilmCredential heroProgress={scroll.heroProgress} />
+          </div>
+
+          {/* Brand marquee — anchored to bottom of hero viewport, fades before credential animation */}
+          <div style={{
+            position: 'absolute', bottom: 52, left: 0, right: 0,
+            opacity: scroll.heroProgress < 0.04 ? 1 : lerp(1, 0, (scroll.heroProgress - 0.04) / 0.05),
+            overflow: 'hidden',
+            padding: '10px 0',
+            borderTop: '1px solid rgba(255,255,255,0.04)',
+          }}>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, bottom: 0, width: 100,
+              background: 'linear-gradient(90deg, rgba(5,7,17,1) 0%, transparent 100%)',
+              zIndex: 2, pointerEvents: 'none',
+            }} />
+            <div style={{
+              position: 'absolute', top: 0, right: 0, bottom: 0, width: 100,
+              background: 'linear-gradient(270deg, rgba(5,7,17,1) 0%, transparent 100%)',
+              zIndex: 2, pointerEvents: 'none',
+            }} />
+            <div className="animate-marquee" style={{ gap: 0, animationDuration: '45s' }}>
+              {[...MARQUEE_BRANDS, ...MARQUEE_BRANDS].map((brand, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 48, flexShrink: 0 }}>
+                  <img
+                    src={`${SI}/${brand.slug}/707888`}
+                    width={14} height={14}
+                    alt={brand.name}
+                    loading="lazy"
+                    style={{ flexShrink: 0, display: 'block' }}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <span style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 12, fontWeight: 500,
+                    color: '#606878', letterSpacing: '-0.01em',
+                    whiteSpace: 'nowrap',
+                  }}>{brand.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div style={{
