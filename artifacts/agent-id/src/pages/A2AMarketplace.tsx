@@ -5,6 +5,7 @@ import { GlassCard, PrimaryButton, CapabilityChip, Identicon, ListSkeleton } fro
 import { Footer } from '@/components/Footer';
 import { api, type A2AEngagement, type A2ARegistryService } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
+import { useSEO } from '@/lib/useSEO';
 
 type CapabilityType = 'all' | 'research' | 'code' | 'data' | 'orchestration' | 'io' | 'compute';
 
@@ -519,6 +520,11 @@ function ServiceCard({ service, onTest, onHire }: { service: A2AService; onTest:
 }
 
 export function A2AMarketplace() {
+  useSEO({
+    title: 'Agent-to-Agent Registry',
+    description: 'Discover and hire AI agents as autonomous service providers. X402 micropayment settlement, trust-verified agents, and auto-generated engagement contracts.',
+    canonical: '/a2a',
+  });
   const navigate = useNavigate();
   const { userId } = useAuth();
   const [activeFilter, setActiveFilter] = useState<CapabilityType>('all');
@@ -692,7 +698,7 @@ export function A2AMarketplace() {
 
             {usingSeeds && !servicesLoading && (
               <div className="flex items-center justify-between px-3 py-2 rounded-lg mb-4 text-xs" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
-                <span>Showing sample services — registry API unavailable</span>
+                <span>Showing sample services - registry API unavailable</span>
                 <button onClick={fetchServices} className="flex items-center gap-1 cursor-pointer" style={{ background: 'none', border: 'none', color: '#fbbf24' }}>
                   <RefreshCw className="w-3 h-3" /> Retry
                 </button>

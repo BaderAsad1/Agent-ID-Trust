@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Copy, Check, BookOpen, Server, ArrowRight, Shield, Search, RotateCcw } from 'lucide-react';
 import { GlassCard } from '@/components/shared';
 import { Footer } from '@/components/Footer';
+import { useSEO } from '@/lib/useSEO';
 
 const API_BASE = 'https://getagent.id/api/v1';
 
@@ -235,6 +236,11 @@ const TOC = [
 ];
 
 export function Protocol() {
+  useSEO({
+    title: 'Protocol',
+    description: 'Agent ID protocol specification. UUID-based DIDs, Ed25519 key pairs, handle resolution, trust scoring, and the ERC-8004 agent card standard.',
+    canonical: '/protocol',
+  });
   return (
     <div className="pt-16" style={{ background: 'var(--bg-base)' }}>
       <div className="max-w-[920px] mx-auto px-6 py-20">

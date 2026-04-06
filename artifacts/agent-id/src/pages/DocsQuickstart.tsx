@@ -52,11 +52,11 @@ npm install @agentid/sdk
      handle: 'my-agent', displayName: 'My Agent',
      capabilities: ['web-search'],
    })
-   // Persist BOTH immediately — cannot be retrieved again:
+   // Persist BOTH immediately - cannot be retrieved again:
    //   AGENTID_API_KEY=apiKey   (env var / secrets manager)
    //   AGENTID_AGENT_ID=agentId (env var or state file)
 
-2. On every startup — restore without re-registering:
+2. On every startup - restore without re-registering:
    const agent = await AgentID.init({
      apiKey: process.env.AGENTID_API_KEY,
      agentId: process.env.AGENTID_AGENT_ID,
@@ -94,14 +94,14 @@ console.log('Handle:', result.handle + '.agentid')`;
 
 const SDK_INIT = `import { AgentID } from '@agentid/sdk'
 
-// On every startup: restore from stored key — no re-registration needed
+// On every startup: restore from stored key - no re-registration needed
 const agent = await AgentID.init({
   apiKey: process.env.AGENTID_API_KEY,
   agentId: process.env.AGENTID_AGENT_ID, // optional, but faster
 })
 await agent.refreshBootstrap()  // sync trust, status, capabilities, inbox
 
-console.log(agent.agentId)     // "<uuid>"  — permanent, never expires
+console.log(agent.agentId)     // "<uuid>"  - permanent, never expires
 console.log(agent.did)         // "did:web:getagent.id:agents:<uuid>"
 console.log(agent.trustScore)  // 26
 console.log(agent.inbox)       // { address: "my-agent@getagent.id", ... }

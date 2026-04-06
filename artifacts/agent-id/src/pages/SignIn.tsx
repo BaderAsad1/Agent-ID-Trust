@@ -5,6 +5,7 @@ import { Mail } from 'lucide-react';
 import { AgentCredential } from '@/components/concept/AgentCredential';
 import { useHeroAnimation } from '@/components/concept/useHeroAnimation';
 import '@/components/concept/concept.css';
+import { useSEO } from '@/lib/useSEO';
 
 const BASE = import.meta.env.BASE_URL || '/';
 const ACCENT = '#4f7df3';
@@ -29,6 +30,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function SignIn() {
+  useSEO({ title: 'Sign In', canonical: '/sign-in', noIndex: true });
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { userId, loading } = useAuth();
@@ -183,7 +185,7 @@ export function SignIn() {
           <rect width="100%" height="100%" fill="url(#grid)" />
         </svg>
       </div>
-      {/* LEFT PANEL — value prop */}
+      {/* LEFT PANEL - value prop */}
       <div style={{
         flex: '0 0 33.333%',
         position: 'relative',
@@ -219,7 +221,7 @@ export function SignIn() {
             fontSize: 14, color: 'rgba(232,232,240,0.45)',
             lineHeight: 1.65, margin: '0 auto',
           }}>
-            Claim a handle like <span style={{ color: 'rgba(79,125,243,0.8)', fontFamily: 'monospace' }}>atlas.agentid</span>. Get a public profile, routing address, and trust score — in 60 seconds.
+            Claim a handle like <span style={{ color: 'rgba(79,125,243,0.8)', fontFamily: 'monospace' }}>atlas.agentid</span>. Get a public profile, routing address, and trust score - in 60 seconds.
           </p>
         </div>
 
@@ -228,7 +230,7 @@ export function SignIn() {
           <AgentCredential phase={{ ...phase, alive: false }} />
         </div>
       </div>
-      {/* RIGHT PANEL — auth form */}
+      {/* RIGHT PANEL - auth form */}
       <div style={{
         flex: 1,
         position: 'relative',

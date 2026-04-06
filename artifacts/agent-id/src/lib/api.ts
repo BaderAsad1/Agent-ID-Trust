@@ -17,7 +17,7 @@ const RETRY_DELAYS = [500, 1500];
 const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504]);
 const REQUEST_TIMEOUT_MS = 30_000;
 
-// Session-expiry callback — set by AuthContext to clear auth state and redirect on 401.
+// Session-expiry callback - set by AuthContext to clear auth state and redirect on 401.
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(fn: () => void): void {
   onUnauthorized = fn;
@@ -73,7 +73,7 @@ async function request<T>(
           body,
         );
 
-        // Session expired or invalidated — notify AuthContext to clear state and redirect to login.
+        // Session expired or invalidated - notify AuthContext to clear state and redirect to login.
         if (res.status === 401 && onUnauthorized) {
           onUnauthorized();
         }
@@ -501,7 +501,7 @@ export const api = {
 
 export type VerificationStatus = 'verified' | 'pending' | 'unverified';
 
-/** Returned only on initial agent creation — includes the one-time claim token. */
+/** Returned only on initial agent creation - includes the one-time claim token. */
 export interface AgentCreateResponse extends Agent {
   claimToken?: string;
   /** Set when the requested handle requires payment (premium tier, or free plan with standard handle,

@@ -497,7 +497,7 @@ export function Start() {
                     ? (needsCheckout ? 'Opening checkout…' : 'Going to dashboard…')
                     : (needsCheckout
                       ? `Redirecting to checkout ($${effectivePrice}/yr)…`
-                      : (isPaidPlan && isStandardHandle ? 'Handle included — redirecting to dashboard…' : 'Redirecting to dashboard…'))
+                      : (isPaidPlan && isStandardHandle ? 'Handle included - redirecting to dashboard…' : 'Redirecting to dashboard…'))
                   }
                 </div>
               </div>
@@ -531,7 +531,7 @@ export function Start() {
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 28, display: 'flex', flexDirection: 'column', gap: 20 }}>
               <FieldGroup label="Display Name" value={agentName} onChange={setAgentName} placeholder="Atlas-7" />
 
-              <FieldGroup label="Handle — optional" value={handle} onChange={setHandle} placeholder="atlas-7" suffix=".agentid" normalizeHandle>
+              <FieldGroup label="Handle - optional" value={handle} onChange={setHandle} placeholder="atlas-7" suffix=".agentid" normalizeHandle>
                 {handle && (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
@@ -582,12 +582,12 @@ export function Start() {
                   priceBg = 'rgba(52,211,153,0.06)';
                   priceBorder = 'rgba(52,211,153,0.15)';
                 } else if (effectiveDisplayPrice >= 99) {
-                  priceLabel = `$${effectiveDisplayPrice}/yr — Ultra-premium (3 chars)`;
+                  priceLabel = `$${effectiveDisplayPrice}/yr - Ultra-premium (3 chars)`;
                   priceColor = '#a78bfa';
                   priceBg = 'rgba(167,139,250,0.08)';
                   priceBorder = 'rgba(167,139,250,0.2)';
                 } else if (effectiveDisplayPrice >= 29) {
-                  priceLabel = `$${effectiveDisplayPrice}/yr — Premium (4 chars)`;
+                  priceLabel = `$${effectiveDisplayPrice}/yr - Premium (4 chars)`;
                   priceColor = '#f59e0b';
                   priceBg = 'rgba(245,158,11,0.06)';
                   priceBorder = 'rgba(245,158,11,0.15)';
