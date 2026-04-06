@@ -5,6 +5,7 @@ import { Mail, LockKeyhole, Zap, Star } from 'lucide-react';
 import { AgentCredential } from '@/components/concept/AgentCredential';
 import { useHeroAnimation } from '@/components/concept/useHeroAnimation';
 import '@/components/concept/concept.css';
+import { useSEO } from '@/lib/useSEO';
 
 const BASE = import.meta.env.BASE_URL || '/';
 const ACCENT = '#4f7df3';
@@ -29,6 +30,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function SignIn() {
+  useSEO({ title: 'Sign In', canonical: '/sign-in', noIndex: true });
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { userId, loading } = useAuth();

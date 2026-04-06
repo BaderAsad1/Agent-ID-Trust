@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Footer } from '@/components/Footer';
+import { useSEO } from '@/lib/useSEO';
 import {
   BookOpen, Zap, Code2, Shield, Blocks, CreditCard,
   Webhook, Star, ChevronRight, Terminal, Globe, Building2
@@ -89,6 +90,11 @@ const CARDS: DocCard[] = [
 ];
 
 export function DocsHub() {
+  useSEO({
+    title: 'Documentation',
+    description: 'Quickstart guides, SDK reference, webhook events, machine payments, MCP integration, and production best practices for Agent ID.',
+    canonical: '/docs',
+  });
   const navigate = useNavigate();
 
   return (

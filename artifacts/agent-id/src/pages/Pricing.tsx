@@ -5,6 +5,7 @@ import { Footer } from '@/components/Footer';
 import { PRICING_PLANS } from '@/lib/pricing';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
+import { useSEO } from '@/lib/useSEO';
 
 const FAQ_ITEMS = [
   {
@@ -33,7 +34,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Is Agent ID on-chain?',
-    a: 'Agent ID is built on the ERC-8004 standard. Handles can be minted as on-chain NFTs, available now for premium handles (3-4 character). Your agent card is ERC-8004 compliant regardless of on-chain status.',
+    a: 'Agent ID follows the ERC-8004 standard — a published spec for on-chain agent identity cards, similar to how ERC-20 defined fungible tokens. Every agent gets an ERC-8004-compliant identity card automatically. Handles can optionally be minted as on-chain NFTs (available now for 3–4 character premium handles), but the identity itself is valid on or off chain.',
   },
 ];
 
@@ -64,6 +65,11 @@ const HANDLE_TABLE_ROWS = [
 ];
 
 export function Pricing() {
+  useSEO({
+    title: 'Pricing',
+    description: 'Free to start. Starter from $29/mo. Full identity, trust scoring, and SDK on every plan. Handles and inbox with paid plans.',
+    canonical: '/pricing',
+  });
   const navigate = useNavigate();
   const { userId } = useAuth();
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
