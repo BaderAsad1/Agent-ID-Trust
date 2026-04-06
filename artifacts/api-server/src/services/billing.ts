@@ -243,8 +243,9 @@ export async function handleSubscriptionCreatedOrUpdated(subscription: Stripe.Su
         const normalizedHandle = pendingReg.handle.toLowerCase();
 
         // Verify the handle is still available before assigning.
-        const { isHandleAvailable, checkHandleRegistrationLimits } = await import("./handle");
-        const stillAvailable = await isHandleAvailable(normalizedHandle);
+        const { checkHandleAvailability, checkHandleRegistrationLimits } = await import("./handle");
+        const availResult = await checkHandleAvailability(normalizedHandle);
+        const stillAvailable = availResult.available;
         if (!stillAvailable) {
           logger.warn({ agentId: pendingAgent.id, handle: normalizedHandle, userId }, "[billing] Pending handle no longer available at plan subscription — user must choose a different handle");
           continue;
