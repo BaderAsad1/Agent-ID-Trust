@@ -94,12 +94,26 @@ const safeMetadata = z.record(
   message: "Metadata may not have more than 50 keys",
 }).optional();
 
+// Reusable field refiners that reject prompt-injection characters.
+// Newlines and control characters in displayName, capabilities, etc. allow an attacker
+// to break prompt boundaries when these values are embedded in LLM system prompts.
+const safeTextField = (maxLen: number) =>
+  z.string().max(maxLen).refine(
+    (v) => !/[\r\n\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(v),
+    { message: "Field must not contain newline or control characters" },
+  );
+
+const safeCapabilityItem = z.string().max(100).refine(
+  (v) => !/[\r\n\x00-\x1F\x7F]/.test(v),
+  { message: "Capability must not contain newline or control characters" },
+);
+
 const createAgentSchema = z.object({
   handle: z.string().min(3).max(32).optional(),
-  displayName: z.string().min(1).max(255),
-  description: z.string().max(5000).optional(),
+  displayName: safeTextField(255).refine((v) => v.trim().length > 0, { message: "displayName must not be blank" }),
+  description: safeTextField(5000).optional(),
   endpointUrl: safeEndpointUrl.optional(),
-  capabilities: z.array(z.string().max(100)).max(50).optional(),
+  capabilities: z.array(safeCapabilityItem).max(50).optional(),
   scopes: z.array(z.string().max(100)).max(50).optional(),
   protocols: z.array(z.string().max(100)).max(20).optional(),
   authMethods: z.array(z.string().max(100)).max(10).optional(),
@@ -114,11 +128,11 @@ const createAgentSchema = z.object({
 });
 
 const updateAgentSchema = z.object({
-  displayName: z.string().min(1).max(255).optional(),
-  description: z.string().max(5000).optional(),
+  displayName: safeTextField(255).refine((v) => v.trim().length > 0, { message: "displayName must not be blank" }).optional(),
+  description: safeTextField(5000).optional(),
   endpointUrl: safeEndpointUrl.optional(),
   endpointSecret: z.string().max(500).optional(),
-  capabilities: z.array(z.string().max(100)).max(50).optional(),
+  capabilities: z.array(safeCapabilityItem).max(50).optional(),
   scopes: z.array(z.string().max(100)).max(50).optional(),
   protocols: z.array(z.string().max(100)).max(20).optional(),
   authMethods: z.array(z.string().max(100)).max(10).optional(),

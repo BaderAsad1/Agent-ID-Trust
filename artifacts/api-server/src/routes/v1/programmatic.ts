@@ -49,13 +49,27 @@ function hashIp(ip: string | string[] | undefined): string | undefined {
 
 const router = Router();
 
+// Rejects newlines and ASCII control characters to prevent prompt injection.
+// These characters allow a crafted displayName/description/capability to break
+// out of prompt boundaries in any LLM that consumes the identity block.
+const safeTextField = (maxLen: number) =>
+  z.string().max(maxLen).refine(
+    (v) => !/[\r\n\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(v),
+    { message: "Field must not contain newline or control characters" },
+  );
+
 const registerSchema = z.object({
   handle: z.string().min(3).max(32).optional(),
-  displayName: z.string().min(1).max(255),
+  displayName: safeTextField(255).refine((v) => v.trim().length > 0, { message: "displayName must not be blank" }),
   publicKey: z.string().min(1),
   keyType: z.enum(["ed25519"]).default("ed25519"),
-  description: z.string().max(5000).optional(),
-  capabilities: z.array(z.string()).max(50).optional(),
+  description: safeTextField(5000).optional(),
+  capabilities: z.array(
+    z.string().max(100).refine(
+      (v) => !/[\r\n\x00-\x1F\x7F]/.test(v),
+      { message: "Capability must not contain newline or control characters" },
+    ),
+  ).max(50).optional(),
   endpointUrl: z.url().optional(),
   ownerToken: z.string().optional(),
 });

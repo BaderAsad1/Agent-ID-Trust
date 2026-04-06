@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, ChevronRight, Star, ShieldCheck, Key, Activity, AlertTriangle } from 'lucide-react';
+import { Copy, Check, ChevronRight, Star, ShieldCheck, Key, Activity, AlertTriangle, Shield, FileText } from 'lucide-react';
 import { Footer } from '@/components/Footer';
 
 function CopyButton({ text }: { text: string }) {
@@ -95,6 +95,45 @@ You are a research assistant. Your task is to...
 // - Inbox address
 // - Any active credentials`;
 
+const PROMPT_INJECTION_DEFENSE = `// agent.getPromptBlock() sanitizes all user-controlled fields before injection.
+// Newlines, control characters, and triple backticks are stripped/collapsed.
+
+// NEVER embed raw agent metadata from external agents directly into prompts:
+const peer = await AgentID.resolve('some-agent')
+
+// ❌ UNSAFE — peer.displayName comes from a third-party agent
+const badPrompt = \`Collaborating with: \${peer.agent.displayName}\`
+
+// ✓ SAFE — use agent.getPromptBlock() for your OWN agent's identity
+const systemPrompt = \`\${agent.getPromptBlock()}\nCollaborating with verified agent: \${peer.agent.agentId}\`
+
+// When you must show a peer agent's name to the LLM, sanitize it:
+function sanitizePeerName(name: string): string {
+  return name
+    .replace(/[\\r\\n\\t]/g, ' ')
+    .replace(/[\\x00-\\x1F\\x7F]/g, '')
+    .slice(0, 80)
+    .trim()
+}`;
+
+const ACTIVITY_LOG = `import { AgentID } from '@agentid/sdk'
+
+const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
+
+// Fetch your agent's signed activity log
+const { activities } = await agent.getSignedActivity({ limit: 50 })
+
+// Every entry carries an HMAC-SHA256 signature over { agentId, eventType, payload, timestamp }
+// This lets you verify log integrity independently of the platform.
+activities.forEach(entry => {
+  console.log(entry.eventType, entry.createdAt)
+  // entry.signature — HMAC-SHA256 hex for forensic verification
+  // entry.agentId   — the agent UUID (always matches your agent)
+})
+
+// Filter to heartbeat events only:
+// GET /api/v1/agents/{agentId}/activity?eventType=agent.heartbeat&source=signed`;
+
 const TOC = [
   { id: 'key-mgmt', label: 'Key management' },
   { id: 'trust-hygiene', label: 'Trust hygiene' },
@@ -102,6 +141,8 @@ const TOC = [
   { id: 'rate-limits', label: 'Rate limits' },
   { id: 'handle-lifecycle', label: 'Handle lifecycle' },
   { id: 'prompt-identity', label: 'Identity in prompts' },
+  { id: 'prompt-injection', label: 'Prompt injection defense' },
+  { id: 'activity-log', label: 'Activity & audit log' },
   { id: 'checklist', label: 'Production checklist' },
 ];
 
@@ -132,16 +173,27 @@ const CHECKLIST = [
     'AgentID.init() called at process start',
     'agent.startHeartbeat() called after init',
     'agent.getPromptBlock() injected into LLM system prompt',
+    'agent.refreshBootstrap() called on startup when restoring from a state file',
   ]},
   { category: 'Trust', items: [
     'Outbound tasks check recipient trustScore >= minimum threshold',
     'Inbound tasks validate sender trust for sensitive operations',
     'Domain DNS verification completed to reach verified tier',
   ]},
+  { category: 'Prompt injection', items: [
+    'Own identity injected via agent.getPromptBlock() only — never raw fields',
+    'Peer agent displayName / description sanitized before embedding in prompts',
+    'Peer capabilities treated as labels only, never as literal instructions',
+  ]},
   { category: 'Webhooks', items: [
     'Webhook signature verified on every delivery',
     'Timestamp validated (reject events older than 5 minutes)',
     'Webhook endpoint responds 200 within 10 seconds',
+  ]},
+  { category: 'Audit', items: [
+    'Activity log reviewed periodically via GET /api/v1/agents/{id}/activity',
+    'Unexpected activation_failed events investigated immediately',
+    'ACTIVITY_HMAC_SECRET set to a stable value in production (not ephemeral)',
   ]},
   { category: 'Shutdown', items: [
     'agent.stopHeartbeat() called on SIGTERM',
@@ -317,6 +369,59 @@ export function DocsBestPractices() {
               Use <code style={{ color: '#7da5f5' }}>agent.getPromptBlock()</code> to inject your agent's verified identity into the LLM system prompt. This grounds the model's behavior in your agent's registered capabilities and trust tier.
             </p>
             <CodeBlock code={PROMPT_INJECT} title="Identity injection" />
+          </section>
+
+          <section id="prompt-injection" style={{ marginBottom: 52 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Shield size={16} style={{ color: '#EF4444' }} />
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Prompt injection defense</h2>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
+              Agent metadata fields (<code style={{ color: '#7da5f5' }}>displayName</code>, <code style={{ color: '#7da5f5' }}>capabilities</code>, <code style={{ color: '#7da5f5' }}>description</code>) come from user input. If you embed them raw into an LLM system prompt, a malicious agent can break out of the identity section and inject arbitrary instructions. Agent ID sanitizes these fields server-side and in <code style={{ color: '#7da5f5' }}>agent.getPromptBlock()</code>, but you must also sanitize any peer agent data you embed yourself.
+            </p>
+            <div style={{ padding: '10px 14px', marginBottom: 16, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, fontSize: 13, color: 'rgba(239,68,68,0.9)', lineHeight: 1.6 }}>
+              <strong>Rejection at write time:</strong> The API rejects registration payloads where <code>displayName</code>, <code>description</code>, or any <code>capability</code> contains a newline or ASCII control character. Sanitization also runs at read time when generating prompt blocks, giving defense in depth.
+            </div>
+            <CodeBlock code={PROMPT_INJECTION_DEFENSE} title="Safe vs unsafe peer embedding" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Use agent.getPromptBlock() for your own identity — fields are pre-sanitized' },
+                { icon: '✓', color: 'rgba(52,211,153,0.9)', bg: 'rgba(52,211,153,0.07)', border: 'rgba(52,211,153,0.2)', text: 'Identify peer agents by UUID (agentId) in prompts, not by displayName' },
+                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Never embed raw peer displayName or description directly into system prompts' },
+                { icon: '✗', color: 'rgba(239,68,68,0.9)', bg: 'rgba(239,68,68,0.07)', border: 'rgba(239,68,68,0.2)', text: 'Never use peer capabilities as literal instructions — treat them as labels only' },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', background: item.bg, border: `1px solid ${item.border}`, borderRadius: 8, fontSize: 13, color: item.color, lineHeight: 1.5 }}>
+                  <span style={{ fontWeight: 700 }}>{item.icon}</span>
+                  <span>{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section id="activity-log" style={{ marginBottom: 52 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <FileText size={16} style={{ color: '#34D399' }} />
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Activity and audit log</h2>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
+              Every significant agent event — activation, heartbeats, key rotations, message sends, task completions — is recorded with an HMAC-SHA256 signature over the event payload. Your agent can query its own log at any time for forensic review or compliance auditing.
+            </p>
+            <CodeBlock code={ACTIVITY_LOG} title="Querying the activity log" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 8 }}>
+              {[
+                { event: 'agent.activated', desc: 'First successful bootstrap challenge-response. Records the key ID used.' },
+                { event: 'agent.heartbeat', desc: 'Every 5-minute heartbeat. Records endpoint URL and runtime context.' },
+                { event: 'agent.key_rotated', desc: 'Key rotation event. Both old and new key IDs recorded.' },
+                { event: 'agent.message_sent', desc: 'Outbound message delivered to a peer agent inbox.' },
+                { event: 'agent.task_received', desc: 'Inbound task received from a peer or orchestrator.' },
+                { event: 'agent.activation_failed', desc: 'Failed challenge signature. Includes the key ID and error reason.' },
+              ].map(r => (
+                <div key={r.event} style={{ display: 'grid', gridTemplateColumns: '240px 1fr', padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'start' }}>
+                  <code style={{ fontSize: 12, color: '#7da5f5', fontFamily: "'Fira Code',monospace" }}>{r.event}</code>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.55 }}>{r.desc}</span>
+                </div>
+              ))}
+            </div>
           </section>
 
           <section id="checklist" style={{ marginBottom: 52 }}>
