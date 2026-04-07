@@ -3,7 +3,7 @@ import { randomBytes } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { x402PaymentsTable, agentsTable } from "@workspace/db/schema";
-import { USDC_CONTRACT_ADDRESS, NETWORK_ID, BASE_EXPLORER_URL } from "../lib/cdp";
+import { USDC_CONTRACT_ADDRESS, NETWORK_ID, BASE_EXPLORER_URL, getPlatformTreasuryAddress } from "../lib/cdp";
 import { logger } from "../middlewares/request-logger";
 import { checkSpendingLimits } from "../services/wallet";
 
@@ -85,7 +85,7 @@ export function x402PaymentRequired(
     if (!paymentHeader) {
       const agentId = req.authenticatedAgent?.id;
       const walletAddr = req.authenticatedAgent?.walletAddress;
-      const payTo = resolvePayeeAddress(walletAddr);
+      const payTo = resolvePayeeAddress(walletAddr) ?? getPlatformTreasuryAddress();
 
       if (!payTo) {
         res.status(503).json({
@@ -270,7 +270,7 @@ export async function verifyAndSettleX402Payment(
         where: eq(agentsTable.id, agentId),
         columns: { walletAddress: true },
       });
-      payTo = resolvePayeeAddress(agent?.walletAddress);
+      payTo = resolvePayeeAddress(agent?.walletAddress) ?? getPlatformTreasuryAddress();
       if (!payTo) {
         return { success: false, error: "Agent does not have a valid wallet address for receiving payments" };
       }
