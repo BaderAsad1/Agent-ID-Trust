@@ -72,6 +72,7 @@ const envSchema = z.object({
 
   JWT_SECRET: z.string().optional(),
   OAUTH_INTROSPECTION_SECRET: z.string().optional(),
+  CLAIM_TOKEN_SECRET: z.string().optional(),
 
   CDP_API_KEY_ID: z.string().optional(),
   CDP_API_KEY_SECRET: z.string().optional(),
@@ -252,6 +253,10 @@ export function validateEnv(): Env {
   }
   if (isProd && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) {
     envLogger.fatal("[env] JWT_SECRET is required in production and must be at least 32 characters.");
+    process.exit(1);
+  }
+  if (isProd && !env.CLAIM_TOKEN_SECRET) {
+    envLogger.fatal("[env] CLAIM_TOKEN_SECRET is required in production for HMAC-signed programmatic claim tokens.");
     process.exit(1);
   }
   if (isProd && !env.ADMIN_SECRET_KEY) {
