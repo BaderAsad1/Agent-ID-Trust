@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod/v4";
+import { logger } from "../../middlewares/request-logger";
 import { AppError } from "../../middlewares/error-handler";
 import { assertSandboxIsolation } from "../../middlewares/sandbox";
 import { getAgentByHandle, getAgentById } from "../../services/agents";
@@ -413,7 +414,7 @@ function logResolutionEvent(
       cacheHit,
     })
     .catch((err) => {
-      console.error("[resolve] Failed to log resolution event:", err instanceof Error ? err.message : err);
+      logger.warn({ err }, "[resolve] Failed to log resolution event");
     });
 }
 

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod/v4";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
+import { logger } from "../../middlewares/request-logger";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import {
@@ -325,7 +326,7 @@ router.post("/upgrade/x402", requireAgentAuth, async (req, res, next) => {
       await activatePlanForUser(agentRecord.userId, plan as "starter" | "pro", undefined, "monthly");
     } catch (activationErr) {
       const msg = activationErr instanceof Error ? activationErr.message : String(activationErr);
-      console.error("[x402] Plan activation failed after settlement:", msg);
+      logger.error({ err: activationErr, agentId, plan }, "[x402] Plan activation failed after settlement");
       throw new AppError(500, "ACTIVATION_FAILED", `Payment settled but plan activation failed: ${msg}. Contact support with your payment ID.`, {
         paymentId: result.paymentId,
         txHash: result.txHash,

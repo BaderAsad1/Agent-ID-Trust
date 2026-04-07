@@ -16,7 +16,7 @@ import { COMPARISONS } from "./seo/comparisons";
 import { securityHeaders } from "./middlewares/security-headers";
 import { sandboxMiddleware } from "./middlewares/sandbox";
 import { requestIdMiddleware } from "./middlewares/request-id";
-import { requestLogger } from "./middlewares/request-logger";
+import { requestLogger, logger } from "./middlewares/request-logger";
 import { replitAuth } from "./middlewares/replit-auth";
 import { apiKeyAuth } from "./middlewares/api-key-auth";
 import { tryAgentAuth } from "./middlewares/agent-auth";
@@ -598,7 +598,7 @@ if (fs.existsSync(frontendDist)) {
             return;
           }
         } catch (err) {
-          console.error(`[seo] handle meta lookup failed for /:${handle}:`, err);
+          logger.warn({ err, handle }, "[seo] handle meta lookup failed");
           // Fall through to serve unmodified index.html on DB errors
         }
       }
