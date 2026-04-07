@@ -923,11 +923,8 @@ router.get("/agents/:agentId/search", requireHumanOrAgentAuth, async (req, res, 
   }
 });
 
-router.post("/ingest", async (req, res, next) => {
+router.post("/ingest", requireHumanOrAgentAuth, async (req, res, next) => {
   try {
-    if (!req.user && !req.apiKey) {
-      throw new AppError(401, "UNAUTHORIZED", "Authentication required. Use Bearer token or API key.");
-    }
 
     const schema = z.object({
       recipientAddress: z.string().min(1),
