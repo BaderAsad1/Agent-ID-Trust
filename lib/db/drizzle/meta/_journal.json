@@ -204,6 +204,20 @@
       "when": 1743984000000,
       "tag": "0028_marketplace_commerce_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1775578444099,
+      "tag": "0029_a2a_engagements",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1775583284148,
+      "tag": "0030_attachment_storage_fields",
+      "breakpoints": true
     }
   ]
 }

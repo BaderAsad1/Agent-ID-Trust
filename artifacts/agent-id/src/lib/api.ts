@@ -492,6 +492,33 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ threadIds, action }),
       }),
+
+    uploadAttachment: async (agentId: string, messageId: string, file: File): Promise<MailAttachment> => {
+      const csrfToken = getCsrfToken();
+      const formData = new FormData();
+      formData.append("file", file);
+      const headers: Record<string, string> = {
+        "User-Agent": "AgentID-Client/1.0 AgentID-Web/1.0",
+        ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+      };
+      const res = await fetch(`${BASE}/mail/agents/${agentId}/messages/${messageId}/attachments`, {
+        method: "POST",
+        headers,
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new ApiError(res.status, body.code || "upload_failed", body.error || "Upload failed");
+      }
+      return res.json();
+    },
+
+    getAttachmentUrl: (agentId: string, messageId: string, attachmentId: string) =>
+      request<{ url: string }>(`/mail/agents/${agentId}/messages/${messageId}/attachments/${attachmentId}/url`),
+
+    deleteAttachment: (agentId: string, messageId: string, attachmentId: string) =>
+      request<void>(`/mail/agents/${agentId}/messages/${messageId}/attachments/${attachmentId}`, { method: "DELETE" }),
   },
 
   meta: {
@@ -967,6 +994,7 @@ export interface MailAttachment {
   size: number;
   url?: string;
   checksum?: string;
+  backend?: string;
   createdAt: string;
 }
 
