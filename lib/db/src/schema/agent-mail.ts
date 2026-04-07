@@ -245,7 +245,9 @@ export const messageAttachmentsTable = pgTable(
     fileName: varchar("file_name", { length: 500 }).notNull(),
     mimeType: varchar("mime_type", { length: 255 }).notNull(),
     sizeBytes: integer("size_bytes").notNull(),
+    storageKey: varchar("storage_key", { length: 1024 }),
     storageUrl: text("storage_url"),
+    storageBackend: varchar("storage_backend", { length: 16 }).default("inline"),
     checksum: varchar("checksum", { length: 128 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
