@@ -442,7 +442,7 @@ describe("OAuth 2.0 End-to-End", () => {
       await db.insert(authNoncesTable).values({
         nonce,
         agentId,
-        audience: "agentid",
+        audience: process.env.APP_URL || "http://localhost:3001",
         expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       });
 
@@ -451,7 +451,7 @@ describe("OAuth 2.0 End-to-End", () => {
         kid: agentKeyResult.agentKey.kid,
         privateKeyB64: agentKeyResult.privateKeyB64,
         nonce,
-        audience: "agentid",
+        audience: process.env.APP_URL || "http://localhost:3001",
       });
 
       const res = await request(app)
@@ -483,7 +483,7 @@ describe("OAuth 2.0 End-to-End", () => {
       await db.insert(authNoncesTable).values({
         nonce,
         agentId,
-        audience: "agentid",
+        audience: process.env.APP_URL || "http://localhost:3001",
         expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       });
 
@@ -492,7 +492,7 @@ describe("OAuth 2.0 End-to-End", () => {
         kid: agentKeyResult.agentKey.kid,
         privateKeyB64: wrongKey.privateKeyB64,  // Wrong key - signature will fail
         nonce,
-        audience: "agentid",
+        audience: process.env.APP_URL || "http://localhost:3001",
       });
 
       const res = await request(app)
@@ -515,7 +515,7 @@ describe("OAuth 2.0 End-to-End", () => {
       await db.insert(authNoncesTable).values({
         nonce,
         agentId,
-        audience: "agentid",
+        audience: process.env.APP_URL || "http://localhost:3001",
         expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       });
 
@@ -524,7 +524,7 @@ describe("OAuth 2.0 End-to-End", () => {
         kid: agentKeyResult.agentKey.kid,
         privateKeyB64: agentKeyResult.privateKeyB64,
         nonce,
-        audience: "agentid",
+        audience: process.env.APP_URL || "http://localhost:3001",
       });
 
       // First use succeeds

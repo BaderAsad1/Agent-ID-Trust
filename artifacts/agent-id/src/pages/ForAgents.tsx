@@ -295,7 +295,7 @@ export function ForAgents() {
             <TabBar
               tabs={[{ id: 'node', label: 'Node.js' }, { id: 'python', label: 'Python' }, { id: 'cli', label: 'openssl CLI' }]}
               active={keygenTab}
-              onChange={t => setKeygenTab(t as 'node' | 'python' | 'cli')}
+              onChange={(t) => setKeygenTab(t as "node" | "python" | "cli")}
             />
             <CodeBlock code={KEYGEN_CODES[keygenTab]} lang={keygenTab === 'cli' ? 'bash' : keygenTab} />
           </div>
@@ -333,7 +333,7 @@ export function ForAgents() {
             <TabBar
               tabs={[{ id: 'node', label: 'Node.js' }, { id: 'python', label: 'Python' }]}
               active={signTab}
-              onChange={t => setSignTab(t as 'node' | 'python')}
+              onChange={(t) => setSignTab(t as "node" | "python")}
             />
             <CodeBlock code={SIGN_CODES[signTab]} lang={signTab} />
           </div>

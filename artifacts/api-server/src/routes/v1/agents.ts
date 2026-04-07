@@ -123,15 +123,15 @@ const safeCapabilityItem = z.string().max(100).refine(
 );
 
 const createAgentSchema = z.object({
-  handle: z.string().min(3).max(32).optional(),
-  displayName: safeTextField(255).refine((v) => v.trim().length > 0, { message: "displayName must not be blank" }),
-  description: safeTextField(5000).optional(),
-  endpointUrl: safeEndpointUrl.optional(),
-  capabilities: z.array(safeCapabilityItem).max(50).optional(),
-  scopes: z.array(z.string().max(100)).max(50).optional(),
-  protocols: z.array(z.string().max(100)).max(20).optional(),
-  authMethods: z.array(z.string().max(100)).max(10).optional(),
-  paymentMethods: z.array(z.string().max(100)).max(10).optional(),
+  handle: z.string().min(3).max(32),
+  displayName: z.string().min(1).max(255),
+  description: z.string().max(5000).optional(),
+  endpointUrl: z.url().optional(),
+  capabilities: z.array(z.string()).max(50).optional(),
+  scopes: z.array(z.string()).max(50).optional(),
+  protocols: z.array(z.string()).max(20).optional(),
+  authMethods: z.array(z.string()).max(10).optional(),
+  paymentMethods: z.array(z.string()).max(10).optional(),
   isPublic: z.boolean().optional(),
   metadata: safeMetadata,
   // Wizard-selected plan before the user has an active subscription. Used to determine
@@ -720,18 +720,15 @@ router.get("/:agentId/activity", requireHumanOrAgentAuthForActivity, validateUui
       return;
     }
 
-    const condition = eq(agentActivityLogTable.agentId, agentId);
-    const [activities, countResult] = await Promise.all([
-      db.query.agentActivityLogTable.findMany({
-        where: condition,
-        orderBy: [desc(agentActivityLogTable.createdAt)],
-        limit,
-        offset,
-      }),
-      db.select({ total: count() }).from(agentActivityLogTable).where(condition),
-    ]);
+    // L3: Pass `offset` to findMany so pagination actually works.
+    const activities = await db.query.agentActivityLogTable.findMany({
+      where: eq(agentActivityLogTable.agentId, agentId),
+      orderBy: [desc(agentActivityLogTable.createdAt)],
+      limit,
+      offset,
+    });
 
-    res.json({ activities, total: countResult[0]?.total ?? 0, limit, offset });
+    res.json({ activities, total: activities.length + offset, limit, offset });
   } catch (err) {
     next(err);
   }

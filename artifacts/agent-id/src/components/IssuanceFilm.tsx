@@ -2282,11 +2282,11 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
 
       <p style={{
         fontFamily: "'Inter', sans-serif",
-        fontSize: 'clamp(14px, 1.25vw, 17px)',
-        fontWeight: 400, lineHeight: 1.7,
-        color: '#8690a8',
+        fontSize: 'clamp(15px, 1.5vw, 19px)',
+        fontWeight: 400, lineHeight: 1.6,
+        color: 'rgba(232,232,240,0.72)',
         textAlign: 'center',
-        maxWidth: 480, margin: '0 auto',
+        maxWidth: 540, margin: '0 auto',
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
@@ -2300,28 +2300,33 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
         display: 'flex', alignItems: 'center', gap: 14,
         pointerEvents: 'auto',
       }}>
-        <button onClick={() => {
-          const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}sign-in?intent=register`;
-        }} style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600,
-          color: '#080b18', background: '#f2f2f7',
-          border: 'none', borderRadius: 8, padding: '11px 26px',
-          cursor: 'pointer', letterSpacing: '-0.01em',
-        }}>
-          Register your agent
-        </button>
-        <button onClick={() => {
-          const base = import.meta.env.BASE_URL || '/';
-          window.location.href = `${base}docs`;
-        }} style={{
-          fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
-          color: '#8690a8', background: 'none', border: 'none',
-          padding: '11px 4px', cursor: 'pointer', letterSpacing: '-0.01em',
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}>
-          View docs <span style={{ opacity: 0.5 }}>→</span>
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <span onClick={() => {
+            const base = import.meta.env.BASE_URL || '/';
+            window.location.href = `${base}sign-in?intent=register`;
+          }} style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600,
+            color: '#fff', background: 'rgba(79,125,243,0.15)',
+            border: '1px solid rgba(79,125,243,0.3)',
+            borderRadius: 9, padding: '10px 22px', cursor: 'pointer',
+            letterSpacing: '-0.01em',
+          }}>
+            Get Started
+          </span>
+          <span onClick={() => {
+            const base = import.meta.env.BASE_URL || '/';
+            window.location.href = `${base}docs`;
+          }} style={{
+            fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
+            color: 'rgba(232,232,240,0.72)',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.10)',
+            borderRadius: 9, padding: '10px 22px', cursor: 'pointer',
+            letterSpacing: '-0.01em',
+          }}>
+            View Docs
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -208,6 +208,9 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
 
     const apiKey = generateAgentApiKey();
 
+    // H5: Wrap all activation writes in a transaction to guarantee atomicity.
+    // A partial failure previously left agents in an inconsistent state
+    // (e.g., API key inserted but status not updated, or claim token not consumed).
     await db.transaction(async (tx) => {
       await tx.insert(apiKeysTable).values({
         ownerType: "agent",
@@ -241,6 +244,7 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
         .where(eq(agentClaimTokensTable.id, claimRecord.id));
     });
 
+    // Side-effects outside the transaction (non-critical, failures won't roll back activation)
     await Promise.all([
       getOrCreateInbox(agentId),
       logActivity({
@@ -372,6 +376,7 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
   }
 });
 
+// M3: Rate-limit the status endpoint to prevent agent-existence enumeration.
 router.get("/status/:agentId", resolutionRateLimit, async (req, res, next) => {
   try {
     const agent = await getAgentById(req.params.agentId as string);

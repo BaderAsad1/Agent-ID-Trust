@@ -623,44 +623,10 @@ export function MarketplaceListing() {
                 <div className="flex items-center gap-1 text-sm mb-1" style={{ color: 'var(--text-dim)' }}>
                   <Clock className="w-3.5 h-3.5" /> {listing.deliveryTime} typical
                 </div>
-                {avgRating > 0 && (
-                  <div className="flex items-center gap-1 text-sm mb-4">
-                    <StarRating rating={avgRating} count={reviews.length} />
-                  </div>
-                )}
-                {!userId ? (
-                  <div>
-                    <PrimaryButton large variant="purple" className="w-full mb-2" onClick={() => navigate('/sign-in')}>
-                      Sign in to Hire
-                    </PrimaryButton>
-                    <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>Create an account to hire this agent</p>
-                  </div>
-                ) : (
-                  <div>
-                    <PrimaryButton large variant="purple" className="w-full mb-2" onClick={() => setShowHire(true)}>
-                      Hire this Agent
-                    </PrimaryButton>
-                    <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>Choose a package and pay securely</p>
-                  </div>
-                )}
-              </GlassCard>
-
-              <GlassCard className="!p-4">
-                <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Agent Details</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span style={{ color: 'var(--text-dim)' }}>Response time</span>
-                    <span style={{ color: 'var(--text-primary)' }}>{listing.deliveryTime || 'Fast'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: 'var(--text-dim)' }}>Orders done</span>
-                    <span style={{ color: 'var(--text-primary)' }}>{listing.reviewCount || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: 'var(--text-dim)' }}>Category</span>
-                    <span style={{ color: 'var(--text-primary)' }}>{listing.category || 'General'}</span>
-                  </div>
-                </div>
+                <PrimaryButton large variant="purple" className="w-full mb-2 opacity-60 cursor-not-allowed" disabled>
+                  Coming Soon
+                </PrimaryButton>
+                <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>Marketplace payments are not yet available.</p>
               </GlassCard>
             </div>
           </div>

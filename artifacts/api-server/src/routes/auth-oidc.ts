@@ -33,17 +33,17 @@ function getAppUrl(req: Request): string {
 }
 
 function setSessionCookie(res: Response, sid: string) {
-  const cfg = env();
   const cookieOpts: import("express").CookieOptions = {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL,
+    // L2: Explicit domain allows the session cookie to be shared across subdomains
+    // (e.g., api.getagent.id and getagent.id). Omit if COOKIE_DOMAIN is not set
+    // to retain default single-host behaviour in local dev.
+    ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
   };
-  if (cfg.COOKIE_DOMAIN) {
-    cookieOpts.domain = cfg.COOKIE_DOMAIN;
-  }
   res.cookie(SESSION_COOKIE, sid, cookieOpts);
 }
 
@@ -319,26 +319,27 @@ router.get("/auth/google/callback", async (req: Request, res: Response) => {
 });
 
 router.post("/auth/magic-link/send", magicLinkSendRateLimit, async (req: Request, res: Response) => {
-  const { email, returnTo: rawReturnTo } = req.body as { email?: string; returnTo?: string };
+  const { email } = req.body as { email?: string };
   if (!email || !email.includes("@")) {
     res.status(400).json({ error: "INVALID_EMAIL", message: "A valid email address is required", requestId: req.requestId ?? "unknown" });
     return;
   }
 
-  const token = crypto.randomBytes(32).toString("hex");
-  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
   await db.insert(magicLinkTokensTable).values({
     email: email.toLowerCase().trim(),
-    token: hashedToken,
+    hashedToken,
     expiresAt,
   });
 
   const baseUrl = env().AUTH_BASE_URL || getAppUrl(req);
-  const safeReturnTo = getSafeReturnTo(rawReturnTo);
-  const returnToParam = safeReturnTo !== "/" ? `?returnTo=${encodeURIComponent(safeReturnTo)}` : "";
-  const magicUrl = `${baseUrl}/magic-link${returnToParam}#token=${token}`;
+  // H2: Token is placed in the URL fragment (#) so it is never sent to the
+  // server in GET requests and never appears in access logs or the Referer header.
+  // The /magic-link page extracts it client-side and POSTs it to /api/auth/magic-link/verify.
+  const magicUrl = `${baseUrl}/magic-link#token=${rawToken}`;
 
   try {
     await sendMagicLinkEmail(email, magicUrl);
@@ -351,24 +352,31 @@ router.post("/auth/magic-link/send", magicLinkSendRateLimit, async (req: Request
   res.json({ sent: true, email });
 });
 
-router.post("/auth/magic-link/verify", async (req: Request, res: Response) => {
-  const { token } = req.body as { token?: string };
-
-  if (!token || typeof token !== "string") {
-    res.status(400).json({ error: "INVALID_TOKEN", message: "Token is required", requestId: req.requestId ?? "unknown" });
-    return;
-  }
-
-  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-
+/**
+ * H2: Shared magic-link redemption logic.
+ * Token is hashed before the DB lookup so the plaintext never needs to be
+ * compared directly and is never persisted (C1 fix).
+ */
+async function redeemMagicLinkToken(
+  rawToken: string,
+  req: Request,
+  res: Response,
+  isApiRequest: boolean,
+): Promise<void> {
+  const baseUrl = getAppUrl(req);
+  const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
   const [record] = await db
     .select()
     .from(magicLinkTokensTable)
-    .where(and(eq(magicLinkTokensTable.token, hashedToken), isNull(magicLinkTokensTable.usedAt)))
+    .where(and(eq(magicLinkTokensTable.hashedToken, hashedToken), isNull(magicLinkTokensTable.usedAt)))
     .limit(1);
 
   if (!record || record.expiresAt < new Date()) {
-    res.status(400).json({ error: "TOKEN_EXPIRED", message: "Token is invalid or expired", requestId: req.requestId ?? "unknown" });
+    if (isApiRequest) {
+      res.status(400).json({ error: "TOKEN_INVALID", message: "Magic link token is invalid or expired" });
+    } else {
+      res.redirect(`${baseUrl}/sign-in?error=token_expired`);
+    }
     return;
   }
 
@@ -388,9 +396,35 @@ router.post("/auth/magic-link/verify", async (req: Request, res: Response) => {
   const sessionData: SessionData = { user };
   const sid = await createSession(sessionData);
   setSessionCookie(res, sid);
-  res.json({ success: true, user: { id: user.id, email: user.email } });
+
+  if (isApiRequest) {
+    res.json({ authenticated: true, redirectTo: `${baseUrl}/dashboard` });
+  } else {
+    res.redirect(`${baseUrl}/dashboard`);
+  }
+}
+
+/**
+ * H2: Preferred POST endpoint — token submitted in request body.
+ * The email link sends the raw token in the URL fragment (#token=…), which is
+ * never sent to the server. A small frontend script extracts it and calls this
+ * endpoint via fetch/form POST, keeping the token out of server logs.
+ */
+router.post("/auth/magic-link/verify", async (req: Request, res: Response) => {
+  const { token } = req.body as { token?: string };
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "TOKEN_MISSING", message: "token is required" });
+    return;
+  }
+  await redeemMagicLinkToken(token, req, res, true);
 });
 
+/**
+ * GET /auth/magic-link/verify — kept for backwards compatibility with existing
+ * email links already in users' inboxes. New emails use the fragment-based URL.
+ * NOTE: The token appears in the query string on this path; prefer the POST
+ * endpoint for new clients.
+ */
 router.get("/auth/magic-link/verify", async (req: Request, res: Response) => {
   const { token } = req.query;
   const baseUrl = getAppUrl(req);
@@ -400,36 +434,7 @@ router.get("/auth/magic-link/verify", async (req: Request, res: Response) => {
     return;
   }
 
-  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-
-  const [record] = await db
-    .select()
-    .from(magicLinkTokensTable)
-    .where(and(eq(magicLinkTokensTable.token, hashedToken), isNull(magicLinkTokensTable.usedAt)))
-    .limit(1);
-
-  if (!record || record.expiresAt < new Date()) {
-    res.redirect(`${baseUrl}/sign-in?error=token_expired`);
-    return;
-  }
-
-  await db
-    .update(magicLinkTokensTable)
-    .set({ usedAt: new Date() })
-    .where(eq(magicLinkTokensTable.id, record.id));
-
-  const user = await upsertProviderUser({
-    provider: "email",
-    providerId: record.email,
-    email: record.email,
-    emailVerified: true,
-    displayName: record.email.split("@")[0] || null,
-  });
-
-  const sessionData: SessionData = { user };
-  const sid = await createSession(sessionData);
-  setSessionCookie(res, sid);
-  res.redirect(`${baseUrl}/dashboard`);
+  await redeemMagicLinkToken(token, req, res, false);
 });
 
 router.post("/auth/signout", async (req: Request, res: Response) => {
