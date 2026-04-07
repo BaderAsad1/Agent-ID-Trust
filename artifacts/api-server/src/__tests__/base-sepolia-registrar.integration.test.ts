@@ -960,7 +960,7 @@ describe("Task #152 — billing.ts: post-persist reserveHandlesOnChain is author
 
     process.env.ONCHAIN_MINTING_ENABLED = "true";
     process.env.BASE_AGENTID_REGISTRAR = TESTNET_PROXY;
-    process.env.BASE_RPC_URL = "https://invalid.base.rpc.example";
+    process.env.BASE_RPC_URL = "http://127.0.0.1:19999";
     process.env.BASE_MINTER_PRIVATE_KEY = "0x" + "b".repeat(64);
 
     // Must resolve (not throw) — viem will fail the RPC call, reserveHandlesOnChain catches it

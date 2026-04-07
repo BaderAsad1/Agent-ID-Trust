@@ -117,10 +117,10 @@ describe('Canonical four-plan pricing model', () => {
 });
 
 describe('Plan limits mapping', () => {
-  it('getPlanLimits: free/none → 1 agent', async () => {
+  it('getPlanLimits: free/none → 0 agents (unsubscribed users have no agent quota)', async () => {
     const { getPlanLimits } = await import('../services/billing');
-    expect(getPlanLimits('none').agentLimit).toBe(1);
-    expect(getPlanLimits('free').agentLimit).toBe(1);
+    expect(getPlanLimits('none').agentLimit).toBe(0);
+    expect(getPlanLimits('free').agentLimit).toBe(0);
   });
 
   it('getPlanLimits: starter → 5 agents', async () => {

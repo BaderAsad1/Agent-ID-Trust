@@ -16,9 +16,10 @@ import { COMPARISONS } from "./seo/comparisons";
 import { securityHeaders } from "./middlewares/security-headers";
 import { sandboxMiddleware } from "./middlewares/sandbox";
 import { requestIdMiddleware } from "./middlewares/request-id";
-import { requestLogger } from "./middlewares/request-logger";
+import { requestLogger, logger } from "./middlewares/request-logger";
 import { replitAuth } from "./middlewares/replit-auth";
 import { apiKeyAuth } from "./middlewares/api-key-auth";
+import { tryAgentAuth } from "./middlewares/agent-auth";
 import { errorHandler } from "./middlewares/error-handler";
 import { cliDetect, cliMarkdownRoot } from "./middlewares/cli-markdown";
 import { apiRateLimiter, handleCheckRateLimit } from "./middlewares/rate-limit";
@@ -48,10 +49,13 @@ const trustProxyValue: boolean | number | string = (() => {
 })();
 
 if (config.NODE_ENV === "production" && trustProxyValue === false) {
+  // M2: Hard-fail in production when TRUST_PROXY is not configured.
+  // Without it, req.ip reflects the proxy's IP, making all IP-based rate limits and
+  // Sybil quotas trivially bypassable. Operators must explicitly configure this.
   throw new Error(
-    "[security] FATAL: TRUST_PROXY is 'false' in production. " +
-    "Set TRUST_PROXY to your proxy hop count (e.g. '2' for Cloudflare+nginx) or a CIDR range. " +
-    "Running without proxy trust undermines IP-based rate limits and security controls.",
+    "[security] FATAL: TRUST_PROXY must be set in production. " +
+    "Set TRUST_PROXY to your reverse-proxy hop count (e.g., '1') or CIDR range. " +
+    "Without it, all IP-based rate limits are ineffective.",
   );
 }
 app.set("trust proxy", trustProxyValue);
@@ -321,57 +325,16 @@ app.use(seoRouter);
 
 const MCP_PORT = Number(process.env.MCP_PORT || 3001);
 
-function proxyToMcp(req: Request, res: Response, targetPath: string) {
-  const headers: Record<string, string | string[] | undefined> = { ...req.headers };
-  headers.host = `127.0.0.1:${MCP_PORT}`;
-  headers["content-length"] = "0";
-
-  const options: http.RequestOptions = {
-    hostname: "127.0.0.1",
-    port: MCP_PORT,
-    path: targetPath,
-    method: req.method,
-    headers: headers as http.OutgoingHttpHeaders,
-  };
-  const proxy = http.request(options, (proxyRes) => {
-    const resHeaders: Record<string, string | string[] | undefined> = {};
-    for (const [k, v] of Object.entries(proxyRes.headers)) {
-      resHeaders[k] = v as string | string[] | undefined;
-    }
-    res.writeHead(proxyRes.statusCode ?? 502, resHeaders);
-    proxyRes.pipe(res, { end: true });
-  });
-  proxy.on("error", (_err) => {
-    if (!res.headersSent) {
-      res.status(502).json({ error: "MCP server unavailable", code: "MCP_UNAVAILABLE" });
-    }
-  });
-  proxy.end();
-}
-
-app.get("/mcp/.well-known/mcp.json", (req: Request, res: Response) => {
-  proxyToMcp(req, res, "/.well-known/mcp.json");
-});
-
-app.get("/mcp/health", (req: Request, res: Response) => {
-  proxyToMcp(req, res, "/health");
-});
-
-app.all("/mcp", async (req: Request, res: Response, next: NextFunction) => {
-  const { tryAgentAuth } = await import("./middlewares/agent-auth");
-  tryAgentAuth(req, res, (err?: unknown) => {
-    if (err) return next(err);
-    if (!req.authenticatedAgent && !req.userId) {
-      res.status(401).json({
-        error: "UNAUTHORIZED",
-        message: "MCP proxy requires authentication via X-Agent-Key header or Authorization bearer token",
-        requestId: req.requestId ?? "unknown",
-      });
-      return;
-    }
+// H6: MCP proxy requires authentication — either a valid user session or an agent API key.
+// Unauthenticated requests are rejected before reaching the internal MCP server.
+function requireAnyAuth(req: Request, res: Response, next: NextFunction): void {
+  if (req.user || req.authenticatedAgent) {
     next();
-  });
-}, (req: Request, res: Response) => {
+    return;
+  }
+  res.status(401).json({ error: "Authentication required", code: "UNAUTHORIZED" });
+}
+app.all("/mcp", tryAgentAuth, requireAnyAuth, (req: Request, res: Response) => {
   const bodyStr = req.body && typeof req.body === "object"
     ? JSON.stringify(req.body)
     : typeof req.body === "string"
@@ -635,7 +598,7 @@ if (fs.existsSync(frontendDist)) {
             return;
           }
         } catch (err) {
-          console.error(`[seo] handle meta lookup failed for /:${handle}:`, err);
+          logger.warn({ err, handle }, "[seo] handle meta lookup failed");
           // Fall through to serve unmodified index.html on DB errors
         }
       }

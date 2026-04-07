@@ -7,18 +7,12 @@ import { getHandlePrice } from '@/lib/pricing';
 import { SKILLS_LIBRARY, SKILL_CATEGORIES, type SkillCategory } from '@/lib/skills';
 
 type Intent = 'new' | 'claim' | null;
-type FlowStep = 'intent' | 'auth' | 'wizard-handle' | 'wizard-capabilities' | 'token-display' | 'claim-existing' | 'complete';
+type FlowStep = 'intent' | 'auth' | 'wizard-handle' | 'wizard-capabilities' | 'wizard-plan' | 'token-display' | 'claim-existing' | 'complete';
+type WizardPlan = 'free' | 'starter' | 'pro';
 
-const PLAN_STORAGE_KEY = 'agent-id-wizard-plan';
-const FREE_PLAN_STANDARD_FEE_USD = 5;
-
-function getSelectedPlan(): 'free' | 'starter' | 'pro' {
-  try {
-    const v = sessionStorage.getItem(PLAN_STORAGE_KEY);
-    if (v === 'starter' || v === 'pro') return v;
-  } catch {}
-  return 'free';
-}
+const PLAN_WIZARD_DRAFT_KEY = 'agent-id-wizard-plan';
+const WIZARD_DRAFT_KEY = 'agent-id-getstarted-draft';
+const DRAFT_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 
 function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
   return (
@@ -118,12 +112,11 @@ interface CapabilitiesStepProps {
   selectedCaps: string[];
   setSelectedCaps: React.Dispatch<React.SetStateAction<string[]>>;
   error: string | null;
-  submitting: boolean;
   onBack: () => void;
   onNext: () => void;
 }
 
-function CapabilitiesStep({ selectedCaps, setSelectedCaps, error, submitting, onBack, onNext }: CapabilitiesStepProps) {
+function CapabilitiesStep({ selectedCaps, setSelectedCaps, error, onBack, onNext }: CapabilitiesStepProps) {
   const [activeCategory, setActiveCategory] = useState<SkillCategory | 'All'>('All');
   const [customInput, setCustomInput] = useState('');
 
@@ -159,7 +152,7 @@ function CapabilitiesStep({ selectedCaps, setSelectedCaps, error, submitting, on
       padding: '40px 20px', fontFamily: "'Inter', system-ui, sans-serif",
     }}>
       <div style={{ width: '100%', maxWidth: 640 }}>
-        <StepIndicator steps={['handle', 'capabilities', 'activate']} current={1} />
+        <StepIndicator steps={['handle', 'skills', 'plan', 'connect']} current={1} />
         <h1 style={{
           fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 28, fontWeight: 800,
           color: '#e8e8f0', textAlign: 'center', marginBottom: 6,
@@ -266,8 +259,8 @@ function CapabilitiesStep({ selectedCaps, setSelectedCaps, error, submitting, on
 
         <div style={{ marginTop: 28, display: 'flex', gap: 10, justifyContent: 'center' }}>
           <GhostBtn onClick={onBack}>Back</GhostBtn>
-          <PrimaryBtn onClick={onNext} loading={submitting} disabled={submitting}>
-            Register Agent <ArrowRight size={16} />
+          <PrimaryBtn onClick={onNext}>
+            Continue <ArrowRight size={16} />
           </PrimaryBtn>
         </div>
       </div>
@@ -280,8 +273,8 @@ export function GetStarted() {
   const [searchParams] = useSearchParams();
   const { userId, loading: authLoading, login, refreshAgents } = useAuth();
 
-  const selectedPlan = getSelectedPlan();
-  const isPaidPlan = selectedPlan === 'starter' || selectedPlan === 'pro';
+  const [wizardSelectedPlan, setWizardSelectedPlan] = useState<WizardPlan | null>(null);
+  const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
 
   const [intent, setIntent] = useState<Intent>(() => {
     const p = new URLSearchParams(window.location.search).get('intent');
@@ -298,6 +291,8 @@ export function GetStarted() {
   const [selectedCaps, setSelectedCaps] = useState<string[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
+  // Synchronous guard — prevents double-submission before React can re-render with submitting=true.
+  const agentCreatingRef = useRef(false);
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
   const [claimToken, setClaimToken] = useState<string | null>(null);
   const [agentActivated, setAgentActivated] = useState(false);
@@ -306,27 +301,26 @@ export function GetStarted() {
 
   const [ownerToken, setOwnerToken] = useState<string | null>(null);
   const [loadingOwnerToken, setLoadingOwnerToken] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chat' | 'sdk' | 'api'>('sdk');
+  const [activeTab, setActiveTab] = useState<'sdk' | 'api' | 'chat'>('sdk');
   const [agentCount, setAgentCount] = useState<number | null>(null);
-  const [showConnectDetails, setShowConnectDetails] = useState(false);
 
-  const STORAGE_KEY = 'agent-id-getstarted-draft';
-
-  // Single unified step-initialization effect - replaces three previously separate effects that could
+  // Single unified step-initialization effect — replaces three previously separate effects that could
   // fire in undefined order within the same render cycle. Priority order is explicit and deterministic:
-  //   1. sessionStorage draft (post-OAuth redirect - highest priority, restores full form state)
+  //   1. sessionStorage draft (post-OAuth redirect — highest priority, restores full form state)
   //   2. Advance out of 'auth' step once the user is authenticated
   //   3. Advance out of 'intent' step when user arrives already logged-in with a URL intent param
   useEffect(() => {
     if (authLoading) return;
 
-    // Priority 1: restore draft written before redirecting to /sign-in
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    // Priority 1: restore any persisted draft (post-OAuth redirect or page refresh)
+    const raw = sessionStorage.getItem(WIZARD_DRAFT_KEY);
     if (raw) {
       try {
         const draft = JSON.parse(raw);
+
+        // 1a. Post-OAuth redirect: draft was written before /sign-in, now user is back
         if (draft.pendingAuth && userId) {
-          sessionStorage.removeItem(STORAGE_KEY);
+          sessionStorage.removeItem(WIZARD_DRAFT_KEY);
           setIntent(draft.intent || 'new');
           if (draft.intent === 'claim') {
             setStep('claim-existing');
@@ -338,6 +332,26 @@ export function GetStarted() {
             setStep(draft.returnStep || 'wizard-handle');
           }
           return;
+        }
+
+        // 1b. Mid-wizard refresh: restore exactly where the user was
+        const restorableSteps: FlowStep[] = ['wizard-handle', 'wizard-capabilities', 'wizard-plan', 'token-display', 'claim-existing'];
+        if (!draft.pendingAuth && userId && draft.step && restorableSteps.includes(draft.step)) {
+          const age = draft.savedAt ? Date.now() - draft.savedAt : Infinity;
+          if (age < DRAFT_EXPIRY_MS) {
+            setIntent(draft.intent || 'new');
+            setHandle(draft.handle || '');
+            setAgentName(draft.agentName || '');
+            setDescription(draft.description || '');
+            setSelectedCaps(draft.selectedCaps || []);
+            if (draft.createdAgentId) setCreatedAgentId(draft.createdAgentId);
+            if (draft.claimToken) setClaimToken(draft.claimToken);
+            if (draft.pendingHandleFromServer) setPendingHandleFromServer(draft.pendingHandleFromServer);
+            setStep(draft.step);
+            return;
+          }
+          // Stale draft — discard
+          sessionStorage.removeItem(WIZARD_DRAFT_KEY);
         }
       } catch {}
     }
@@ -393,7 +407,7 @@ export function GetStarted() {
   }, [refreshAgents]);
 
   // Only used by the claim-existing path. The new-agent path stays on token-display and shows
-  // activation status inline via agentActivated state - it never transitions to 'complete'.
+  // activation status inline via agentActivated state — it never transitions to 'complete'.
   // The 'complete' step is therefore intentionally reachable only from claim-existing.
   const startClaimPolling = useCallback((preExistingIds: Set<string>) => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -416,10 +430,36 @@ export function GetStarted() {
     };
   }, []);
 
+  // Persist wizard state to sessionStorage so a page refresh restores progress.
+  // sessionStorage is tab-local and clears when the tab closes — right for a wizard.
+  // The token-display step is the most critical: claimToken can't be re-fetched.
+  useEffect(() => {
+    if (!userId) return;
+    if (step === 'intent' || step === 'auth' || step === 'complete') {
+      sessionStorage.removeItem(WIZARD_DRAFT_KEY);
+      return;
+    }
+    try {
+      sessionStorage.setItem(WIZARD_DRAFT_KEY, JSON.stringify({
+        step,
+        intent,
+        handle,
+        agentName,
+        description,
+        selectedCaps,
+        createdAgentId,
+        claimToken,
+        pendingHandleFromServer,
+        savedAt: Date.now(),
+      }));
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, intent, handle, agentName, description, selectedCaps, createdAgentId, claimToken, pendingHandleFromServer, userId]);
+
   const handleIntentSelect = (selected: Intent) => {
     setIntent(selected);
     if (!userId) {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      sessionStorage.setItem(WIZARD_DRAFT_KEY, JSON.stringify({
         intent: selected,
         pendingAuth: true,
         returnStep: selected === 'claim' ? 'claim-existing' : 'wizard-handle',
@@ -432,12 +472,22 @@ export function GetStarted() {
     }
   };
 
+  const goToDashboard = useCallback(() => {
+    sessionStorage.removeItem(WIZARD_DRAFT_KEY);
+    goToDashboard();
+  }, [navigate]);
+
   const handleAuthContinue = () => {
     const returnTo = `/get-started?intent=${intent ?? 'new'}`;
     window.location.href = `/sign-in?returnTo=${encodeURIComponent(returnTo)}`;
   };
 
-  const handleCreateAgent = async () => {
+  // Called from wizard-plan step after plan is selected.
+  // Creates the agent, stores the result, then advances to token-display.
+  // Handle checkout (if needed) is presented as an explicit button on token-display — never auto-redirect.
+  const handleCreateAgent = async (plan: WizardPlan) => {
+    if (agentCreatingRef.current) return;
+    agentCreatingRef.current = true;
     setSubmitting(true);
     setError(null);
     try {
@@ -446,34 +496,47 @@ export function GetStarted() {
         displayName: agentName || handle || 'My Agent',
         description: description || undefined,
         capabilities: selectedCaps.length > 0 ? selectedCaps : undefined,
+        intendedPlan: plan,
       });
-      // If handle requires payment, the backend creates the agent without the handle
-      // and returns pendingHandle + handleCheckoutUrl. The billing useEffect below
-      // will fire after createdAgentId is set and redirect to Stripe for checkout.
 
       const agentId = result.id;
       const token = result.claimToken ?? '';
 
-      // Backend signals that handle requires payment (benefit exhausted or premium/free-plan handle).
-      // Store this as authoritative state so the billing useEffect triggers checkout regardless of
-      // what the frontend-computed plan/pricing heuristic says.
       if (result.pendingHandle) {
         setPendingHandleFromServer(result.pendingHandle);
       }
+
+      // Persist plan selection so dashboard can prompt for subscription upgrade.
+      try { sessionStorage.setItem(PLAN_WIZARD_DRAFT_KEY, plan); } catch {}
 
       setCreatedAgentId(agentId);
       setClaimToken(token);
       setStep('token-display');
       startPolling(agentId);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to register agent');
-      }
+      setError(err instanceof Error ? err.message : 'Failed to register agent');
     } finally {
       setSubmitting(false);
+      agentCreatingRef.current = false;
     }
+  };
+
+  // Triggered explicitly by the user on token-display when handle payment is needed.
+  // Only fires for free-plan users who chose a handle (paid plans include the handle).
+  const handleHandleCheckout = async () => {
+    if (!createdAgentId || !pendingHandleFromServer) return;
+    setCheckoutSubmitting(true);
+    try {
+      const base = window.location.origin;
+      const r = await api.billing.handleCheckout(
+        pendingHandleFromServer,
+        createdAgentId,
+        `${base}/dashboard?payment=success`,
+        `${base}/dashboard?payment=cancelled`,
+      );
+      if (r.url) window.location.href = r.url;
+    } catch { /* non-fatal — user can proceed to dashboard */ }
+    finally { setCheckoutSubmitting(false); }
   };
 
   const handleLoadOwnerToken = useCallback(async () => {
@@ -500,45 +563,14 @@ export function GetStarted() {
     }
   }, [step, userId, ownerToken, handleLoadOwnerToken]);
 
-  // After agent creation: trigger handle checkout if a handle was chosen and payment is needed.
-  // Ported from Start.tsx - Starter/Pro sessionStorage hint still respected so returning
-  // paid-plan users aren't sent to checkout for their included handle.
+  // Resume activation polling when restoring token-display after a page refresh.
+  // On the initial creation path, startPolling is called directly in handleCreateAgent.
   useEffect(() => {
-    if (!createdAgentId || !handle) return;
-
-    const len = handle.replace(/[^a-z0-9]/g, '').length;
-    const isStd = len >= 5;
-    const { annualPrice: rawAnnual } = getHandlePrice(handle);
-
-    // Use the backend's authoritative signal first: if pendingHandleFromServer is set it means
-    // the backend confirmed payment is required (benefit exhausted, premium, or free-plan).
-    // Fall back to frontend-computed pricing only when the backend did not set pendingHandle
-    // (i.e. the handle was assigned immediately via the included benefit).
-    const needsPayment = pendingHandleFromServer === handle
-      ? true
-      : isPaidPlan && isStd
-        ? false
-        : isStd
-          ? FREE_PLAN_STANDARD_FEE_USD > 0
-          : (rawAnnual ?? 0) > 0;
-
-    if (!needsPayment) return;
-
-    const timer = setTimeout(async () => {
-      try {
-        const base = window.location.origin;
-        const r = await api.billing.handleCheckout(
-          handle,
-          createdAgentId,
-          `${base}/dashboard?payment=success`,
-          `${base}/dashboard?payment=cancelled`,
-        );
-        if (r.url) { window.location.href = r.url; }
-      } catch { /* non-fatal - user proceeds to dashboard */ }
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, [createdAgentId, handle, isPaidPlan, pendingHandleFromServer]);
+    if (step === 'token-display' && createdAgentId && !agentActivated) {
+      startPolling(createdAgentId);
+    }
+  // startPolling is stable (useCallback with refreshAgents dep) — safe to include
+  }, [step, createdAgentId, agentActivated, startPolling]);
 
   const handlePrice = handle ? getHandlePrice(handle) : null;
   const handleLen = handle ? handle.replace(/[^a-z0-9]/g, '').length : 0;
@@ -573,23 +605,8 @@ export function GetStarted() {
       }}>
         <div style={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{
-              width: 40, height: 40,
-              background: 'linear-gradient(135deg, #3b82f6, #7c3aed)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-            }} />
-            <div style={{
-              marginTop: 14, fontSize: 10, fontWeight: 600, letterSpacing: '0.2em',
-              color: 'rgba(232,232,240,0.3)', textTransform: 'uppercase',
-            }}>
-              Agent ID
-            </div>
-          </div>
-
           <h1 style={{
-            marginTop: 24, fontSize: 32, fontWeight: 700, color: '#e8e8f0',
+            marginTop: 0, fontSize: 32, fontWeight: 700, color: '#e8e8f0',
             textAlign: 'center', lineHeight: 1.2, letterSpacing: '-0.02em',
             fontFamily: 'var(--font-heading, inherit)',
           }}>
@@ -597,7 +614,7 @@ export function GetStarted() {
           </h1>
 
           <p style={{ marginTop: 8, fontSize: 15, color: 'rgba(232,232,240,0.5)', textAlign: 'center', lineHeight: 1.6, maxWidth: 400 }}>
-            Get a portable identity for your AI agent - public profile, discovery, and routing. A handle is optional and can be added any time.
+            Get a portable identity for your AI agent — public profile, discovery, and routing. A handle is optional and can be added any time.
           </p>
 
           <div style={{ marginTop: 36, width: '100%', opacity: authLoading ? 0.5 : 1, pointerEvents: authLoading ? 'none' : undefined, transition: 'opacity 0.2s' }}>
@@ -630,7 +647,7 @@ export function GetStarted() {
                   Register your agent
                 </div>
                 <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>
-                  Get a public profile and routing address - handle optional
+                  Get a public profile and routing address — handle optional
                 </div>
               </div>
               <div style={{
@@ -682,7 +699,7 @@ export function GetStarted() {
           <div style={{ marginTop: 20, fontSize: 12, color: 'rgba(232,232,240,0.22)', textAlign: 'center' }}>
             {agentCount !== null
               ? `${agentCount.toLocaleString()}+ agents already on the network`
-              : 'Free to start - no credit card required'}
+              : 'Free to start — no credit card required'}
           </div>
         </div>
       </div>
@@ -720,7 +737,7 @@ export function GetStarted() {
         padding: '40px 24px',
       }}>
         <div style={{ width: '100%', maxWidth: 560 }}>
-          <StepIndicator steps={['handle', 'capabilities', 'activate']} current={0} />
+          <StepIndicator steps={['handle', 'skills', 'plan', 'connect']} current={0} />
 
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <h1 style={{
@@ -730,7 +747,7 @@ export function GetStarted() {
               Claim a handle <span style={{ fontSize: 18, fontWeight: 400, color: 'rgba(232,232,240,0.3)' }}>(optional)</span>
             </h1>
             <p style={{ fontSize: 15, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6 }}>
-              A permanent public identity for your agent - you can add or buy one later too.
+              A permanent public identity for your agent — you can add or buy one later too.
             </p>
           </div>
 
@@ -790,7 +807,7 @@ export function GetStarted() {
               )}
               {handle.length >= 3 && !checkingHandle && available === false && (
                 <><AlertCircle size={14} color="#f87171" />
-                <span style={{ fontSize: 13, color: '#f87171' }}>This handle is taken - try another</span></>
+                <span style={{ fontSize: 13, color: '#f87171' }}>This handle is taken — try another</span></>
               )}
             </div>
           </div>
@@ -821,7 +838,7 @@ export function GetStarted() {
                 { icon: <Globe size={13} color="#4f7df3" />, text: 'Public profile at your-agent.agentid' },
                 { icon: <Users size={13} color="#4f7df3" />, text: 'Discoverable by other agents' },
                 { icon: <Zap size={13} color="#4f7df3" />, text: 'Routing & messaging address' },
-                { icon: <Shield size={13} color="#4f7df3" />, text: 'Portable - yours forever' },
+                { icon: <Shield size={13} color="#4f7df3" />, text: 'Portable — yours forever' },
               ].map(({ icon, text }) => (
                 <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                   <div style={{ marginTop: 1, flexShrink: 0 }}>{icon}</div>
@@ -831,7 +848,7 @@ export function GetStarted() {
             </div>
           </div>
 
-          {/* Handle pricing info - shown once handle is available, no plan gate */}
+          {/* Handle pricing info — shown once handle is available, no plan gate */}
           {handle.length >= 3 && !checkingHandle && available === true && (
             isStandardHandle ? (
               <div style={{
@@ -843,12 +860,12 @@ export function GetStarted() {
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0', marginBottom: 2 }}>
                     <span style={{ textDecoration: 'line-through', color: 'rgba(232,232,240,0.35)', marginRight: 6 }}>
-                      ${FREE_PLAN_STANDARD_FEE_USD}/yr
+                      $5/yr
                     </span>
                     <span style={{ color: '#34d399' }}>Free with Starter or Pro</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
-                    Standard handles (5+ chars) are included in paid plans. Otherwise $5/yr - plan selection at checkout.
+                    Standard handles (5+ chars) are included in paid plans. Otherwise $5/yr — plan selection at checkout.
                   </div>
                 </div>
               </div>
@@ -858,7 +875,7 @@ export function GetStarted() {
                 background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
               }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#f59e0b', marginBottom: 4 }}>
-                  {handleLen === 3 ? 'Ultra-premium' : 'Premium'} handle - ${handlePrice.annualPrice}/yr
+                  {handleLen === 3 ? 'Ultra-premium' : 'Premium'} handle — ${handlePrice.annualPrice}/yr
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
                   Short handles (3–4 chars) include an on-chain mint and are priced by character length.
@@ -889,7 +906,7 @@ export function GetStarted() {
                 textUnderlineOffset: 3,
               }}
             >
-              Skip for now - register agent without a handle
+              Skip for now — register agent without a handle
             </button>
           </div>
         </div>
@@ -904,226 +921,440 @@ export function GetStarted() {
         selectedCaps={selectedCaps}
         setSelectedCaps={setSelectedCaps}
         error={error}
-        submitting={submitting}
         onBack={() => { setError(null); setStep('wizard-handle'); }}
-        onNext={handleCreateAgent}
+        onNext={() => { setError(null); setStep('wizard-plan'); }}
       />
+    );
+  }
+
+  if (step === 'wizard-plan') {
+    const handleLen = handle ? handle.replace(/[^a-z0-9]/g, '').length : 0;
+    const isStdHandle = handleLen >= 5;
+    const handlePrice = handle ? getHandlePrice(handle) : null;
+    const handleCostForFree = handle
+      ? (isStdHandle ? 5 : (handlePrice?.annualPrice ?? 0))
+      : 0;
+
+    const plans: Array<{
+      id: WizardPlan;
+      name: string;
+      price: string;
+      sub: string;
+      features: string[];
+      highlight?: boolean;
+      handleNote: string;
+    }> = [
+      {
+        id: 'free',
+        name: 'Free',
+        price: '$0',
+        sub: 'forever',
+        features: ['1 agent', 'UUID identity', 'Trust score', 'API access'],
+        handleNote: handle
+          ? `Handle: +$${handleCostForFree}/yr at checkout`
+          : 'No handle (add later)',
+      },
+      {
+        id: 'starter',
+        name: 'Starter',
+        price: '$29',
+        sub: '/mo',
+        highlight: true,
+        features: ['5 agents', 'Inbox & messaging', 'Task management', '1 standard handle included'],
+        handleNote: handle && isStdHandle ? '✓ Handle included free' : handle ? `Handle: $${handleCostForFree}/yr` : 'Includes 1 standard handle',
+      },
+      {
+        id: 'pro',
+        name: 'Pro',
+        price: '$79',
+        sub: '/mo',
+        features: ['25 agents', 'Fleet management', 'Analytics', '1 standard handle included'],
+        handleNote: handle && isStdHandle ? '✓ Handle included free' : handle ? `Handle: $${handleCostForFree}/yr` : 'Includes 1 standard handle',
+      },
+    ];
+
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#050711',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: "'Inter', system-ui, sans-serif", padding: '40px 24px',
+      }}>
+        <div style={{ width: '100%', maxWidth: 680 }}>
+          <StepIndicator steps={['handle', 'skills', 'plan', 'connect']} current={2} />
+
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <h1 style={{
+              fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 30, fontWeight: 800,
+              color: '#e8e8f0', marginBottom: 8, letterSpacing: '-0.02em',
+            }}>Choose your plan</h1>
+            <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', lineHeight: 1.6 }}>
+              {handle
+                ? `You chose @${handle} — see how handle pricing varies by plan below.`
+                : 'You can add a handle any time from your dashboard.'}
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
+            {plans.map(plan => {
+              const selected = wizardSelectedPlan === plan.id;
+              return (
+                <div
+                  key={plan.id}
+                  onClick={() => setWizardSelectedPlan(plan.id)}
+                  style={{
+                    borderRadius: 16, padding: '20px 18px', cursor: 'pointer',
+                    background: selected
+                      ? 'rgba(79,125,243,0.1)'
+                      : plan.highlight
+                        ? 'rgba(79,125,243,0.04)'
+                        : 'rgba(255,255,255,0.02)',
+                    border: selected
+                      ? '2px solid #4f7df3'
+                      : plan.highlight
+                        ? '1px solid rgba(79,125,243,0.25)'
+                        : '1px solid rgba(255,255,255,0.07)',
+                    transition: 'all 0.15s',
+                    position: 'relative',
+                  }}
+                >
+                  {plan.highlight && !selected && (
+                    <div style={{
+                      position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
+                      fontSize: 9, fontWeight: 700, color: '#4f7df3', letterSpacing: '0.1em',
+                      background: '#050711', padding: '2px 8px', borderRadius: 100,
+                      border: '1px solid rgba(79,125,243,0.25)',
+                    }}>POPULAR</div>
+                  )}
+
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(232,232,240,0.5)', letterSpacing: '0.08em', marginBottom: 4 }}>{plan.name.toUpperCase()}</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                      <span style={{ fontSize: 26, fontWeight: 800, color: '#e8e8f0' }}>{plan.price}</span>
+                      <span style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)' }}>{plan.sub}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12, marginBottom: 12 }}>
+                    {plan.features.map(f => (
+                      <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 6 }}>
+                        <Check size={11} color="#4f7df3" style={{ flexShrink: 0, marginTop: 2 }} />
+                        <span style={{ fontSize: 12, color: 'rgba(232,232,240,0.55)', lineHeight: 1.4 }}>{f}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{
+                    fontSize: 11, fontWeight: 500, lineHeight: 1.4,
+                    color: plan.handleNote.startsWith('✓') ? '#34d399' : 'rgba(232,232,240,0.4)',
+                    borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 10,
+                  }}>
+                    {plan.handleNote}
+                  </div>
+
+                  {selected && (
+                    <div style={{
+                      position: 'absolute', top: 10, right: 10,
+                      width: 18, height: 18, borderRadius: '50%', background: '#4f7df3',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Check size={11} color="#fff" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {error && (
+            <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: 13 }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <GhostBtn onClick={() => { setError(null); setStep('wizard-capabilities'); }}>Back</GhostBtn>
+            <PrimaryBtn
+              onClick={() => { if (wizardSelectedPlan) handleCreateAgent(wizardSelectedPlan); }}
+              disabled={!wizardSelectedPlan || submitting}
+              loading={submitting}
+            >
+              Register my agent <ArrowRight size={16} />
+            </PrimaryBtn>
+          </div>
+          <p style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'rgba(232,232,240,0.25)' }}>
+            {wizardSelectedPlan === 'free'
+              ? handle
+                ? `Free plan · Handle checkout ($${handleCostForFree}/yr) shown after registration`
+                : 'Free plan · No payment required today'
+              : 'Plan billed separately · Cancel any time'}
+          </p>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
     );
   }
 
   if (step === 'token-display') {
     const APP_URL = window.location.origin;
+    const showHandleCheckout = !!pendingHandleFromServer && wizardSelectedPlan === 'free';
+    // Starter/Pro users: handle is included in the plan — show subscribe CTA instead of $5 checkout.
+    const showPlanSubscribeCta = !!pendingHandleFromServer && (wizardSelectedPlan === 'starter' || wizardSelectedPlan === 'pro');
 
+    const sdkInstall = `npm install @agentid/sdk`;
     const sdkSnippet = `import { AgentID } from '@agentid/sdk';
 
 const agent = await AgentID.activate({
   claimToken: '${claimToken}',
 });
 
-// agent.identity  -  safe for system prompt
-// agent.secrets.apiKey  -  store in env vars only`;
+// agent.identity  —  safe for system prompt
+// agent.handle    —  e.g. "${handle || 'your-agent'}.agentid"
+// agent.secrets.apiKey  —  store in env vars only`;
 
-    const curlSnippet = `# Step 1: Claim your identity
+    const curlSnippet = `# Step 1 — claim your identity (send your ed25519 public key)
 curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim \\
   -H "Content-Type: application/json" \\
-  -d '{"token":"${claimToken}","publicKey":"<ed25519-pub>","keyType":"ed25519"}'
+  -d '{"token":"${claimToken}","publicKey":"<ed25519-pub-base64>","keyType":"ed25519"}'
 
-# Step 2: Sign the returned challenge, then activate
+# Step 2 — sign the returned challenge and activate
 curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/activate \\
   -H "Content-Type: application/json" \\
   -d '{"agentId":"${createdAgentId}","challenge":"<challenge>","signature":"<sig>","claimToken":"${claimToken}"}'`;
 
-    const chatPrompt = `I've registered you on Agent ID. Your claim token is:
+    const chatPrompt = `I've registered you on Agent ID. Activate your identity now.
 
+Your claim token:
 ${claimToken}
 
-Activate your identity by calling:
-POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim
-with your ed25519 public key, then sign the challenge and POST to /bootstrap/activate.`;
+Step 1 — POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim
+  Body: { "token": "<above>", "publicKey": "<your ed25519 pub key>", "keyType": "ed25519" }
 
+Step 2 — sign the challenge returned, then POST to /bootstrap/activate
+  Body: { "agentId": "${createdAgentId}", "challenge": "<from step 1>", "signature": "<signed>", "claimToken": "<above>" }`;
+
+    const snippets = { sdk: sdkSnippet, api: curlSnippet, chat: chatPrompt };
     const tabs = [
-      { id: 'sdk' as const, label: 'SDK (recommended)' },
+      { id: 'sdk' as const, label: 'SDK' },
       { id: 'api' as const, label: 'API (cURL)' },
       { id: 'chat' as const, label: 'Chat Prompt' },
     ];
 
-    const snippets = { chat: chatPrompt, sdk: sdkSnippet, api: curlSnippet };
-
     return (
       <div style={pageStyle}>
-        <StepIndicator steps={['handle', 'capabilities', 'activate']} current={2} />
+        <StepIndicator steps={['handle', 'skills', 'plan', 'connect']} current={3} />
 
-        {/* Success summary */}
+        {/* Agent card */}
         <div style={{
-          padding: '28px', borderRadius: 18,
+          padding: '20px 24px', borderRadius: 16,
           background: 'rgba(8,10,22,0.98)',
           border: '1px solid rgba(52,211,153,0.2)',
-          marginBottom: 24,
-          boxShadow: '0 0 40px rgba(52,211,153,0.06)',
+          marginBottom: 20,
+          boxShadow: '0 0 32px rgba(52,211,153,0.05)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
-              width: 44, height: 44, borderRadius: 12,
+              width: 40, height: 40, borderRadius: 10,
               background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
-              <Bot size={22} color="#fff" />
+              <Bot size={20} color="#fff" />
             </div>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#e8e8f0', fontFamily: 'var(--font-heading)' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#e8e8f0' }}>
                 {handle
                   ? <>{agentName || handle}<span style={{ color: '#4f7df3' }}>.agentid</span></>
                   : <span>{agentName || 'Your Agent'}</span>
                 }
               </div>
               {handle && (
-                <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: 'rgba(232,232,240,0.3)', fontFamily: 'var(--font-mono)', marginTop: 1 }}>
                   {handle}.getagent.id
                 </div>
               )}
             </div>
-            <div style={{ marginLeft: 'auto' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 6px rgba(52,211,153,0.5)' }} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#34d399', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>REGISTERED</span>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 6px rgba(52,211,153,0.5)' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#34d399', letterSpacing: '0.08em' }}>REGISTERED</span>
             </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-            {[
-              { label: 'Handle', value: handle ? `${handle}.agentid` : 'None (pending)', color: handle ? '#4f7df3' : 'rgba(232,232,240,0.35)' },
-              { label: 'Profile', value: 'Public & ready', color: '#34d399' },
-              { label: 'Issued', value: new Date().toISOString().split('T')[0], color: 'rgba(232,232,240,0.4)' },
-            ].map(f => (
-              <div key={f.label} style={{
-                padding: '12px 14px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)',
-              }}>
-                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.12em', color: 'rgba(232,232,240,0.25)', marginBottom: 5, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>{f.label}</div>
-                <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: f.color, fontWeight: 500 }}>{f.value}</div>
-              </div>
-            ))}
           </div>
         </div>
 
-        {/* Primary CTA - connect agent */}
-        <div style={{ marginBottom: 24, textAlign: 'center' }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#e8e8f0', marginBottom: 6 }}>
-            Next: connect your agent
-          </h2>
-          <p style={{ fontSize: 14, color: 'rgba(232,232,240,0.45)', marginBottom: 20, lineHeight: 1.6 }}>
-            Give your agent its claim token so it can activate its identity and start operating as <strong style={{ color: '#e8e8f0' }}>{handle ? `${handle}.agentid` : (agentName || 'your agent')}</strong>.
-          </p>
-
-          <Card style={{ marginBottom: 16, textAlign: 'left' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={labelStyle}>Claim Token</div>
-              <CopyButton text={claimToken || ''} />
-            </div>
-            <div style={{
-              padding: '12px 14px', borderRadius: 8,
-              background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)',
-              fontFamily: 'var(--font-mono)', fontSize: 12, color: '#a5bdfc',
-              wordBreak: 'break-all', lineHeight: 1.6, userSelect: 'all',
-            }}>
-              {claimToken}
-            </div>
-            <div style={{ marginTop: 10, fontSize: 11, color: 'rgba(232,232,240,0.3)', lineHeight: 1.5 }}>
-              Keep this token private - treat it like a password. Do not paste it into AI chat interfaces, public forums, or share it with anyone. It expires in 7 days and can only be used once.
-            </div>
-          </Card>
-
-          {/* Activation status */}
+        {/* Handle checkout CTA — free plan + pending handle */}
+        {showHandleCheckout && (
           <div style={{
-            padding: '14px 18px', borderRadius: 12,
-            background: agentActivated ? 'rgba(16,185,129,0.08)' : 'rgba(79,125,243,0.06)',
-            border: `1px solid ${agentActivated ? 'rgba(16,185,129,0.25)' : 'rgba(79,125,243,0.15)'}`,
-            display: 'flex', alignItems: 'center', gap: 12,
+            marginBottom: 20, padding: '16px 20px', borderRadius: 14,
+            background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
+            display: 'flex', alignItems: 'center', gap: 14,
           }}>
-            {agentActivated ? (
-              <Check size={18} style={{ color: '#34d399', flexShrink: 0 }} />
-            ) : (
-              <Loader2 size={18} style={{ animation: 'spin 1s linear infinite', color: '#4f7df3', flexShrink: 0 }} />
-            )}
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: agentActivated ? '#34d399' : '#e8e8f0' }}>
-                {agentActivated ? 'Agent activated!' : 'Waiting for your agent to connect…'}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#e8e8f0', marginBottom: 3 }}>
+                Claim @{pendingHandleFromServer}.agentid
               </div>
-              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', marginTop: 2 }}>
-                {agentActivated
-                  ? 'Your agent has claimed its identity and is now active on the network.'
-                  : 'This page updates automatically once your agent uses the claim token.'}
+              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>
+                $5/yr — your handle is reserved for 24 hours. Pay now to secure it.
               </div>
             </div>
-          </div>
-        </div>
-
-        {agentActivated && (
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <PrimaryBtn onClick={() => navigate('/dashboard')}>
-              Open Dashboard <ArrowRight size={16} />
-            </PrimaryBtn>
+            <button
+              onClick={handleHandleCheckout}
+              disabled={checkoutSubmitting}
+              style={{
+                padding: '10px 18px', borderRadius: 10,
+                background: checkoutSubmitting ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.15)',
+                border: '1px solid rgba(245,158,11,0.35)',
+                color: '#f59e0b', fontSize: 13, fontWeight: 600,
+                cursor: checkoutSubmitting ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >
+              {checkoutSubmitting
+                ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Processing…</>
+                : <>Pay $5/yr <ArrowRight size={13} /></>
+              }
+            </button>
           </div>
         )}
 
-        {/* Progressive disclosure - bootstrap details */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 20 }}>
-          <button
-            onClick={() => setShowConnectDetails(v => !v)}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              padding: '8px 0', color: 'rgba(232,232,240,0.4)', fontSize: 13,
-            }}
-          >
-            <span>Connection details (SDK &amp; API)</span>
-            <span style={{ fontSize: 12, opacity: 0.6 }}>{showConnectDetails ? '▲ Hide' : '▼ Show'}</span>
-          </button>
-
-          {showConnectDetails && (
-            <div style={{ marginTop: 16 }}>
-              <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                {tabs.map(tab => (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-                    padding: '8px 14px', fontSize: 12, fontWeight: 500,
-                    color: activeTab === tab.id ? '#4f7df3' : 'rgba(232,232,240,0.4)',
-                    background: 'transparent', border: 'none',
-                    borderBottom: activeTab === tab.id ? '2px solid #4f7df3' : '2px solid transparent',
-                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
-                  }}>
-                    {tab.label}
-                  </button>
-                ))}
+        {/* Plan subscribe CTA — Starter/Pro selected in wizard but not yet subscribed */}
+        {showPlanSubscribeCta && (
+          <div style={{
+            marginBottom: 20, padding: '16px 20px', borderRadius: 14,
+            background: 'rgba(79,125,243,0.06)', border: '1px solid rgba(79,125,243,0.2)',
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#e8e8f0', marginBottom: 3 }}>
+                Get @{pendingHandleFromServer}.agentid free with {wizardSelectedPlan === 'starter' ? 'Starter' : 'Pro'}
               </div>
-              <div style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
-                  <CopyButton text={snippets[activeTab]} />
-                </div>
-                <pre style={{
-                  padding: '14px', borderRadius: 8,
-                  background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)',
-                  fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(232,232,240,0.7)',
-                  lineHeight: 1.6, overflow: 'auto', maxHeight: 300, margin: 0,
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-                }}>
-                  {snippets[activeTab]}
-                </pre>
+              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>
+                Your handle is reserved. Subscribe to {wizardSelectedPlan === 'starter' ? 'Starter ($29/mo)' : 'Pro ($79/mo)'} and it's included at no extra cost.
               </div>
             </div>
-          )}
+            <button
+              onClick={async () => {
+                try {
+                  const base = window.location.origin;
+                  const r = await api.billing.checkout({
+                    plan: wizardSelectedPlan as 'starter' | 'pro',
+                    billingInterval: 'monthly',
+                    successUrl: `${base}/dashboard?subscribed=1`,
+                    cancelUrl: `${base}/get-started`,
+                  });
+                  if (r.url) window.location.href = r.url;
+                } catch { /* non-fatal */ }
+              }}
+              style={{
+                padding: '10px 18px', borderRadius: 10,
+                background: 'rgba(79,125,243,0.15)', border: '1px solid rgba(79,125,243,0.35)',
+                color: '#a5bdfc', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >
+              Subscribe <ArrowRight size={13} />
+            </button>
+          </div>
+        )}
+
+        {/* Claim token */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e8f0', marginBottom: 10 }}>
+            Give this token to your agent
+          </div>
+          <div style={{
+            borderRadius: 12, background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(232,232,240,0.3)', letterSpacing: '0.1em' }}>CLAIM TOKEN</span>
+              <CopyButton text={claimToken || ''} />
+            </div>
+            <div style={{
+              padding: '14px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#a5bdfc',
+              wordBreak: 'break-all', lineHeight: 1.7, userSelect: 'all',
+            }}>
+              {claimToken}
+            </div>
+            <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: 11, color: 'rgba(232,232,240,0.25)', lineHeight: 1.5 }}>
+              ⚠ Keep private — treat like a password. Do not paste into AI chat interfaces, public forums, or version control. Expires in 7 days, single-use.
+            </div>
+          </div>
         </div>
 
-        <div style={{ marginTop: 24, textAlign: 'center' }}>
-          <button
-            onClick={() => navigate('/dashboard')}
-            style={{
-              background: 'none', border: 'none', color: 'rgba(232,232,240,0.35)', fontSize: 13,
-              cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline',
-            }}
-          >
-            Go to dashboard &rarr;
-          </button>
+        {/* How to connect — open by default */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e8f0', marginBottom: 10 }}>
+            How to connect your agent
+          </div>
+          <div style={{
+            borderRadius: 12, background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden',
+          }}>
+            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              {tabs.map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+                  padding: '10px 16px', fontSize: 12, fontWeight: 500,
+                  color: activeTab === tab.id ? '#4f7df3' : 'rgba(232,232,240,0.4)',
+                  background: 'transparent', border: 'none',
+                  borderBottom: activeTab === tab.id ? '2px solid #4f7df3' : '2px solid transparent',
+                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                }}>
+                  {tab.label}
+                </button>
+              ))}
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', paddingRight: 10 }}>
+                <CopyButton text={activeTab === 'sdk' ? `${sdkInstall}\n\n${snippets.sdk}` : snippets[activeTab]} />
+              </div>
+            </div>
+            {activeTab === 'sdk' && (
+              <div style={{
+                padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'rgba(79,125,243,0.04)',
+              }}>
+                <span style={{ fontSize: 11, color: 'rgba(232,232,240,0.35)' }}>Install:</span>
+                <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#a5bdfc' }}>npm install @agentid/sdk</code>
+                <CopyButton text={sdkInstall} />
+              </div>
+            )}
+            <pre style={{
+              padding: '14px', margin: 0,
+              fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(232,232,240,0.75)',
+              lineHeight: 1.65, overflow: 'auto', maxHeight: 260,
+              whiteSpace: 'pre-wrap', wordBreak: 'break-all', background: 'transparent',
+            }}>
+              {snippets[activeTab]}
+            </pre>
+          </div>
+        </div>
+
+        {/* Activation status */}
+        <div style={{
+          marginBottom: 20, padding: '14px 18px', borderRadius: 12,
+          background: agentActivated ? 'rgba(16,185,129,0.08)' : 'rgba(79,125,243,0.06)',
+          border: `1px solid ${agentActivated ? 'rgba(16,185,129,0.25)' : 'rgba(79,125,243,0.15)'}`,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          {agentActivated
+            ? <Check size={18} style={{ color: '#34d399', flexShrink: 0 }} />
+            : <Loader2 size={18} style={{ animation: 'spin 1s linear infinite', color: '#4f7df3', flexShrink: 0 }} />
+          }
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: agentActivated ? '#34d399' : '#e8e8f0' }}>
+              {agentActivated ? 'Agent connected!' : 'Waiting for your agent to connect…'}
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', marginTop: 2 }}>
+              {agentActivated
+                ? 'Your agent has claimed its identity and is live on the network.'
+                : 'This page updates automatically once your agent uses the claim token.'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'center' }}>
+          <PrimaryBtn onClick={() => goToDashboard()}>
+            Open Dashboard <ArrowRight size={16} />
+          </PrimaryBtn>
         </div>
 
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -1278,7 +1509,7 @@ Authorization: Bearer ${ownerToken}
 
         <div style={{ marginTop: 24, textAlign: 'center' }}>
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => goToDashboard()}
             style={{
               background: 'none', border: 'none', color: 'rgba(232,232,240,0.35)', fontSize: 13,
               cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline',
@@ -1310,7 +1541,7 @@ Authorization: Bearer ${ownerToken}
           <p style={{ ...subtitleStyle, marginBottom: 40, textAlign: 'center' }}>
             Your agent is live on Agent ID with a verified identity, public profile, and routing address.
           </p>
-          <PrimaryBtn onClick={() => navigate('/dashboard')}>
+          <PrimaryBtn onClick={() => goToDashboard()}>
             Open Dashboard <ArrowRight size={16} />
           </PrimaryBtn>
         </div>

@@ -167,8 +167,8 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
     });
     if (!agent) throw new AppError(404, "NOT_FOUND", "Agent not found");
 
-    const { agentKeysTable, agentCredentialsTable } = await import("@workspace/db/schema");
-
+    // M5: Wrap core revocation writes in a transaction so agent status and key
+    // revocation are always consistent — no partial state on failure.
     await db.transaction(async (tx) => {
       await tx.update(agentsTable).set({
         status: "revoked",
@@ -178,6 +178,7 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
         updatedAt: new Date(),
       }).where(eq(agentsTable.id, agentId));
 
+      const { agentKeysTable } = await import("@workspace/db/schema");
       await tx.update(agentKeysTable)
         .set({ status: "revoked", revokedAt: new Date() })
         .where(and(
@@ -185,6 +186,7 @@ router.post("/agents/:id/revoke", async (req: Request, res: Response, next: Next
           eq(agentKeysTable.status, "active"),
         ));
 
+      const { agentCredentialsTable } = await import("@workspace/db/schema");
       await tx.update(agentCredentialsTable)
         .set({ isActive: false, revokedAt: new Date(), updatedAt: new Date() })
         .where(and(

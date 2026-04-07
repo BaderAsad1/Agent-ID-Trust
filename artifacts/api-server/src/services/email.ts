@@ -70,6 +70,7 @@ async function deliverEmail(recipient: string, subject: string, html: string): P
 export async function sendEmail(
   template: EmailTemplate,
   recipient: string,
+  idempotencyKey?: string,
 ): Promise<void> {
   try {
     if (!env().RESEND_API_KEY) {
@@ -86,12 +87,18 @@ export async function sendEmail(
     const queue = getQueue();
     if (queue) {
       try {
-        await queue.add("send-email", { recipient, subject, html }, {
+        const jobOptions: Parameters<typeof queue.add>[2] = {
           attempts: 3,
           backoff: { type: "exponential", delay: 2000 },
           removeOnComplete: 100,
           removeOnFail: 200,
-        });
+        };
+        // Stable jobId prevents duplicate deliveries if the same event fires twice
+        // (e.g., double-click reaching the server, or an inadvertent retry).
+        if (idempotencyKey) {
+          jobOptions.jobId = `notif-${template.type}-${idempotencyKey}`;
+        }
+        await queue.add("send-email", { recipient, subject, html }, jobOptions);
         logger.info({
           template: template.type,
           recipient,
@@ -121,10 +128,12 @@ export async function sendAgentRegisteredEmail(
   userEmail: string,
   agentHandle: string,
   agentDisplayName: string,
+  agentId: string,
 ): Promise<void> {
   await sendEmail(
     { type: "welcome", data: { agentHandle, agentDisplayName } },
     userEmail,
+    agentId,
   );
 }
 
@@ -215,6 +224,10 @@ export async function sendMagicLinkEmail(
     const magicLinkEnvelope = {
       ...envelope(recipientEmail, subject, html),
       noRetry: true,
+      // System notification: bypasses agent-message delivery tracking in the worker.
+      // Magic link emails are transactional auth emails, not agent-to-user messages,
+      // so they have no corresponding agentMessagesTable row to update.
+      isSystemNotification: true,
     };
     const result = await deliverOutbound(magicLinkEnvelope);
     if (result.success) {

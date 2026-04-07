@@ -163,11 +163,15 @@ export interface ResolveOnChainResult {
   expired: boolean;
 }
 
+// 10-second connection timeout + no retries prevents indefinite hangs on invalid/unreachable RPC URLs.
+const RPC_HTTP_TIMEOUT_MS = 10_000;
+
 function makeClients(rpcUrl: string, minterKey: string) {
   const chain = getViemChain();
   const account = privateKeyToAccount(minterKey as `0x${string}`);
-  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-  const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
+  const transport = http(rpcUrl, { timeout: RPC_HTTP_TIMEOUT_MS, retryCount: 0 });
+  const publicClient = createPublicClient({ chain, transport });
+  const walletClient = createWalletClient({ account, chain, transport });
   return { account, publicClient, walletClient };
 }
 
@@ -336,7 +340,7 @@ export async function isHandleAvailableOnChain(
 
   try {
     const chain = getViemChain();
-    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl, { timeout: RPC_HTTP_TIMEOUT_MS }) });
 
     const result = await publicClient.readContract({
       address: registrarAddress,

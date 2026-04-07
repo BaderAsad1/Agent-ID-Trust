@@ -10,32 +10,32 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const FAQ_ITEMS = [
   {
-    q: 'What does the Free plan include?',
-    a: 'One agent with a permanent UUID identity, trust scoring, a public ERC-8004 agent card, and full access to the SDK, MCP server, and REST API. Handles require a paid plan (Starter, Pro, or Enterprise custom entitlement).',
+    q: 'What does the Free plan actually give me?',
+    a: "One agent with a permanent UUID identity that never expires — even if you stop paying or downgrade. You also get a public agent card (ERC-8004 compliant) that any system can look up, a trust score visible to other agents and platforms, and full access to the SDK, MCP server, and REST API. The only thing Free doesn't include is a human-readable handle.",
   },
   {
     q: "What's the difference between a UUID and a handle?",
-    a: "Every agent gets a UUID, the permanent machine identifier that never expires. A handle like openclaw.agentid is the human-readable name that maps to it. Think IP address vs domain name. UUIDs are included on all plans; handles require a paid plan and renew annually, with standard 5+ character handles included on Starter and Pro.",
+    a: "Think of it like an IP address vs a domain name. Every agent gets a UUID — the permanent machine identifier that's yours forever and never needs renewal. A handle like openclaw.agentid is the human-readable name that maps to it, making your agent easy for people and other agents to find. UUIDs are free forever; handles require a paid plan and renew annually.",
   },
   {
-    q: 'Can I buy a handle without a paid plan?',
-    a: 'Handles require a paid plan. Standard handles (5+ characters) are included with Starter or Pro; Enterprise handle access is provisioned via custom entitlement. Premium handles (4-character at $29/yr, 3-character at $99/yr) require payment and a paid plan. Free plan agents receive a UUID identity only; handles are not available on the Free plan.',
+    q: 'Why do handles require a paid plan?',
+    a: "Handles are discoverable names in a shared namespace, so they need to be tied to an active account to stay healthy. Standard handles (5+ chars) are included with Starter and Pro — no extra charge. Premium short handles (4 chars at $29/yr, 3 chars at $99/yr) are available as add-ons on any paid plan.",
   },
   {
     q: "What happens if I don't renew a handle?",
-    a: "Your agent's UUID identity is permanent, it never expires and always resolves. Only handles are annual. After expiry you get a 90-day grace period before the handle becomes available for re-registration.",
+    a: "Your agent's UUID identity is permanent and always resolves — that never changes. Only handles have an annual renewal. After a handle expires you get a 90-day grace period to renew before it becomes available for re-registration by others.",
   },
   {
-    q: 'Can I upgrade or downgrade anytime?',
-    a: 'Yes. Plan changes take effect immediately and are prorated. Your agents keep their UUID identities and registered handles regardless of plan changes.',
+    q: 'Can I upgrade, downgrade, or cancel anytime?',
+    a: 'Yes. Plan changes take effect immediately and are prorated. Your agents keep their UUID identities and any registered handles regardless of plan changes.',
   },
   {
-    q: 'Can my agent register itself?',
-    a: 'Yes. The SDK supports fully autonomous registration. Your agent generates its own keys, registers, and receives a signed identity in two API calls. No human interaction required.',
+    q: 'Can my agent register itself without any human involvement?',
+    a: 'Yes — this is a core design goal. The SDK supports fully autonomous registration. Your agent generates its own cryptographic keys, calls the registration endpoint, and receives a signed identity in two API calls. No human interaction required.',
   },
   {
     q: 'Is Agent ID on-chain?',
-    a: 'Agent ID follows the ERC-8004 standard - a published spec for on-chain agent identity cards, similar to how ERC-20 defined fungible tokens. Every agent gets an ERC-8004-compliant identity card automatically. Handles can optionally be minted as on-chain NFTs (available now for 3–4 character premium handles), but the identity itself is valid on or off chain.',
+    a: 'Agent ID follows the ERC-8004 standard - a published spec for on-chain agent identity cards, similar to how ERC-20 defined fungible tokens. Every agent gets an ERC-8004-compliant identity card automatically. Handles can optionally be minted as on-chain NFTs (available now for 3-4 character premium handles), but the identity itself is valid on or off chain.',
   },
 ];
 
@@ -114,20 +114,20 @@ export function Pricing() {
 
   return (
     <div style={{ background: '#050711', minHeight: '100vh', fontFamily: "'Inter', sans-serif", color: '#e8e8f0', paddingTop: 64 }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '60px 32px 80px', position: 'relative' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '40px 16px 60px' : '60px 32px 80px', position: 'relative' }}>
 
         {/* Ambient glow */}
         <div style={{ position: 'absolute', top: -100, left: '50%', transform: 'translateX(-50%)', width: 900, height: 500, background: 'radial-gradient(ellipse, rgba(79,125,243,0.06) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
 
         <div style={{ position: 'relative', zIndex: 1 }}>
           {/* Header */}
-          <div style={{ textAlign: 'center', maxWidth: 580, margin: '0 auto 48px' }}>
+          <div style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto 48px' }}>
             <h1 style={{ fontSize: 'clamp(32px, 5vw, 44px)', fontWeight: 900, lineHeight: 1.08, margin: '0 0 14px', letterSpacing: '-0.03em', background: 'linear-gradient(160deg, #e8e8f0 40%, #8690a8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               Identity for every agent.
             </h1>
-            <p style={{ fontSize: 16, fontWeight: 600, color: '#c4cde0', margin: '0 0 10px' }}>Free to start. Scales with your fleet.</p>
-            <p style={{ fontSize: 14, color: '#8690a8', lineHeight: 1.6, margin: 0 }}>
-              Every agent gets a permanent machine identity at registration. It never expires, even on the free plan.
+            <p style={{ fontSize: 16, fontWeight: 600, color: '#c4cde0', margin: '0 0 12px' }}>Free to start. Scales with your fleet.</p>
+            <p style={{ fontSize: 14, color: '#8690a8', lineHeight: 1.65, margin: 0 }}>
+              Agent ID gives every AI agent a permanent, verifiable identity — like a passport for machines. Register free and get a UUID that never expires. Add a human-readable handle when you're ready to be found.
             </p>
           </div>
 
@@ -147,7 +147,7 @@ export function Pricing() {
             </span>
           </div>
 
-          {/* Plan cards - Gravity grid */}
+          {/* Plan cards */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: 12, alignItems: 'end', marginBottom: 48 }}>
             {PRICING_PLANS.map(plan => {
               const isH = plan.highlight;
@@ -273,7 +273,7 @@ export function Pricing() {
           </p>
 
           {/* Social proof */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 48, paddingBottom: 56, borderBottom: '1px solid #1a1f30', marginBottom: 72, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 24 : 48, paddingBottom: isMobile ? 36 : 56, borderBottom: '1px solid #1a1f30', marginBottom: isMobile ? 48 : 72, flexWrap: 'wrap' }}>
             {[
               { num: agentCount ? `${agentCount.toLocaleString()}+` : '', label: 'Agents registered' },
               { num: 'ERC-8004', label: 'Standard compliant' },
@@ -288,8 +288,8 @@ export function Pricing() {
           </div>
 
           {/* Handle pricing table */}
-          <div style={{ marginBottom: 72 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', textAlign: 'center', margin: '0 0 8px', color: '#e8e8f0' }}>
+          <div style={{ marginBottom: isMobile ? 48 : 72 }}>
+            <h2 style={{ fontSize: isMobile ? 20 : 22, fontWeight: 800, letterSpacing: '-0.02em', textAlign: 'center', margin: '0 0 10px', color: '#e8e8f0' }}>
               .agentid Handles
             </h2>
             <p style={{ textAlign: 'center', fontSize: 14, color: '#8690a8', margin: '0 0 8px' }}>A handle maps to your agent's permanent UUID — like a domain name to an IP address.</p>
@@ -327,7 +327,7 @@ export function Pricing() {
               )}
             </div>
             <p style={{ textAlign: 'center', fontSize: 11, color: '#606880', marginTop: 12 }}>
-              On-chain NFT minting available now for premium handles (3-4 char). All handles coming soon.
+              On-chain NFT minting available for premium handles (3-4 char). Standard handles minting rolling out now.
             </p>
           </div>
 

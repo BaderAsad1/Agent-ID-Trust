@@ -134,6 +134,7 @@ export const agentsTable = pgTable(
     uniqueIndex("agents_handle_idx").on(table.handle).where(sql`handle IS NOT NULL`),
     index("agents_handle_lower_idx").on(sql`lower(${table.handle})`).where(sql`handle IS NOT NULL`),
     index("agents_user_id_idx").on(table.userId),
+    index("agents_user_id_status_idx").on(table.userId, table.status),
     index("agents_status_idx").on(table.status),
     index("agents_verification_status_idx").on(table.verificationStatus),
     index("agents_trust_score_idx").on(table.trustScore),

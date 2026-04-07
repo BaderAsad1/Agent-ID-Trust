@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { eq, and } from "drizzle-orm";
+import sanitizeHtmlLib from "sanitize-html";
 import { db } from "@workspace/db";
 import {
   agentInboxesTable,
@@ -78,18 +79,39 @@ function detectPriority(headers: Record<string, string>, subject: string | null)
 }
 
 function sanitizeHtml(html: string): string {
-  let sanitized = html;
-  sanitized = sanitized.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
-  sanitized = sanitized.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
-  sanitized = sanitized.replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, "");
-  sanitized = sanitized.replace(/<object[^>]*>[\s\S]*?<\/object>/gi, "");
-  sanitized = sanitized.replace(/<embed[^>]*>/gi, "");
-  sanitized = sanitized.replace(/<form[^>]*>[\s\S]*?<\/form>/gi, "");
-  sanitized = sanitized.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
-  sanitized = sanitized.replace(/\son\w+\s*=\s*[^\s>]*/gi, "");
-  sanitized = sanitized.replace(/javascript\s*:/gi, "");
-  sanitized = sanitized.replace(/data\s*:/gi, "data-blocked:");
-  return sanitized;
+  return sanitizeHtmlLib(html, {
+    allowedTags: [
+      "a", "b", "blockquote", "br", "caption", "cite", "code", "col",
+      "colgroup", "dd", "div", "dl", "dt", "em", "h1", "h2", "h3", "h4",
+      "h5", "h6", "hr", "i", "img", "li", "ol", "p", "pre", "q", "small",
+      "span", "strike", "strong", "sub", "sup", "table", "tbody", "td",
+      "tfoot", "th", "thead", "tr", "u", "ul",
+    ],
+    allowedAttributes: {
+      "a": ["href", "name", "target", "rel"],
+      "img": ["src", "alt", "title", "width", "height"],
+      "*": ["style", "class"],
+    },
+    allowedStyles: {
+      "*": {
+        "color": [/.*/],
+        "background-color": [/.*/],
+        "font-size": [/.*/],
+        "font-weight": [/.*/],
+        "text-align": [/.*/],
+        "margin": [/.*/],
+        "padding": [/.*/],
+      },
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesByTag: { "img": ["http", "https", "cid"] },
+    transformTags: {
+      "a": (_tagName, attribs) => ({
+        tagName: "a",
+        attribs: { ...attribs, rel: "noopener noreferrer", target: "_blank" },
+      }),
+    },
+  });
 }
 
 export function parseInboundEmail(payload: ResendInboundPayload): ParsedInboundEmail {

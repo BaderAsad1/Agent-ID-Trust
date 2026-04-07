@@ -113,25 +113,39 @@ const server = app.listen(port, () => {
 
 async function gracefulShutdown(signal: string) {
   logger.info({ signal }, "Shutting down gracefully");
-  if (jobExpiryTimer) clearInterval(jobExpiryTimer);
-  stopTrustWorker();
-  stopWebhookRetryWorker();
-  stopNftMintWorker();
-  stopNftTransferDetector();
-  stopReputationJob();
-  await stopAgentExpiryWorker();
-  await stopHandleLifecycleWorker();
-  server.close();
-  await closeDomainWorker();
-  await closeWebhookWorker();
-  await closeEmailWorker();
-  stopUndeliverableCleanupWorker();
-  await closeOutboundMailWorker();
-  await closeOutboundQueue();
-  await closeRedis();
-  await pool.end();
-  process.exit(0);
+  try {
+    if (jobExpiryTimer) clearInterval(jobExpiryTimer);
+    stopTrustWorker();
+    stopWebhookRetryWorker();
+    stopNftMintWorker();
+    stopNftTransferDetector();
+    stopReputationJob();
+    await stopAgentExpiryWorker();
+    await stopHandleLifecycleWorker();
+    server.close();
+    await closeDomainWorker();
+    await closeWebhookWorker();
+    await closeEmailWorker();
+    stopUndeliverableCleanupWorker();
+    await closeOutboundMailWorker();
+    await closeOutboundQueue();
+    await closeRedis();
+    await pool.end();
+  } catch (err) {
+    logger.error({ err, signal }, "Error during graceful shutdown");
+  } finally {
+    process.exit(0);
+  }
 }
 
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+process.on("unhandledRejection", (reason) => {
+  logger.error({ reason }, "Unhandled promise rejection");
+});
+
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "Uncaught exception — shutting down");
+  gracefulShutdown("uncaughtException");
+});

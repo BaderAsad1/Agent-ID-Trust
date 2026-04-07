@@ -337,9 +337,12 @@ export async function canAccessTask(
 
   const agentIds = await getUserAgentIds(userId);
 
+  // Access is granted only if the user currently owns an agent that is the
+  // sender or recipient of this task. We intentionally do NOT grant access
+  // via task.senderUserId because ownership transfer would otherwise leave
+  // a backdoor for former owners to see tasks of agents they no longer own.
   if (agentIds.includes(task.recipientAgentId)) return true;
   if (task.senderAgentId && agentIds.includes(task.senderAgentId)) return true;
-  if (task.senderUserId === userId) return true;
 
   return false;
 }
