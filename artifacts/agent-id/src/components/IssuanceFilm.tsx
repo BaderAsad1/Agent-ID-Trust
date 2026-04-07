@@ -2433,15 +2433,6 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
             <HeroIssuanceRings heroProgress={scroll.heroProgress} />
           </div>
 
-          {/* Ambient glow — lives in the sticky container so it renders behind the credential card */}
-          <div style={{
-            position: 'absolute',
-            top: '50%', left: '50%',
-            transform: 'translate(-50%, -58%)',
-            width: 1100, height: 720,
-            background: 'radial-gradient(ellipse at 44% 40%, rgba(79,125,243,0.22) 0%, rgba(124,91,245,0.11) 36%, transparent 68%)',
-            pointerEvents: 'none',
-          }} />
 
           <IssuanceMomentFlash active={ceremonyState === 'active'} />
 
@@ -2454,9 +2445,10 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           <SystemResolvingText progress={scroll.heroProgress} />
 
           <div style={{
-            position: 'relative', zIndex: 5,
+            position: 'absolute', zIndex: 5,
+            top: '50%', left: '50%',
+            transform: `translate(-50%, -50%) scale(${credentialScale})`,
             opacity: credentialOpacity * heroOpacity,
-            transform: `scale(${credentialScale})`,
             filter: `blur(${credentialBlur}px)`,
             transition: 'transform 0.8s cubic-bezier(0.16,1,0.3,1)',
           }}>
