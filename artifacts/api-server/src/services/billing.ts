@@ -19,6 +19,7 @@ import {
 import { getHandlePricingTier as sharedGetHandlePricingTier, isEligibleForIncludedHandle, isAllowedHandleAccess } from "@workspace/shared-pricing";
 import { env } from "../lib/env";
 import { getStripe } from "./stripe-client";
+import { getPlatformTreasuryAddress } from "../lib/cdp";
 
 export { isEligibleForIncludedHandle, hasCustomHandleEntitlement, isAllowedHandleAccess } from "@workspace/shared-pricing";
 
@@ -1988,7 +1989,7 @@ export async function createCryptoCheckoutSession(
   userId: string,
   token: "USDC" | "USDT" = "USDC",
 ): Promise<CryptoCheckoutResult> {
-  const platformWallet = process.env.BASE_PLATFORM_WALLET;
+  const platformWallet = process.env.BASE_PLATFORM_WALLET || getPlatformTreasuryAddress();
   if (!platformWallet) {
     throw new Error("BASE_PLATFORM_WALLET is not configured — crypto payments unavailable");
   }
@@ -2026,7 +2027,7 @@ export async function pollForCryptoPayment(
   agentId?: string,
 ): Promise<{ confirmed: boolean; txHash?: string }> {
   const rpcUrl = process.env.BASE_RPC_URL;
-  const platformWallet = process.env.BASE_PLATFORM_WALLET;
+  const platformWallet = process.env.BASE_PLATFORM_WALLET || getPlatformTreasuryAddress();
 
   if (!rpcUrl || !platformWallet) {
     logger.warn({ handle, reference }, "[billing] crypto-payment: BASE_RPC_URL or BASE_PLATFORM_WALLET not set — cannot verify");
