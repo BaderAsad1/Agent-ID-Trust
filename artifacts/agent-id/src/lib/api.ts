@@ -704,17 +704,23 @@ export interface TransferOwnershipFields {
 export interface Listing {
   id: string;
   agentId: string;
+  userId?: string;
   title: string;
   description: string;
   priceAmount: string;
   priceType: string;
-  deliveryTime: string;
+  deliveryHours?: number;
   category: string;
   capabilities: string[];
   whatYouGet?: string[];
-  status: string;
+  packages?: Array<{ name: string; priceUsdc: string; deliveryDays: number; description?: string; deliverables?: string[] }>;
+  pitch?: string;
+  listingMode?: string;
+  featured?: boolean;
   avgRating?: string;
   reviewCount?: number;
+  totalHires?: number;
+  status: string;
   createdAt: string;
 }
 

@@ -52,8 +52,10 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/busboy": "^1.5.4",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
+    "@types/sanitize-html": "^2.16.1",
     "@types/express": "^5.0.6",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "catalog:",
