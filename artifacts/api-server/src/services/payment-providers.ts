@@ -1,5 +1,6 @@
 import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { logger } from "../middlewares/request-logger";
 import {
   paymentIntentsTable,
   paymentAuthorizationsTable,
@@ -86,7 +87,7 @@ class StripeProvider implements PaymentProvider {
         clientSecret: pi.client_secret ?? undefined,
       };
     } catch (err) {
-      console.error("[StripeProvider] createIntent error:", err);
+      logger.error({ err }, "[StripeProvider] createIntent error");
       return {
         success: false,
         error: err instanceof Error ? err.message : "STRIPE_ERROR",
@@ -119,7 +120,7 @@ class StripeProvider implements PaymentProvider {
           return { success: false, error: `UNEXPECTED_STATUS:${pi.status}` };
       }
     } catch (err) {
-      console.error("[StripeProvider] authorizePayment error:", err);
+      logger.error({ err }, "[StripeProvider] authorizePayment error");
       return {
         success: false,
         error: err instanceof Error ? err.message : "STRIPE_AUTH_ERROR",
@@ -133,7 +134,7 @@ class StripeProvider implements PaymentProvider {
       await stripe.paymentIntents.capture(providerReference);
       return { success: true };
     } catch (err) {
-      console.error("[StripeProvider] capturePayment error:", err);
+      logger.error({ err }, "[StripeProvider] capturePayment error");
       return {
         success: false,
         error: err instanceof Error ? err.message : "STRIPE_CAPTURE_ERROR",
@@ -153,7 +154,7 @@ class StripeProvider implements PaymentProvider {
       await stripe.refunds.create(params);
       return { success: true };
     } catch (err) {
-      console.error("[StripeProvider] refundPayment error:", err);
+      logger.error({ err }, "[StripeProvider] refundPayment error");
       return {
         success: false,
         error: err instanceof Error ? err.message : "STRIPE_REFUND_ERROR",

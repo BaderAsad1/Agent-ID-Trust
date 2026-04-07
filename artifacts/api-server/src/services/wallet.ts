@@ -79,7 +79,7 @@ export async function provisionAgentWallet(
     return { address, network: NETWORK_ID };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[wallet] agentId=${agentId} failed to provision wallet: ${msg}`, err);
+    logger.error({ err, agentId, msg }, "[wallet] Failed to provision wallet");
     logger.error({ agentId, error: msg }, "[wallet] Failed to provision wallet");
     throw err;
   }
