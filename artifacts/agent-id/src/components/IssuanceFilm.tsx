@@ -2460,9 +2460,19 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
             position: 'absolute', bottom: 0, left: 0, right: 0,
             opacity: scroll.heroProgress < 0.04 ? 1 : lerp(1, 0, (scroll.heroProgress - 0.04) / 0.05),
             overflow: 'hidden',
-            padding: '10px 0',
+            paddingTop: 10,
+            paddingBottom: 10,
             borderTop: '1px solid rgba(255,255,255,0.04)',
           }}>
+            <p style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 10, fontWeight: 500,
+              color: 'rgba(134,144,168,0.5)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              textAlign: 'center',
+              margin: '0 0 8px',
+            }}>Integrates with</p>
             <div style={{
               position: 'absolute', top: 0, left: 0, bottom: 0, width: 100,
               background: 'linear-gradient(90deg, rgba(5,7,17,1) 0%, transparent 100%)',
