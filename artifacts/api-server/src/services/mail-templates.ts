@@ -1,4 +1,5 @@
 import { env } from "../lib/env";
+import { logger } from "../middlewares/request-logger";
 
 const PLATFORM_NAME = "Agent ID";
 
@@ -261,7 +262,7 @@ export function queueMessageNotification(
       try {
         await sendFn(batch.recipientEmail, template.subject, template.html);
       } catch (err) {
-        console.error("[mail-templates] Failed to send batched notification:", err instanceof Error ? err.message : String(err));
+        logger.error({ err }, "[mail-templates] Failed to send batched notification");
       }
     }, MESSAGE_BATCH_INTERVAL_MS),
   };

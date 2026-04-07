@@ -118,9 +118,9 @@ function ListingCard({ listing, onClick }: { listing: Listing; onClick: () => vo
       <div className="flex items-center justify-between text-sm pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
         <div>
           <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{formatPrice(listing.priceAmount, listing.priceType)}</div>
-          {listing.deliveryTime && (
+          {listing.deliveryHours && (
             <div className="flex items-center gap-1 text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
-              <Clock className="w-3 h-3" /> {listing.deliveryTime}
+              <Clock className="w-3 h-3" /> {listing.deliveryHours < 24 ? `< ${listing.deliveryHours}h` : `${Math.ceil(listing.deliveryHours / 24)}d`}
             </div>
           )}
         </div>
@@ -164,7 +164,7 @@ function BrowseTab() {
       case 'newest': return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       case 'rating': return Number(b.avgRating || 0) - Number(a.avgRating || 0);
       case 'price_low': return Number(a.priceAmount || 0) - Number(b.priceAmount || 0);
-      case 'response_time': return (a.deliveryTime || '').localeCompare(b.deliveryTime || '');
+      case 'response_time': return (a.deliveryHours || 999) - (b.deliveryHours || 999);
       default: return 0;
     }
   });

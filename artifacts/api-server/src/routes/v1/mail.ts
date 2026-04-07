@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import busboy from "busboy";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
@@ -9,6 +10,10 @@ import { getAgentById } from "../../services/agents";
 import { getAgentPlan, getPlanLimits } from "../../services/billing";
 import { checkOutboundRateLimit } from "../../services/mail-transport";
 import { logActivity } from "../../services/activity-logger";
+import { uploadAttachment, presignAttachmentUrl, deleteAttachment, ATTACHMENT_LIMITS } from "../../lib/attachment-storage";
+import { db } from "@workspace/db";
+import { messageAttachmentsTable } from "@workspace/db/schema";
+import { eq, and } from "drizzle-orm";
 
 function param(v: string | string[] | undefined): string {
   return Array.isArray(v) ? v[0] : (v ?? "");
@@ -959,5 +964,203 @@ router.post("/ingest", requireHumanOrAgentAuth, async (req, res, next) => {
     next(err);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Attachment upload
+// POST /agents/:agentId/messages/:messageId/attachments
+// Accepts multipart/form-data with a single field named "file".
+// Returns the created attachment record with a fresh presigned download URL.
+// ---------------------------------------------------------------------------
+router.post(
+  "/agents/:agentId/messages/:messageId/attachments",
+  requireHumanOrAgentAuth,
+  async (req, res, next) => {
+    try {
+      const agentId = param(req.params.agentId);
+      const messageId = param(req.params.messageId);
+
+      // Verify ownership
+      await mailService.verifyAgentOwnership(agentId, req.userId!);
+
+      // Verify message belongs to this agent
+      const message = await mailService.getMessage(messageId);
+      if (!message || message.agentId !== agentId) throw new AppError(404, "NOT_FOUND", "Message not found");
+
+      // Count existing attachments
+      const existingCount = await db
+        .select({ id: messageAttachmentsTable.id })
+        .from(messageAttachmentsTable)
+        .where(eq(messageAttachmentsTable.messageId, messageId));
+      if (existingCount.length >= ATTACHMENT_LIMITS.maxFilesPerMessage) {
+        throw new AppError(422, "TOO_MANY_ATTACHMENTS", `Maximum ${ATTACHMENT_LIMITS.maxFilesPerMessage} attachments per message`);
+      }
+
+      // Parse multipart
+      const contentType = req.headers["content-type"] || "";
+      if (!contentType.includes("multipart/form-data")) {
+        throw new AppError(400, "BAD_CONTENT_TYPE", "Use multipart/form-data with a 'file' field");
+      }
+
+      const result = await new Promise<{
+        buffer: Buffer; fileName: string; mimeType: string;
+      }>((resolve, reject) => {
+        const bb = busboy({ headers: req.headers, limits: { files: 1, fileSize: ATTACHMENT_LIMITS.maxFileSizeBytes } });
+        let resolved = false;
+
+        bb.on("file", (fieldname, stream, info) => {
+          const { filename, mimeType } = info;
+          const chunks: Buffer[] = [];
+
+          stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+          stream.on("limit", () => {
+            stream.destroy();
+            reject(new AppError(413, "FILE_TOO_LARGE", `File exceeds ${ATTACHMENT_LIMITS.maxFileSizeBytes / 1024 / 1024} MB limit`));
+          });
+          stream.on("end", () => {
+            if (resolved) return;
+            resolved = true;
+            const buffer = Buffer.concat(chunks);
+            const safeMime = mimeType || "application/octet-stream";
+            if (!ATTACHMENT_LIMITS.allowedMimeTypes.has(safeMime)) {
+              return reject(new AppError(415, "UNSUPPORTED_MEDIA_TYPE", `File type '${safeMime}' is not allowed`));
+            }
+            resolve({ buffer, fileName: filename || "attachment", mimeType: safeMime });
+          });
+          stream.on("error", reject);
+        });
+
+        bb.on("error", reject);
+        bb.on("finish", () => { if (!resolved) reject(new AppError(400, "NO_FILE", "No file found in request")); });
+        req.pipe(bb);
+      });
+
+      // Upload to storage
+      const stored = await uploadAttachment({
+        agentId,
+        messageId,
+        fileName: result.fileName,
+        mimeType: result.mimeType,
+        buffer: result.buffer,
+      });
+
+      // Persist attachment record
+      const [attachment] = await db
+        .insert(messageAttachmentsTable)
+        .values({
+          messageId,
+          fileName: result.fileName,
+          mimeType: result.mimeType,
+          sizeBytes: result.buffer.length,
+          storageKey: stored.storageKey || null,
+          storageUrl: stored.storageUrl,
+          storageBackend: stored.backend,
+          checksum: stored.checksum,
+        })
+        .returning();
+
+      res.status(201).json({
+        id: attachment.id,
+        messageId: attachment.messageId,
+        filename: attachment.fileName,
+        contentType: attachment.mimeType,
+        size: attachment.sizeBytes,
+        checksum: attachment.checksum,
+        backend: stored.backend,
+        url: stored.backend === "inline" ? stored.storageUrl : undefined,
+        createdAt: attachment.createdAt,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Get presigned download URL for an attachment
+// GET /agents/:agentId/messages/:messageId/attachments/:attachmentId/url
+// ---------------------------------------------------------------------------
+router.get(
+  "/agents/:agentId/messages/:messageId/attachments/:attachmentId/url",
+  requireHumanOrAgentAuth,
+  async (req, res, next) => {
+    try {
+      const agentId = param(req.params.agentId);
+      const messageId = param(req.params.messageId);
+      const attachmentId = param(req.params.attachmentId);
+
+      await mailService.verifyAgentOwnership(agentId, req.userId!);
+
+      const [attachment] = await db
+        .select()
+        .from(messageAttachmentsTable)
+        .where(
+          and(
+            eq(messageAttachmentsTable.id, attachmentId as string),
+            eq(messageAttachmentsTable.messageId, messageId as string),
+          ),
+        )
+        .limit(1);
+
+      if (!attachment) throw new AppError(404, "NOT_FOUND", "Attachment not found");
+
+      const url = await presignAttachmentUrl(
+        attachment.storageKey ?? "",
+        attachment.storageUrl ?? "",
+      );
+
+      res.json({
+        id: attachment.id,
+        filename: attachment.fileName,
+        contentType: attachment.mimeType,
+        size: attachment.sizeBytes,
+        url,
+        expiresIn: 3600,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Delete an attachment
+// DELETE /agents/:agentId/messages/:messageId/attachments/:attachmentId
+// ---------------------------------------------------------------------------
+router.delete(
+  "/agents/:agentId/messages/:messageId/attachments/:attachmentId",
+  requireHumanOrAgentAuth,
+  async (req, res, next) => {
+    try {
+      const agentId = param(req.params.agentId);
+      const messageId = param(req.params.messageId);
+      const attachmentId = param(req.params.attachmentId);
+
+      await mailService.verifyAgentOwnership(agentId, req.userId!);
+
+      const [attachment] = await db
+        .select()
+        .from(messageAttachmentsTable)
+        .where(
+          and(
+            eq(messageAttachmentsTable.id, attachmentId as string),
+            eq(messageAttachmentsTable.messageId, messageId as string),
+          ),
+        )
+        .limit(1);
+
+      if (!attachment) throw new AppError(404, "NOT_FOUND", "Attachment not found");
+
+      await deleteAttachment(attachment.storageKey ?? "");
+
+      await db
+        .delete(messageAttachmentsTable)
+        .where(eq(messageAttachmentsTable.id, attachmentId as string));
+
+      res.json({ deleted: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;

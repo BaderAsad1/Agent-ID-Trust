@@ -83,7 +83,7 @@ export async function createOrder(
     stripePaymentIntentId = pi.id;
     clientSecret = pi.client_secret ?? undefined;
   } catch (err) {
-    console.error("[orders] Failed to create Stripe PaymentIntent:", err);
+    logger.error({ err }, "[orders] Failed to create Stripe PaymentIntent");;
     return {
       success: false,
       error: "PAYMENT_INTENT_FAILED",
@@ -125,7 +125,7 @@ export async function createOrder(
         },
       });
     } catch (err) {
-      console.error("[orders] Failed to update PaymentIntent metadata with orderId:", err);
+      logger.error({ err }, "[orders] Failed to update PaymentIntent metadata");;
     }
   }
 
@@ -161,7 +161,7 @@ export async function confirmPayment(
         return { success: false, error: `PAYMENT_NOT_AUTHORIZED:${pi.status}` };
       }
     } catch (err) {
-      console.error(`[orders] Failed to verify PaymentIntent for order ${orderId}:`, err);
+      logger.error({ err, orderId }, "[orders] Failed to verify PaymentIntent");;
       return { success: false, error: "PAYMENT_VERIFICATION_FAILED" };
     }
   } else if (hasMilestones) {
@@ -243,7 +243,7 @@ export async function confirmOrder(
       order.providerPaymentReference,
     );
     if (!captureResult.success) {
-      console.error(`[orders] Failed to capture payment for order ${orderId}:`, captureResult.error);
+      logger.error({ err: captureResult.error, orderId }, "[orders] Failed to capture payment");;
       return { success: false, error: `PAYMENT_CAPTURE_FAILED:${captureResult.error}` };
     }
   } else if (hasMilestones) {
@@ -479,7 +479,7 @@ export async function completeOrder(
   }
 
   if (payoutStatus !== "completed") {
-    console.warn(`[PAYOUT REQUIRED] Order ${orderId ?? "unknown"} | Action needed in Stripe Dashboard: https://dashboard.stripe.com/transfers`);
+    logger.warn({ orderId }, "[orders] PAYOUT REQUIRED — manual settlement needed in Stripe Dashboard");;
   }
 
   const payoutNote = payoutStatus === "completed"
@@ -522,7 +522,7 @@ export async function cancelOrder(
         order.providerPaymentReference,
       );
       if (!refundResult.success) {
-        console.error(`[orders] Failed to refund payment for order ${orderId}:`, refundResult.error);
+        logger.error({ err: refundResult.error, orderId }, "[orders] Failed to refund payment");;
         return { success: false, error: `REFUND_FAILED:${refundResult.error}` };
       }
 
@@ -565,7 +565,7 @@ export async function cancelOrder(
         const stripe = getStripe();
         await stripe.paymentIntents.cancel(order.providerPaymentReference);
       } catch (err) {
-        console.error(`[orders] Failed to cancel Stripe PaymentIntent for order ${orderId}:`, err);
+        logger.error({ err, orderId }, "[orders] Failed to cancel Stripe PaymentIntent");;
       }
     }
   }

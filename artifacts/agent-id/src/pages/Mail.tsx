@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import DOMPurify, { type Config as DOMPurifyConfig } from 'dompurify';
 import {
   Mail as MailIcon, Send, Search, ArrowLeft, Tag, CheckCircle, XCircle,
@@ -585,6 +585,9 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
   const [replyBody, setReplyBody] = useState('');
   const [sending, setSending] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({});
+  const replyFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadEvents = useCallback(async () => {
     try {
@@ -601,8 +604,17 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
     if (!replyBody.trim() || sending) return;
     setSending(true);
     try {
-      await api.mail.replyToThread(agentId, message.threadId, replyBody.trim());
+      const res = await api.mail.replyToThread(agentId, message.threadId, replyBody.trim());
+      const messageId = res.message.id;
+      for (const file of replyFiles) {
+        try {
+          await api.mail.uploadAttachment(agentId, messageId, file);
+        } catch (uploadErr) {
+          console.error('[mail] Attachment upload failed:', uploadErr);
+        }
+      }
       setReplyBody('');
+      setReplyFiles([]);
       onRefresh();
     } catch (err) {
       console.error('[mail] Reply failed:', err);
@@ -610,6 +622,15 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
       setSending(false);
     }
   };
+
+  const fetchAttachmentUrl = useCallback(async (attachmentId: string) => {
+    try {
+      const res = await api.mail.getAttachmentUrl(agentId, message.id, attachmentId);
+      setAttachmentUrls(prev => ({ ...prev, [attachmentId]: res.url }));
+    } catch (err) {
+      console.error('[mail] Failed to get attachment URL:', err);
+    }
+  }, [agentId, message.id]);
 
   const handleAction = async (action: string) => {
     if (action === 'delete') {
@@ -696,13 +717,20 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
           <div className="mb-4">
             <h4 className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Attachments</h4>
             <div className="flex flex-wrap gap-2">
-              {msgAttachments.map(a => (
-                <span key={a.id} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                  <Paperclip className="w-3 h-3" />
-                  {a.filename}
-                  {a.size > 0 && <span style={{ color: 'var(--text-dim)' }}>({(a.size / 1024).toFixed(1)}KB)</span>}
-                </span>
-              ))}
+              {msgAttachments.map(a => {
+                const url = attachmentUrls[a.id] || a.url;
+                return (
+                  <div key={a.id} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                    <Paperclip className="w-3 h-3" />
+                    {url ? (
+                      <a href={url} download={a.filename} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>{a.filename}</a>
+                    ) : (
+                      <button onClick={() => fetchAttachmentUrl(a.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', padding: 0, fontFamily: 'var(--font-body)', fontSize: 'inherit', textDecoration: 'underline' }}>{a.filename}</button>
+                    )}
+                    {a.size > 0 && <span style={{ color: 'var(--text-dim)' }}>({(a.size / 1024).toFixed(1)}KB)</span>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -790,7 +818,38 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
             className="w-full rounded-lg p-3 text-sm resize-none"
             style={{ background: 'rgba(0,0,0,0.1)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none', fontFamily: 'var(--font-body)' }}
           />
-          <div className="flex justify-end mt-2">
+          {replyFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {replyFiles.map((f, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                  <Paperclip className="w-3 h-3" />
+                  {f.name}
+                  <span style={{ color: 'var(--text-dim)' }}>({(f.size / 1024).toFixed(1)}KB)</span>
+                  <button onClick={() => setReplyFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 0, lineHeight: 1 }}><X className="w-3 h-3" /></button>
+                </span>
+              ))}
+            </div>
+          )}
+          <input
+            ref={replyFileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={e => {
+              const files = Array.from(e.target.files || []);
+              setReplyFiles(prev => [...prev, ...files].slice(0, 10));
+              e.target.value = '';
+            }}
+          />
+          <div className="flex items-center justify-between mt-2">
+            <button
+              onClick={() => replyFileInputRef.current?.click()}
+              className="flex items-center gap-1.5 text-xs cursor-pointer"
+              style={{ color: 'var(--text-dim)', background: 'none', border: 'none', fontFamily: 'var(--font-body)' }}
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+              Attach files
+            </button>
             <PrimaryButton onClick={handleReply} disabled={!replyBody.trim() || sending}>
               {sending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Send className="w-4 h-4 mr-1.5" />}
               Send Reply
@@ -809,6 +868,8 @@ function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; a
   const [sending, setSending] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const otherAgents = agents.filter(a => a.id !== agentId);
 
@@ -817,7 +878,7 @@ function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; a
     setSending(true);
     setError(null);
     try {
-      await api.mail.sendMessage(agentId, {
+      const res = await api.mail.sendMessage(agentId, {
         recipientAddress: recipientAddress || undefined,
         subject: subject || undefined,
         body: body.trim(),
@@ -825,6 +886,14 @@ function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; a
         direction: 'outbound',
         senderType: 'user',
       });
+      const messageId = res.message.id;
+      for (const file of pendingFiles) {
+        try {
+          await api.mail.uploadAttachment(agentId, messageId, file);
+        } catch (uploadErr) {
+          console.error('[mail] Attachment upload failed:', uploadErr);
+        }
+      }
       onSent();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send');
@@ -910,18 +979,52 @@ function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; a
               style={{ background: 'rgba(0,0,0,0.1)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }}
             />
           </div>
+          {pendingFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {pendingFiles.map((f, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                  <Paperclip className="w-3 h-3" />
+                  {f.name}
+                  <span style={{ color: 'var(--text-dim)' }}>({(f.size / 1024).toFixed(1)}KB)</span>
+                  <button onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 0, lineHeight: 1 }}><X className="w-3 h-3" /></button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="flex justify-end gap-2 mt-4">
-          <PrimaryButton variant="ghost" onClick={onClose}>Cancel</PrimaryButton>
-          <PrimaryButton variant="ghost" onClick={handleSaveDraft} disabled={!body.trim() || savingDraft || sending}>
-            {savingDraft ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <FileText className="w-4 h-4 mr-1.5" />}
-            Save Draft
-          </PrimaryButton>
-          <PrimaryButton onClick={handleSend} disabled={!body.trim() || sending || savingDraft}>
-            {sending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Send className="w-4 h-4 mr-1.5" />}
-            Send
-          </PrimaryButton>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={e => {
+            const files = Array.from(e.target.files || []);
+            setPendingFiles(prev => [...prev, ...files].slice(0, 10));
+            e.target.value = '';
+          }}
+        />
+
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 text-xs cursor-pointer"
+            style={{ color: 'var(--text-dim)', background: 'none', border: 'none', fontFamily: 'var(--font-body)' }}
+          >
+            <Paperclip className="w-3.5 h-3.5" />
+            Attach files
+          </button>
+          <div className="flex gap-2">
+            <PrimaryButton variant="ghost" onClick={onClose}>Cancel</PrimaryButton>
+            <PrimaryButton variant="ghost" onClick={handleSaveDraft} disabled={!body.trim() || savingDraft || sending}>
+              {savingDraft ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <FileText className="w-4 h-4 mr-1.5" />}
+              Save Draft
+            </PrimaryButton>
+            <PrimaryButton onClick={handleSend} disabled={!body.trim() || sending || savingDraft}>
+              {sending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Send className="w-4 h-4 mr-1.5" />}
+              Send
+            </PrimaryButton>
+          </div>
         </div>
       </div>
     </div>

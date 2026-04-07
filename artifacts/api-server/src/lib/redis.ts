@@ -1,5 +1,6 @@
 import { Redis } from "ioredis";
 import { env } from "./env";
+import { logger } from "../middlewares/request-logger";
 
 let _initialized = false;
 let _redis!: Redis;
@@ -16,7 +17,7 @@ function initInstances(): void {
     enableOfflineQueue: false,
   });
   _redis.on("error", (err) => {
-    console.error(`[redis:commands] ${err.message}`);
+    logger.error({ err }, '[redis:commands] Redis connection error');
   });
   _redis.on("connect", () => {
     _redis.config("SET", "maxmemory-policy", "allkeys-lru").catch(() => {});
@@ -27,7 +28,7 @@ function initInstances(): void {
     enableOfflineQueue: false,
   });
   _redisSub.on("error", (err) => {
-    console.error(`[redis:subscriber] ${err.message}`);
+    logger.error({ err }, '[redis:subscriber] Redis connection error');
   });
 
   _bullMQRedis = new Redis(url, {
@@ -35,7 +36,7 @@ function initInstances(): void {
     enableOfflineQueue: false,
   });
   _bullMQRedis.on("error", (err) => {
-    console.error(`[redis:bullmq] ${err.message}`);
+    logger.error({ err }, '[redis:bullmq] Redis connection error');
   });
 
   _initialized = true;

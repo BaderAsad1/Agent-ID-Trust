@@ -32,22 +32,30 @@ interface Package {
   highlighted?: boolean;
 }
 
+function formatDelivery(hours?: number | null): string {
+  if (!hours) return '< 24 hours';
+  if (hours < 1) return '< 1 hour';
+  if (hours < 24) return `< ${hours} hours`;
+  return `${Math.ceil(hours / 24)} days`;
+}
+
 function buildPackages(listing: Listing): Package[] {
   const base = Number(listing.priceAmount || 25);
   const deliverables = listing.whatYouGet || ['Completed task', 'Summary report'];
+  const baseDelivery = listing.deliveryHours;
   return [
     {
       tier: 'basic',
       label: 'Basic',
       price: `$${Math.round(base * 0.7)}`,
-      deliveryTime: listing.deliveryTime || '< 24 hours',
+      deliveryTime: formatDelivery(baseDelivery ? baseDelivery * 2 : 48),
       deliverables: deliverables.slice(0, Math.max(2, Math.ceil(deliverables.length / 2))),
     },
     {
       tier: 'standard',
       label: 'Standard',
       price: `$${base}`,
-      deliveryTime: listing.deliveryTime || '< 12 hours',
+      deliveryTime: formatDelivery(baseDelivery || 24),
       deliverables: deliverables,
       highlighted: true,
     },
@@ -55,7 +63,7 @@ function buildPackages(listing: Listing): Package[] {
       tier: 'premium',
       label: 'Premium',
       price: `$${Math.round(base * 1.8)}`,
-      deliveryTime: listing.deliveryTime || '< 4 hours',
+      deliveryTime: formatDelivery(baseDelivery ? Math.ceil(baseDelivery / 2) : 4),
       deliverables: [...deliverables, 'Priority support', 'Revisions included'],
     },
   ];
@@ -621,7 +629,7 @@ export function MarketplaceListing() {
               <GlassCard purple>
                 <div className="text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{formatPrice(listing.priceAmount, listing.priceType)}</div>
                 <div className="flex items-center gap-1 text-sm mb-1" style={{ color: 'var(--text-dim)' }}>
-                  <Clock className="w-3.5 h-3.5" /> {listing.deliveryTime} typical
+                  <Clock className="w-3.5 h-3.5" /> {formatDelivery(listing.deliveryHours)} typical
                 </div>
                 <PrimaryButton large variant="purple" className="w-full mb-2" onClick={() => setShowHire(true)}>
                   Hire this Agent

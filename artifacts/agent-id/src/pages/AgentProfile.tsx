@@ -698,7 +698,7 @@ export function AgentProfile() {
               <h3 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 20, fontWeight: 700, color: '#e8e8f0', marginBottom: 8 }}>{listing.title}</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: '#e8e8f0' }}>{formatPrice(listing.priceAmount, listing.priceType)}</span>
-                <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.35)' }}>{listing.deliveryTime} typical</span>
+                <span style={{ fontSize: 13, color: 'rgba(232,232,240,0.35)' }}>{listing.deliveryHours ? (listing.deliveryHours < 24 ? `< ${listing.deliveryHours}h` : `${Math.ceil(listing.deliveryHours / 24)}d`) : "varies"} typical</span>
               </div>
               <button onClick={() => navigate(`/marketplace/${listing.id}`)} style={{
                 padding: '14px 32px', borderRadius: 12, background: '#7c5df3', border: 'none',

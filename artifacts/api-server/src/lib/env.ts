@@ -72,6 +72,7 @@ const envSchema = z.object({
 
   JWT_SECRET: z.string().optional(),
   OAUTH_INTROSPECTION_SECRET: z.string().optional(),
+  CLAIM_TOKEN_SECRET: z.string().optional(),
 
   CDP_API_KEY_ID: z.string().optional(),
   CDP_API_KEY_SECRET: z.string().optional(),
@@ -122,6 +123,15 @@ const envSchema = z.object({
   // denied if this is unset (fail-closed), but env.ts validation ensures an
   // early startup failure in production rather than a silent runtime failure.
   ADMIN_SECRET_KEY: z.string().optional(),
+
+  // Cloudflare R2 object storage — for email attachment uploads.
+  // If unset, attachments fall back to inline base64 in DB (≤ 500 KB only).
+  // R2_PUBLIC_URL is optional: set it if the bucket has a custom public domain.
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET_NAME: z.string().optional(),
+  R2_PUBLIC_URL: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -243,6 +253,10 @@ export function validateEnv(): Env {
   }
   if (isProd && (!env.JWT_SECRET || env.JWT_SECRET.length < 32)) {
     envLogger.fatal("[env] JWT_SECRET is required in production and must be at least 32 characters.");
+    process.exit(1);
+  }
+  if (isProd && !env.CLAIM_TOKEN_SECRET) {
+    envLogger.fatal("[env] CLAIM_TOKEN_SECRET is required in production for HMAC-signed programmatic claim tokens.");
     process.exit(1);
   }
   if (isProd && !env.ADMIN_SECRET_KEY) {
