@@ -13,6 +13,7 @@ import {
   incrementListingViews,
 } from "../../services/marketplace";
 import {
+  createOrder,
   confirmPayment,
   confirmOrder,
   completeOrder,
@@ -246,9 +247,32 @@ const createOrderSchema = z.object({
   milestones: z.array(createMilestoneSchema).optional(),
 });
 
-router.post("/orders", requireAuth, async (_req, res, _next) => {
-  // Marketplace payments are not yet enabled — fail explicitly so clients get a clear signal.
-  res.status(501).json({ error: "marketplace_payments_unavailable", message: "Marketplace payments are not yet enabled" });
+router.post("/orders", requireAuth, async (req, res, next) => {
+  try {
+    const parsed = createOrderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", parsed.error.errors[0]?.message ?? "Invalid request");
+    }
+    const result = await createOrder({
+      listingId: parsed.data.listingId,
+      buyerUserId: req.userId!,
+      taskDescription: parsed.data.taskDescription,
+      selectedPackage: parsed.data.selectedPackage,
+    });
+    if (!result.success) {
+      const statusMap: Record<string, number> = {
+        LISTING_NOT_FOUND: 404,
+        CANNOT_ORDER_OWN_LISTING: 403,
+        PACKAGE_NOT_FOUND: 400,
+        PAYMENT_INTENT_FAILED: 502,
+      };
+      const status = statusMap[result.error ?? ""] ?? 400;
+      throw new AppError(status, result.error ?? "ORDER_FAILED", result.error ?? "Failed to create order");
+    }
+    res.status(201).json({ ...withPayoutDisclosure(result.order!), clientSecret: result.clientSecret });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get("/orders", requireAuth, async (req, res, next) => {
