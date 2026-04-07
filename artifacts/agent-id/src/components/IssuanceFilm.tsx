@@ -2506,7 +2506,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           </div>
 
           <div style={{
-            position: 'absolute', bottom: 40,
+            position: 'absolute', bottom: 90,
             textAlign: 'center',
             opacity: scroll.heroProgress < 0.03 ? 1 : 0,
             transition: 'opacity 0.5s ease',
