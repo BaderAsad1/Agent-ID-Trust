@@ -34,8 +34,13 @@ import {
 import { trackAnalyticsEvent, getListingAnalytics } from "../../services/marketplace-analytics";
 import { env } from "../../lib/env";
 import { db } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
-import { marketplaceMilestonesTable } from "@workspace/db/schema";
+import { and, eq, desc } from "drizzle-orm";
+import {
+  marketplaceMilestonesTable,
+  a2aServiceListingsTable,
+  a2aEngagementsTable,
+  agentsTable,
+} from "@workspace/db/schema";
 
 const router = Router();
 
@@ -496,6 +501,184 @@ router.post("/reviews", requireAuth, async (req, res, next) => {
       throw new AppError(code, result.error!, result.error!);
     }
     res.status(201).json(result.review);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── A2A Registry ────────────────────────────────────────────────────────────
+
+router.get("/a2a/registry", async (req, res, next) => {
+  try {
+    const capabilityType = req.query.capabilityType as string | undefined;
+    const search = req.query.search as string | undefined;
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const offset = Number(req.query.offset) || 0;
+
+    const services = await db
+      .select({
+        id: a2aServiceListingsTable.id,
+        agentId: a2aServiceListingsTable.agentId,
+        name: a2aServiceListingsTable.name,
+        description: a2aServiceListingsTable.description,
+        capabilityType: a2aServiceListingsTable.capabilityType,
+        capabilitySchema: a2aServiceListingsTable.capabilitySchema,
+        pricingModel: a2aServiceListingsTable.pricingModel,
+        pricePerCallUsdc: a2aServiceListingsTable.pricePerCallUsdc,
+        pricePerTokenUsdc: a2aServiceListingsTable.pricePerTokenUsdc,
+        pricePerSecondUsdc: a2aServiceListingsTable.pricePerSecondUsdc,
+        latencySlaMs: a2aServiceListingsTable.latencySlaMs,
+        totalCalls: a2aServiceListingsTable.totalCalls,
+        successRate: a2aServiceListingsTable.successRate,
+        tags: a2aServiceListingsTable.tags,
+        agentHandle: agentsTable.handle,
+        createdAt: a2aServiceListingsTable.createdAt,
+      })
+      .from(a2aServiceListingsTable)
+      .innerJoin(agentsTable, eq(a2aServiceListingsTable.agentId, agentsTable.id))
+      .where(
+        and(
+          eq(a2aServiceListingsTable.status, "active"),
+          capabilityType ? eq(a2aServiceListingsTable.capabilityType, capabilityType) : undefined,
+        ),
+      )
+      .orderBy(desc(a2aServiceListingsTable.totalCalls))
+      .limit(limit)
+      .offset(offset);
+
+    const mapped = services
+      .filter((s) => !search || s.name.toLowerCase().includes(search.toLowerCase()) || (s.description || "").toLowerCase().includes(search.toLowerCase()))
+      .map((s) => {
+        const schema = s.capabilitySchema as { sampleInput?: object; sampleOutput?: object; inputTypes?: string[]; outputTypes?: string[] } | null;
+        const price = s.pricePerCallUsdc ?? s.pricePerTokenUsdc ?? s.pricePerSecondUsdc ?? "0.01";
+        return {
+          id: s.id,
+          agentId: s.agentId,
+          name: s.name,
+          handle: s.agentHandle,
+          description: s.description || "",
+          capabilityType: s.capabilityType,
+          capabilities: schema?.inputTypes ?? [],
+          pricing: {
+            model: s.pricingModel as "per_call" | "per_token" | "per_second",
+            amount: price,
+            currency: "USDC" as const,
+          },
+          latencySla: s.latencySlaMs ? `${s.latencySlaMs}ms` : "< 2s",
+          availability: "99.9%",
+          callSchema: {
+            input: schema?.inputTypes?.join(" | ") ?? "object",
+            output: schema?.outputTypes?.join(" | ") ?? "object",
+          },
+          exampleRequest: schema?.sampleInput ?? {},
+          exampleResponse: schema?.sampleOutput ?? {},
+          totalCalls: s.totalCalls,
+          successRate: s.successRate ? parseFloat(String(s.successRate)) : 99.5,
+          tags: (s.tags as string[]) ?? [],
+          createdAt: s.createdAt,
+        };
+      });
+
+    res.json({ services: mapped, total: mapped.length, limit, offset });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── A2A Engagements ─────────────────────────────────────────────────────────
+
+const createEngagementSchema = z.object({
+  agentId: z.string().uuid(),
+  serviceHandle: z.string().min(1),
+  serviceName: z.string().min(1),
+  spendingCapUsdc: z.string().default("10"),
+  paymentModel: z.string().default("per_call"),
+  pricePerUnit: z.string().default("0.01"),
+  currency: z.string().default("USDC"),
+});
+
+router.get("/a2a/engagements", requireAuth, async (req, res, next) => {
+  try {
+    const engagements = await db
+      .select()
+      .from(a2aEngagementsTable)
+      .where(eq(a2aEngagementsTable.userId, req.userId!))
+      .orderBy(desc(a2aEngagementsTable.createdAt));
+
+    res.json({ engagements });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/a2a/engagements", requireAuth, async (req, res, next) => {
+  try {
+    const parsed = createEngagementSchema.parse(req.body);
+
+    const service = await db
+      .select({ id: a2aServiceListingsTable.id })
+      .from(a2aServiceListingsTable)
+      .innerJoin(agentsTable, eq(a2aServiceListingsTable.agentId, agentsTable.id))
+      .where(
+        and(
+          eq(agentsTable.handle, parsed.serviceHandle),
+          eq(a2aServiceListingsTable.status, "active"),
+        ),
+      )
+      .limit(1);
+
+    if (!service[0]) {
+      throw new AppError(404, "NOT_FOUND", "A2A service not found for handle: " + parsed.serviceHandle);
+    }
+
+    const callerAgent = await db.query.agentsTable.findFirst({
+      where: and(
+        eq(agentsTable.id, parsed.agentId),
+        eq(agentsTable.userId, req.userId!),
+      ),
+      columns: { id: true },
+    });
+
+    if (!callerAgent) {
+      throw new AppError(403, "FORBIDDEN", "Agent not found or does not belong to you");
+    }
+
+    const [engagement] = await db
+      .insert(a2aEngagementsTable)
+      .values({
+        agentId: parsed.agentId,
+        userId: req.userId!,
+        serviceId: service[0].id,
+        serviceHandle: parsed.serviceHandle,
+        serviceName: parsed.serviceName,
+        spendingCapUsdc: parsed.spendingCapUsdc,
+        paymentModel: parsed.paymentModel,
+        pricePerUnit: parsed.pricePerUnit,
+        currency: parsed.currency,
+      })
+      .returning();
+
+    res.status(201).json(engagement);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/a2a/engagements/:id", requireAuth, validateUuidParam("id"), async (req, res, next) => {
+  try {
+    const rows = await db
+      .select()
+      .from(a2aEngagementsTable)
+      .where(
+        and(
+          eq(a2aEngagementsTable.id, req.params.id as string),
+          eq(a2aEngagementsTable.userId, req.userId!),
+        ),
+      )
+      .limit(1);
+
+    if (!rows[0]) throw new AppError(404, "NOT_FOUND", "Engagement not found");
+    res.json(rows[0]);
   } catch (err) {
     next(err);
   }
