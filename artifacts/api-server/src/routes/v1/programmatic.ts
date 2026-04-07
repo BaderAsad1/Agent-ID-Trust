@@ -36,7 +36,7 @@ import { generateClaimToken } from "../../utils/claim-token";
 import { db } from "@workspace/db";
 import type { Agent as DbAgent } from "@workspace/db";
 import { apiKeysTable, usersTable, agentsTable, agentClaimTokensTable, agentKeysTable, ownerTokensTable } from "@workspace/db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, sql } from "drizzle-orm";
 import { hashClaimToken } from "../../utils/crypto";
 import { getRedis, isRedisConfigured } from "../../lib/redis";
 import { recoveryRateLimit, registrationRateLimitStrict, challengeRateLimit } from "../../middlewares/rate-limit";
@@ -49,13 +49,27 @@ function hashIp(ip: string | string[] | undefined): string | undefined {
 
 const router = Router();
 
+// Rejects newlines and ASCII control characters to prevent prompt injection.
+// These characters allow a crafted displayName/description/capability to break
+// out of prompt boundaries in any LLM that consumes the identity block.
+const safeTextField = (maxLen: number) =>
+  z.string().max(maxLen).refine(
+    (v) => !/[\r\n\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(v),
+    { message: "Field must not contain newline or control characters" },
+  );
+
 const registerSchema = z.object({
   handle: z.string().min(3).max(32).optional(),
   displayName: z.string().min(1).max(255),
   publicKey: z.string().min(1),
   keyType: z.enum(["ed25519"]).default("ed25519"),
-  description: z.string().max(5000).optional(),
-  capabilities: z.array(z.string()).max(50).optional(),
+  description: safeTextField(5000).optional(),
+  capabilities: z.array(
+    z.string().max(100).refine(
+      (v) => !/[\r\n\x00-\x1F\x7F]/.test(v),
+      { message: "Capability must not contain newline or control characters" },
+    ),
+  ).max(50).optional(),
   endpointUrl: z.url().optional(),
   ownerToken: z.string().optional(),
 });
@@ -295,46 +309,86 @@ router.post("/agents/register", registrationRateLimitStrict, async (req, res, ne
         displayName: requestedHandle ? `autonomous-${requestedHandle}` : `autonomous-${autonomousId.slice(0, 8)}`,
       }).returning({ id: usersTable.id });
       ownerId = newUser.id;
+    } else {
+      // H4: Authenticated users registering via the programmatic path are subject to the
+      // same plan-based agent count limits as the dashboard path. Autonomous (no-owner)
+      // registrations are rate-limited by the Sybil quota instead.
+      const ownerPlanCheck = await getUserPlan(ownerId);
+      const ownerLimits = getPlanLimits(ownerPlanCheck);
+      const activeAgentCount = await db.select({ id: agentsTable.id }).from(agentsTable)
+        .where(and(eq(agentsTable.userId, ownerId), eq(agentsTable.status, "active")));
+      if (activeAgentCount.length >= ownerLimits.agentLimit) {
+        throw new AppError(403, "AGENT_LIMIT_REACHED",
+          `Agent limit reached. Your ${ownerPlanCheck} plan allows ${ownerLimits.agentLimit} agent(s).`,
+          { currentPlan: ownerPlanCheck, agentLimit: ownerLimits.agentLimit, currentCount: activeAgentCount.length });
+      }
     }
     const userMs = performance.now() - tUser;
 
     const tCreateAgent = performance.now();
     let agent: DbAgent & Record<string, unknown>;
     try {
-      agent = await createAgent({
-        userId: ownerId,
-        handle: requestedHandle ?? null,
-        displayName,
-        description,
-        capabilities,
-        endpointUrl,
-        isPublic: false,
-      });
-      if (requestedHandle && agent.handle === requestedHandle.toLowerCase()) {
-        const oneYearFromNow = new Date();
-        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-        const tierInfo = getHandleTier(requestedHandle);
-        const grantingSubscriptionId = (req as unknown as Record<string, unknown>)._grantingSubscriptionId as string | undefined;
-        await db.update(agentsTable).set({
-          handleTier: tierInfo.tier,
-          handlePaid: true,
-          handleRegisteredAt: new Date(),
-          handleExpiresAt: oneYearFromNow,
-          updatedAt: new Date(),
-          // Record the Stripe subscription ID that granted this handle for audit trail
-          ...(grantingSubscriptionId ? {
-            metadata: { grantingSubscriptionId },
-          } : {}),
-        }).where(eq(agentsTable.id, agent.id));
-        agent = {
-          ...agent,
-          handleTier: tierInfo.tier,
-          handlePaid: true,
-          handleRegisteredAt: new Date(),
-          handleExpiresAt: oneYearFromNow,
-        };
+      if (requestedHandle) {
+        // Acquire a Postgres session-level advisory lock on the handle before creation to close
+        // the race window between the availability check above and the DB insert below.
+        // Mirrors the same pattern used in the human registration route (agents.ts).
+        agent = await db.transaction(async (tx) => {
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${requestedHandle!}))`);
+
+          // Re-confirm availability inside the lock — a concurrent request may have
+          // won the race between our outer check and this transaction.
+          const existingRow = await tx.query.agentsTable.findFirst({
+            where: sql`lower(${agentsTable.handle}) = lower(${requestedHandle!})`,
+            columns: { id: true },
+          });
+          if (existingRow) {
+            throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
+          }
+
+          const created = await createAgent({
+            userId: ownerId,
+            handle: requestedHandle ?? null,
+            displayName,
+            description,
+            capabilities,
+            endpointUrl,
+            isPublic: false,
+          });
+
+          const oneYearFromNow = new Date();
+          oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+          const tierInfo = getHandleTier(requestedHandle!);
+          const grantingSubscriptionId = (req as unknown as Record<string, unknown>)._grantingSubscriptionId as string | undefined;
+          await tx.update(agentsTable).set({
+            handleTier: tierInfo.tier,
+            handlePaid: true,
+            handleRegisteredAt: new Date(),
+            handleExpiresAt: oneYearFromNow,
+            updatedAt: new Date(),
+            ...(grantingSubscriptionId ? { metadata: { grantingSubscriptionId } } : {}),
+          }).where(eq(agentsTable.id, created.id));
+
+          return {
+            ...created,
+            handleTier: tierInfo.tier,
+            handlePaid: true,
+            handleRegisteredAt: new Date(),
+            handleExpiresAt: oneYearFromNow,
+          } as DbAgent & Record<string, unknown>;
+        });
+      } else {
+        agent = await createAgent({
+          userId: ownerId,
+          handle: null,
+          displayName,
+          description,
+          capabilities,
+          endpointUrl,
+          isPublic: false,
+        }) as DbAgent & Record<string, unknown>;
       }
     } catch (err) {
+      if (err instanceof AppError) throw err;
       if (err instanceof Error && err.message === "HANDLE_CONFLICT") {
         throw new AppError(409, "HANDLE_TAKEN", "This handle is already in use");
       }
@@ -374,24 +428,27 @@ router.post("/agents/register", registrationRateLimitStrict, async (req, res, ne
             ),
           });
           if (tokenRecord && new Date() < tokenRecord.expiresAt) {
-            // Additional guard: token must belong to the authenticated user making this request
+            // Additional guard: token must belong to the authenticated user making this request.
+            // Hard-fail rather than silently skip — caller needs to know their token was rejected
+            // so they can investigate (wrong account, token generated by a different user, etc.).
             if (tokenRecord.userId !== req.userId) {
-              logger.warn({ agentId: agent.id, tokenUserId: tokenRecord.userId, requestUserId: req.userId }, "[programmatic] C5: ownerToken userId mismatch — rejecting");
-            } else {
-              await db.transaction(async (tx) => {
-                await tx.update(agentsTable).set({
-                  ownerUserId: tokenRecord.userId,
-                  isClaimed: true,
-                  claimedAt: new Date(),
-                  updatedAt: new Date(),
-                }).where(eq(agentsTable.id, agent.id));
-                await tx.update(ownerTokensTable).set({ used: true }).where(eq(ownerTokensTable.id, tokenRecord.id));
-              });
-              agent = { ...agent, ownerUserId: tokenRecord.userId, isClaimed: true, claimedAt: new Date() };
+              throw new AppError(403, "OWNER_TOKEN_USER_MISMATCH", "The owner token was generated by a different account. Generate a new token from the account you are currently authenticated as.");
             }
+            await db.transaction(async (tx) => {
+              await tx.update(agentsTable).set({
+                ownerUserId: tokenRecord.userId,
+                isClaimed: true,
+                claimedAt: new Date(),
+                updatedAt: new Date(),
+              }).where(eq(agentsTable.id, agent.id));
+              await tx.update(ownerTokensTable).set({ used: true }).where(eq(ownerTokensTable.id, tokenRecord.id));
+            });
+            agent = { ...agent, ownerUserId: tokenRecord.userId, isClaimed: true, claimedAt: new Date() };
           }
-        } catch {
-          logger.warn({ agentId: agent.id }, "[programmatic] Failed to link owner token, continuing without linking");
+        } catch (ownerTokenErr) {
+          // Re-throw AppErrors (intentional failures like user mismatch); swallow transient DB errors
+          if (ownerTokenErr instanceof AppError) throw ownerTokenErr;
+          logger.warn({ agentId: agent.id }, "[programmatic] Failed to link owner token due to transient error, continuing without linking");
         }
       }
     }
@@ -479,27 +536,20 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
       throw new AppError(403, "FORBIDDEN", "You do not own this agent");
     }
 
-    if (agent.status === "active" && agent.verificationStatus === "verified") {
-      res.status(200).json({
-        message: "Agent is already verified",
-        agentId,
-        status: "active",
-        idempotent: true,
-      });
-      return;
+    // H4: Re-check agent count limit before activation to prevent bypass via this path.
+    // Only applies to owned agents (autonomous agents are limited by Sybil quota instead).
+    if (agent.userId) {
+      const ownerPlanVerify = await getUserPlan(agent.userId);
+      const ownerLimitsVerify = getPlanLimits(ownerPlanVerify);
+      const activeCountVerify = await db.select({ id: agentsTable.id }).from(agentsTable)
+        .where(and(eq(agentsTable.userId, agent.userId), eq(agentsTable.status, "active")));
+      if (activeCountVerify.length >= ownerLimitsVerify.agentLimit) {
+        throw new AppError(403, "AGENT_LIMIT_REACHED",
+          `Agent limit reached. Your ${ownerPlanVerify} plan allows ${ownerLimitsVerify.agentLimit} active agent(s).`,
+          { currentPlan: ownerPlanVerify, agentLimit: ownerLimitsVerify.agentLimit });
+      }
     }
 
-    const preActivationPlan = await getUserPlan(agent.userId);
-    const preActivationLimits = getPlanLimits(preActivationPlan);
-    const existingActiveAgents = await db.select({ id: agentsTable.id }).from(agentsTable)
-      .where(and(eq(agentsTable.userId, agent.userId), eq(agentsTable.status, "active")));
-    if (existingActiveAgents.length >= preActivationLimits.agentLimit) {
-      throw new AppError(403, "AGENT_LIMIT_REACHED", `Agent limit reached. The owner's ${preActivationPlan} plan allows ${preActivationLimits.agentLimit} active agent(s).`, {
-        currentPlan: preActivationPlan,
-        agentLimit: preActivationLimits.agentLimit,
-        currentCount: existingActiveAgents.length,
-      });
-    }
     const lookupMs = performance.now() - tLookup;
 
     const tChallenge = performance.now();
@@ -561,6 +611,7 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
     const claimToken = generateClaimToken(agentId, apiKey.prefix);
 
     const tParallel = performance.now();
+    // H5: Wrap core activation writes in a transaction for atomicity.
     await db.transaction(async (tx) => {
       await tx.insert(apiKeysTable).values({
         ownerType: "agent",
@@ -583,10 +634,12 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
         .where(eq(agentsTable.id, agentId));
       await tx.insert(agentClaimTokensTable).values({
         agentId,
-        token: hashClaimToken(claimToken),
+        token: claimToken,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       });
     });
+
+    // Side-effects outside the transaction (non-critical)
     await Promise.all([
       getOrCreateInbox(agentId),
       logActivity({

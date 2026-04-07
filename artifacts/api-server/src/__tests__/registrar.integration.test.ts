@@ -177,6 +177,7 @@ describe("Registrar Integration — nft-mint worker: pending_anchor → active",
     process.env.ONCHAIN_MINTING_ENABLED = "true";
     process.env.BASE_RPC_URL = "https://base-rpc.example.invalid";
     process.env.BASE_MINTER_PRIVATE_KEY = "0x" + "a".repeat(64);
+    process.env.BASE_AGENTID_REGISTRAR = FAKE_CONTRACT;
     process.env.BASE_ERC8004_REGISTRY = FAKE_CONTRACT;
     process.env.BASE_PLATFORM_WALLET = "0x1234567890123456789012345678901234567890";
 
@@ -212,6 +213,7 @@ describe("Registrar Integration — nft-mint worker: pending_anchor → active",
     delete process.env.ONCHAIN_MINTING_ENABLED;
     delete process.env.BASE_RPC_URL;
     delete process.env.BASE_MINTER_PRIVATE_KEY;
+    delete process.env.BASE_AGENTID_REGISTRAR;
     delete process.env.BASE_ERC8004_REGISTRY;
     delete process.env.BASE_PLATFORM_WALLET;
   });

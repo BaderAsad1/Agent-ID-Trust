@@ -7,7 +7,7 @@ import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { computeTrustScore, type TrustSignal } from "../../services/trust-score";
 import { getInboxByAgent, getInboxStats } from "../../services/mail";
-import { logActivity } from "../../services/activity-logger";
+import { logActivity, getActivityLog } from "../../services/activity-logger";
 import { getAgentById } from "../../services/agents";
 import { getUserPlan, getPlanLimits } from "../../services/billing";
 import { buildBootstrapBundle } from "../../services/identity";
@@ -15,6 +15,21 @@ import { buildBootstrapBundle } from "../../services/identity";
 const HEARTBEAT_INTERVAL_SECONDS = 300;
 
 const router = Router();
+
+/**
+ * Sanitize a user-controlled string before embedding it in an LLM system prompt.
+ * Strips newlines, ASCII control characters, and collapses backtick runs.
+ * Without this a crafted displayName or capability string can break prompt
+ * boundaries and inject instructions into any LLM that consumes the prompt block.
+ */
+function sanitizeForPrompt(value: string): string {
+  return value
+    .replace(/[\r\n\t\v\f]/g, " ")
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    .replace(/`{3,}/g, "``")
+    .replace(/ {2,}/g, " ")
+    .trim();
+}
 
 interface TrustResult {
   trustScore: number;
@@ -72,14 +87,21 @@ ERC-8004 export:   ${APP_URL}/api/v1/p/${agent.handle}/erc8004
 Handle expires:   ${agent.handleExpiresAt ? agent.handleExpiresAt.toISOString().split('T')[0] : 'N/A'}`
     : `Handle:           none — purchase at ${APP_URL}/handle/purchase?agentId=${agent.id}`;
 
+  const safeName = sanitizeForPrompt(agent.displayName || "");
+  const safePlan = sanitizeForPrompt(planName || "");
+  const safeCapabilities = capabilities
+    .map(sanitizeForPrompt)
+    .filter(Boolean)
+    .join(", ");
+
   return `=== AGENT ID IDENTITY ===
-Name:             ${agent.displayName}
+Name:             ${safeName}
 Machine ID:       ${agent.id}  (permanent, never expires)
 DID:              did:web:getagent.id:agents:${agent.id}
 Trust Score:      ${trust.trustScore} / 100
 Trust Tier:       ${trust.trustTier}
 Verification:     ${agent.verificationStatus}
-Plan:             ${planName && planName !== 'none' ? planName : 'no active plan — upgrade at ' + APP_URL + '/pricing'}
+Plan:             ${safePlan && safePlan !== 'none' ? safePlan : 'no active plan — upgrade at ' + APP_URL + '/pricing'}
 
 ${handleSection}
 
@@ -95,6 +117,7 @@ Auth header: X-Agent-Key: <your-api-key>
 Heartbeat:   POST ${APP_URL}/api/v1/agents/${agent.id}/heartbeat
 Bootstrap:   GET  ${APP_URL}/api/v1/agents/${agent.id}/bootstrap
 Prompt:      GET  ${APP_URL}/api/v1/agents/${agent.id}/prompt-block
+Activity:    GET  ${APP_URL}/api/v1/agents/${agent.id}/activity
 
 === HTTP CLIENT REQUIREMENTS ===
 All API requests MUST include a descriptive User-Agent header.
@@ -122,7 +145,7 @@ curl example:
 If you use the @agentid/sdk or the MCP server, User-Agent is set automatically.
 
 === CAPABILITIES ===
-${capabilities.length ? capabilities.join(', ') : 'None declared — update via PATCH /api/v1/agents/' + agent.id}
+${safeCapabilities || 'None declared — update via PATCH /api/v1/agents/' + agent.id}
 
 === DISCOVER OTHER AGENTS ===
 By handle:      GET ${APP_URL}/api/v1/resolve/<handle>
@@ -367,6 +390,52 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
       },
       promptBlockUrl: `${APP_URL}/api/v1/agents/${agent.id}/prompt-block?format=text`,
       updateContext: true,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /agents/:agentId/activity
+// Returns the HMAC-signed activity log for the authenticated agent.
+// Agents can audit their own heartbeat history, activation events, key rotations, etc.
+// ?source=signed  — return only entries that carry a valid HMAC signature (default: all)
+// ?eventType=     — filter by event type (e.g. agent.heartbeat)
+// ?limit=         — max entries per page (default 50, max 200)
+// ?offset=        — pagination offset
+router.get("/:agentId/activity", requireAgentAuth, async (req, res, next) => {
+  try {
+    const agent = ensureAgentOwnership(req, req.params.agentId as string);
+
+    const limit = Math.min(
+      Math.max(1, parseInt((req.query.limit as string) || "50", 10) || 50),
+      200,
+    );
+    const offset = Math.max(0, parseInt((req.query.offset as string) || "0", 10) || 0);
+
+    const activities = await getActivityLog(agent.id, limit, offset);
+
+    // Optionally surface only entries with HMAC signatures (recommended for forensic use)
+    const source = req.query.source as string;
+    const filtered = source === "signed"
+      ? activities.filter(a => a.signature)
+      : activities;
+
+    res.json({
+      agentId: agent.id,
+      total: filtered.length,
+      limit,
+      offset,
+      activities: filtered.map(a => ({
+        id: a.id,
+        agentId: a.agentId,
+        eventType: a.eventType,
+        payload: a.payload,
+        signature: a.signature,
+        ipAddress: a.ipAddress,
+        userAgent: a.userAgent,
+        createdAt: a.createdAt,
+      })),
     });
   } catch (err) {
     next(err);

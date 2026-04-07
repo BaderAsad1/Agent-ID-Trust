@@ -212,27 +212,28 @@ export function challengeRateLimit(req: Request, res: Response, next: NextFuncti
   void applyLimiter(5, "rl:challenge:", 60_000, req, res, next);
 }
 
+/**
+ * H1: Rate limit for magic-link send endpoint.
+ * 5 requests per 15 minutes per IP to prevent email-bombing attacks.
+ */
 export function magicLinkSendRateLimit(req: Request, res: Response, next: NextFunction): void {
-  void applyLimiter(5, "rl:magic:", 900_000, req, res, next);
+  void applyLimiter(5, "rl:magic-send:", 15 * 60_000, req, res, next);
 }
 
-// Tight rate limiter for the address reverse-lookup endpoint.
+// Rate limiter for the address reverse-lookup endpoint.
 // This endpoint performs full-table scans and is expensive — limit to 10 req/min per IP.
 export function addressLookupRateLimit(req: Request, res: Response, next: NextFunction): void {
   void applyLimiter(10, "rl:resolve:addr", 60_000, req, res, next);
 }
 
 // Rate limiter for the public handle-check endpoint (/handles/check).
-// This endpoint is high-traffic but cheap (indexed lookup + reserved list check).
 // Set at 2,000 req/min per IP — generous for legitimate use, protective against scraping.
 export function handleCheckRateLimit(req: Request, res: Response, next: NextFunction): void {
   void applyLimiter(2_000, "rl:handle:chk:", 60_000, req, res, next);
 }
 
 // Rate limiter for the /introspect endpoint.
-// This endpoint is a resource-server-only internal call; brute-force attempts against session IDs
-// must be blocked. Limit to 60 req/min per IP.
+// Limit to 60 req/min per IP to block brute-force attempts against session IDs.
 export function introspectRateLimit(req: Request, res: Response, next: NextFunction): void {
   void applyLimiter(60, "rl:introspect:", 60_000, req, res, next);
 }
-

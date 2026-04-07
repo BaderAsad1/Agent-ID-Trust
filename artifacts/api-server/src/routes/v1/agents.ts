@@ -104,28 +104,49 @@ const safeMetadata = z.record(
     message: "Reserved metadata key",
   }),
   z.union([z.string().max(1000), z.number(), z.boolean(), z.null()]),
-).max(50).optional();
+).refine(obj => Object.keys(obj).length <= 50, {
+  message: "Metadata may not have more than 50 keys",
+}).optional();
+
+// Reusable field refiners that reject prompt-injection characters.
+// Newlines and control characters in displayName, capabilities, etc. allow an attacker
+// to break prompt boundaries when these values are embedded in LLM system prompts.
+const safeTextField = (maxLen: number) =>
+  z.string().max(maxLen).refine(
+    (v) => !/[\r\n\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(v),
+    { message: "Field must not contain newline or control characters" },
+  );
+
+const safeCapabilityItem = z.string().max(100).refine(
+  (v) => !/[\r\n\x00-\x1F\x7F]/.test(v),
+  { message: "Capability must not contain newline or control characters" },
+);
 
 const createAgentSchema = z.object({
-  handle: z.string().min(3).max(32).optional(),
+  handle: z.string().min(3).max(32),
   displayName: z.string().min(1).max(255),
   description: z.string().max(5000).optional(),
-  endpointUrl: safeEndpointUrl.optional(),
-  capabilities: z.array(z.string().max(100)).max(50).optional(),
-  scopes: z.array(z.string().max(100)).max(50).optional(),
-  protocols: z.array(z.string().max(100)).max(20).optional(),
-  authMethods: z.array(z.string().max(100)).max(10).optional(),
-  paymentMethods: z.array(z.string().max(100)).max(10).optional(),
+  endpointUrl: z.url().optional(),
+  capabilities: z.array(z.string()).max(50).optional(),
+  scopes: z.array(z.string()).max(50).optional(),
+  protocols: z.array(z.string()).max(20).optional(),
+  authMethods: z.array(z.string()).max(10).optional(),
+  paymentMethods: z.array(z.string()).max(10).optional(),
   isPublic: z.boolean().optional(),
   metadata: safeMetadata,
+  // Wizard-selected plan before the user has an active subscription. Used to determine
+  // whether a standard handle should be held as "awaiting_plan_subscription" (will be
+  // assigned free once the Starter/Pro subscription is confirmed) vs "awaiting_payment"
+  // (requires a separate $5/yr handle checkout on the free plan).
+  intendedPlan: z.enum(["free", "starter", "pro"]).optional(),
 });
 
 const updateAgentSchema = z.object({
-  displayName: z.string().min(1).max(255).optional(),
-  description: z.string().max(5000).optional(),
+  displayName: safeTextField(255).refine((v) => v.trim().length > 0, { message: "displayName must not be blank" }).optional(),
+  description: safeTextField(5000).optional(),
   endpointUrl: safeEndpointUrl.optional(),
   endpointSecret: z.string().max(500).optional(),
-  capabilities: z.array(z.string().max(100)).max(50).optional(),
+  capabilities: z.array(safeCapabilityItem).max(50).optional(),
   scopes: z.array(z.string().max(100)).max(50).optional(),
   protocols: z.array(z.string().max(100)).max(20).optional(),
   authMethods: z.array(z.string().max(100)).max(10).optional(),
@@ -211,8 +232,7 @@ router.post("/", requireAuth, async (req, res, next) => {
 
         if (requiresPayment) {
           // Handle requires payment — create the agent now without assigning the handle.
-          // The 201 response will include pendingHandle + handleCheckoutUrl so the client
-          // can redirect to Stripe immediately. After payment the webhook assigns the handle.
+          // The 201 response will include pendingHandle so the client can initiate checkout.
           // Agent creation must never be blocked by handle pricing.
           pendingHandleCheckout = { handle: normalizedHandle!, checkoutUrl: `${APP_URL}/api/v1/billing/handle-checkout` };
           sandboxHandle = undefined;
@@ -303,6 +323,19 @@ router.post("/", requireAuth, async (req, res, next) => {
               paymentStatus: isStandardHandle ? "included" : "paid",
               includedWithPaidPlan: isStandardHandle,
               registeredAt: new Date().toISOString(),
+            },
+          } : {}),
+          // When handle assignment is deferred, write a flag so bootstrap /activate knows to
+          // hold the registration email until the handle is fully resolved.
+          // "awaiting_plan_subscription" — user chose Starter/Pro in the wizard but hasn't
+          //   subscribed yet; handle will be assigned free once subscription is confirmed.
+          // "awaiting_payment"           — free plan user; requires explicit $5/yr checkout.
+          ...(pendingHandleCheckout ? {
+            pendingHandleRegistration: {
+              handle: normalizedHandle!,
+              status: (isStandardHandle && (parsed.data.intendedPlan === "starter" || parsed.data.intendedPlan === "pro"))
+                ? "awaiting_plan_subscription"
+                : "awaiting_payment",
             },
           } : {}),
         },
@@ -687,18 +720,15 @@ router.get("/:agentId/activity", requireHumanOrAgentAuthForActivity, validateUui
       return;
     }
 
-    const condition = eq(agentActivityLogTable.agentId, agentId);
-    const [activities, countResult] = await Promise.all([
-      db.query.agentActivityLogTable.findMany({
-        where: condition,
-        orderBy: [desc(agentActivityLogTable.createdAt)],
-        limit,
-        offset,
-      }),
-      db.select({ total: count() }).from(agentActivityLogTable).where(condition),
-    ]);
+    // L3: Pass `offset` to findMany so pagination actually works.
+    const activities = await db.query.agentActivityLogTable.findMany({
+      where: eq(agentActivityLogTable.agentId, agentId),
+      orderBy: [desc(agentActivityLogTable.createdAt)],
+      limit,
+      offset,
+    });
 
-    res.json({ activities, total: countResult[0]?.total ?? 0, limit, offset });
+    res.json({ activities, total: activities.length + offset, limit, offset });
   } catch (err) {
     next(err);
   }

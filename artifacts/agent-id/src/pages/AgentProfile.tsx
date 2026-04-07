@@ -451,7 +451,7 @@ export function AgentProfile() {
   const defaultSkills = [
     { icon: '🔑', label: 'Ed25519 Cryptographic Identity', desc: `Cryptographic key pair bound to ${agent.handle}.agentid`, stats: '' },
     { icon: '📨', label: 'Agent Inbox', desc: `Receives messages at ${agent.handle}@agentid.email`, stats: '' },
-    { icon: '🌐', label: 'DID Resolution', desc: profile.credential?.resolverUrl ? `Resolvable via ${profile.credential.resolverUrl} (off-chain)` : 'Off-chain DID resolution (on-chain anchoring coming soon)', stats: '' },
+    { icon: '🌐', label: 'DID Resolution', desc: profile.credential?.resolverUrl ? `Resolvable via ${profile.credential.resolverUrl}` : 'Off-chain DID resolution via Agent ID resolver', stats: '' },
   ];
   const skills = agentCaps.length > 0
     ? agentCaps.map(c => ({ icon: getSkillIcon(c), label: c, desc: '', stats: '' }))

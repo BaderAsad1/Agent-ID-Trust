@@ -176,15 +176,10 @@ export async function createAgent(input: CreateAgentInput & { _skipHandleValidat
     logger.error({ err: err instanceof Error ? err.message : err, agentId: agent.id }, "[agents] Failed to provision inbox for agent");
   }
 
-  try {
-    const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, input.userId) });
-    if (user?.email) {
-      const { sendAgentRegisteredEmail } = await import("./email");
-      await sendAgentRegisteredEmail(user.email, agent.handle ?? "", agent.displayName);
-    }
-  } catch (err) {
-    logger.error({ err: err instanceof Error ? err.message : err, agentId: agent.id }, "[agents] Failed to send registration email for agent");
-  }
+  // Registration email is NOT sent here — it fires at the correct completion point:
+  //   • Paid-handle path → sent by handleCheckoutCompleted() after Stripe payment succeeds
+  //   • No-payment path   → sent by /bootstrap/activate after the agent first connects
+  // This prevents "You're registered!" emails from arriving before the user has finished onboarding.
 
   return agent;
 }

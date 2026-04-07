@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { createHash } from "crypto";
 import { db } from "@workspace/db";
 import { usersTable, humanAuditLogTable, type User, type ApiKey } from "@workspace/db/schema";
+import { logger } from "./request-logger";
 import { getSessionId, getSession } from "../lib/auth";
 
 declare global {
@@ -41,7 +42,9 @@ export async function replitAuth(
       req.user = user;
       req.userId = user.id;
     }
-  } catch {}
+  } catch (err) {
+    logger.warn({ err }, "[auth] Session load failed");
+  }
   next();
 }
 

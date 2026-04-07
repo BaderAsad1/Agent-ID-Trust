@@ -81,7 +81,7 @@ router.post("/claim", registrationRateLimitStrict, async (req, res, next) => {
       throw new AppError(403, "AGENT_REVOKED", "This agent has been revoked");
     }
 
-    if (agent.isClaimed && agent.verificationStatus === "verified") {
+    if (agent.isClaimed && agent.verificationStatus === "verified" && agent.status !== "revoked") {
       const APP_URL = process.env.APP_URL || "https://getagent.id";
       res.status(200).json({
         message: "This agent is already activated and claimed",
@@ -208,6 +208,9 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
 
     const apiKey = generateAgentApiKey();
 
+    // H5: Wrap all activation writes in a transaction to guarantee atomicity.
+    // A partial failure previously left agents in an inconsistent state
+    // (e.g., API key inserted but status not updated, or claim token not consumed).
     await db.transaction(async (tx) => {
       await tx.insert(apiKeysTable).values({
         ownerType: "agent",
@@ -241,6 +244,7 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
         .where(eq(agentClaimTokensTable.id, claimRecord.id));
     });
 
+    // Side-effects outside the transaction (non-critical, failures won't roll back activation)
     await Promise.all([
       getOrCreateInbox(agentId),
       logActivity({
@@ -256,6 +260,46 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
       recomputeAndStore(agentId),
       getAgentById(agentId),
     ]);
+
+    // Send the registration confirmation email once the agent is fully connected.
+    // Skip if the user still has a handle payment pending — billing.ts will send
+    // the email after the Stripe checkout completes instead.
+    setImmediate(async () => {
+      try {
+        const meta = (freshAgent?.metadata as Record<string, unknown>) ?? {};
+        const pendingReg = meta.pendingHandleRegistration as { status?: string } | undefined;
+        // awaiting_payment          → billing webhook sends email after $5/yr handle checkout
+        // awaiting_plan_subscription → billing webhook sends email after Starter/Pro subscription
+        // email_sent                 → billing webhook already sent it; don't duplicate
+        if (
+          pendingReg?.status === "awaiting_payment" ||
+          pendingReg?.status === "awaiting_plan_subscription" ||
+          pendingReg?.status === "email_sent"
+        ) return;
+
+        const ownerUserId = freshAgent?.ownerUserId ?? freshAgent?.userId;
+        if (!ownerUserId) return;
+
+        const { db: dbInner } = await import("@workspace/db");
+        const { usersTable: usersT } = await import("@workspace/db/schema");
+        const { eq: eqFn } = await import("drizzle-orm");
+        const user = await dbInner.query.usersTable.findFirst({
+          where: eqFn(usersT.id, ownerUserId),
+          columns: { email: true },
+        });
+        if (!user?.email) return;
+
+        const { sendAgentRegisteredEmail } = await import("../../services/email");
+        await sendAgentRegisteredEmail(
+          user.email,
+          freshAgent?.handle ?? "",
+          freshAgent?.displayName ?? "",
+          agentId,
+        );
+      } catch (err) {
+        logger.error({ agentId, err: err instanceof Error ? err.message : err }, "[bootstrap] Failed to send registration email after activation");
+      }
+    });
 
     const bootstrap = await buildBootstrapBundle(freshAgent!);
 
@@ -332,6 +376,7 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
   }
 });
 
+// M3: Rate-limit the status endpoint to prevent agent-existence enumeration.
 router.get("/status/:agentId", resolutionRateLimit, async (req, res, next) => {
   try {
     const agent = await getAgentById(req.params.agentId as string);

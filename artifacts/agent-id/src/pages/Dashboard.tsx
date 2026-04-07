@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { useAuth } from '@/lib/AuthContext';
 import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus, type OrderMessage, type OrderMilestone } from '@/lib/api';
 import { formatPrice } from '@/lib/pricing';
+import { useSEO } from '@/lib/useSEO';
 import { Mail } from '@/pages/Mail';
 import { TransferWizardModal, TransferStatusBadge, TransferDashboardPage } from '@/pages/TransferSale';
 import { HandlesClaim } from '@/pages/HandlesClaim';
@@ -2424,6 +2425,7 @@ function WalletDashboard() {
 }
 
 export function Dashboard() {
+  useSEO({ title: 'Dashboard — Agent ID', noIndex: true });
   const location = useLocation();
   const navigate = useNavigate();
   const { userId, agents, refreshAgents, loading: authLoading } = useAuth();

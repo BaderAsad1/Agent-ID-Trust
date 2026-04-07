@@ -17,6 +17,7 @@ import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import express from "express";
 import { errorHandler } from "../middlewares/error-handler";
+import { _resetEnvCacheForTests } from "../lib/env";
 
 vi.mock("../services/activity-logger", () => ({
   logActivity: vi.fn().mockResolvedValue(undefined),
@@ -98,6 +99,7 @@ describe("Admin Revocation Flow — Integration", () => {
 
   beforeAll(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
     app = await buildAdminApp();
 
     const user = await createTestUser();
@@ -112,6 +114,7 @@ describe("Admin Revocation Flow — Integration", () => {
 
   afterAll(async () => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
     await db.delete(auditEventsTable).where(eq(auditEventsTable.targetId, agentId)).catch(() => {});
     await db.delete(agentidSessionsTable).where(eq(agentidSessionsTable.agentId, agentId)).catch(() => {});
     await db.delete(apiKeysTable).where(eq(apiKeysTable.ownerId, agentId)).catch(() => {});
@@ -226,6 +229,7 @@ describe("Admin Revocation Cascade — End-to-End", () => {
 
   beforeAll(async () => {
     process.env.ADMIN_SECRET_KEY = ADMIN_KEY;
+    _resetEnvCacheForTests();
     cascadeApp = await buildCascadeApp();
 
     const user = await createTestUser();
@@ -238,6 +242,7 @@ describe("Admin Revocation Cascade — End-to-End", () => {
 
   afterAll(async () => {
     delete process.env.ADMIN_SECRET_KEY;
+    _resetEnvCacheForTests();
     await db.delete(auditEventsTable).where(eq(auditEventsTable.targetId, cascadeAgentId)).catch(() => {});
     await db.delete(agentidSessionsTable).where(eq(agentidSessionsTable.agentId, cascadeAgentId)).catch(() => {});
     await db.delete(apiKeysTable).where(eq(apiKeysTable.ownerId, cascadeAgentId)).catch(() => {});

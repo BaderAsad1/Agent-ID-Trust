@@ -19,6 +19,7 @@ import {
 import { getHandlePricingTier as sharedGetHandlePricingTier, isEligibleForIncludedHandle, isAllowedHandleAccess } from "@workspace/shared-pricing";
 import { env } from "../lib/env";
 import { getStripe } from "./stripe-client";
+import { getPlatformTreasuryAddress } from "../lib/cdp";
 
 export { isEligibleForIncludedHandle, hasCustomHandleEntitlement, isAllowedHandleAccess } from "@workspace/shared-pricing";
 
@@ -27,8 +28,8 @@ const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
 export const MARKETPLACE_FEE_BPS = 250;
 
 const PLAN_LIMITS: Record<string, { maxPublicAgents: number; maxPrivateAgents: number; agentLimit: number; maxSubagents: number }> = {
-  none: { maxPublicAgents: 1, maxPrivateAgents: 1, agentLimit: 1, maxSubagents: 0 },
-  free: { maxPublicAgents: 1, maxPrivateAgents: 1, agentLimit: 1, maxSubagents: 0 },
+  none: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
+  free: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
   starter: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
   builder: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
   pro: { maxPublicAgents: 25, maxPrivateAgents: 25, agentLimit: 25, maxSubagents: 100 },
@@ -221,6 +222,87 @@ export async function handleSubscriptionCreatedOrUpdated(subscription: Stripe.Su
   }
 
   logger.info({ userId, plan: resolvedPlan, stripeStatus, dbStatus }, "[billing] Subscription upserted from webhook");
+
+  // When a user activates a paid plan, assign any handles that were deferred because
+  // they didn't have the subscription yet (status: "awaiting_plan_subscription").
+  // This is the fulfillment side of the "handle included with Starter/Pro" wizard promise.
+  if ((dbStatus === "active" || dbStatus === "trialing") && isEligibleForIncludedHandle(effectivePlan)) {
+    try {
+      const pendingAgents = await db.query.agentsTable.findMany({
+        where: and(
+          eq(agentsTable.userId, userId),
+          isNull(agentsTable.handle),
+        ),
+        columns: { id: true, metadata: true, displayName: true },
+      });
+
+      for (const pendingAgent of pendingAgents) {
+        const meta = (pendingAgent.metadata as Record<string, unknown>) ?? {};
+        const pendingReg = meta.pendingHandleRegistration as { handle?: string; status?: string } | undefined;
+        if (pendingReg?.status !== "awaiting_plan_subscription" || !pendingReg.handle) continue;
+
+        const normalizedHandle = pendingReg.handle.toLowerCase();
+
+        // Verify the handle is still available before assigning.
+        const { checkHandleAvailability, checkHandleRegistrationLimits } = await import("./handle");
+        const availResult = await checkHandleAvailability(normalizedHandle);
+        const stillAvailable = availResult.available;
+        if (!stillAvailable) {
+          logger.warn({ agentId: pendingAgent.id, handle: normalizedHandle, userId }, "[billing] Pending handle no longer available at plan subscription — user must choose a different handle");
+          continue;
+        }
+        const limitResult = await checkHandleRegistrationLimits(userId, normalizedHandle);
+        if (limitResult) {
+          logger.warn({ agentId: pendingAgent.id, handle: normalizedHandle, userId, reason: limitResult.message }, "[billing] Pending handle failed limit check at plan subscription");
+          continue;
+        }
+
+        const expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        const { getHandleTier } = await import("./handle");
+        const tier = getHandleTier(normalizedHandle);
+        const { pendingHandleRegistration: _cleared, ...metaWithoutPending } = meta;
+
+        await db.update(agentsTable)
+          .set({
+            handle: normalizedHandle,
+            handleTier: tier.tier,
+            handlePaid: true,
+            handleExpiresAt: expiresAt,
+            handleRegisteredAt: new Date(),
+            metadata: {
+              ...metaWithoutPending,
+              pendingHandleRegistration: { handle: normalizedHandle, status: "email_sent" },
+              handlePricing: {
+                paymentStatus: "included",
+                includedWithPaidPlan: true,
+                registeredAt: new Date().toISOString(),
+              },
+            },
+            updatedAt: new Date(),
+          })
+          .where(eq(agentsTable.id, pendingAgent.id));
+
+        logger.info({ agentId: pendingAgent.id, handle: normalizedHandle, userId, plan: effectivePlan }, "[billing] Pending handle assigned after plan subscription");
+
+        // Send registration email now that handle is resolved and plan is active.
+        try {
+          const user = await db.query.usersTable.findFirst({
+            where: eq(usersTable.id, userId),
+            columns: { email: true },
+          });
+          if (user?.email) {
+            const { sendAgentRegisteredEmail } = await import("./email");
+            await sendAgentRegisteredEmail(user.email, normalizedHandle, pendingAgent.displayName ?? "", pendingAgent.id);
+          }
+        } catch (emailErr) {
+          logger.error({ err: emailErr instanceof Error ? emailErr.message : emailErr, agentId: pendingAgent.id }, "[billing] Failed to send registration email after plan subscription");
+        }
+      }
+    } catch (pendingErr) {
+      logger.error({ err: pendingErr instanceof Error ? pendingErr.message : pendingErr, userId }, "[billing] Failed to assign pending handles after plan subscription");
+    }
+  }
 }
 
 export async function getUserSubscriptions(userId: string): Promise<Subscription[]> {
@@ -880,9 +962,12 @@ export async function createHandleCheckoutSession(
 ): Promise<{ url: string | null; error?: string; priceCents: number; included?: boolean }> {
   const priceCents = getHandlePriceCents(handle);
 
-  // All users may purchase handles. Starter/Pro users get their first standard handle (5+)
-  // included free via the entitlement path below; everyone else pays the retail price.
+  // Handles require a paid plan. Free/unsubscribed users cannot register handles of any tier.
+  // Starter/Pro users get their first standard handle included; other paid tiers pay the retail price.
   const normalizedUserPlan = await getUserPlan(userId);
+  if (normalizedUserPlan === "none") {
+    return { url: null, error: "PLAN_REQUIRED_FOR_HANDLE", priceCents: 0 };
+  }
 
   // Included-handle entitlement path: check eligibility first (read-only).
   // If the user is eligible for a free included handle but has not provided an agentId,
@@ -1448,9 +1533,11 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
 
         const fullAgent = await db.query.agentsTable.findFirst({
           where: eq(agentsTable.id, agentRecord.id),
-          columns: { id: true, metadata: true },
+          columns: { id: true, metadata: true, displayName: true },
         });
         const existingMeta = (fullAgent?.metadata as Record<string, unknown>) ?? {};
+        // Clear the pending-payment flag now that payment has completed.
+        const { pendingHandleRegistration: _cleared, ...metaWithoutPending } = existingMeta;
 
         await Promise.all([
           markHandlePaymentComplete(agentRecord.id),
@@ -1465,7 +1552,10 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
               nftStatus: isNftEligible ? "pending_anchor" : "none",
               nftCustodian: isNftEligible ? "platform" : null,
               metadata: {
-                ...existingMeta,
+                ...metaWithoutPending,
+                // Mark as email_sent so the bootstrap /activate endpoint skips a duplicate.
+                // Even if the user connects their SDK after paying, only one email fires.
+                pendingHandleRegistration: { handle: normalizedHandle, status: "email_sent" },
                 ...(isNftEligible ? { nftQueuedAt: new Date().toISOString() } : {}),
               },
               updatedAt: new Date(),
@@ -1474,6 +1564,21 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
         ]);
 
         logger.info({ agentId: agentRecord.id, handle: normalizedHandle, tier: tier.tier, isNftEligible }, "[billing] Handle activated from checkout");
+
+        // Send the registration confirmation email now that payment is complete.
+        // This is the authoritative completion point for users who chose a paid handle.
+        try {
+          const user = await db.query.usersTable.findFirst({
+            where: eq(usersTable.id, userId),
+            columns: { email: true },
+          });
+          if (user?.email) {
+            const { sendAgentRegisteredEmail } = await import("./email");
+            await sendAgentRegisteredEmail(user.email, normalizedHandle, fullAgent?.displayName ?? "", agentRecord.id);
+          }
+        } catch (emailErr) {
+          logger.error({ err: emailErr instanceof Error ? emailErr.message : emailErr, agentId: agentRecord.id }, "[billing] Failed to send registration email after handle checkout");
+        }
 
         if (isNftEligible) {
           logger.info({ agentId: agentRecord.id, handle: normalizedHandle, handleLen }, "[billing] Handle is NFT-eligible (<=4 char), attempting registerOnChain");
@@ -1884,7 +1989,7 @@ export async function createCryptoCheckoutSession(
   userId: string,
   token: "USDC" | "USDT" = "USDC",
 ): Promise<CryptoCheckoutResult> {
-  const platformWallet = process.env.BASE_PLATFORM_WALLET;
+  const platformWallet = process.env.BASE_PLATFORM_WALLET || getPlatformTreasuryAddress();
   if (!platformWallet) {
     throw new Error("BASE_PLATFORM_WALLET is not configured — crypto payments unavailable");
   }
@@ -1922,7 +2027,7 @@ export async function pollForCryptoPayment(
   agentId?: string,
 ): Promise<{ confirmed: boolean; txHash?: string }> {
   const rpcUrl = process.env.BASE_RPC_URL;
-  const platformWallet = process.env.BASE_PLATFORM_WALLET;
+  const platformWallet = process.env.BASE_PLATFORM_WALLET || getPlatformTreasuryAddress();
 
   if (!rpcUrl || !platformWallet) {
     logger.warn({ handle, reference }, "[billing] crypto-payment: BASE_RPC_URL or BASE_PLATFORM_WALLET not set — cannot verify");

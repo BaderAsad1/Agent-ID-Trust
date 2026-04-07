@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod/v4";
+import { logger } from "../../middlewares/request-logger";
 import { AppError } from "../../middlewares/error-handler";
 import { assertSandboxIsolation } from "../../middlewares/sandbox";
 import { getAgentByHandle, getAgentById } from "../../services/agents";
@@ -325,7 +326,9 @@ function toResolvedAgent(
     verificationStatus: agent.verificationStatus,
     verificationMethod: agent.verificationMethod,
     verifiedAt: agent.verifiedAt,
-    status: agent.status === "revoked" ? "revoked" : (agent.handleStatus ?? agent.status),
+    // Non-active agent statuses (suspended, revoked, draft, etc.) always take priority
+    // over handleStatus so operational states are correctly surfaced to callers.
+    status: agent.status !== "active" ? agent.status : (agent.handleStatus ?? "active"),
     handleStatus: agent.handleStatus ?? null,
     avatarUrl: agent.avatarUrl,
     ownerKey,
@@ -411,7 +414,7 @@ function logResolutionEvent(
       cacheHit,
     })
     .catch((err) => {
-      console.error("[resolve] Failed to log resolution event:", err instanceof Error ? err.message : err);
+      logger.warn({ err }, "[resolve] Failed to log resolution event");
     });
 }
 

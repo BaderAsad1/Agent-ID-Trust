@@ -705,7 +705,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 28, opacity: titleOpacity, transform: `translateY(${titleTranslateY}px)` }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>THE AGENT CREDENTIAL</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)', marginBottom: 12 }}>THE AGENT CREDENTIAL</div>
           <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
             One credential.{' '}
             <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Immediate trust.</span>
@@ -756,7 +756,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)',
           marginBottom: 'clamp(6px, 1vh, 16px)',
         }}>THE AGENT CREDENTIAL</div>
         <h2 style={{
@@ -945,7 +945,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
         <div style={{ textAlign: 'center', marginBottom: 28, opacity: titleOpacity, transform: `translateY(${titleTranslateY}px)` }}>
           <div style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-            letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12,
+            letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)', marginBottom: 12,
           }}>INFRASTRUCTURE</div>
           <h2 style={{
             fontFamily: "'Bricolage Grotesque', sans-serif",
@@ -1026,7 +1026,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)',
           marginBottom: 'clamp(6px, 1vh, 16px)',
         }}>INFRASTRUCTURE</div>
         <h2 style={{
@@ -1267,7 +1267,7 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 24, opacity: titleT, transform: `translateY(${(1 - titleT) * 30}px)` }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>WHAT YOUR AGENT GETS</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)', marginBottom: 12 }}>WHAT YOUR AGENT GETS</div>
           <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
             Everything it needs to be{' '}
             <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>trusted by default.</span>
@@ -1319,7 +1319,7 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)',
           marginBottom: 'clamp(6px, 1vh, 16px)',
         }}>WHAT YOUR AGENT GETS</div>
         <h2 style={{
@@ -1662,7 +1662,7 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
     return (
       <div style={{ padding: '56px 20px 48px', boxSizing: 'border-box', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 24, opacity: titleT, transform: `translateY(${(1 - titleT) * 30}px)` }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 12 }}>BUILT FOR INTEGRATION</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)', marginBottom: 12 }}>BUILT FOR INTEGRATION</div>
           <h2 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: 'clamp(24px, 7vw, 36px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.15, color: '#e8e8f0', marginBottom: 10 }}>
             Connect from{' '}
             <span style={{ background: 'linear-gradient(135deg, #4f7df3, #7c5bf5)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>any stack.</span>
@@ -1686,7 +1686,7 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
               }}>
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: tool.color, marginBottom: 3 }}>{tool.label}</div>
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.4 }}>{tool.desc}</div>
+                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: 'rgba(232,232,240,0.62)', lineHeight: 1.4 }}>{tool.desc}</div>
                 </div>
                 <span style={{
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 600,
@@ -1724,7 +1724,7 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+          letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)',
           marginBottom: 'clamp(6px, 1vh, 14px)',
         }}>BUILT FOR INTEGRATION</div>
         <h2 style={{
@@ -1786,7 +1786,7 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
               <div style={{
                 fontFamily: "'Inter', sans-serif",
                 fontSize: 'clamp(11px, 1vw, 13px)',
-                color: 'rgba(232,232,240,0.4)', lineHeight: 1.45,
+                color: 'rgba(232,232,240,0.62)', lineHeight: 1.45,
               }}>{tool.desc}</div>
             </div>
           );
@@ -1812,7 +1812,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
     return (
       <div style={{ padding: '56px 20px 72px', textAlign: 'center', boxSizing: 'border-box', width: '100%' }}>
         <div style={{ opacity: mobileLabel, transform: `translateY(${(1 - mobileLabel) * 20}px)` }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)', marginBottom: 16 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)', marginBottom: 16 }}>
             AGENT ID PROTOCOL
           </div>
         </div>
@@ -1828,7 +1828,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
         <div style={{ opacity: mobileBody, transform: `translateY(${(1 - mobileBody) * 20}px)` }}>
           <p style={{
             fontFamily: "'Inter', sans-serif", fontSize: 14, lineHeight: 1.65,
-            color: 'rgba(232,232,240,0.38)', marginBottom: 32,
+            color: 'rgba(232,232,240,0.62)', marginBottom: 32,
           }}>
             Claim your .AgentID handle and become verifiable. Every agent that joins strengthens the trust fabric for all of them.
           </p>
@@ -1848,7 +1848,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
             }}>Get started →</button>
             <button onClick={() => onNavigate?.('/for-agents')} style={{
               fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-              letterSpacing: '0.10em', color: 'rgba(232,232,240,0.20)',
+              letterSpacing: '0.10em', color: 'rgba(232,232,240,0.52)',
               background: 'none', border: 'none', cursor: 'pointer', padding: 0,
             }}>Autonomous registration via API →</button>
           </div>
@@ -1881,7 +1881,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
 
       <div style={{
         fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-        letterSpacing: '0.16em', color: 'rgba(232,232,240,0.25)',
+        letterSpacing: '0.16em', color: 'rgba(232,232,240,0.45)',
         marginBottom: 'clamp(12px, 2vh, 24px)',
       }}>AGENT ID PROTOCOL</div>
 
@@ -1902,7 +1902,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
 
       <p style={{
         fontFamily: "'Inter', sans-serif", fontSize: 'clamp(14px, 1.3vw, 17px)', lineHeight: 1.65,
-        color: 'rgba(232,232,240,0.38)', maxWidth: 400, margin: '0 auto',
+        color: 'rgba(232,232,240,0.62)', maxWidth: 400, margin: '0 auto',
         marginBottom: 'clamp(28px, 4vh, 48px)',
       }}>
         Claim your .AgentID handle and become verifiable. Every agent that joins the network strengthens the trust fabric for all of them.
@@ -1929,7 +1929,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
           fontFamily: "'JetBrains Mono', monospace",
           fontSize: 10, fontWeight: 600,
           letterSpacing: '0.10em',
-          color: 'rgba(232,232,240,0.20)',
+          color: 'rgba(232,232,240,0.52)',
           background: 'none', border: 'none',
           cursor: 'pointer', padding: 0,
         }}>
@@ -2129,22 +2129,22 @@ function RegistryField({ progress }: { progress: number }) {
 
   const monoStyle: CSSProperties = {
     fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 'clamp(16px, 2vw, 22px)',
+    fontSize: 'clamp(14px, 1.6vw, 18px)',
     fontWeight: 500,
     letterSpacing: '0.02em',
   };
 
   return (
     <div style={{
-      marginBottom: 32,
+      marginBottom: 28,
       opacity: fieldOpacity,
       transform: `translateY(${lerp(0, -20, Math.min(1, progress / 0.12))}px)`,
     }}>
       <div style={{
         display: 'inline-flex', alignItems: 'center',
-        background: 'rgba(8,10,22,0.88)',
-        border: '1px solid rgba(79,125,243,0.12)',
-        borderRadius: 12, padding: '12px 24px',
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 8, padding: '9px 18px',
       }}>
         <span style={{
           ...monoStyle,
@@ -2169,6 +2169,86 @@ function RegistryField({ progress }: { progress: number }) {
   );
 }
 
+// Only brands where AI agents actually run and can hold an Agent ID credential.
+// Logos served from Simple Icons CDN — same icon set used by shields.io, readme badges, etc.
+const SI = 'https://cdn.simpleicons.org';
+const MARQUEE_BRANDS = [
+  { name: 'OpenAI',           slug: 'openai',         note: 'Assistants & Agents API' },
+  { name: 'Anthropic',        slug: 'anthropic',      note: 'Claude agent runtime'     },
+  { name: 'Google Gemini',    slug: 'googlegemini',   note: 'Gemini agent API'         },
+  { name: 'LangChain',        slug: 'langchain',      note: 'Agent framework'          },
+  { name: 'Hugging Face',     slug: 'huggingface',    note: 'Inference & Spaces agents'},
+  { name: 'n8n',              slug: 'n8n',            note: 'AI workflow automation'   },
+  { name: 'Zapier',           slug: 'zapier',         note: 'AI action automation'     },
+  { name: 'Amazon Bedrock',   slug: 'amazonaws',      note: 'Managed agent runtime'    },
+  { name: 'Microsoft Azure',  slug: 'microsoftazure', note: 'Azure AI agents'          },
+  { name: 'GitHub',           slug: 'github',         note: 'Copilot Extensions'       },
+  { name: 'Replit',           slug: 'replit',         note: 'Replit Agents'            },
+  { name: 'Cursor',           slug: 'cursor',         note: 'Cursor AI agents'         },
+];
+
+function BrandMarqueeSection() {
+  const doubled = [...MARQUEE_BRANDS, ...MARQUEE_BRANDS];
+  return (
+    <div style={{
+      padding: '22px 0 26px',
+      borderTop: '1px solid rgba(255,255,255,0.04)',
+      borderBottom: '1px solid rgba(255,255,255,0.04)',
+      background: 'rgba(8,10,22,0.6)',
+      overflow: 'hidden',
+      position: 'relative',
+    }}>
+      {/* Fade edges */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, bottom: 0, width: 140,
+        background: 'linear-gradient(90deg, rgba(5,7,17,1) 0%, rgba(5,7,17,0) 100%)',
+        zIndex: 2, pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', top: 0, right: 0, bottom: 0, width: 140,
+        background: 'linear-gradient(270deg, rgba(5,7,17,1) 0%, rgba(5,7,17,0) 100%)',
+        zIndex: 2, pointerEvents: 'none',
+      }} />
+
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
+        letterSpacing: '0.16em', color: 'rgba(232,232,240,0.28)',
+        textAlign: 'center', marginBottom: 14, textTransform: 'uppercase',
+      }}>
+        Integrates with the platforms where agents already run
+      </div>
+
+      <div className="animate-marquee" style={{ gap: 0, animationDuration: '45s' }}>
+        {doubled.map((brand, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 9,
+            paddingRight: 52,
+            flexShrink: 0,
+          }}>
+            <img
+              src={`${SI}/${brand.slug}/808898`}
+              width={16} height={16}
+              alt={brand.name}
+              loading="lazy"
+              style={{ flexShrink: 0, opacity: 0.65, display: 'block' }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+            <span style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 13, fontWeight: 500,
+              color: 'rgba(232,232,240,0.48)',
+              letterSpacing: '-0.01em',
+              whiteSpace: 'nowrap',
+            }}>
+              {brand.name}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: (path: string) => void }) {
   const contentOpacity = progress < 0.08 ? 1 : lerp(1, 0, (progress - 0.08) / 0.06);
   const contentY = lerp(0, -60, Math.min(1, progress / 0.12));
@@ -2177,81 +2257,71 @@ function HeroOpening({ progress, onNavigate }: { progress: number; onNavigate?: 
     <div style={{
       position: 'absolute', inset: 0,
       display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'flex-start',
+      paddingTop: 'clamp(72px, 10vh, 110px)',
+      paddingLeft: 'clamp(20px, 5vw, 60px)',
+      paddingRight: 'clamp(20px, 5vw, 60px)',
       zIndex: 10, pointerEvents: 'none',
-      padding: '0 clamp(20px, 5vw, 60px)',
     }}>
+
       <RegistryField progress={progress} />
 
       <h1 style={{
         fontFamily: "'Bricolage Grotesque', sans-serif",
-        fontSize: 'clamp(42px, 6.5vw, 80px)',
-        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.08,
-        color: '#e8e8f0',
+        fontSize: 'clamp(40px, 6vw, 80px)',
+        fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.05,
+        color: '#f2f2f7',
         textAlign: 'center',
         margin: '0 0 20px',
-        maxWidth: 760,
+        maxWidth: 800,
         opacity: contentOpacity,
         transform: `translateY(${contentY}px)`,
       }}>
-        Give your agent<br />
-        a verifiable identity.
+        Give your agents<br />a verifiable identity.
       </h1>
 
       <p style={{
         fontFamily: "'Inter', sans-serif",
-        fontSize: 'clamp(15px, 1.5vw, 19px)',
-        fontWeight: 400, lineHeight: 1.6,
-        color: 'rgba(232,232,240,0.72)',
+        fontSize: 'clamp(14px, 1.25vw, 17px)',
+        fontWeight: 400, lineHeight: 1.7,
+        color: '#8690a8',
         textAlign: 'center',
-        maxWidth: 540, margin: '0 auto',
+        maxWidth: 480, margin: '0 auto',
         opacity: contentOpacity,
         transform: `translateY(${contentY * 0.5}px)`,
       }}>
-        Claim a .AgentID handle. Issue an Agent Credential. Let any system resolve, verify, and trust your agent  -  without asking you first.
+        Register once. Every API, service, and agent your AI connects with can verify its identity, capabilities, and trust level instantly. No callbacks. No blind trust.
       </p>
 
       <div style={{
         marginTop: 32,
-        opacity: contentOpacity * 0.9,
+        opacity: contentOpacity,
         transform: `translateY(${contentY * 0.3}px)`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+        display: 'flex', alignItems: 'center', gap: 14,
         pointerEvents: 'auto',
       }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <span onClick={() => {
-            const base = import.meta.env.BASE_URL || '/';
-            window.location.href = `${base}sign-in?intent=register`;
-          }} style={{
-            fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600,
-            color: '#fff', background: 'rgba(79,125,243,0.15)',
-            border: '1px solid rgba(79,125,243,0.3)',
-            borderRadius: 9, padding: '10px 22px', cursor: 'pointer',
-            letterSpacing: '-0.01em',
-          }}>
-            Get Started
-          </span>
-          <span onClick={() => {
-            const base = import.meta.env.BASE_URL || '/';
-            window.location.href = `${base}docs`;
-          }} style={{
-            fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
-            color: 'rgba(232,232,240,0.72)',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.10)',
-            borderRadius: 9, padding: '10px 22px', cursor: 'pointer',
-            letterSpacing: '-0.01em',
-          }}>
-            View Docs
-          </span>
-        </div>
-        <div style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 500,
-          letterSpacing: '0.12em',
-          color: 'rgba(232,232,240,0.5)',
+        <button onClick={() => {
+          const base = import.meta.env.BASE_URL || '/';
+          window.location.href = `${base}sign-in?intent=register`;
+        }} style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600,
+          color: '#080b18', background: '#f2f2f7',
+          border: 'none', borderRadius: 8, padding: '11px 26px',
+          cursor: 'pointer', letterSpacing: '-0.01em',
         }}>
-          Verifiable. Resolvable. Trusted.
-        </div>
+          Register your agent
+        </button>
+        <button onClick={() => {
+          const base = import.meta.env.BASE_URL || '/';
+          window.location.href = `${base}docs`;
+        }} style={{
+          fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 500,
+          color: '#8690a8', background: 'none', border: 'none',
+          padding: '11px 4px', cursor: 'pointer', letterSpacing: '-0.01em',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          View docs <span style={{ opacity: 0.5 }}>→</span>
+        </button>
       </div>
     </div>
   );
@@ -2363,6 +2433,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
             <HeroIssuanceRings heroProgress={scroll.heroProgress} />
           </div>
 
+
           <IssuanceMomentFlash active={ceremonyState === 'active'} />
 
           <CredentialSilhouette progress={scroll.heroProgress} />
@@ -2374,17 +2445,66 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           <SystemResolvingText progress={scroll.heroProgress} />
 
           <div style={{
-            position: 'relative', zIndex: 5,
+            position: 'absolute', zIndex: 5,
+            top: '50%', left: '50%',
+            transform: `translate(-50%, -50%) scale(${credentialScale})`,
             opacity: credentialOpacity * heroOpacity,
-            transform: `scale(${credentialScale})`,
             filter: `blur(${credentialBlur}px)`,
             transition: 'transform 0.8s cubic-bezier(0.16,1,0.3,1)',
           }}>
             <FilmCredential heroProgress={scroll.heroProgress} />
           </div>
 
+          {/* Brand marquee — anchored to bottom of hero viewport, fades before credential animation */}
           <div style={{
-            position: 'absolute', bottom: 40,
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            opacity: scroll.heroProgress < 0.04 ? 1 : lerp(1, 0, (scroll.heroProgress - 0.04) / 0.05),
+          }}>
+            <p style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 10, fontWeight: 500,
+              color: 'rgba(134,144,168,0.5)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              textAlign: 'center',
+              margin: '0 0 10px',
+            }}>Integrates with</p>
+            <div style={{ overflow: 'hidden', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 10, paddingBottom: 10 }}>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, bottom: 0, width: 100,
+              background: 'linear-gradient(90deg, rgba(5,7,17,1) 0%, transparent 100%)',
+              zIndex: 2, pointerEvents: 'none',
+            }} />
+            <div style={{
+              position: 'absolute', top: 0, right: 0, bottom: 0, width: 100,
+              background: 'linear-gradient(270deg, rgba(5,7,17,1) 0%, transparent 100%)',
+              zIndex: 2, pointerEvents: 'none',
+            }} />
+            <div className="animate-marquee" style={{ gap: 0, animationDuration: '45s' }}>
+              {[...MARQUEE_BRANDS, ...MARQUEE_BRANDS].map((brand, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 48, flexShrink: 0 }}>
+                  <img
+                    src={`${SI}/${brand.slug}/707888`}
+                    width={14} height={14}
+                    alt={brand.name}
+                    loading="lazy"
+                    style={{ flexShrink: 0, display: 'block' }}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <span style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 12, fontWeight: 500,
+                    color: '#606878', letterSpacing: '-0.01em',
+                    whiteSpace: 'nowrap',
+                  }}>{brand.name}</span>
+                </div>
+              ))}
+            </div>
+            </div>
+          </div>
+
+          <div style={{
+            position: 'absolute', bottom: 150,
             textAlign: 'center',
             opacity: scroll.heroProgress < 0.03 ? 1 : 0,
             transition: 'opacity 0.5s ease',
