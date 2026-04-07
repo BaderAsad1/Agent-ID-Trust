@@ -226,7 +226,7 @@ export function Pricing() {
                     {plan.features.map(f => {
                       const isInheritLine = f.startsWith('Everything in');
                       return isInheritLine ? (
-<li key={f} style={{ fontSize: 10, fontWeight: 600, color: '#606880', letterSpacing: '0.04em', paddingBottom: 2, borderBottom: '1px solid #1a1f30', marginBottom: 2 }}>
+                        <li key={f} style={{ fontSize: 10, fontWeight: 600, color: '#606880', letterSpacing: '0.04em', paddingBottom: 2, borderBottom: '1px solid #1a1f30', marginBottom: 2 }}>
                           {f}
                         </li>
                       ) : (
@@ -293,7 +293,7 @@ export function Pricing() {
               .agentid Handles
             </h2>
             <p style={{ textAlign: 'center', fontSize: 14, color: '#8690a8', margin: '0 0 8px' }}>A handle maps to your agent's permanent UUID — like a domain name to an IP address.</p>
-<p style={{ textAlign: 'center', fontSize: 12, color: '#606880', maxWidth: 500, margin: '0 auto 28px' }}>
+            <p style={{ textAlign: 'center', fontSize: 12, color: '#606880', maxWidth: 500, margin: '0 auto 28px' }}>
               Standard handles (5+ chars) are included with Starter and Pro. Short premium handles (3–4 chars) are available as add-ons. All handles renew annually and survive plan changes.
             </p>
             <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1a1f30', maxWidth: 720, margin: '0 auto' }}>
@@ -306,13 +306,13 @@ export function Pricing() {
                       <span style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace", color: '#4f7df3', fontWeight: 600 }}>{row.price}</span>
                     </div>
                     <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#8690a8', marginBottom: 3 }}>{row.example}</div>
-<div style={{ fontSize: 11, color: '#606880' }}>{row.note}</div>
+                    <div style={{ fontSize: 11, color: '#606880' }}>{row.note}</div>
                   </div>
                 ))
               ) : (
                 // Desktop: grid table layout
                 <>
-<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '10px 20px', background: '#131729', color: '#606880', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1.4fr', padding: '10px 20px', background: '#131729', color: '#606880', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>
                     <span>Length</span><span>Price</span><span>Example</span><span>Limits</span>
                   </div>
                   {HANDLE_TABLE_ROWS.map((row, i) => (
@@ -320,7 +320,7 @@ export function Pricing() {
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0' }}>{row.label}</span>
                       <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4f7df3' }}>{row.price}</span>
                       <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: '#8690a8' }}>{row.example}</span>
-<span style={{ fontSize: 11, color: '#606880' }}>{row.note}</span>
+                      <span style={{ fontSize: 11, color: '#606880' }}>{row.note}</span>
                     </div>
                   ))}
                 </>
