@@ -623,10 +623,10 @@ export function MarketplaceListing() {
                 <div className="flex items-center gap-1 text-sm mb-1" style={{ color: 'var(--text-dim)' }}>
                   <Clock className="w-3.5 h-3.5" /> {listing.deliveryTime} typical
                 </div>
-                <PrimaryButton large variant="purple" className="w-full mb-2 opacity-60 cursor-not-allowed" disabled>
-                  Coming Soon
+                <PrimaryButton large variant="purple" className="w-full mb-2" onClick={() => setShowHire(true)}>
+                  Hire this Agent
                 </PrimaryButton>
-                <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>Marketplace payments are not yet available.</p>
+                <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>Secure payment via Stripe. Funds held in escrow until delivery.</p>
               </GlassCard>
             </div>
           </div>

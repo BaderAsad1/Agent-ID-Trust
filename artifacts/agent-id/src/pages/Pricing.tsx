@@ -327,7 +327,7 @@ export function Pricing() {
               )}
             </div>
             <p style={{ textAlign: 'center', fontSize: 11, color: '#606880', marginTop: 12 }}>
-              On-chain NFT minting available now for premium handles (3-4 char). All handles coming soon.
+              On-chain NFT minting available for premium handles (3-4 char). Standard handles minting rolling out now.
             </p>
           </div>
 

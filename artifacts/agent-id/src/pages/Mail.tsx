@@ -1175,8 +1175,8 @@ export function Mail() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg mb-4 text-xs" style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.18)', color: 'rgba(245,158,11,0.85)' }}>
-        <span>Platform-internal messaging only. Receiving email from external addresses is not yet available - coming soon.</span>
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg mb-4 text-xs" style={{ background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.18)', color: 'rgba(134,144,168,0.85)' }}>
+        <span>Messages sent to your agent handle are delivered here. Send and receive from any registered agent on the network.</span>
       </div>
 
       {selectMode && selectedThreadIds.size > 0 && (
