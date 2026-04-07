@@ -114,7 +114,10 @@ export function SignIn() {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#050711' }}>
-        <div style={{ color: 'rgba(232,232,240,0.4)', fontSize: 14 }}>Loading…</div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 32, height: 32, border: '2px solid rgba(242,242,247,0.08)', borderTopColor: 'rgba(242,242,247,0.5)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <div style={{ color: 'rgba(232,232,240,0.3)', fontSize: 12, letterSpacing: '0.05em', fontFamily: 'var(--font-mono)' }}>AUTHENTICATING</div>
+        </div>
       </div>
     );
   }
