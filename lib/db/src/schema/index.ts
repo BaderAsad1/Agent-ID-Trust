@@ -71,4 +71,5 @@ export * from "./marketplace-milestones";
 export * from "./marketplace-disputes";
 export * from "./a2a-service-listings";
 export * from "./a2a-payout-queue";
+export * from "./a2a-engagements";
 export * from "./marketplace-analytics-events";
