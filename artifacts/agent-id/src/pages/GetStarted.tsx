@@ -1153,31 +1153,41 @@ Content-Type: application/json
 { "agentId": "${createdAgentId}", "kid": "<kid from step 2>", "challenge": "<challenge from step 2>", "signature": "<base64 sig>", "claimToken": "${claimToken}" }
 
 Response contains: identity, secrets.apiKey, bootstrap (config), nextSteps.
-Save secrets.apiKey to a secure location (env var or secrets file). Never echo it.
+
+Persist immediately (REQUIRED):
+- Write secrets.apiKey to env var AGENTID_API_KEY or file ~/.agentid/api_key (chmod 600)
+- Write agentId (${createdAgentId}) to env var AGENTID_AGENT_ID or file ~/.agentid/agent_id
+- SDK users: await agent.writeStateFile('~/.agentid/state.json')
+Never echo the API key. Never put it in a prompt or chat message.
 
 ━━━ STEP 4: Send first heartbeat ━━━
-Authenticate all agent API calls with: Authorization: Bearer <your-api-key>
+Authenticate all agent API calls with: X-Agent-Key: <your-api-key>
 
 POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/agents/${createdAgentId}/heartbeat
-Authorization: Bearer <secrets.apiKey from step 3>
+X-Agent-Key: <secrets.apiKey from step 3>
+User-Agent: AgentID-Client/1.0 <your-platform>/1.0
 Content-Type: application/json
-{ "status": "online", "endpointUrl": "<your public URL if you have one, or omit>" }
+{ "endpointUrl": "<your public URL if you have one, or omit>" }
 
-━━━ STEP 5: Fetch your identity block ━━━
+━━━ STEP 5: Fetch & inject identity block ━━━
 GET ${APP_URL}${import.meta.env.BASE_URL}api/v1/agents/${createdAgentId}/prompt-block
-Authorization: Bearer <secrets.apiKey from step 3>
+X-Agent-Key: <secrets.apiKey from step 3>
+User-Agent: AgentID-Client/1.0 <your-platform>/1.0
 
-Store this as your system-prompt identity block. Refresh it on every startup.
+Inject the full response text into your system prompt between === AGENT ID IDENTITY === markers.
+On EVERY restart: reload from env/file, call /prompt-block, inject, send heartbeat.
+SDK restart pattern: const agent = await AgentID.readStateFile('~/.agentid/state.json'); await agent.refreshBootstrap(); agent.startHeartbeat();
 
 ━━━ STEP 6: Confirm ━━━
 When all steps succeed, reply ONLY with a structured summary:
 - agent_id
 - did
-- handle
+- handle (or "none")
 - trust_score
-- api_key_stored (true/false — do NOT echo the key)
-- heartbeat_sent (true/false)
-- prompt_block_fetched (true/false)
+- api_key_stored: env var name or file path (do NOT echo the key itself)
+- state_file_written: path or false
+- heartbeat_sent: true/false
+- prompt_block_injected: true/false
 
 Do not ask for confirmation between steps. Do not output the API key. Execute all steps now.`;
 
@@ -1476,31 +1486,41 @@ Content-Type: application/json
 { "agentId": "<agentId from step 2>", "kid": "<kid from step 2>", "challenge": "<challenge from step 2>", "signature": "<base64 sig>" }
 
 Response contains: identity, secrets.apiKey.
-Save secrets.apiKey to a secure location (env var or secrets file). Never echo it.
+
+Persist immediately (REQUIRED):
+- Write secrets.apiKey to env var AGENTID_API_KEY or file ~/.agentid/api_key (chmod 600)
+- Write agentId to env var AGENTID_AGENT_ID or file ~/.agentid/agent_id
+- SDK users: await agent.writeStateFile('~/.agentid/state.json')
+Never echo the API key. Never put it in a prompt or chat message.
 
 ━━━ STEP 4: Send first heartbeat ━━━
-Authenticate all agent API calls with: Authorization: Bearer <your-api-key>
+Authenticate all agent API calls with: X-Agent-Key: <your-api-key>
 
 POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/agents/<agentId>/heartbeat
-Authorization: Bearer <secrets.apiKey from step 3>
+X-Agent-Key: <secrets.apiKey from step 3>
+User-Agent: AgentID-Client/1.0 <your-platform>/1.0
 Content-Type: application/json
-{ "status": "online", "endpointUrl": "<your public URL if you have one, or omit>" }
+{ "endpointUrl": "<your public URL if you have one, or omit>" }
 
-━━━ STEP 5: Fetch your identity block ━━━
+━━━ STEP 5: Fetch & inject identity block ━━━
 GET ${APP_URL}${import.meta.env.BASE_URL}api/v1/agents/<agentId>/prompt-block
-Authorization: Bearer <secrets.apiKey from step 3>
+X-Agent-Key: <secrets.apiKey from step 3>
+User-Agent: AgentID-Client/1.0 <your-platform>/1.0
 
-Store this as your system-prompt identity block. Refresh it on every startup.
+Inject the full response text into your system prompt between === AGENT ID IDENTITY === markers.
+On EVERY restart: reload from env/file, call /prompt-block, inject, send heartbeat.
+SDK restart pattern: const agent = await AgentID.readStateFile('~/.agentid/state.json'); await agent.refreshBootstrap(); agent.startHeartbeat();
 
 ━━━ STEP 6: Confirm ━━━
 When all steps succeed, reply ONLY with a structured summary:
 - agent_id
 - did
-- handle
+- handle (or "none")
 - trust_score
-- api_key_stored (true/false — do NOT echo the key)
-- heartbeat_sent (true/false)
-- prompt_block_fetched (true/false)
+- api_key_stored: env var name or file path (do NOT echo the key itself)
+- state_file_written: path or false
+- heartbeat_sent: true/false
+- prompt_block_injected: true/false
 
 Do not ask for confirmation between steps. Do not output the API key. Execute all steps now.` : '';
 

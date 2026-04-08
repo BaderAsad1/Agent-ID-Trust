@@ -395,10 +395,13 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
         note: "Default limits. Adjust via dashboard or PATCH /api/v1/agents/{agentId}/spending-rules.",
       },
       nextSteps: {
+        _instructions: "Execute these in order on first activation, then follow the startup sequence on every restart.",
+        "1_persist_secret": `Store secrets.apiKey as env var AGENTID_API_KEY. Never log or expose it. SDK: await agent.writeStateFile('.agentid-state.json')`,
+        "2_fetch_prompt_block": `GET ${APP_URL}/api/v1/agents/${agentId}/prompt-block — inject into your system prompt on every startup`,
+        "3_heartbeat": `POST ${APP_URL}/api/v1/agents/${agentId}/heartbeat every 5 minutes to stay online`,
+        "4_startup_sequence": "On every restart: (1) load AGENTID_API_KEY from env, (2) call /prompt-block and inject into system prompt, (3) send heartbeat. SDK: const agent = await AgentID.readStateFile('.agentid-state.json'); await agent.refreshBootstrap(); agent.startHeartbeat();",
         setEndpoint: `PATCH ${APP_URL}/api/v1/agents/${agentId} with { endpointUrl: "..." }`,
         checkWallet: `GET ${APP_URL}/api/v1/agents/${agentId}/wallet`,
-        heartbeat: `POST ${APP_URL}/api/v1/agents/${agentId}/heartbeat`,
-        promptBlock: `GET ${APP_URL}/api/v1/agents/${agentId}/prompt-block`,
         dashboard: `${APP_URL}/dashboard`,
       },
     });

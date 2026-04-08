@@ -157,6 +157,19 @@ Browse all:     GET ${APP_URL}/api/v1/resolve?limit=20
 unverified: 0-19  | basic: 20-39   | verified: 40-69
 trusted:   70-89  | elite:  90-100
 
+=== STARTUP SEQUENCE (run on every restart) ===
+1. Load AGENTID_API_KEY from env or ~/.agentid/api_key
+2. Call GET ${APP_URL}/api/v1/agents/${agent.id}/prompt-block and inject response into system prompt
+3. Call POST ${APP_URL}/api/v1/agents/${agent.id}/heartbeat to go online
+
+SDK pattern:
+  const agent = await AgentID.readStateFile('.agentid-state.json');
+  await agent.refreshBootstrap();   // syncs trust, inbox, capabilities
+  agent.startHeartbeat();           // sends heartbeat every 5 min
+
+First-run only (after /bootstrap/activate):
+  await agent.writeStateFile('.agentid-state.json');  // persists agentId + apiKey to disk
+
 === PLATFORM ===
 Full docs:    ${APP_URL}/api/llms.txt
 API browser:  ${APP_URL}/api/docs
@@ -390,6 +403,7 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
       },
       promptBlockUrl: `${APP_URL}/api/v1/agents/${agent.id}/prompt-block?format=text`,
       updateContext: true,
+      updateContextInstructions: "Refresh your system-prompt identity block by calling promptBlockUrl. Replace the previous === AGENT ID IDENTITY === block with the new response. Trust score, inbox address, and capabilities in this response are authoritative — update your cached state.",
     });
   } catch (err) {
     next(err);
