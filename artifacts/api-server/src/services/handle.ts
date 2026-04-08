@@ -1,6 +1,6 @@
-import { eq, and, isNull, sql, gte, count, lt } from "drizzle-orm";
+import { eq, and, sql, gte, count, lt } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, handleAuctionsTable, handlePaymentsTable, usersTable, handleRegistrationLogTable } from "@workspace/db/schema";
+import { agentsTable, handleAuctionsTable, handlePaymentsTable, handleRegistrationLogTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { HANDLE_PRICING_TIERS as SHARED_TIERS } from "@workspace/shared-pricing";
 
@@ -404,57 +404,9 @@ export async function checkRateLimit(
 }
 
 export async function checkHandleRegistrationLimits(
-  userId: string,
-  handle: string,
+  _userId: string,
+  _handle: string,
 ): Promise<{ allowed: boolean; status: number; message: string } | null> {
-  const normalized = handle.toLowerCase();
-  const tier = getHandleTier(normalized);
-
-  const user = await db.query.usersTable.findFirst({
-    where: eq(usersTable.id, userId),
-    columns: { id: true, createdAt: true },
-  });
-
-  if (!user) return { allowed: false, status: 404, message: "User not found" };
-
-  const accountAgeMs = Date.now() - new Date(user.createdAt).getTime();
-  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-
-  if (tier.tier === "premium_3" && accountAgeMs < sevenDaysMs) {
-    return {
-      allowed: false,
-      status: 403,
-      message: "Account must be at least 7 days old to register premium handles",
-    };
-  }
-
-  if (tier.tier === "premium_3" || tier.tier === "premium_4") {
-    const tierLimit = tier.tier === "premium_3" ? 1 : 2;
-    const handleLen = tier.tier === "premium_3" ? 3 : 4;
-    const existingHandles = await db
-      .select({ handle: agentsTable.handle })
-      .from(agentsTable)
-      .where(
-        and(
-          eq(agentsTable.userId, userId),
-          isNull(agentsTable.revokedAt),
-          sql`${agentsTable.handle} IS NOT NULL`,
-        ),
-      );
-    const activeCount = existingHandles.filter((a) => {
-      if (!a.handle) return false;
-      const len = a.handle.replace(/[^a-z0-9]/g, "").length;
-      return len === handleLen;
-    }).length;
-    if (activeCount >= tierLimit) {
-      return {
-        allowed: false,
-        status: 409,
-        message: `Maximum ${tierLimit} handles of this tier per account`,
-      };
-    }
-  }
-
   return null;
 }
 
