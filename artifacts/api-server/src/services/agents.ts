@@ -53,23 +53,46 @@ export function validateHandle(handle: string): string | null {
 export { isHandleReserved } from "./handle";
 export { RESERVED_HANDLES } from "./handle";
 
-const handleCache = new Map<string, { available: boolean; expiresAt: number }>();
-const HANDLE_CACHE_TTL_MS = 60_000;
+const HANDLE_CACHE_TTL_S = 60;
+const HANDLE_CACHE_TTL_MS = HANDLE_CACHE_TTL_S * 1000;
 
-// TODO: Replace handleCache with Redis for distributed handle availability caching
+// In-memory fallback when Redis is not configured (single-instance / dev)
+const _handleCacheFallback = new Map<string, { available: boolean; expiresAt: number }>();
 setInterval(() => {
   const now = Date.now();
-  for (const [key, entry] of handleCache) {
-    if (now > entry.expiresAt) handleCache.delete(key);
+  for (const [k, v] of _handleCacheFallback) {
+    if (now > v.expiresAt) _handleCacheFallback.delete(k);
   }
 }, 5 * 60 * 1000).unref();
 
+async function _getCachedHandle(handle: string): Promise<boolean | null> {
+  try {
+    const { isRedisConfigured, getRedis } = await import("../lib/redis");
+    if (isRedisConfigured()) {
+      const val = await getRedis().get(`handle:avail:${handle}`);
+      if (val !== null) return val === "1";
+      return null;
+    }
+  } catch { /* fall through */ }
+  const entry = _handleCacheFallback.get(handle);
+  return entry && entry.expiresAt > Date.now() ? entry.available : null;
+}
+
+async function _setCachedHandle(handle: string, available: boolean): Promise<void> {
+  try {
+    const { isRedisConfigured, getRedis } = await import("../lib/redis");
+    if (isRedisConfigured()) {
+      await getRedis().set(`handle:avail:${handle}`, available ? "1" : "0", "EX", HANDLE_CACHE_TTL_S);
+      return;
+    }
+  } catch { /* fall through */ }
+  _handleCacheFallback.set(handle, { available, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
+}
+
 export async function isHandleAvailable(handle: string): Promise<boolean> {
   const cacheKey = handle.toLowerCase();
-  const cached = handleCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.available;
-  }
+  const cached = await _getCachedHandle(cacheKey);
+  if (cached !== null) return cached;
 
   const existing = await db.query.agentsTable.findFirst({
     where: ilike(agentsTable.handle, handle),
@@ -77,7 +100,7 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
   });
 
   if (existing) {
-    handleCache.set(cacheKey, { available: false, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
+    await _setCachedHandle(cacheKey, false);
     return false;
   }
 
@@ -92,7 +115,7 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
         return false;
       }
       if (!onChainResult.available) {
-        handleCache.set(cacheKey, { available: false, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
+        await _setCachedHandle(cacheKey, false);
         return false;
       }
     }
@@ -101,20 +124,17 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
     return false;
   }
 
-  handleCache.set(cacheKey, { available: true, expiresAt: Date.now() + HANDLE_CACHE_TTL_MS });
-
-  if (handleCache.size > 10_000) {
-    const now = Date.now();
-    for (const [key, entry] of handleCache) {
-      if (entry.expiresAt <= now) handleCache.delete(key);
-    }
-  }
-
+  await _setCachedHandle(cacheKey, true);
   return true;
 }
 
 export function invalidateHandleCache(handle: string): void {
-  handleCache.delete(handle.toLowerCase());
+  const key = handle.toLowerCase();
+  _handleCacheFallback.delete(key);
+  // Fire-and-forget Redis invalidation
+  import("../lib/redis").then(({ isRedisConfigured, getRedis }) => {
+    if (isRedisConfigured()) getRedis().del(`handle:avail:${key}`).catch(() => {});
+  }).catch(() => {});
 }
 
 export async function getHandleReservation(handle: string): Promise<{ isReserved: boolean; reservedReason: string | null }> {

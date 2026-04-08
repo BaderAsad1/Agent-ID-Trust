@@ -281,7 +281,7 @@ export function validateEnv(): Env {
     envLogger.warn("[env] RESEND_API_KEY not set — external email delivery disabled.");
   }
   if (env.LAUNCH_MODE === "true" && isProd) {
-    envLogger.warn("[env] LAUNCH_MODE is enabled in PRODUCTION — all billing controls, agent limits, and subscription enforcement are BYPASSED. This must not be enabled in production.");
+    envLogger.error("[env] LAUNCH_MODE is enabled in PRODUCTION — all billing controls, agent limits, and subscription enforcement are BYPASSED. Disable this before going live.");
   }
   if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ZONE_ID) {
     envLogger.warn("[env] Cloudflare credentials not set — domain provisioning disabled.");

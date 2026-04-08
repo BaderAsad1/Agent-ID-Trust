@@ -420,9 +420,8 @@ function logResolutionEvent(
 
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// In-memory fallback for rate limiting (single-instance / dev)
 const idRateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-// TODO: Replace idRateLimitMap with Redis for distributed rate limiting across instances
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of idRateLimitMap) {
@@ -430,7 +429,16 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000).unref();
 
-function checkIdRateLimit(ip: string): boolean {
+async function checkIdRateLimit(ip: string): Promise<boolean> {
+  try {
+    const { isRedisConfigured, getRedis } = await import("../../lib/redis");
+    if (isRedisConfigured()) {
+      const key = `ratelimit:resolve:${ip}`;
+      const count = await getRedis().incr(key);
+      if (count === 1) await getRedis().expire(key, 60);
+      return count <= 100;
+    }
+  } catch { /* fall through to in-memory */ }
   const now = Date.now();
   const entry = idRateLimitMap.get(ip);
   if (!entry || now > entry.resetAt) {
@@ -449,7 +457,7 @@ router.get("/id/:agentId", async (req: Request, res: Response, next: NextFunctio
     }
 
     const clientIp = req.ip || "unknown";
-    if (!checkIdRateLimit(clientIp)) {
+    if (!await checkIdRateLimit(clientIp)) {
       res.status(429).json({ error: "Rate limit exceeded", code: "RATE_LIMIT", retryAfterSeconds: 60 });
       return;
     }
