@@ -136,28 +136,34 @@ export async function verifyChallenge(
     logger.error({ err }, "[verification] Failed to reissue credential after verification");
   }
 
-  try {
-    const fullAgent = await db.query.agentsTable.findFirst({
-      where: eq(agentsTable.id, agentId),
-      columns: { handle: true, displayName: true, userId: true },
-    });
-    if (fullAgent) {
-      const user = await db.query.usersTable.findFirst({
-        where: eq(usersTable.id, fullAgent.userId),
-        columns: { email: true },
+  // Only send verification_complete email for standalone verification flows where
+  // the agent was explicitly in pending_verification. Bootstrap activate handles
+  // its own post-activation email (sendAgentRegisteredEmail) — sending here would
+  // duplicate for every bootstrap.
+  if (agentRecord?.status === "pending_verification") {
+    try {
+      const fullAgent = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, agentId),
+        columns: { handle: true, displayName: true, userId: true },
       });
-      if (user?.email) {
-        const { sendVerificationCompleteEmail } = await import("./email.js");
-        await sendVerificationCompleteEmail(
-          user.email,
-          fullAgent.handle ?? "",
-          fullAgent.displayName,
-          "key_challenge",
-        );
+      if (fullAgent) {
+        const user = await db.query.usersTable.findFirst({
+          where: eq(usersTable.id, fullAgent.userId),
+          columns: { email: true },
+        });
+        if (user?.email) {
+          const { sendVerificationCompleteEmail } = await import("./email.js");
+          await sendVerificationCompleteEmail(
+            user.email,
+            fullAgent.handle ?? "",
+            fullAgent.displayName,
+            "key_challenge",
+          );
+        }
       }
+    } catch (err) {
+      logger.error({ err }, `[verification] Failed to send verification email for agent ${agentId}`);
     }
-  } catch (err) {
-    logger.error({ err }, `[verification] Failed to send verification email for agent ${agentId}`);
   }
 
   try {

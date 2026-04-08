@@ -57,9 +57,11 @@ export async function createAgentKey(
     })
     .returning();
 
+  // Only notify on key rotation/addition — not during initial bootstrap claim where
+  // the agent is not yet active. Bootstrap sends its own registration email after activation.
   try {
     const agent = await db.query.agentsTable.findFirst({ where: eq(agentsTable.id, input.agentId) });
-    if (agent) {
+    if (agent && agent.status === "active" && agent.verificationStatus === "verified") {
       const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, agent.userId) });
       if (user?.email) {
         const { sendCredentialIssuedEmail } = await import("./email");
