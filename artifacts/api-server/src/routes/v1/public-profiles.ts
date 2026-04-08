@@ -320,6 +320,7 @@ async function handleErc8004(req: import("express").Request, res: import("expres
     if (erc8004) {
       res.set("Content-Type", "application/json");
       res.set("Cache-Control", "public, max-age=300");
+      res.set("Access-Control-Allow-Origin", "*");
       res.json(erc8004);
       return;
     }
@@ -329,6 +330,7 @@ async function handleErc8004(req: import("express").Request, res: import("expres
     // reconciled to our DB. Returning registered:false would be a false-negative for
     // direct/manual on-chain registrations that haven't been reconciled yet.
     const APP_URL = process.env.APP_URL || "https://getagent.id";
+    const { generateHandleCardSvgDataUri } = await import("../../lib/handle-card-svg");
     const stub = {
       "@context": [
         "https://www.w3.org/ns/did/v1",
@@ -340,6 +342,7 @@ async function handleErc8004(req: import("express").Request, res: import("expres
       alsoKnownAs: [`did:agentid:${handle}`],
       name: handle,
       image: `${APP_URL}/api/v1/handles/${handle}/image.svg`,
+      image_data: generateHandleCardSvgDataUri(handle),
       active: false,
       registered: null,
       agentid: {
@@ -351,6 +354,7 @@ async function handleErc8004(req: import("express").Request, res: import("expres
 
     res.set("Content-Type", "application/json");
     res.set("Cache-Control", "public, max-age=60");
+    res.set("Access-Control-Allow-Origin", "*");
     res.json(stub);
   } catch (err) {
     next(err);

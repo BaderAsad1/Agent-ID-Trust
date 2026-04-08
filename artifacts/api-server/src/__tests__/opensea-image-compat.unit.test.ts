@@ -66,6 +66,28 @@ vi.mock("../middlewares/replit-auth", () => ({
   requireAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
 
+vi.mock("../services/activity-logger", () => ({
+  getActivityLog: vi.fn().mockResolvedValue([]),
+  logActivity: vi.fn(),
+}));
+
+vi.mock("../services/marketplace", () => ({
+  listListings: vi.fn().mockResolvedValue({ listings: [], total: 0 }),
+}));
+
+vi.mock("../services/reviews", () => ({
+  getReviewsByAgent: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("../lib/anchor-state", () => ({
+  deriveAnchorState: vi.fn().mockReturnValue({
+    erc8004Status: "unanchored",
+    onchainStatus: "none",
+    onchainAnchor: null,
+    anchoringMethod: null,
+  }),
+}));
+
 vi.mock("../services/agents", () => ({
   agentOwnerFilter: vi.fn().mockReturnValue({}),
   validateHandle: (handle: string) => {
@@ -292,6 +314,70 @@ describe("NFT metadata route GET /nft/metadata/:handle — image_data field (Tas
         expect.objectContaining({ trait_type: "Custody", value: "unassigned" }),
       ]),
     );
+  });
+});
+
+describe("ERC-8004 unreconciled stub — image_data field (Task #189)", () => {
+  async function buildPublicProfilesApp() {
+    const app = express();
+    app.use(express.json());
+    const { default: publicProfilesRouter } = await import("../routes/v1/public-profiles");
+    app.use("/p", publicProfilesRouter);
+    const { errorHandler } = await import("../middlewares/error-handler");
+    app.use(errorHandler);
+    return app;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("ERC-8004 stub (unreconciled handle) includes image_data as a base64 data URI", async () => {
+    const { db } = await import("@workspace/db");
+    // Return null to trigger stub path (handle not in DB)
+    (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const app = await buildPublicProfilesApp();
+    const res = await request(app).get("/p/launchsmoke20260403/erc8004");
+
+    expect(res.status).toBe(200);
+    expect(res.body.image_data).toBeDefined();
+    expect(res.body.image_data).toMatch(/^data:image\/svg\+xml;base64,/);
+  });
+
+  it("ERC-8004 stub image_data decodes to SVG starting with <svg", async () => {
+    const { db } = await import("@workspace/db");
+    (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const app = await buildPublicProfilesApp();
+    const res = await request(app).get("/p/launchsmoke20260403/erc8004");
+
+    expect(res.status).toBe(200);
+    const b64 = res.body.image_data.replace("data:image/svg+xml;base64,", "");
+    const decoded = Buffer.from(b64, "base64").toString("utf-8");
+    expect(decoded.trimStart()).toMatch(/^<svg/);
+  });
+
+  it("ERC-8004 stub image_data matches shared helper output", async () => {
+    const { db } = await import("@workspace/db");
+    (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const app = await buildPublicProfilesApp();
+    const res = await request(app).get("/p/launchsmoke20260403/erc8004");
+
+    expect(res.status).toBe(200);
+    const expected = generateHandleCardSvgDataUri("launchsmoke20260403");
+    expect(res.body.image_data).toBe(expected);
+  });
+
+  it("ERC-8004 stub has Access-Control-Allow-Origin: *", async () => {
+    const { db } = await import("@workspace/db");
+    (db.query.agentsTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const app = await buildPublicProfilesApp();
+    const res = await request(app).get("/p/launchsmoke20260403/erc8004");
+
+    expect(res.headers["access-control-allow-origin"]).toBe("*");
   });
 });
 

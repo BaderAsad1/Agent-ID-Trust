@@ -155,6 +155,7 @@ async function sendHandleNftMetadata(
     const metadata = buildHandleNftMetadata(handle, await findHandleMetadataRecord(handle));
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600");
+    res.setHeader("Access-Control-Allow-Origin", "*");
     res.json(metadata);
   } catch (err) {
     next(err);
@@ -174,6 +175,8 @@ router.get("/handles/:handle/image.svg", async (req, res, next) => {
     const svg = generateHandleCardSvg(handle);
     res.setHeader("Content-Type", "image/svg+xml");
     res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("X-Content-Type-Options", "nosniff");
     res.send(svg);
   } catch (err) {
     next(err);
