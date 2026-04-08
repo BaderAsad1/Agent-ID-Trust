@@ -4,6 +4,8 @@ import { agentsTable, handleAuctionsTable, handlePaymentsTable, usersTable, hand
 import { logger } from "../middlewares/request-logger";
 import { HANDLE_PRICING_TIERS as SHARED_TIERS } from "@workspace/shared-pricing";
 
+const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
+
 export type HandleTier = "reserved_1_2" | "premium_3" | "premium_4" | "standard_5plus";
 
 export interface HandleTierInfo {
@@ -429,7 +431,8 @@ export async function checkHandleRegistrationLimits(
   const normalizedPlanForGate = rawPlanForGate === "builder" ? "starter" : rawPlanForGate === "team" ? "pro" : rawPlanForGate === "free" ? "none" : rawPlanForGate;
 
   // Handles require a paid plan — block free/unsubscribed users for all tiers.
-  if (normalizedPlanForGate === "none") {
+  // LAUNCH_MODE bypasses this gate globally (dev/launch testing only).
+  if (!LAUNCH_MODE && normalizedPlanForGate === "none") {
     return { allowed: false, status: 402, message: "Handles require a paid plan" };
   }
 
