@@ -1,10 +1,8 @@
 import { eq, and, isNull, sql, gte, count, lt } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, handleAuctionsTable, handlePaymentsTable, usersTable, handleRegistrationLogTable, subscriptionsTable } from "@workspace/db/schema";
+import { agentsTable, handleAuctionsTable, handlePaymentsTable, usersTable, handleRegistrationLogTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { HANDLE_PRICING_TIERS as SHARED_TIERS } from "@workspace/shared-pricing";
-
-const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
 
 export type HandleTier = "reserved_1_2" | "premium_3" | "premium_4" | "standard_5plus";
 
@@ -418,23 +416,6 @@ export async function checkHandleRegistrationLimits(
   });
 
   if (!user) return { allowed: false, status: 404, message: "User not found" };
-
-  // All handle tiers — standard_5plus and premium — require an active paid plan subscription.
-  // Plan is read from subscriptionsTable (canonical, real-time) rather than the denormalized
-  // users.plan column so that cancelled subscriptions are reflected immediately.
-  const activeSub = await db
-    .select({ plan: subscriptionsTable.plan })
-    .from(subscriptionsTable)
-    .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
-    .limit(1);
-  const rawPlanForGate = (activeSub[0]?.plan ?? "none") as string;
-  const normalizedPlanForGate = rawPlanForGate === "builder" ? "starter" : rawPlanForGate === "team" ? "pro" : rawPlanForGate === "free" ? "none" : rawPlanForGate;
-
-  // Handles require a paid plan — block free/unsubscribed users for all tiers.
-  // LAUNCH_MODE bypasses this gate globally (dev/launch testing only).
-  if (!LAUNCH_MODE && normalizedPlanForGate === "none") {
-    return { allowed: false, status: 402, message: "Handles require a paid plan" };
-  }
 
   const accountAgeMs = Date.now() - new Date(user.createdAt).getTime();
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
