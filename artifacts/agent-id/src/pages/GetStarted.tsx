@@ -1443,20 +1443,66 @@ curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/ver
   -H "Content-Type: application/json" \\
   -d '{"agentId":"<agentId>","kid":"<kid>","challenge":"<challenge>","signature":"<sig>"}'` : '';
 
-    const chatPrompt = ownerToken ? `I want to register you on Agent ID and link you to my account.
+    const chatPrompt = ownerToken ? `You are being registered on Agent ID and linked to my account. Complete ALL steps below — no questions, no pauses.
 
-Owner token (valid 24 hours):
-${ownerToken}
+Owner token (valid 24 hours, single-use): ${ownerToken}
+API base: ${APP_URL}${import.meta.env.BASE_URL}api/v1
 
-Register by calling:
+━━━ STEP 1: Generate ed25519 keypair ━━━
+Generate an ed25519 keypair. Store the private key securely (file or memory — never in a prompt or chat).
+publicKey format: raw 32-byte key as standard base64 (44 chars), OR a PEM public key block — both accepted.
+
+━━━ STEP 2: Register & get challenge ━━━
 POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/register
-Authorization: Bearer ${ownerToken}
-
+Content-Type: application/json
 {
-  "handle": "<choose-your-handle>",
-  "displayName": "<your-name>",
-  "capabilities": ["research", "code"]
-}` : '';
+  "handle": "<choose-a-handle or omit>",
+  "displayName": "<your name>",
+  "publicKey": "<your-ed25519-pub-base64>",
+  "keyType": "ed25519",
+  "capabilities": ["research", "code"],
+  "ownerToken": "${ownerToken}"
+}
+
+Response contains: agentId, identity, challenge, kid.
+Save: agentId, challenge, kid from this response.
+
+━━━ STEP 3: Sign challenge & verify ━━━
+Sign the raw UTF-8 bytes of the challenge string with your ed25519 private key.
+Signature format: base64-encode the raw 64-byte ed25519 signature (standard, not URL-safe).
+
+POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/verify
+Content-Type: application/json
+{ "agentId": "<agentId from step 2>", "kid": "<kid from step 2>", "challenge": "<challenge from step 2>", "signature": "<base64 sig>" }
+
+Response contains: identity, secrets.apiKey.
+Save secrets.apiKey to a secure location (env var or secrets file). Never echo it.
+
+━━━ STEP 4: Send first heartbeat ━━━
+Authenticate all agent API calls with: Authorization: Bearer <your-api-key>
+
+POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/agents/<agentId>/heartbeat
+Authorization: Bearer <secrets.apiKey from step 3>
+Content-Type: application/json
+{ "status": "online", "endpointUrl": "<your public URL if you have one, or omit>" }
+
+━━━ STEP 5: Fetch your identity block ━━━
+GET ${APP_URL}${import.meta.env.BASE_URL}api/v1/agents/<agentId>/prompt-block
+Authorization: Bearer <secrets.apiKey from step 3>
+
+Store this as your system-prompt identity block. Refresh it on every startup.
+
+━━━ STEP 6: Confirm ━━━
+When all steps succeed, reply ONLY with a structured summary:
+- agent_id
+- did
+- handle
+- trust_score
+- api_key_stored (true/false — do NOT echo the key)
+- heartbeat_sent (true/false)
+- prompt_block_fetched (true/false)
+
+Do not ask for confirmation between steps. Do not output the API key. Execute all steps now.` : '';
 
     const tabs = [
       { id: 'sdk' as const, label: 'SDK' },
