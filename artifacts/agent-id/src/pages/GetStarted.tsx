@@ -475,7 +475,7 @@ export function GetStarted() {
 
   const goToDashboard = useCallback(() => {
     sessionStorage.removeItem(WIZARD_DRAFT_KEY);
-    goToDashboard();
+    navigate('/dashboard');
   }, [navigate]);
 
   const handleAuthContinue = () => {
@@ -1126,20 +1126,60 @@ curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/activate \\
   -H "Content-Type: application/json" \\
   -d '{"agentId":"${createdAgentId}","kid":"<kid from step 1>","challenge":"<challenge from step 1>","signature":"<base64 sig>","claimToken":"${claimToken}"}'`;
 
-    const chatPrompt = `I've registered you on Agent ID. Activate your identity now.
+    const chatPrompt = `You are being registered on Agent ID. Complete ALL steps below — no questions, no pauses.
 
-Your claim token:
-${claimToken}
+Claim token (one-time use): ${claimToken}
+Agent ID: ${createdAgentId}
+API base: ${APP_URL}${import.meta.env.BASE_URL}api/v1
 
-Step 1 — POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim
-  Body: { "token": "<above>", "publicKey": "<ed25519 pub key — raw 32-byte base64 OR PEM>", "keyType": "ed25519" }
-  Response includes: identity, challenge, kid
+━━━ STEP 1: Generate ed25519 keypair ━━━
+Generate an ed25519 keypair. Store the private key securely (file or memory — never in a prompt or chat).
+publicKey format: raw 32-byte key as standard base64 (44 chars), OR a PEM public key block — both accepted.
 
-Step 2 — sign the challenge string (sign the UTF-8 bytes of the challenge string with your ed25519 private key), then POST to /bootstrap/activate
-  Body: { "agentId": "${createdAgentId}", "kid": "<kid from step 1>", "challenge": "<challenge from step 1>", "signature": "<base64-encoded raw ed25519 signature>", "claimToken": "<above>" }
+━━━ STEP 2: Claim your identity ━━━
+POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim
+Content-Type: application/json
+{ "token": "${claimToken}", "publicKey": "<your-ed25519-pub-base64>", "keyType": "ed25519" }
 
-Key format: publicKey must be the raw 32-byte ed25519 public key encoded as standard base64 (44 chars), or a PEM public key block.
-Signature format: sign the raw UTF-8 bytes of the challenge string with ed25519, encode the 64-byte result as standard base64.`;
+Response contains: identity (agentId, did, handle), challenge (string to sign), kid (key ID).
+Save: agentId, challenge, kid from this response.
+
+━━━ STEP 3: Sign challenge & activate ━━━
+Sign the raw UTF-8 bytes of the challenge string with your ed25519 private key.
+Signature format: base64-encode the raw 64-byte ed25519 signature (standard, not URL-safe).
+
+POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/activate
+Content-Type: application/json
+{ "agentId": "${createdAgentId}", "kid": "<kid from step 2>", "challenge": "<challenge from step 2>", "signature": "<base64 sig>", "claimToken": "${claimToken}" }
+
+Response contains: identity, secrets.apiKey, bootstrap (config), nextSteps.
+Save secrets.apiKey to a secure location (env var or secrets file). Never echo it.
+
+━━━ STEP 4: Send first heartbeat ━━━
+Authenticate all agent API calls with: Authorization: Bearer <your-api-key>
+
+POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/agents/${createdAgentId}/heartbeat
+Authorization: Bearer <secrets.apiKey from step 3>
+Content-Type: application/json
+{ "status": "online", "endpointUrl": "<your public URL if you have one, or omit>" }
+
+━━━ STEP 5: Fetch your identity block ━━━
+GET ${APP_URL}${import.meta.env.BASE_URL}api/v1/agents/${createdAgentId}/prompt-block
+Authorization: Bearer <secrets.apiKey from step 3>
+
+Store this as your system-prompt identity block. Refresh it on every startup.
+
+━━━ STEP 6: Confirm ━━━
+When all steps succeed, reply ONLY with a structured summary:
+- agent_id
+- did
+- handle
+- trust_score
+- api_key_stored (true/false — do NOT echo the key)
+- heartbeat_sent (true/false)
+- prompt_block_fetched (true/false)
+
+Do not ask for confirmation between steps. Do not output the API key. Execute all steps now.`;
 
     const snippets = { sdk: sdkSnippet, api: curlSnippet, chat: chatPrompt };
     const tabs = [
