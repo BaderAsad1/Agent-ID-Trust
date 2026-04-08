@@ -1,7 +1,32 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { randomBytes, createHash } from "crypto";
+import { randomBytes, createHash, createPublicKey } from "crypto";
 import { hashClaimToken } from "../../utils/crypto";
+
+// Normalize any valid ed25519 public key representation to base64-encoded DER SPKI.
+// Accepts: raw 32-byte base64/base64url, PEM, or DER SPKI base64 (pass-through).
+function normalizeEd25519PublicKey(publicKey: string): string {
+  const trimmed = publicKey.trim();
+
+  // PEM format
+  if (trimmed.startsWith("-----BEGIN")) {
+    const key = createPublicKey({ key: trimmed, format: "pem" });
+    return (key.export({ type: "spki", format: "der" }) as Buffer).toString("base64");
+  }
+
+  // base64 / base64url → try to detect raw 32-byte key
+  const b64 = trimmed.replace(/-/g, "+").replace(/_/g, "/");
+  const decoded = Buffer.from(b64, "base64");
+
+  if (decoded.length === 32) {
+    // Raw ed25519 public key — wrap in DER SPKI header (OID 1.3.101.112)
+    const spkiHeader = Buffer.from("302a300506032b6570032100", "hex");
+    return Buffer.concat([spkiHeader, decoded]).toString("base64");
+  }
+
+  // Assume already DER SPKI base64 — return normalised (no padding issues)
+  return b64;
+}
 import { AppError } from "../../middlewares/error-handler";
 import { logger } from "../../middlewares/request-logger";
 import { db } from "@workspace/db";
@@ -53,7 +78,13 @@ router.post("/claim", registrationRateLimitStrict, async (req, res, next) => {
       throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
     }
 
-    const { token, publicKey, keyType } = parsed.data;
+    const { token, keyType } = parsed.data;
+    let publicKey: string;
+    try {
+      publicKey = normalizeEd25519PublicKey(parsed.data.publicKey);
+    } catch {
+      throw new AppError(400, "INVALID_KEY", "publicKey is not a valid Ed25519 public key. Provide a raw 32-byte base64 key, a PEM public key, or a DER SPKI base64 key.");
+    }
 
     const hashedToken = hashClaimToken(token);
     const claimRecord = await db.query.agentClaimTokensTable.findFirst({

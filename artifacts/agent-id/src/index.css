@@ -66,6 +66,11 @@
   }
 }
 
+@keyframes gsStep {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 480px) {
   [data-mobile-compact] .p-6 {
     padding: 1rem !important;

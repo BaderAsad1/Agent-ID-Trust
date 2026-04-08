@@ -148,8 +148,9 @@ function CapabilitiesStep({ selectedCaps, setSelectedCaps, error, onBack, onNext
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#050711', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '40px 20px', fontFamily: "'Inter', system-ui, sans-serif",
+      animation: 'gsStep 0.18s ease',
     }}>
       <div style={{ width: '100%', maxWidth: 640 }}>
         <StepIndicator steps={['handle', 'skills', 'plan', 'connect']} current={1} />
@@ -578,7 +579,7 @@ export function GetStarted() {
 
   const pageStyle: React.CSSProperties = {
     maxWidth: 600, margin: '0 auto', padding: '80px 24px 120px',
-    minHeight: '100vh',
+    minHeight: '100vh', animation: 'gsStep 0.18s ease',
   };
 
   const titleStyle: React.CSSProperties = {
@@ -601,7 +602,8 @@ export function GetStarted() {
       <div style={{
         minHeight: 'calc(100vh - 56px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: '#0c0c14', padding: '40px 24px',
+        padding: '40px 24px',
+        animation: 'gsStep 0.18s ease',
       }}>
         <div style={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
@@ -1111,15 +1113,18 @@ const agent = await AgentID.activate({
 // agent.handle    —  e.g. "${handle || 'your-agent'}.agentid"
 // agent.secrets.apiKey  —  store in env vars only`;
 
-    const curlSnippet = `# Step 1 — claim your identity (send your ed25519 public key)
+    const curlSnippet = `# Step 1 — generate an ed25519 keypair and claim your identity
+# publicKey = raw 32-byte base64, PEM, or DER SPKI base64 all accepted
 curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim \\
   -H "Content-Type: application/json" \\
   -d '{"token":"${claimToken}","publicKey":"<ed25519-pub-base64>","keyType":"ed25519"}'
+# Response includes: identity, challenge, kid, activateEndpoint
 
-# Step 2 — sign the returned challenge and activate
+# Step 2 — sign the challenge (raw bytes, ed25519), then activate
+# signature = base64-encoded raw ed25519 signature over the challenge string (UTF-8 bytes)
 curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/activate \\
   -H "Content-Type: application/json" \\
-  -d '{"agentId":"${createdAgentId}","challenge":"<challenge>","signature":"<sig>","claimToken":"${claimToken}"}'`;
+  -d '{"agentId":"${createdAgentId}","kid":"<kid from step 1>","challenge":"<challenge from step 1>","signature":"<base64 sig>","claimToken":"${claimToken}"}'`;
 
     const chatPrompt = `I've registered you on Agent ID. Activate your identity now.
 
@@ -1127,10 +1132,14 @@ Your claim token:
 ${claimToken}
 
 Step 1 — POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim
-  Body: { "token": "<above>", "publicKey": "<your ed25519 pub key>", "keyType": "ed25519" }
+  Body: { "token": "<above>", "publicKey": "<ed25519 pub key — raw 32-byte base64 OR PEM>", "keyType": "ed25519" }
+  Response includes: identity, challenge, kid
 
-Step 2 — sign the challenge returned, then POST to /bootstrap/activate
-  Body: { "agentId": "${createdAgentId}", "challenge": "<from step 1>", "signature": "<signed>", "claimToken": "<above>" }`;
+Step 2 — sign the challenge string (sign the UTF-8 bytes of the challenge string with your ed25519 private key), then POST to /bootstrap/activate
+  Body: { "agentId": "${createdAgentId}", "kid": "<kid from step 1>", "challenge": "<challenge from step 1>", "signature": "<base64-encoded raw ed25519 signature>", "claimToken": "<above>" }
+
+Key format: publicKey must be the raw 32-byte ed25519 public key encoded as standard base64 (44 chars), or a PEM public key block.
+Signature format: sign the raw UTF-8 bytes of the challenge string with ed25519, encode the 64-byte result as standard base64.`;
 
     const snippets = { sdk: sdkSnippet, api: curlSnippet, chat: chatPrompt };
     const tabs = [
