@@ -78,26 +78,50 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
 
 async function handlePaymentIntentCapturableUpdated(pi: Stripe.PaymentIntent) {
   // Fired when a manual-capture PaymentIntent is confirmed by the client and
-  // funds are now authorised (reserved) on the card. This is when the escrow
-  // truly "holds" money — advance the task from "payment_pending" to "held".
-  if (!pi.metadata?.taskId) {
-    logger.info("[webhook] payment_intent.amount_capturable_updated: no taskId in metadata, skipping");
-    return;
+  // funds are now authorised (reserved) on the card.
+  //
+  // For task payments: advance escrow from payment_pending → held.
+  // For marketplace orders: advance order from payment_pending → pending.
+  // (payment_intent.succeeded fires only after capture, so this is the correct
+  //  event to use as the "buyer authorised payment" signal for manual-capture flows.)
+
+  if (pi.metadata?.taskId) {
+    const taskId = pi.metadata.taskId;
+    const updated = await db
+      .update(tasksTable)
+      .set({ escrowStatus: "held" as string, updatedAt: new Date() })
+      .where(and(
+        eq(tasksTable.id, taskId),
+        eq(tasksTable.stripePaymentIntentId, pi.id),
+        sql`${tasksTable.escrowStatus} = 'payment_pending'`,
+      ))
+      .returning({ id: tasksTable.id });
+    if (updated.length > 0) {
+      logger.info({ taskId }, "[webhook] amount_capturable_updated: task escrow advanced to held");
+    } else {
+      logger.info({ taskId }, "[webhook] amount_capturable_updated: task not in payment_pending, skipping");
+    }
   }
-  const taskId = pi.metadata.taskId;
-  const updated = await db
-    .update(tasksTable)
-    .set({ escrowStatus: "held" as string, updatedAt: new Date() })
-    .where(and(
-      eq(tasksTable.id, taskId),
-      eq(tasksTable.stripePaymentIntentId, pi.id),
-      sql`${tasksTable.escrowStatus} = 'payment_pending'`,
-    ))
-    .returning({ id: tasksTable.id });
-  if (updated.length > 0) {
-    logger.info({ taskId }, "[webhook] payment_intent.amount_capturable_updated: task escrow advanced to held");
-  } else {
-    logger.info({ taskId }, "[webhook] payment_intent.amount_capturable_updated: task not in payment_pending state, skipping");
+
+  if (pi.metadata?.orderId) {
+    const orderId = pi.metadata.orderId;
+    const updated = await db
+      .update(marketplaceOrdersTable)
+      .set({ status: "pending", updatedAt: new Date() })
+      .where(and(
+        eq(marketplaceOrdersTable.id, orderId),
+        eq(marketplaceOrdersTable.status, "payment_pending"),
+      ))
+      .returning({ id: marketplaceOrdersTable.id });
+    if (updated.length > 0) {
+      logger.info({ orderId }, "[webhook] amount_capturable_updated: order advanced from payment_pending to pending");
+    } else {
+      logger.info({ orderId }, "[webhook] amount_capturable_updated: order not in payment_pending, skipping");
+    }
+  }
+
+  if (!pi.metadata?.taskId && !pi.metadata?.orderId) {
+    logger.info("[webhook] amount_capturable_updated: no taskId or orderId in metadata, skipping");
   }
 }
 

@@ -58,6 +58,7 @@ export interface ProviderCaptureResult {
 
 export interface ProviderRefundResult {
   success: boolean;
+  refundId?: string;
   error?: string;
 }
 
@@ -151,8 +152,8 @@ class StripeProvider implements PaymentProvider {
       if (amountInCents !== undefined) {
         params.amount = amountInCents;
       }
-      await stripe.refunds.create(params);
-      return { success: true };
+      const refund = await stripe.refunds.create(params);
+      return { success: true, refundId: refund.id };
     } catch (err) {
       logger.error({ err }, "[StripeProvider] refundPayment error");
       return {

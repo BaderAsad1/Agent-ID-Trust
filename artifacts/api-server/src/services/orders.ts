@@ -550,6 +550,7 @@ export async function cancelOrder(
             orderId,
             listingId: order.listingId,
             stripePaymentIntentId: order.providerPaymentReference,
+            stripeRefundId: refundResult.refundId ?? null,
             reason: "order_cancelled",
           },
         },
@@ -565,6 +566,7 @@ export async function cancelOrder(
           metadata: {
             orderId,
             stripePaymentIntentId: order.providerPaymentReference,
+            stripeRefundId: refundResult.refundId ?? null,
             reason: "order_cancelled_fee_reversal",
           },
         },

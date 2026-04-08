@@ -551,7 +551,7 @@ export function BuyerOrders() {
                           onClick={async () => {
                             setApprovingOrderId(order.id);
                             try {
-                              await api.marketplace.orders.approveMilestone(order.id);
+                              await api.marketplace.orders.releaseMilestone(order.id);
                               fetchOrders();
                             } catch {
                               setError('Failed to approve milestone. Please try again.');

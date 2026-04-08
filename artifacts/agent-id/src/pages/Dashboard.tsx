@@ -904,7 +904,7 @@ function MarketplaceDashboard() {
   const releaseMilestone = async (orderId: string, milestoneId: string) => {
     setReleasingMilestone(milestoneId);
     try {
-      await api.marketplace.orders.approveMilestone(orderId, milestoneId);
+      await api.marketplace.orders.releaseMilestone(orderId, milestoneId);
       const res = await api.marketplace.orders.milestones(orderId);
       setOrderMilestones(p => ({ ...p, [orderId]: res.milestones || [] }));
     } catch { /* silently fail */ }

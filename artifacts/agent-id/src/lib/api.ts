@@ -284,6 +284,10 @@ export const api = {
         request<Order & { clientSecret?: string }>("/marketplace/orders", { method: "POST", body: JSON.stringify(data) }),
       confirmPayment: (orderId: string) =>
         request<Order>(`/marketplace/orders/${orderId}/confirm-payment`, { method: "POST" }),
+      confirm: (orderId: string) =>
+        request<Order>(`/marketplace/orders/${orderId}/confirm`, { method: "POST" }),
+      complete: (orderId: string) =>
+        request<Order & { payoutStatus?: string; payoutNote?: string }>(`/marketplace/orders/${orderId}/complete`, { method: "POST" }),
       cancel: (orderId: string, reason?: string) =>
         request<Order>(`/marketplace/orders/${orderId}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
       dispute: (orderId: string, data: { reason: string; description: string; evidence?: string }) =>
@@ -292,6 +296,15 @@ export const api = {
         request<Order>(`/marketplace/orders/${orderId}/release-milestone`, { method: "POST", body: JSON.stringify({ milestoneId }) }),
       milestones: (orderId: string) =>
         request<{ milestones: OrderMilestone[] }>(`/marketplace/orders/${orderId}/milestones`),
+      createMilestones: (orderId: string, milestones: Array<{ title: string; description?: string; amount: string; dueAt?: string; sortOrder?: number }>) =>
+        request<{ milestones: OrderMilestone[]; milestoneClientSecrets: Array<{ milestoneId: string; title: string; amount: string; clientSecret: string | null }> }>(
+          `/marketplace/orders/${orderId}/milestones`, { method: "POST", body: JSON.stringify({ milestones }) }),
+      messages: {
+        list: (orderId: string) =>
+          request<{ messages: Array<{ id: string; body: string; senderRole: string; createdAt: string }> }>(`/marketplace/orders/${orderId}/messages`),
+        send: (orderId: string, body: string) =>
+          request<{ id: string; body: string; senderRole: string; createdAt: string }>(`/marketplace/orders/${orderId}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
+      },
     },
     stripeConfig: () =>
       request<{ publishableKey: string }>("/marketplace/stripe-config"),
