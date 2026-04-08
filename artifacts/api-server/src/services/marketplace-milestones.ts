@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   marketplaceMilestonesTable,
@@ -187,7 +187,11 @@ export async function releaseMilestoneEscrow(
     const pi = await stripe.paymentIntents.retrieve(milestone.stripePaymentIntentId);
 
     if (pi.status === "requires_capture") {
-      await stripe.paymentIntents.capture(milestone.stripePaymentIntentId);
+      await stripe.paymentIntents.capture(
+        milestone.stripePaymentIntentId,
+        {},
+        { idempotencyKey: `milestone_capture_${milestoneId}` },
+      );
       logger.info(
         { milestoneId, piId: milestone.stripePaymentIntentId, amountCents: milestoneAmountCents },
         "[milestone] Per-milestone PaymentIntent captured successfully",
@@ -229,16 +233,19 @@ export async function releaseMilestoneEscrow(
         const stripe = getStripe();
         const platformFeeRate = 0.10;
         const sellerPayout = Math.round(capturedAmountCents * (1 - platformFeeRate));
-        const transfer = await stripe.transfers.create({
-          amount: sellerPayout,
-          currency: "usd",
-          destination: sellerAgent.stripeConnectAccountId,
-          metadata: {
-            orderId: order.id,
-            milestoneId,
-            milestoneAmount: capturedAmount,
+        const transfer = await stripe.transfers.create(
+          {
+            amount: sellerPayout,
+            currency: "usd",
+            destination: sellerAgent.stripeConnectAccountId,
+            metadata: {
+              orderId: order.id,
+              milestoneId,
+              milestoneAmount: capturedAmount,
+            },
           },
-        });
+          { idempotencyKey: `milestone_transfer_${milestoneId}` },
+        );
         stripeTransferId = transfer.id;
         milestonePayoutStatus = "completed";
         logger.info(
@@ -254,43 +261,60 @@ export async function releaseMilestoneEscrow(
     }
   }
 
-  const [updated] = await db.transaction(async (tx) => {
-    await tx
-      .update(marketplaceOrdersTable)
-      .set({
-        releasedAmount: newReleasedAmount,
-        updatedAt: new Date(),
-      })
-      .where(eq(marketplaceOrdersTable.id, order.id));
+  // Atomic claim inside the transaction: only the first concurrent caller succeeds.
+  // The milestone update uses WHERE status = 'completed' as the gate; if another call
+  // already flipped it to 'released', zero rows are returned and we abort.
+  let updated: MarketplaceMilestone;
+  try {
+    updated = await db.transaction(async (tx) => {
+      const rows = await tx
+        .update(marketplaceMilestonesTable)
+        .set({
+          status: "released",
+          capturedAmount,
+          approvedAt: new Date(),
+          releasedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(marketplaceMilestonesTable.id, milestoneId),
+          eq(marketplaceMilestonesTable.status, "completed"),
+        ))
+        .returning();
 
-    await tx.insert(payoutLedgerTable).values({
-      relatedOrderId: order.id,
-      sellerUserId: order.sellerUserId,
-      provider: order.paymentProvider ?? "stripe",
-      amount: capturedAmount,
-      currency: "USD",
-      status: milestonePayoutStatus,
-      metadata: {
-        milestoneId,
-        milestoneAmount: capturedAmount,
-        stripePaymentIntentId: milestone.stripePaymentIntentId,
-        stripeTransferId,
-        payoutType: "milestone_release",
-      },
+      if (rows.length === 0) {
+        throw new Error("MILESTONE_ALREADY_RELEASED");
+      }
+
+      await tx
+        .update(marketplaceOrdersTable)
+        .set({ releasedAmount: newReleasedAmount, updatedAt: new Date() })
+        .where(eq(marketplaceOrdersTable.id, order.id));
+
+      await tx.insert(payoutLedgerTable).values({
+        relatedOrderId: order.id,
+        sellerUserId: order.sellerUserId,
+        provider: order.paymentProvider ?? "stripe",
+        amount: capturedAmount,
+        currency: "USD",
+        status: milestonePayoutStatus,
+        metadata: {
+          milestoneId,
+          milestoneAmount: capturedAmount,
+          stripePaymentIntentId: milestone.stripePaymentIntentId,
+          stripeTransferId,
+          payoutType: "milestone_release",
+        },
+      });
+
+      return rows[0];
     });
-
-    return tx
-      .update(marketplaceMilestonesTable)
-      .set({
-        status: "released",
-        capturedAmount,
-        approvedAt: new Date(),
-        releasedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(marketplaceMilestonesTable.id, milestoneId))
-      .returning();
-  });
+  } catch (err) {
+    if (err instanceof Error && err.message === "MILESTONE_ALREADY_RELEASED") {
+      return { success: false, error: "MILESTONE_ALREADY_RELEASED" };
+    }
+    throw err;
+  }
 
   return { success: true, milestone: updated, capturedAmount };
 }

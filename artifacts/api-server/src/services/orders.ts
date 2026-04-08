@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import {
@@ -301,6 +301,7 @@ export async function completeOrder(
     };
   }
 
+  // Atomic claim: only the first concurrent caller succeeds; others get ORDER_ALREADY_COMPLETED.
   const [updated] = await db
     .update(marketplaceOrdersTable)
     .set({
@@ -308,8 +309,16 @@ export async function completeOrder(
       completedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(marketplaceOrdersTable.id, orderId))
+    .where(and(
+      eq(marketplaceOrdersTable.id, orderId),
+      eq(marketplaceOrdersTable.sellerUserId, sellerUserId),
+      inArray(marketplaceOrdersTable.status, ["confirmed", "in_progress"]),
+    ))
     .returning();
+
+  if (!updated) {
+    return { success: false, error: "ORDER_ALREADY_COMPLETED" };
+  }
 
   await db
     .update(marketplaceListingsTable)
