@@ -71,6 +71,12 @@ export function requirePlan(minPlan: "starter" | "pro" | "enterprise") {
 
 export function requireAgentPlan(minPlan: "starter" | "pro" = "starter") {
   return async (req: Request, res: Response, next: NextFunction) => {
+    // M4: LAUNCH_MODE bypasses plan requirements so all users can access features.
+    if (LAUNCH_MODE) {
+      next();
+      return;
+    }
+
     const agentId = req.authenticatedAgent?.id;
 
     if (!agentId) {
@@ -134,6 +140,12 @@ export function requireAgentPlan(minPlan: "starter" | "pro" = "starter") {
 
 export function requireInboxAccess() {
   return async (req: Request, res: Response, next: NextFunction) => {
+    // M4: LAUNCH_MODE bypasses plan requirements so all users can access features.
+    if (LAUNCH_MODE) {
+      next();
+      return;
+    }
+
     const agentId = req.authenticatedAgent?.id;
 
     if (agentId) {

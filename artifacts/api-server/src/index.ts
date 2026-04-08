@@ -76,18 +76,22 @@ import { startNftMintWorker, stopNftMintWorker } from "./workers/nft-mint";
 import { startNftTransferDetector, stopNftTransferDetector } from "./workers/nft-transfer-detector";
 import { startReputationJob, stopReputationJob } from "./services/reputation";
 
-startDomainWorker();
-initWebhookDeliveryWorker();
-initEmailDeliveryWorker();
-initUndeliverableCleanupWorker();
-initOutboundMailWorker();
-startAgentExpiryWorker();
-startTrustWorker();
-startWebhookRetryWorker();
-startHandleLifecycleWorker();
-startNftMintWorker();
-startNftTransferDetector();
-startReputationJob();
+if (config.REDIS_URL) {
+  startDomainWorker();
+  initWebhookDeliveryWorker();
+  initEmailDeliveryWorker();
+  initUndeliverableCleanupWorker();
+  initOutboundMailWorker();
+  startAgentExpiryWorker();
+  startTrustWorker();
+  startWebhookRetryWorker();
+  startHandleLifecycleWorker();
+  startNftMintWorker();
+  startNftTransferDetector();
+  startReputationJob();
+} else {
+  logger.warn("[startup] Redis not configured — all background workers are disabled. Queued operations (webhooks, email, domain provisioning, NFT minting) will not run.");
+}
 
 const JOB_EXPIRY_INTERVAL_MS = 60 * 1000;
 let jobExpiryTimer: ReturnType<typeof setInterval> | null = null;

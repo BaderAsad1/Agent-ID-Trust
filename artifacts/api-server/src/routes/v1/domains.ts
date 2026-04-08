@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../../middlewares/replit-auth";
+import { requirePlan } from "../../middlewares/feature-gate";
 import { AppError } from "../../middlewares/error-handler";
 import { validateUuidParam } from "../../middlewares/validation";
 import {
@@ -11,7 +12,7 @@ import {
 
 const router = Router();
 
-router.get("/:agentId/domain", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
+router.get("/:agentId/domain", requireAuth, requirePlan("pro"), validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const domain = await getAgentDomain(agentId, req.userId!);
@@ -24,7 +25,7 @@ router.get("/:agentId/domain", requireAuth, validateUuidParam("agentId"), async 
   }
 });
 
-router.get("/:agentId/domain/status", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
+router.get("/:agentId/domain/status", requireAuth, requirePlan("pro"), validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const status = await getDomainStatus(agentId, req.userId!);
@@ -37,7 +38,7 @@ router.get("/:agentId/domain/status", requireAuth, validateUuidParam("agentId"),
   }
 });
 
-router.post("/:agentId/domain/provision", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
+router.post("/:agentId/domain/provision", requireAuth, requirePlan("pro"), validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const result = await provisionDomain(agentId, req.userId!);
@@ -51,7 +52,7 @@ router.post("/:agentId/domain/provision", requireAuth, validateUuidParam("agentI
   }
 });
 
-router.post("/:agentId/domain/reprovision", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
+router.post("/:agentId/domain/reprovision", requireAuth, requirePlan("pro"), validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;
     const result = await reprovisionDomain(agentId, req.userId!);

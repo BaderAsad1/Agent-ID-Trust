@@ -126,4 +126,24 @@ router.post("/:agentId/verify/complete", requireAuth, validateUuidParam("agentId
   }
 });
 
+router.get("/:agentId/verify/status", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agent = await getAgentById(req.params.agentId as string);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (!isAgentOwner(agent, req.userId!)) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+    res.json({
+      agentId: agent.id,
+      verificationStatus: agent.verificationStatus,
+      verifiedAt: agent.verifiedAt ?? null,
+      verificationMethod: agent.verificationMethod ?? null,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

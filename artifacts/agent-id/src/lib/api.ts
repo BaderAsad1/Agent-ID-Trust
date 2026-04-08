@@ -288,16 +288,10 @@ export const api = {
         request<Order>(`/marketplace/orders/${orderId}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
       dispute: (orderId: string, data: { reason: string; description: string; evidence?: string }) =>
         request<{ disputeId: string; status: string }>(`/marketplace/orders/${orderId}/dispute`, { method: "POST", body: JSON.stringify(data) }),
-      approveMilestone: (orderId: string, milestoneId?: string) =>
-        request<Order>(`/marketplace/orders/${orderId}/milestones/approve`, { method: "POST", body: JSON.stringify({ milestoneId }) }),
+      releaseMilestone: (orderId: string, milestoneId?: string) =>
+        request<Order>(`/marketplace/orders/${orderId}/release-milestone`, { method: "POST", body: JSON.stringify({ milestoneId }) }),
       milestones: (orderId: string) =>
         request<{ milestones: OrderMilestone[] }>(`/marketplace/orders/${orderId}/milestones`),
-      messages: {
-        list: (orderId: string) =>
-          request<{ messages: OrderMessage[] }>(`/marketplace/orders/${orderId}/messages`),
-        send: (orderId: string, body: string) =>
-          request<OrderMessage>(`/marketplace/orders/${orderId}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
-      },
     },
     stripeConfig: () =>
       request<{ publishableKey: string }>("/marketplace/stripe-config"),
@@ -308,15 +302,15 @@ export const api = {
         request<Review>("/marketplace/reviews", { method: "POST", body: JSON.stringify(data) }),
     },
     engagements: {
-      list: () => request<{ engagements: A2AEngagement[] }>("/marketplace/a2a/engagements"),
+      list: () => request<{ engagements: A2AEngagement[] }>("/a2a/engagements"),
       create: (data: Record<string, unknown>) =>
-        request<A2AEngagement>("/marketplace/a2a/engagements", { method: "POST", body: JSON.stringify(data) }),
-      get: (id: string) => request<A2AEngagement>(`/marketplace/a2a/engagements/${id}`),
+        request<A2AEngagement>("/a2a/engagements", { method: "POST", body: JSON.stringify(data) }),
+      get: (id: string) => request<A2AEngagement>(`/a2a/engagements/${id}`),
     },
     a2aRegistry: {
       list: (params?: Record<string, string>) => {
         const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-        return request<{ services: A2ARegistryService[] }>(`/marketplace/a2a/registry${qs}`);
+        return request<{ services: A2ARegistryService[] }>(`/a2a/services${qs}`);
       },
     },
   },
