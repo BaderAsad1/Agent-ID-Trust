@@ -190,10 +190,10 @@ describe("isEligibleForIncludedHandle — plan eligibility logic", () => {
 });
 
 describe("getHandlePriceCents — handle tier pricing", () => {
-  it("returns 0 for standard handles (5+ chars)", async () => {
+  it("returns 500 (¢) for standard handles (5+ chars) — $5/yr standalone retail price", async () => {
     const { getHandlePriceCents } = await import("../services/billing");
-    expect(getHandlePriceCents("alice")).toBe(0);
-    expect(getHandlePriceCents("longhandle")).toBe(0);
+    expect(getHandlePriceCents("alice")).toBe(500);
+    expect(getHandlePriceCents("longhandle")).toBe(500);
   });
 
   it("returns positive amount for 3-char premium handles", async () => {
@@ -220,22 +220,26 @@ describe("createHandleCheckoutSession — fail-closed durability guarantees", ()
     resetDbMock();
   });
 
-  it("PLAN gate: returns PLAN_REQUIRED_FOR_HANDLE for user with no active subscription", async () => {
-    // getUserPlan → getActiveUserSubscription → [] (no subscription) → plan "none"
-    setSelectResponses([[]]);
+  it("free plan (no subscription): routes to Stripe checkout at $5/yr retail price", async () => {
+    // getUserPlan → no subscription → "none"; checkUserIncludedHandleEligibility → same → not eligible
+    // Both calls consume one select response each; free plan users proceed to paid Stripe checkout
+    setSelectResponses([[], []]);
     const { createHandleCheckoutSession } = await import("../services/billing");
     const result = await createHandleCheckoutSession("u1", "alice", "http://ok", "http://cancel");
-    expect(result.error).toBe("PLAN_REQUIRED_FOR_HANDLE");
-    expect(result.url).toBeNull();
+    expect(result.error).toBeUndefined();
+    expect(result.url).toBe("https://checkout.stripe.com/test");
+    expect(result.priceCents).toBe(500); // $5/yr retail
   });
 
-  it("PLAN gate: returns PLAN_REQUIRED_FOR_HANDLE for free-plan subscription", async () => {
-    // getUserPlan → active subscription with plan=free → normalized to "none" → blocked
-    setSelectResponses([[{ plan: "free", status: "active" }]]);
+  it("free-plan subscription: routes to Stripe checkout at $5/yr retail price", async () => {
+    // getUserPlan → free plan → normalized to "none"; not eligible for included handle
+    const freeSub = [{ plan: "free", status: "active" }];
+    setSelectResponses([freeSub, freeSub]);
     const { createHandleCheckoutSession } = await import("../services/billing");
     const result = await createHandleCheckoutSession("u1", "alice", "http://ok", "http://cancel");
-    expect(result.error).toBe("PLAN_REQUIRED_FOR_HANDLE");
-    expect(result.url).toBeNull();
+    expect(result.error).toBeUndefined();
+    expect(result.url).toBe("https://checkout.stripe.com/test");
+    expect(result.priceCents).toBe(500); // $5/yr retail
   });
 
   it("FAIL-CLOSED: returns AUDIT_WRITE_FAILED when pending audit insert returns no ID", async () => {

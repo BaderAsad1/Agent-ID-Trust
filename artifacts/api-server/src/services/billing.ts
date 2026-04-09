@@ -962,12 +962,10 @@ export async function createHandleCheckoutSession(
 ): Promise<{ url: string | null; error?: string; priceCents: number; included?: boolean }> {
   const priceCents = getHandlePriceCents(handle);
 
-  // Handles require a paid plan. Free/unsubscribed users cannot register handles of any tier.
-  // Starter/Pro users get their first standard handle included; other paid tiers pay the retail price.
+  // Free/unsubscribed users can purchase standard handles at the retail price ($5/yr).
+  // Starter/Pro users get their first standard handle included; subsequent handles pay retail.
+  // Premium handles (3–4 char) always require payment regardless of plan.
   const normalizedUserPlan = await getUserPlan(userId);
-  if (normalizedUserPlan === "none") {
-    return { url: null, error: "PLAN_REQUIRED_FOR_HANDLE", priceCents: 0 };
-  }
 
   // Included-handle entitlement path: check eligibility first (read-only).
   // If the user is eligible for a free included handle but has not provided an agentId,

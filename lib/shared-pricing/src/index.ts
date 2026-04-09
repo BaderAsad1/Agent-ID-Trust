@@ -37,8 +37,8 @@ export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
   },
   {
     minLength: 5, maxLength: undefined, tier: "standard_5plus",
-    annualPriceUsd: 0, annualPriceCents: 0,
-    description: "Standard handle (5+ characters) — included with Starter or Pro plan; no standalone purchase price; Enterprise: custom/sales-led entitlement",
+    annualPriceUsd: 5, annualPriceCents: 500,
+    description: "Standard handle (5+ characters) — included free with Starter or Pro plan (first handle); $5/yr standalone for Free plan or additional handles",
     isReserved: false, includedWithPaidPlan: true, isFree: false,
     onChainMintPrice: 500, onChainMintPriceDollars: 5, includesOnChainMint: false,
   },
@@ -72,9 +72,12 @@ export function hasCustomHandleEntitlement(plan: string): boolean {
 }
 
 /**
- * Returns true if the plan allows claiming any form of included/custom-handled standard
- * handle — covers both the automatic (Starter/Pro) and custom (Enterprise) cases.
- * Use this for access-gate checks; use isEligibleForIncludedHandle() for quota checks.
+ * Returns true if the plan includes a free/entitlement-based handle claim — covers
+ * both the automatic (Starter/Pro) and custom (Enterprise) cases.
+ *
+ * NOTE: This does NOT indicate whether a user can purchase a handle. All plans
+ * (including Free/none) can purchase standard handles at the $5/yr retail price via
+ * Stripe checkout. Use isEligibleForIncludedHandle() to check for the free included benefit.
  */
 export function isAllowedHandleAccess(plan: string): boolean {
   return isEligibleForIncludedHandle(plan) || hasCustomHandleEntitlement(plan);
