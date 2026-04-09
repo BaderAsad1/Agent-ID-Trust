@@ -474,7 +474,7 @@ export function GetStarted() {
 
   const goToDashboard = useCallback(() => {
     sessionStorage.removeItem(WIZARD_DRAFT_KEY);
-    goToDashboard();
+    navigate('/dashboard');
   }, [navigate]);
 
   const handleAuthContinue = () => {
@@ -1116,21 +1116,25 @@ curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim \\
   -H "Content-Type: application/json" \\
   -d '{"token":"${claimToken}","publicKey":"<ed25519-pub-base64>","keyType":"ed25519"}'
 
-# Step 2 — sign the returned challenge and activate
+# Response returns: challenge, kid, agentId — save all three for step 2
+
+# Step 2 — sign the challenge with your ed25519 private key, then activate
 curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/activate \\
   -H "Content-Type: application/json" \\
-  -d '{"agentId":"${createdAgentId}","challenge":"<challenge>","signature":"<sig>","claimToken":"${claimToken}"}'`;
+  -d '{"agentId":"${createdAgentId}","kid":"<kid from step 1>","challenge":"<challenge from step 1>","signature":"<base64url-sig>","claimToken":"${claimToken}"}'`;
 
     const chatPrompt = `I've registered you on Agent ID. Activate your identity now.
 
-Your claim token:
-${claimToken}
+Claim token: ${claimToken}
+Agent ID: ${createdAgentId}
 
-Step 1 — POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim
-  Body: { "token": "<above>", "publicKey": "<your ed25519 pub key>", "keyType": "ed25519" }
+Step 1 — Generate an ed25519 keypair. POST to ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/claim
+  Body: { "token": "<claim token above>", "publicKey": "<your ed25519 public key in base64>", "keyType": "ed25519" }
+  Save "challenge" and "kid" from the response.
 
-Step 2 — sign the challenge returned, then POST to /bootstrap/activate
-  Body: { "agentId": "${createdAgentId}", "challenge": "<from step 1>", "signature": "<signed>", "claimToken": "<above>" }`;
+Step 2 — Sign the challenge string with your ed25519 private key (base64url-encode the signature). POST to ${APP_URL}${import.meta.env.BASE_URL}api/v1/bootstrap/activate
+  Body: { "agentId": "${createdAgentId}", "kid": "<kid from step 1>", "challenge": "<challenge from step 1>", "signature": "<base64url sig>", "claimToken": "<claim token above>" }
+  The response contains secrets.apiKey — store it as AGENTID_API_KEY in your environment.`;
 
     const snippets = { sdk: sdkSnippet, api: curlSnippet, chat: chatPrompt };
     const tabs = [
@@ -1396,18 +1400,34 @@ curl -X POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/ver
 
     const chatPrompt = ownerToken ? `I want to register you on Agent ID and link you to my account.
 
-Owner token (valid 24 hours):
-${ownerToken}
+Owner token (valid 24 hours): ${ownerToken}
 
-Register by calling:
-POST ${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/register
-Authorization: Bearer ${ownerToken}
+Step 1 — Generate an ed25519 keypair. POST to:
+${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/register
+Content-Type: application/json
 
 {
-  "handle": "<choose-your-handle>",
-  "displayName": "<your-name>",
+  "displayName": "<your display name>",
+  "publicKey": "<your ed25519 public key in base64>",
+  "keyType": "ed25519",
+  "ownerToken": "${ownerToken}",
   "capabilities": ["research", "code"]
-}` : '';
+}
+
+Save "agentId", "kid", and "challenge" from the response.
+
+Step 2 — Sign the challenge with your ed25519 private key (base64url-encode the signature). POST to:
+${APP_URL}${import.meta.env.BASE_URL}api/v1/programmatic/agents/verify
+Content-Type: application/json
+
+{
+  "agentId": "<agentId from step 1>",
+  "kid": "<kid from step 1>",
+  "challenge": "<challenge from step 1>",
+  "signature": "<base64url ed25519 signature>"
+}
+
+The response contains apiKey — store it as AGENTID_API_KEY in your environment. You are now linked to my account.` : '';
 
     const tabs = [
       { id: 'sdk' as const, label: 'SDK' },
