@@ -854,6 +854,78 @@ router.post("/agents/:agentId/api-keys", requireAuth, async (req, res, next) => 
   }
 });
 
+router.get("/agents/:agentId/api-keys", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const agent = await getAgentById(agentId);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (!isAgentOwner(agent, req.userId!)) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+
+    const keys = await db.query.apiKeysTable.findMany({
+      where: and(
+        eq(apiKeysTable.ownerType, "agent"),
+        eq(apiKeysTable.ownerId, agent.id),
+      ),
+      columns: { id: true, name: true, keyPrefix: true, scopes: true, createdAt: true },
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+    });
+
+    res.json({ keys });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/agents/:agentId/api-keys/rotate", requireAuth, async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const agent = await getAgentById(agentId);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (!isAgentOwner(agent, req.userId!)) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+
+    const apiKey = generateAgentApiKey();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(apiKeysTable)
+        .where(and(eq(apiKeysTable.ownerType, "agent"), eq(apiKeysTable.ownerId, agent.id)));
+
+      await tx.insert(apiKeysTable).values({
+        ownerType: "agent",
+        ownerId: agent.id,
+        name: "default",
+        keyPrefix: apiKey.prefix,
+        hashedKey: apiKey.hashed,
+        scopes: [],
+      });
+    });
+
+    await logActivity({
+      agentId: agent.id,
+      eventType: "agent.key_rotated",
+      payload: {},
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    res.json({
+      apiKey: apiKey.raw,
+      keyPrefix: apiKey.prefix,
+      message: "API key rotated. Store the new key securely — it will not be shown again.",
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 const renewSchema = z.object({
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),

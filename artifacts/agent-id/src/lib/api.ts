@@ -159,6 +159,17 @@ export const api = {
         }),
       status: (id: string) => request<{ verificationStatus: VerificationStatus }>(`/agents/${id}/verify/status`),
     },
+    apiKeys: {
+      list: (agentId: string) =>
+        request<{ keys: Array<{ id: string; name: string; keyPrefix: string; scopes: string[]; createdAt: string }> }>(
+          `/programmatic/agents/${agentId}/api-keys`,
+        ),
+      rotate: (agentId: string) =>
+        request<{ apiKey: string; keyPrefix: string; message: string }>(
+          `/programmatic/agents/${agentId}/api-keys/rotate`,
+          { method: "POST" },
+        ),
+    },
     wallet: {
       get: (id: string) => request<WalletInfo>(`/agents/user/${id}/wallet`),
       balance: (id: string) => request<WalletBalance>(`/agents/user/${id}/wallet/balance`),

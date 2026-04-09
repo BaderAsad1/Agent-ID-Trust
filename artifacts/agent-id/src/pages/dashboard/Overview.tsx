@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, Check, ExternalLink, Wallet, Star, MessageSquare, ClipboardList, Zap, User, Globe, ArrowUpRight, Shield, CheckCircle2, Circle, Github, Key, Plug, ChevronDown, ChevronUp, FileCode, Terminal } from 'lucide-react';
 import { GlassCard, Identicon, PrimaryButton } from '@/components/shared';
@@ -604,6 +604,181 @@ await agent.writeStateFile('.agentid-state.json');`;
   );
 }
 
+function AgentCredentials({ agent }: { agent: Agent }) {
+  const [keys, setKeys] = useState<Array<{ id: string; keyPrefix: string; createdAt: string }>>([]);
+  const [loadingKeys, setLoadingKeys] = useState(true);
+  const [rotating, setRotating] = useState(false);
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const [copiedNewKey, setCopiedNewKey] = useState(false);
+  const [confirmRotate, setConfirmRotate] = useState(false);
+  const [rotateError, setRotateError] = useState<string | null>(null);
+  const [copiedEnv, setCopiedEnv] = useState(false);
+
+  const baseUrl = `${window.location.origin}/api/v1`;
+  const currentPrefix = keys[0]?.keyPrefix ?? null;
+
+  const envBlock = [
+    `AGENTID_BASE_URL=${baseUrl}`,
+    `AGENTID_AGENT_ID=${agent.id}`,
+    currentPrefix ? `AGENTID_API_KEY=${currentPrefix}••••••••  # rotate to reveal full key` : `AGENTID_API_KEY=<rotate to generate>`,
+  ].join('\n');
+
+  const newKeyEnvBlock = newKey
+    ? [`AGENTID_BASE_URL=${baseUrl}`, `AGENTID_AGENT_ID=${agent.id}`, `AGENTID_API_KEY=${newKey}`].join('\n')
+    : '';
+
+  async function loadKeys() {
+    try {
+      const data = await api.agents.apiKeys.list(agent.id);
+      setKeys(data.keys);
+    } catch {
+      // non-fatal
+    } finally {
+      setLoadingKeys(false);
+    }
+  }
+
+  async function doRotate() {
+    setRotating(true);
+    setRotateError(null);
+    try {
+      const result = await api.agents.apiKeys.rotate(agent.id);
+      setNewKey(result.apiKey);
+      setKeys([{ id: 'new', keyPrefix: result.keyPrefix, createdAt: new Date().toISOString() }]);
+      setConfirmRotate(false);
+    } catch (err) {
+      setRotateError(err instanceof Error ? err.message : 'Failed to rotate key');
+    } finally {
+      setRotating(false);
+    }
+  }
+
+  async function copyText(text: string, setCopied: (v: boolean) => void) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  // Load keys on mount
+  useEffect(() => { void loadKeys(); }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <GlassCard className="!p-5 mb-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Key className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+        <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+          Agent Credentials
+        </h2>
+      </div>
+
+      <div className="mb-4" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        <CopyField label="Base URL" value={baseUrl} />
+        <CopyField label="Agent ID" value={agent.id} />
+        <div className="flex items-center justify-between gap-2 py-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
+          <div className="min-w-0">
+            <div className="text-xs mb-0.5" style={{ color: 'var(--text-dim)' }}>API Key</div>
+            <div className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+              {loadingKeys
+                ? 'Loading…'
+                : currentPrefix
+                  ? `${currentPrefix}••••••••`
+                  : 'No key — rotate to generate'}
+            </div>
+          </div>
+          <button
+            onClick={() => { setConfirmRotate(true); setNewKey(null); setRotateError(null); }}
+            className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-semibold cursor-pointer transition-colors"
+            style={{
+              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.25)',
+              color: '#ef4444',
+            }}
+          >
+            Rotate
+          </button>
+        </div>
+      </div>
+
+      {confirmRotate && !newKey && (
+        <div className="mb-4 rounded-xl p-3" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+          <p className="text-xs mb-3" style={{ color: '#ef4444' }}>
+            This will permanently invalidate the current key. Any agent using it will stop working immediately. Continue?
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => void doRotate()}
+              disabled={rotating}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold cursor-pointer"
+              style={{
+                background: rotating ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.15)',
+                border: '1px solid rgba(239,68,68,0.3)',
+                color: '#ef4444',
+                opacity: rotating ? 0.7 : 1,
+              }}
+            >
+              {rotating ? 'Rotating…' : 'Yes, rotate key'}
+            </button>
+            <button
+              onClick={() => setConfirmRotate(false)}
+              disabled={rotating}
+              className="text-xs px-3 py-1.5 rounded-lg cursor-pointer"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: 'var(--text-dim)' }}
+            >
+              Cancel
+            </button>
+          </div>
+          {rotateError && <p className="text-xs mt-2" style={{ color: '#ef4444' }}>{rotateError}</p>}
+        </div>
+      )}
+
+      {newKey && (
+        <div className="mb-4 rounded-xl p-3" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--success)' }}>
+            New API key — copy now, it won't be shown again
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-xs font-mono break-all" style={{ color: 'var(--text-primary)' }}>{newKey}</code>
+            <button
+              onClick={() => void copyText(newKey, setCopiedNewKey)}
+              className="flex-shrink-0 p-1.5 rounded-lg cursor-pointer"
+              style={{
+                background: copiedNewKey ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(16,185,129,0.3)',
+                color: copiedNewKey ? 'var(--success)' : 'var(--text-dim)',
+              }}
+            >
+              {copiedNewKey ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
+        <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.03)' }}>
+          <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Environment variables</span>
+          <button
+            onClick={() => void copyText(newKey ? newKeyEnvBlock : envBlock, setCopiedEnv)}
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded-md cursor-pointer"
+            style={{
+              background: copiedEnv ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.06)',
+              border: 'none',
+              color: copiedEnv ? 'var(--success)' : 'var(--text-dim)',
+            }}
+          >
+            {copiedEnv ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            <span>{copiedEnv ? 'Copied' : 'Copy'}</span>
+          </button>
+        </div>
+        <pre className="text-xs p-3 leading-relaxed" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+          {newKey ? newKeyEnvBlock : envBlock}
+        </pre>
+      </div>
+    </GlassCard>
+  );
+}
+
 interface QuickActionsProps {
   agent: Agent;
 }
@@ -699,6 +874,7 @@ export function DashboardOverview({ agent, plan }: DashboardOverviewProps) {
     <div>
       <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Overview</h1>
       <IdentityCard agent={agent} />
+      <AgentCredentials agent={agent} />
       <StatGrid agent={agent} />
       <SetupChecklist agent={agent} />
       {showUpgradeBanner && <UpgradeBanner />}
