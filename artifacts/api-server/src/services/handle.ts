@@ -1,6 +1,12 @@
-import { eq, and, sql, gte, count, lt } from "drizzle-orm";
+import { eq, and, sql, gte, count, lt, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, handleAuctionsTable, handlePaymentsTable, handleRegistrationLogTable } from "@workspace/db/schema";
+import {
+  agentsTable,
+  handleAuctionsTable,
+  handlePaymentsTable,
+  handleRegistrationLogTable,
+  subscriptionsTable,
+} from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { HANDLE_PRICING_TIERS as SHARED_TIERS } from "@workspace/shared-pricing";
 
@@ -404,9 +410,47 @@ export async function checkRateLimit(
 }
 
 export async function checkHandleRegistrationLimits(
-  _userId: string,
-  _handle: string,
+  userId: string,
+  handle: string,
 ): Promise<{ allowed: boolean; status: number; message: string } | null> {
+  const tier = getHandleTier(handle);
+
+  const [activeSubscription] = await db
+    .select({ plan: subscriptionsTable.plan })
+    .from(subscriptionsTable)
+    .where(
+      and(
+        eq(subscriptionsTable.userId, userId),
+        eq(subscriptionsTable.status, "active"),
+      ),
+    )
+    .orderBy(desc(subscriptionsTable.createdAt))
+    .limit(1);
+
+  if (!activeSubscription || activeSubscription.plan === "none") {
+    return {
+      allowed: false,
+      status: 402,
+      message: "Handles require a paid plan (Starter or Pro for automatic 1-handle benefit; Enterprise via custom/sales-led). Free plan agents use UUID-only identity.",
+    };
+  }
+
+  if (tier.tier === "premium_3" || tier.tier === "premium_4") {
+    return {
+      allowed: false,
+      status: 402,
+      message: "3-4 character premium handles must be purchased through checkout.",
+    };
+  }
+
+  if (tier.tier === "standard_5plus" && activeSubscription.plan !== "starter" && activeSubscription.plan !== "pro") {
+    return {
+      allowed: false,
+      status: 402,
+      message: "Standard 5+ character handles are self-serve only on Starter and Pro. Enterprise handle entitlements are managed separately.",
+    };
+  }
+
   return null;
 }
 

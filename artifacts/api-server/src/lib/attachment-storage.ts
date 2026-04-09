@@ -113,6 +113,21 @@ export async function uploadAttachment(opts: {
   return { storageUrl, storageKey: "", checksum, backend: "inline" };
 }
 
+export function getStableAttachmentUrl(
+  storageKey: string | null | undefined,
+  storageUrl: string | null | undefined,
+): string | null {
+  if (!storageUrl) return null;
+  if (storageUrl.startsWith("data:")) return storageUrl;
+
+  const publicUrl = process.env.R2_PUBLIC_URL;
+  if (storageKey && publicUrl) {
+    return `${publicUrl.replace(/\/$/, "")}/${storageKey}`;
+  }
+
+  return null;
+}
+
 /**
  * Generate a fresh presigned URL for an existing R2 object.
  * For inline (data:) attachments, returns the URL as-is.

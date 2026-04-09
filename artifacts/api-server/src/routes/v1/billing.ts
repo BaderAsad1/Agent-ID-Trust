@@ -16,9 +16,6 @@ import {
   cancelSubscription,
   getCustomerPortalUrl,
   getPriceIdFromPlan,
-  createCryptoCheckoutSession,
-  getHandlePriceCents,
-  pollForCryptoPayment,
 } from "../../services/billing";
 import { logActivity } from "../../services/activity-logger";
 import { logger } from "../../middlewares/request-logger";
@@ -380,125 +377,15 @@ router.post("/handle-checkout", requireAuth, async (req, res, next) => {
   }
 });
 
-const cryptoCheckoutSchema = z.object({
-  handle: z.string().min(3).max(32),
-  agentId: z.string().uuid().optional(),
-  token: z.enum(["USDC", "USDT"]).default("USDC"),
+const HANDLE_CRYPTO_DISABLED_MESSAGE =
+  "Premium-handle crypto checkout is disabled for launch. Use Stripe checkout for handle purchases. AI agent payments remain available through OWS/x402.";
+
+router.post("/crypto-checkout", (_req, _res, next) => {
+  next(new AppError(501, "CRYPTO_HANDLE_CHECKOUT_DISABLED", HANDLE_CRYPTO_DISABLED_MESSAGE));
 });
 
-router.post("/crypto-checkout", async (req, res, next) => {
-  try {
-    let userId: string | null = null;
-
-    if (req.userId) {
-      userId = req.userId;
-    } else {
-      const apiKey = req.headers["x-api-key"] as string | undefined;
-      if (apiKey) {
-        const { db } = await import("@workspace/db");
-        const { apiKeysTable } = await import("@workspace/db/schema");
-        const { eq, and, isNull } = await import("drizzle-orm");
-        const { createHash } = await import("crypto");
-        const hashedKeyValue = createHash("sha256").update(apiKey).digest("hex");
-        const keyRow = await db.query.apiKeysTable.findFirst({
-          where: and(eq(apiKeysTable.hashedKey, hashedKeyValue), isNull(apiKeysTable.revokedAt)),
-          columns: { ownerId: true, ownerType: true },
-        });
-        if (keyRow?.ownerType === "user" && keyRow.ownerId) {
-          userId = keyRow.ownerId;
-        }
-      }
-    }
-
-    if (!userId) {
-      throw new AppError(401, "UNAUTHORIZED", "Authentication required. Provide session cookie or X-API-Key.");
-    }
-
-    const body = cryptoCheckoutSchema.parse(req.body);
-    const normalizedHandle = body.handle.toLowerCase();
-
-    // Plan gate: all handle acquisitions require a paid plan — Free plan users get UUID-only identity.
-    const userPlan = await getUserPlan(userId);
-    const normalizedPlan = userPlan === "builder" ? "starter" : userPlan === "team" ? "pro" : userPlan;
-    if (normalizedPlan === "none" || normalizedPlan === "free") {
-      throw new AppError(402, "PLAN_REQUIRED_FOR_HANDLE", "Handles require a paid plan (Starter or Pro for automatic 1-handle benefit; Enterprise via custom/sales-led). Free plan agents use UUID-only identity. Upgrade at /pricing.");
-    }
-
-    const handleError = validateHandle(normalizedHandle);
-    if (handleError) {
-      throw new AppError(400, "INVALID_HANDLE", handleError);
-    }
-
-    if (isHandleReserved(normalizedHandle)) {
-      throw new AppError(400, "HANDLE_RESERVED", "This handle is reserved");
-    }
-
-    const handleLen = normalizedHandle.replace(/[^a-z0-9]/g, "").length;
-    if (handleLen > 4) {
-      throw new AppError(400, "NOT_ELIGIBLE", "Crypto checkout is only available for 3-4 character (premium) handles");
-    }
-
-    const platformWallet = process.env.BASE_PLATFORM_WALLET;
-    if (!platformWallet) {
-      throw new AppError(503, "CRYPTO_PAYMENTS_UNAVAILABLE", "Crypto payments are not configured. Use Stripe checkout instead.");
-    }
-
-    const session = await createCryptoCheckoutSession(normalizedHandle, userId, body.token);
-
-    res.json(session);
-  } catch (err: unknown) {
-    if (err instanceof AppError) return next(err);
-    if (err instanceof z.ZodError) {
-      return next(new AppError(400, "VALIDATION_ERROR", "Invalid input", err.issues));
-    }
-    next(err);
-  }
-});
-
-const cryptoPaymentStatusSchema = z.object({
-  handle: z.string().min(3).max(32),
-  reference: z.string().min(1),
-  token: z.enum(["USDC", "USDT"]).default("USDC"),
-  agentId: z.string().uuid().optional(),
-});
-
-router.post("/crypto-payment-status", requireAuth, async (req, res, next) => {
-  try {
-    const body = cryptoPaymentStatusSchema.parse(req.body);
-    const normalizedHandle = body.handle.toLowerCase();
-    const priceCents = getHandlePriceCents(normalizedHandle);
-
-    // Ownership check: if an agentId is provided, verify it belongs to the authenticated user
-    // before passing it into the payment confirmation flow where it may receive a handle assignment.
-    if (body.agentId) {
-      const { db } = await import("@workspace/db");
-      const { agentsTable } = await import("@workspace/db/schema");
-      const owned = await db.query.agentsTable.findFirst({
-        where: agentOwnerWhere(body.agentId, req.userId!),
-        columns: { id: true },
-      });
-      if (!owned) {
-        throw new AppError(403, "FORBIDDEN", "agentId does not belong to the authenticated user");
-      }
-    }
-
-    const result = await pollForCryptoPayment(
-      normalizedHandle,
-      req.userId!,
-      body.reference,
-      priceCents,
-      body.token,
-      body.agentId,
-    );
-
-    res.json(result);
-  } catch (err: unknown) {
-    if (err instanceof AppError) return next(err);
-    if (err instanceof z.ZodError) {
-      return next(new AppError(400, "VALIDATION_ERROR", "Invalid input", err.issues));
-    }
-    next(err);
-  }
+router.post("/crypto-payment-status", requireAuth, (_req, _res, next) => {
+  next(new AppError(501, "CRYPTO_HANDLE_CHECKOUT_DISABLED", HANDLE_CRYPTO_DISABLED_MESSAGE));
 });
 
 router.post("/agents/:agentId/activate", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {

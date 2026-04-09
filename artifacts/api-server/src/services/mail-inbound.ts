@@ -106,7 +106,7 @@ function sanitizeHtml(html: string): string {
     allowedSchemes: ["http", "https", "mailto"],
     allowedSchemesByTag: { "img": ["http", "https", "cid"] },
     transformTags: {
-      "a": (_tagName, attribs) => ({
+      "a": (_tagName: string, attribs: Record<string, string>) => ({
         tagName: "a",
         attribs: { ...attribs, rel: "noopener noreferrer", target: "_blank" },
       }),

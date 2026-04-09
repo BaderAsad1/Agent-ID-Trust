@@ -14,6 +14,7 @@ export * from "./delivery-receipts";
 export * from "./marketplace-listings";
 export * from "./marketplace-orders";
 export * from "./marketplace-reviews";
+export * from "./marketplace-order-messages";
 export * from "./job-posts";
 export * from "./job-proposals";
 export * from "./subscriptions";

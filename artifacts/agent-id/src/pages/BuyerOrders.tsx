@@ -308,6 +308,12 @@ function OrderMilestoneTracker({ orderId, orderStatus }: { orderId: string; orde
   );
 }
 
+function getNextReleasableMilestoneId(milestones: OrderMilestone[]): string | null {
+  return [...milestones]
+    .sort((a, b) => a.order - b.order)
+    .find((milestone) => milestone.status === 'completed')?.id ?? null;
+}
+
 export function BuyerOrders() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<EnrichedOrder[]>([]);
@@ -318,6 +324,7 @@ export function BuyerOrders() {
   const [reviewOrder, setReviewOrder] = useState<EnrichedOrder | null>(null);
   const [disputeOrder, setDisputeOrder] = useState<EnrichedOrder | null>(null);
   const [approvingOrderId, setApprovingOrderId] = useState<string | null>(null);
+  const [releasableMilestoneIds, setReleasableMilestoneIds] = useState<Record<string, string | null>>({});
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [watchlist, setWatchlist] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('order_watchlist') || '[]')); }
@@ -357,7 +364,30 @@ export function BuyerOrders() {
     }
   }, []);
 
+  const loadReleasableMilestone = useCallback(async (orderId: string) => {
+    try {
+      const result = await api.marketplace.orders.milestones(orderId);
+      const nextMilestoneId = getNextReleasableMilestoneId(result.milestones || []);
+      setReleasableMilestoneIds((prev) =>
+        prev[orderId] === nextMilestoneId ? prev : { ...prev, [orderId]: nextMilestoneId },
+      );
+    } catch {
+      setReleasableMilestoneIds((prev) =>
+        prev[orderId] === null ? prev : { ...prev, [orderId]: null },
+      );
+    }
+  }, []);
+
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => {
+    orders
+      .filter((order) => order.status === 'confirmed')
+      .forEach((order) => {
+        if (!(order.id in releasableMilestoneIds)) {
+          void loadReleasableMilestone(order.id);
+        }
+      });
+  }, [orders, releasableMilestoneIds, loadReleasableMilestone]);
 
   const periodCutoff = new Date();
   periodCutoff.setMonth(periodCutoff.getMonth() - periodMonths);
@@ -520,6 +550,7 @@ export function BuyerOrders() {
           {filtered.map(order => {
             const isExpanded = expandedOrderId === order.id;
             const isWatched = watchlist.has(order.id);
+            const releasableMilestoneId = releasableMilestoneIds[order.id];
             return (
               <GlassCard key={order.id} className="!p-4">
                 <div className="flex flex-col gap-3">
@@ -546,15 +577,16 @@ export function BuyerOrders() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      {order.status === 'confirmed' && (
+                      {order.status === 'confirmed' && releasableMilestoneId && (
                         <button
                           onClick={async () => {
                             setApprovingOrderId(order.id);
                             try {
-                              await api.marketplace.orders.releaseMilestone(order.id);
+                              await api.marketplace.orders.releaseMilestone(order.id, releasableMilestoneId);
+                              await loadReleasableMilestone(order.id);
                               fetchOrders();
                             } catch {
-                              setError('Failed to approve milestone. Please try again.');
+                              setError('Failed to release milestone. Please try again.');
                             } finally {
                               setApprovingOrderId(null);
                             }

@@ -292,8 +292,10 @@ export const api = {
         request<Order>(`/marketplace/orders/${orderId}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
       dispute: (orderId: string, data: { reason: string; description: string; evidence?: string }) =>
         request<{ disputeId: string; status: string }>(`/marketplace/orders/${orderId}/dispute`, { method: "POST", body: JSON.stringify(data) }),
-      releaseMilestone: (orderId: string, milestoneId?: string) =>
+      releaseMilestone: (orderId: string, milestoneId: string) =>
         request<Order>(`/marketplace/orders/${orderId}/release-milestone`, { method: "POST", body: JSON.stringify({ milestoneId }) }),
+      completeMilestone: (orderId: string, milestoneId: string) =>
+        request<OrderMilestone>(`/marketplace/orders/${orderId}/milestones/${milestoneId}/complete`, { method: "POST" }),
       milestones: (orderId: string) =>
         request<{ milestones: OrderMilestone[] }>(`/marketplace/orders/${orderId}/milestones`),
       createMilestones: (orderId: string, milestones: Array<{ title: string; description?: string; amount: string; dueAt?: string; sortOrder?: number }>) =>
@@ -301,9 +303,9 @@ export const api = {
           `/marketplace/orders/${orderId}/milestones`, { method: "POST", body: JSON.stringify({ milestones }) }),
       messages: {
         list: (orderId: string) =>
-          request<{ messages: Array<{ id: string; body: string; senderRole: string; createdAt: string }> }>(`/marketplace/orders/${orderId}/messages`),
+          request<{ messages: OrderMessage[] }>(`/marketplace/orders/${orderId}/messages`),
         send: (orderId: string, body: string) =>
-          request<{ id: string; body: string; senderRole: string; createdAt: string }>(`/marketplace/orders/${orderId}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
+          request<OrderMessage>(`/marketplace/orders/${orderId}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
       },
     },
     stripeConfig: () =>

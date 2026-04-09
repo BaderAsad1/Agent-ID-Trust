@@ -901,10 +901,10 @@ function MarketplaceDashboard() {
     } catch { setOrderMilestones(p => ({ ...p, [orderId]: [] })); }
   };
 
-  const releaseMilestone = async (orderId: string, milestoneId: string) => {
+  const completeMilestone = async (orderId: string, milestoneId: string) => {
     setReleasingMilestone(milestoneId);
     try {
-      await api.marketplace.orders.releaseMilestone(orderId, milestoneId);
+      await api.marketplace.orders.completeMilestone(orderId, milestoneId);
       const res = await api.marketplace.orders.milestones(orderId);
       setOrderMilestones(p => ({ ...p, [orderId]: res.milestones || [] }));
     } catch { /* silently fail */ }
@@ -1134,11 +1134,11 @@ function MarketplaceDashboard() {
                                     <span className="text-xs" style={{ color: isCompleted ? 'var(--success)' : isInProgress ? 'var(--marketplace)' : 'var(--text-dim)' }}>{m.status.replace('_', ' ')}</span>
                                     {(isInProgress || isPending) && (
                                       <button
-                                        onClick={() => releaseMilestone(order.id, m.id)}
+                                        onClick={() => completeMilestone(order.id, m.id)}
                                         disabled={releasingMilestone === m.id}
                                         className="text-xs px-2 py-0.5 rounded cursor-pointer"
                                         style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.2)' }}
-                                      >{releasingMilestone === m.id ? '…' : 'Release'}</button>
+                                      >{releasingMilestone === m.id ? '…' : 'Mark Complete'}</button>
                                     )}
                                   </div>
                                 );

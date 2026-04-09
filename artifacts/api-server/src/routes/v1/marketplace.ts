@@ -35,9 +35,10 @@ import {
 import { trackAnalyticsEvent, getListingAnalytics } from "../../services/marketplace-analytics";
 import { env } from "../../lib/env";
 import { db } from "@workspace/db";
-import { and, eq, desc } from "drizzle-orm";
+import { and, asc, eq, desc } from "drizzle-orm";
 import {
   marketplaceMilestonesTable,
+  marketplaceOrderMessagesTable,
   a2aServiceListingsTable,
   a2aEngagementsTable,
   agentsTable,
@@ -53,6 +54,21 @@ function withPayoutDisclosure<T extends object>(order: T): T & { payoutStatus: s
     payoutStatus: "pending_manual",
     payoutNote: PAYOUT_NOTE,
   };
+}
+
+async function getParticipantOrderOrThrow(orderId: string, userId: string) {
+  const order = await getOrderById(orderId, userId);
+  if (!order) {
+    throw new AppError(404, "NOT_FOUND", "Order not found");
+  }
+  return order;
+}
+
+function getSenderRoleForOrder(
+  order: { buyerUserId: string; sellerUserId: string },
+  userId: string,
+): "buyer" | "seller" {
+  return order.buyerUserId === userId ? "buyer" : "seller";
 }
 
 const listingPackageSchema = z.object({
@@ -247,6 +263,10 @@ const createOrderSchema = z.object({
   milestones: z.array(createMilestoneSchema).optional(),
 });
 
+const orderMessageSchema = z.object({
+  body: z.string().trim().min(1).max(5000),
+});
+
 router.post("/orders", requireAuth, async (req, res, next) => {
   try {
     const parsed = createOrderSchema.safeParse(req.body);
@@ -296,6 +316,49 @@ router.get("/orders/:orderId", requireAuth, validateUuidParam("orderId"), async 
     const order = await getOrderById(orderId, req.userId!);
     if (!order) throw new AppError(404, "NOT_FOUND", "Order not found");
     res.json(withPayoutDisclosure(order));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/orders/:orderId/messages", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
+  try {
+    const orderId = req.params.orderId as string;
+    await getParticipantOrderOrThrow(orderId, req.userId!);
+
+    const messages = await db
+      .select()
+      .from(marketplaceOrderMessagesTable)
+      .where(eq(marketplaceOrderMessagesTable.orderId, orderId))
+      .orderBy(asc(marketplaceOrderMessagesTable.createdAt));
+
+    res.json({ messages });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/orders/:orderId/messages", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
+  try {
+    const orderId = req.params.orderId as string;
+    const order = await getParticipantOrderOrThrow(orderId, req.userId!);
+    const body = orderMessageSchema.parse(req.body);
+
+    if (order.status === "cancelled" || order.status === "payment_failed") {
+      throw new AppError(409, "ORDER_NOT_MESSAGEABLE", "Messages are disabled for cancelled or failed-payment orders");
+    }
+
+    const [message] = await db
+      .insert(marketplaceOrderMessagesTable)
+      .values({
+        orderId,
+        senderRole: getSenderRoleForOrder(order, req.userId!),
+        senderUserId: req.userId!,
+        body: body.body,
+      })
+      .returning();
+
+    res.status(201).json(message);
   } catch (err) {
     next(err);
   }

@@ -546,26 +546,22 @@ describe("BR-SEC — Handle assignment ownership checks prevent cross-user injec
     // Must call agentOwnerWhere(body.agentId, req.userId!) — not single-arg form
     const twoArgPattern = /agentOwnerWhere\s*\(\s*body\.agentId\s*,\s*req\.userId/;
     expect(src).toMatch(twoArgPattern);
-    // Count occurrences — should have two (handle-checkout + crypto-payment-status)
+    // At least the handle-checkout flow must guard agent ownership with the two-argument form.
     const matches = [...src.matchAll(/agentOwnerWhere\s*\(\s*body\.agentId\s*,\s*req\.userId/g)];
-    expect(matches.length).toBeGreaterThanOrEqual(2);
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("billing.ts /crypto-payment-status route contains agentOwnerWhere ownership check before pollForCryptoPayment", () => {
+  it("billing.ts human crypto handle routes are intentionally disabled for launch", () => {
     const fs = require("fs");
     const path = require("path");
     const src: string = fs.readFileSync(
       path.join(__dirname, "../routes/v1/billing.ts"),
       "utf8",
     );
-    // Both ownership guards must exist in the file
-    const allOwnerChecks = [...src.matchAll(/agentOwnerWhere/g)];
-    expect(allOwnerChecks.length).toBeGreaterThanOrEqual(2);
-    // pollForCryptoPayment appears after second agentOwnerWhere usage
-    const cryptoStatusOwnerPos = src.lastIndexOf("agentOwnerWhere");
-    const pollCallPos = src.indexOf("pollForCryptoPayment(");
-    expect(cryptoStatusOwnerPos).toBeLessThan(src.lastIndexOf("pollForCryptoPayment("));
-    expect(pollCallPos).toBeGreaterThan(0);
+    expect(src).toContain('"/crypto-checkout"');
+    expect(src).toContain('"/crypto-payment-status"');
+    expect(src).toContain("CRYPTO_HANDLE_CHECKOUT_DISABLED");
+    expect(src).toContain("OWS/x402");
   });
 
   it("billing.ts /handle-checkout rejects with FORBIDDEN when agentId does not belong to user", () => {
@@ -930,15 +926,14 @@ describe("BR-DUR — Included-handle eligibility gate: explicit error when agent
     const fnBody = src.slice(fnStart, fnStart + 5000);
     // standard_5plus check must exist and use subscriptions table
     expect(fnBody).toContain("standard_5plus");
-    const standardIdx = fnBody.indexOf("standard_5plus");
-    const subTableIdx = fnBody.indexOf("subscriptionsTable", standardIdx);
-    expect(subTableIdx).toBeGreaterThan(-1); // subscriptionsTable used after standard_5plus check starts
+    expect(fnBody).toContain("subscriptionsTable");
     // Must NOT use denormalized users.plan column in the standard_5plus check section
+    const standardIdx = fnBody.indexOf("standard_5plus");
     const standard5plusBody = fnBody.slice(standardIdx);
     expect(standard5plusBody).not.toMatch(/usersTable\s*\.\s*plan/);
   });
 
-  it("billing.ts /crypto-checkout route has plan gate blocking Free plan users", () => {
+  it("billing.ts /crypto-checkout route is disabled for launch", () => {
     const fs = require("fs");
     const path = require("path");
     const src: string = fs.readFileSync(
@@ -949,13 +944,9 @@ describe("BR-DUR — Included-handle eligibility gate: explicit error when agent
     const cryptoIdx = src.indexOf('"/crypto-checkout"');
     expect(cryptoIdx).toBeGreaterThan(-1);
     const cryptoBlock = src.slice(cryptoIdx, cryptoIdx + 3000);
-    // Must check plan and reject with PLAN_REQUIRED_FOR_HANDLE
-    expect(cryptoBlock).toContain("PLAN_REQUIRED_FOR_HANDLE");
-    expect(cryptoBlock).toMatch(/getUserPlan/);
-    // Plan gate must appear before handle checkout session creation
-    const planGateIdx = cryptoBlock.indexOf("PLAN_REQUIRED_FOR_HANDLE");
-    const sessionIdx = cryptoBlock.indexOf("createCryptoCheckoutSession");
-    expect(planGateIdx).toBeLessThan(sessionIdx);
+    expect(cryptoBlock).toContain("CRYPTO_HANDLE_CHECKOUT_DISABLED");
+    expect(src).toContain("HANDLE_CRYPTO_DISABLED_MESSAGE");
+    expect(cryptoBlock).not.toContain("createCryptoCheckoutSession");
   });
 
   it("resolve.ts /address/:address endpoint uses chainRegistrations (not legacy chainMints)", () => {

@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import busboy from "busboy";
+import type { Readable } from "stream";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
@@ -10,9 +11,15 @@ import { getAgentById } from "../../services/agents";
 import { getAgentPlan, getPlanLimits } from "../../services/billing";
 import { checkOutboundRateLimit } from "../../services/mail-transport";
 import { logActivity } from "../../services/activity-logger";
-import { uploadAttachment, presignAttachmentUrl, deleteAttachment, ATTACHMENT_LIMITS } from "../../lib/attachment-storage";
+import {
+  uploadAttachment,
+  presignAttachmentUrl,
+  deleteAttachment,
+  ATTACHMENT_LIMITS,
+  getStableAttachmentUrl,
+} from "../../lib/attachment-storage";
 import { db } from "@workspace/db";
-import { messageAttachmentsTable } from "@workspace/db/schema";
+import { agentMessagesTable, messageAttachmentsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 
 function param(v: string | string[] | undefined): string {
@@ -34,6 +41,20 @@ function verifyInboxAccess(req: Request, agentId: string): boolean {
     return req.authenticatedAgent.id === agentId;
   }
   return false;
+}
+
+async function requireMessageAccess(req: Request, agentId: string): Promise<void> {
+  if (req.authenticatedAgent) {
+    if (!verifyInboxAccess(req, agentId)) {
+      throw new AppError(403, "FORBIDDEN", "Agent can only access its own messages");
+    }
+    return;
+  }
+
+  const owned = await mailService.verifyAgentOwnership(agentId, req.userId!);
+  if (!owned) {
+    throw new AppError(403, "FORBIDDEN", "Not your agent");
+  }
 }
 
 const router = Router();
@@ -384,7 +405,7 @@ router.get("/agents/:agentId/messages/:messageId", requireHumanOrAgentAuth, asyn
       filename: a.fileName,
       contentType: a.mimeType,
       size: a.sizeBytes,
-      url: a.storageUrl,
+      url: getStableAttachmentUrl(a.storageKey, a.storageUrl),
       checksum: a.checksum,
       createdAt: a.createdAt,
     }));
@@ -979,8 +1000,7 @@ router.post(
       const agentId = param(req.params.agentId);
       const messageId = param(req.params.messageId);
 
-      // Verify ownership
-      await mailService.verifyAgentOwnership(agentId, req.userId!);
+      await requireMessageAccess(req, agentId);
 
       // Verify message belongs to this agent
       const message = await mailService.getMessage(messageId);
@@ -1007,7 +1027,7 @@ router.post(
         const bb = busboy({ headers: req.headers, limits: { files: 1, fileSize: ATTACHMENT_LIMITS.maxFileSizeBytes } });
         let resolved = false;
 
-        bb.on("file", (fieldname, stream, info) => {
+        bb.on("file", (_fieldname: string, stream: Readable & { truncated?: boolean }, info: busboy.FileInfo) => {
           const { filename, mimeType } = info;
           const chunks: Buffer[] = [];
 
@@ -1088,19 +1108,22 @@ router.get(
       const messageId = param(req.params.messageId);
       const attachmentId = param(req.params.attachmentId);
 
-      await mailService.verifyAgentOwnership(agentId, req.userId!);
+      await requireMessageAccess(req, agentId);
 
-      const [attachment] = await db
-        .select()
+      const [row] = await db
+        .select({ attachment: messageAttachmentsTable })
         .from(messageAttachmentsTable)
+        .innerJoin(agentMessagesTable, eq(messageAttachmentsTable.messageId, agentMessagesTable.id))
         .where(
           and(
             eq(messageAttachmentsTable.id, attachmentId as string),
             eq(messageAttachmentsTable.messageId, messageId as string),
+            eq(agentMessagesTable.agentId, agentId as string),
           ),
         )
         .limit(1);
 
+      const attachment = row?.attachment;
       if (!attachment) throw new AppError(404, "NOT_FOUND", "Attachment not found");
 
       const url = await presignAttachmentUrl(
@@ -1135,19 +1158,22 @@ router.delete(
       const messageId = param(req.params.messageId);
       const attachmentId = param(req.params.attachmentId);
 
-      await mailService.verifyAgentOwnership(agentId, req.userId!);
+      await requireMessageAccess(req, agentId);
 
-      const [attachment] = await db
-        .select()
+      const [row] = await db
+        .select({ attachment: messageAttachmentsTable })
         .from(messageAttachmentsTable)
+        .innerJoin(agentMessagesTable, eq(messageAttachmentsTable.messageId, agentMessagesTable.id))
         .where(
           and(
             eq(messageAttachmentsTable.id, attachmentId as string),
             eq(messageAttachmentsTable.messageId, messageId as string),
+            eq(agentMessagesTable.agentId, agentId as string),
           ),
         )
         .limit(1);
 
+      const attachment = row?.attachment;
       if (!attachment) throw new AppError(404, "NOT_FOUND", "Attachment not found");
 
       await deleteAttachment(attachment.storageKey ?? "");
