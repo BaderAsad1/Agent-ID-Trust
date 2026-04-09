@@ -122,9 +122,22 @@ function adminIpAllowlist(req: Request, res: Response, next: NextFunction): void
       });
       return;
     }
-    // Non-production: still enforce IP check if configured; warn loudly if not set.
-    // This prevents staging environments from having open admin access.
-    logger.warn({ ip: getRequestorIp(req) }, "[admin] ADMIN_ALLOWED_IPS not set — admin IP allowlist disabled. Set ADMIN_ALLOWED_IPS to restrict access.");
+    // Non-production (staging/development): allow only loopback addresses when
+    // ADMIN_ALLOWED_IPS is not set. This prevents staging environments reachable
+    // from the internet from having open admin access.
+    // To allow remote access in dev, set ADMIN_ALLOWED_IPS explicitly.
+    const reqIp = getRequestorIp(req);
+    const isLoopback = reqIp === "127.0.0.1" || reqIp === "::1" || reqIp === "localhost";
+    if (!isLoopback) {
+      logger.warn({ ip: reqIp }, "[admin] ADMIN_ALLOWED_IPS not set — blocking non-localhost admin request. Set ADMIN_ALLOWED_IPS to allow remote access.");
+      res.status(503).json({
+        error: "ADMIN_NOT_CONFIGURED",
+        message: "ADMIN_ALLOWED_IPS is not configured. Set it to allow admin access from this IP.",
+        requestId: req.requestId ?? "unknown",
+      });
+      return;
+    }
+    logger.warn({ ip: reqIp }, "[admin] ADMIN_ALLOWED_IPS not set — allowing localhost-only admin access.");
     next();
     return;
   }

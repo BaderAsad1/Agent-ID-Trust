@@ -67,6 +67,54 @@ app.use((_req, res, next) => {
 app.use(requestIdMiddleware);
 app.use(securityHeaders);
 app.use(sandboxMiddleware);
+
+// ── Health check ──────────────────────────────────────────────────────────────
+// Must be registered before auth/rate-limit middleware so load-balancers and
+// Docker HEALTHCHECK can reach it without credentials.
+app.get("/healthz", async (_req, res) => {
+  const checks: Record<string, "ok" | "error" | "skip"> = {};
+  let httpStatus = 200;
+
+  // DB check
+  try {
+    const { pool } = await import("@workspace/db");
+    await (pool as import("pg").Pool).query("SELECT 1");
+    checks.db = "ok";
+  } catch {
+    checks.db = "error";
+    httpStatus = 503;
+  }
+
+  // Redis check (optional — warn but don't fail hard since in-memory fallback exists)
+  if (process.env.REDIS_URL) {
+    try {
+      const redis = await import("../lib/redis" as string);
+      const client = (redis as { getRedisClient?: () => unknown }).getRedisClient?.();
+      if (client && typeof (client as { ping?: () => Promise<unknown> }).ping === "function") {
+        await (client as { ping: () => Promise<unknown> }).ping();
+        checks.redis = "ok";
+      } else {
+        checks.redis = "skip";
+      }
+    } catch {
+      checks.redis = "error";
+    }
+  } else {
+    checks.redis = "skip";
+  }
+
+  // Worker failure state
+  const { getWorkersInFailureState } = await import("./workers/worker-failure");
+  const failingWorkers = getWorkersInFailureState();
+  const workerStatus = Object.keys(failingWorkers).length === 0 ? "ok" : "degraded";
+
+  res.status(httpStatus).json({
+    status: httpStatus === 200 ? "ok" : "degraded",
+    checks,
+    workers: { status: workerStatus, failing: failingWorkers },
+    ts: new Date().toISOString(),
+  });
+});
 app.use(requestLogger);
 
 const corsOrigins: cors.CorsOptions["origin"] = (() => {

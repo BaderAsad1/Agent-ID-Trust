@@ -274,8 +274,12 @@ export function validateEnv(): Env {
   if (!env.STRIPE_SECRET_KEY) {
     envLogger.warn("[env] STRIPE_SECRET_KEY not set — payment processing disabled.");
   }
-  if (isProd && env.STRIPE_SECRET_KEY && !env.STRIPE_WEBHOOK_SECRET) {
-    envLogger.fatal("[env] STRIPE_WEBHOOK_SECRET is required in production when Stripe is enabled. Without it, all incoming webhooks will be rejected and payment events will not be processed.");
+  // STRIPE_WEBHOOK_SECRET is required independently of STRIPE_SECRET_KEY.
+  // A deployment that sets STRIPE_SECRET_KEY but omits STRIPE_WEBHOOK_SECRET
+  // would silently accept forged Stripe webhook events — an attacker could
+  // fraudulently activate plans by posting fabricated checkout-completed events.
+  if (isProd && !env.STRIPE_WEBHOOK_SECRET) {
+    envLogger.fatal("[env] STRIPE_WEBHOOK_SECRET is required in production. Without it, Stripe webhook signature verification is disabled and forged webhook events would be accepted. Set STRIPE_WEBHOOK_SECRET to your Stripe endpoint secret.");
     process.exit(1);
   }
   if (!env.STRIPE_WEBHOOK_SECRET && !isProd) {

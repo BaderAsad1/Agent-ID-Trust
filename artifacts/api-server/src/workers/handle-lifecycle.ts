@@ -6,6 +6,7 @@ import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
 import { logger } from "../middlewares/request-logger";
 import { getHandlePricing } from "../services/handle-pricing";
 import { processSuspendedHandles } from "../services/handle";
+import { recordWorkerFailure, recordWorkerSuccess } from "./worker-failure";
 
 const QUEUE_NAME = "handle-lifecycle";
 const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -302,10 +303,15 @@ export function startHandleLifecycleWorker(): void {
   });
 
   worker.on("failed", (job, err) => {
-    logger.error({ jobId: job?.id, error: err.message }, "[handle-lifecycle] Job failed");
+    recordWorkerFailure(err, {
+      worker: "handle-lifecycle",
+      jobId: job?.id,
+      retriesExhausted: (job?.attemptsMade ?? 0) >= (job?.opts.attempts ?? 5),
+    });
   });
 
   worker.on("completed", (job) => {
+    recordWorkerSuccess("handle-lifecycle");
     const result = job?.returnvalue as { reminders?: number; expired?: number; auctionsUpdated?: number } | undefined;
     if (result && (result.reminders || result.expired || result.auctionsUpdated)) {
       logger.info({ jobId: job?.id, ...result }, "[handle-lifecycle] Job completed");

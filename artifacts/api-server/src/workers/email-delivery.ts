@@ -7,6 +7,7 @@ import {
   type TransportEnvelope,
 } from "../services/mail-transport";
 import { env } from "../lib/env";
+import { recordWorkerFailure, recordWorkerSuccess } from "./worker-failure";
 
 const FROM_EMAIL = env().FROM_EMAIL || "notifications@getagent.id";
 const QUEUE_NAME = "email-notifications";
@@ -58,6 +59,16 @@ export function initEmailDeliveryWorker(): void {
   );
   emailWorker.on("error", (err) => {
     logger.warn({ err: err.message }, "[email-worker] Worker connection error");
+  });
+  emailWorker.on("failed", (job, err) => {
+    recordWorkerFailure(err, {
+      worker: "email-delivery",
+      jobId: job?.id,
+      retriesExhausted: (job?.attemptsMade ?? 0) >= (job?.opts.attempts ?? 3),
+    });
+  });
+  emailWorker.on("completed", () => {
+    recordWorkerSuccess("email-delivery");
   });
 }
 

@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { agentsTable, agentKeysTable, agentReputationEventsTable } from "@workspace/db/schema";
 import { recomputeAndStore, determineTier } from "../services/trust-score";
 import { aggregateTrustScore } from "../services/reputation";
+import { recordWorkerFailure, recordWorkerSuccess } from "./worker-failure";
 import { logger } from "../middlewares/request-logger";
 
 const RECALCULATION_INTERVAL_MS = 60 * 60 * 1000;
@@ -205,8 +206,10 @@ async function recalculateAllTrust() {
 
     await applyInactivityDecay();
   } catch (err) {
-    logger.error({ err }, "[trust-worker] Failed to run trust recalculation");
+    recordWorkerFailure(err, { worker: "trust-recalculation", jobType: "recalculateAllTrust" });
+    return;
   }
+  recordWorkerSuccess("trust-recalculation");
 }
 
 export function startTrustWorker() {
