@@ -33,6 +33,21 @@ function useInboxCount() {
   return count;
 }
 
+function useMailUnreadCount() {
+  const [count, setCount] = useState(0);
+  const { agents } = useAuth();
+
+  useEffect(() => {
+    if (!agents || agents.length === 0) return;
+    // Check first agent's inbox stats for unread count
+    api.mail.inboxStats(agents[0].id)
+      .then(stats => setCount(stats.messages.unread ?? 0))
+      .catch(() => {});
+  }, [agents]);
+
+  return count;
+}
+
 type UserPlan = 'none' | 'free' | 'starter' | 'pro' | 'enterprise';
 
 function planLevel(plan: UserPlan | string | undefined): number {
@@ -50,6 +65,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const { user } = useAuth();
   const inboxCount = useInboxCount();
+  const mailUnreadCount = useMailUnreadCount();
   const displayName = user?.displayName || user?.username || 'agent';
 
   const handleNav = (path: string) => {
@@ -64,7 +80,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     { path: '/dashboard', icon: Bot, label: 'My Agents', minPlan: 0 },
     { path: '/dashboard/handles', icon: AtSign, label: 'Handles', minPlan: 0 },
     { path: '/dashboard/inbox', icon: Inbox, label: 'Task Inbox', count: inboxCount, minPlan: 2 },
-    { path: '/dashboard/mail', icon: Mail, label: 'Agent Mail', dot: 'cyan' as const, minPlan: 2 },
+    { path: '/dashboard/mail', icon: Mail, label: 'Agent Mail', count: mailUnreadCount, minPlan: 2 },
     { path: '/dashboard/log', icon: Activity, label: 'Activity Log', minPlan: 0 },
     { path: '/dashboard/marketplace', icon: ShoppingBag, label: 'Marketplace', dot: 'purple' as const, minPlan: 0 },
     { path: '/dashboard/orders', icon: PackageOpen, label: 'My Orders', minPlan: 0 },
@@ -106,7 +122,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           return (
             <button
               key={item.path}
-              onClick={() => !locked && handleNav(item.path)}
+              onClick={() => locked ? handleNav('/pricing') : handleNav(item.path)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-0.5 text-sm transition-colors cursor-pointer"
               style={{
                 background: active ? 'rgba(59,130,246,0.1)' : 'transparent',
@@ -125,14 +141,17 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--accent)', color: '#fff', fontSize: '10px' }}>{item.count}</span>
               )}
               {!locked && item.dot === 'purple' && <span className="w-2 h-2 rounded-full" style={{ background: 'var(--marketplace)' }} />}
-              {!locked && item.dot === 'cyan' && <span className="w-2 h-2 rounded-full animate-pulse-dot" style={{ background: 'var(--domain)' }} />}
+              {!locked && item.dot === 'cyan' && !('count' in item) && <span className="w-2 h-2 rounded-full animate-pulse-dot" style={{ background: 'var(--domain)' }} />}
             </button>
           );
         })}
       </nav>
 
       <div className="px-4 py-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs capitalize" style={{ color: 'var(--text-dim)' }}>
+            {userPlan === 'none' ? 'Free' : userPlan} plan
+          </span>
           <button
             className="text-xs flex items-center gap-1 cursor-pointer"
             style={{ color: 'var(--accent)', background: 'none', border: 'none' }}
