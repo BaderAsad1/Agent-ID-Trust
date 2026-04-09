@@ -28,6 +28,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       'Public agent card, discoverable by any system',
       'Full SDK, MCP server & REST API access',
       'Agents can register themselves autonomously',
+      'Add a 5+ char .agentid handle for $5/yr',
     ],
     cta: 'Get started free',
     variant: 'ghost',

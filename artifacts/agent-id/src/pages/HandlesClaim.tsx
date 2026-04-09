@@ -265,22 +265,24 @@ export function HandlesClaim() {
                   )}
                 </div>
                 {isStandardHandle(result) && isFreePlan(userPlan) && (
-                  <div className="flex items-start gap-3 px-4 py-3 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#818cf8' }} />
+                  <div className="flex items-start gap-3 px-4 py-3 rounded-xl" style={{ background: 'rgba(79,125,243,0.06)', border: '1px solid rgba(79,125,243,0.2)' }}>
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#4f7df3' }} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold mb-1" style={{ color: '#818cf8' }}>
-                        Upgrade to claim this handle
+                      <div className="text-sm font-semibold mb-1" style={{ color: '#e8e8f0' }}>
+                        $5/yr for this handle
                       </div>
                       <div className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-                        Standard 5+ character handles are included with Starter or Pro. Enterprise access is provisioned separately. Upgrade your plan to register @{result.handle}.
+                        Standard 5+ character handles are <span style={{ color: '#34d399', fontWeight: 600 }}>included free</span> with Starter ($29/mo) or Pro ($79/mo). On the Free plan, add this handle for $5/yr — no plan upgrade required.
                       </div>
-                      <a
-                        href="/pricing"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-                        style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)', textDecoration: 'none' }}
-                      >
-                        View plans <ArrowRight className="w-3 h-3" />
-                      </a>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <a
+                          href="/pricing"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                          style={{ background: 'rgba(79,125,243,0.15)', color: '#4f7df3', border: '1px solid rgba(79,125,243,0.3)', textDecoration: 'none' }}
+                        >
+                          View plans <ArrowRight className="w-3 h-3" />
+                        </a>
+                      </div>
                     </div>
                   </div>
                 )}

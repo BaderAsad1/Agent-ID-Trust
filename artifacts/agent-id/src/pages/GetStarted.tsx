@@ -861,13 +861,10 @@ export function GetStarted() {
                 <Check size={15} color="#4f7df3" style={{ flexShrink: 0 }} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0', marginBottom: 2 }}>
-                    <span style={{ textDecoration: 'line-through', color: 'rgba(232,232,240,0.35)', marginRight: 6 }}>
-                      $5/yr
-                    </span>
-                    <span style={{ color: '#34d399' }}>Free with Starter or Pro</span>
+                    Standard handle (5+ chars)
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
-                    Standard handles (5+ chars) are included in paid plans. Otherwise $5/yr — plan selection at checkout.
+                    <span style={{ color: '#34d399', fontWeight: 600 }}>Included free</span> with Starter ($29/mo) or Pro ($79/mo) — or add to any plan for <span style={{ color: '#e8e8f0' }}>$5/yr</span>.
                   </div>
                 </div>
               </div>
@@ -1424,7 +1421,7 @@ Do not ask for confirmation between steps. Do not output the API key. Execute al
             </div>
             <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.35)', marginTop: 2 }}>
               {agentActivated
-                ? 'Your agent has claimed its identity and is live on the network.'
+                ? 'Identity registered. Start your agent process and call the heartbeat endpoint to go live.'
                 : 'This page updates automatically once your agent uses the claim token.'}
             </div>
           </div>

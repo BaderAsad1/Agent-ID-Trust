@@ -115,6 +115,98 @@ app.get("/healthz", async (_req, res) => {
     ts: new Date().toISOString(),
   });
 });
+// ── Metrics ───────────────────────────────────────────────────────────────────
+// Lightweight Prometheus-compatible text endpoint. No external library required.
+// Exposed only in non-production or when METRICS_TOKEN is set + matched.
+// Prometheus format: https://prometheus.io/docs/instrumenting/exposition_formats/
+const metricsRequestCount = new Map<string, number>();
+const metricsRequestDurationMs = new Map<string, number[]>();
+
+export function recordHttpMetric(route: string, method: string, statusCode: number, durationMs: number): void {
+  const key = `${method.toUpperCase()} ${route} ${statusCode}`;
+  metricsRequestCount.set(key, (metricsRequestCount.get(key) ?? 0) + 1);
+  const durations = metricsRequestDurationMs.get(route) ?? [];
+  durations.push(durationMs);
+  // Keep a rolling window of the last 1000 samples per route
+  if (durations.length > 1000) durations.splice(0, durations.length - 1000);
+  metricsRequestDurationMs.set(route, durations);
+}
+
+app.get("/metrics", (req, res) => {
+  const metricsToken = process.env.METRICS_TOKEN;
+  if (metricsToken) {
+    const provided = req.headers["authorization"]?.replace(/^Bearer\s+/i, "");
+    if (provided !== metricsToken) {
+      res.status(401).end("Unauthorized");
+      return;
+    }
+  } else if (config.NODE_ENV === "production") {
+    // In production, require METRICS_TOKEN — never expose metrics openly
+    res.status(403).end("METRICS_TOKEN is not configured");
+    return;
+  }
+
+  const lines: string[] = [];
+
+  lines.push("# HELP http_requests_total Total HTTP requests by method, route, and status code");
+  lines.push("# TYPE http_requests_total counter");
+  for (const [key, count] of metricsRequestCount) {
+    const [method, route, status] = key.split(" ");
+    lines.push(`http_requests_total{method="${method}",route="${route}",status="${status}"} ${count}`);
+  }
+
+  lines.push("# HELP http_request_duration_ms_avg Average HTTP request duration in milliseconds");
+  lines.push("# TYPE http_request_duration_ms_avg gauge");
+  for (const [route, durations] of metricsRequestDurationMs) {
+    if (durations.length === 0) continue;
+    const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
+    const p95 = [...durations].sort((a, b) => a - b)[Math.floor(durations.length * 0.95)] ?? 0;
+    lines.push(`http_request_duration_ms_avg{route="${route}"} ${avg.toFixed(2)}`);
+    lines.push(`http_request_duration_ms_p95{route="${route}"} ${p95.toFixed(2)}`);
+  }
+
+  // DB pool stats (optional — pool exposes these when available)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { pool } = require("@workspace/db") as { pool: import("pg").Pool };
+    const total = (pool as unknown as { totalCount?: number }).totalCount ?? 0;
+    const idle = (pool as unknown as { idleCount?: number }).idleCount ?? 0;
+    const waiting = (pool as unknown as { waitingCount?: number }).waitingCount ?? 0;
+    lines.push("# HELP db_pool_total Total connections in the DB pool");
+    lines.push("# TYPE db_pool_total gauge");
+    lines.push(`db_pool_total ${total}`);
+    lines.push(`db_pool_idle ${idle}`);
+    lines.push(`db_pool_waiting ${waiting}`);
+  } catch { /* pool not yet initialized or unavailable */ }
+
+  // Worker failure state
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getWorkersInFailureState } = require("./workers/worker-failure") as { getWorkersInFailureState: () => Record<string, number> };
+    const failing = getWorkersInFailureState();
+    lines.push("# HELP worker_consecutive_failures Consecutive failure count per worker");
+    lines.push("# TYPE worker_consecutive_failures gauge");
+    for (const [worker, count] of Object.entries(failing)) {
+      lines.push(`worker_consecutive_failures{worker="${worker}"} ${count}`);
+    }
+  } catch { /* workers not yet started */ }
+
+  lines.push(`# EOF`);
+  res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+  res.status(200).end(lines.join("\n") + "\n");
+});
+
+// Timing middleware — must be registered after /healthz and /metrics, before routes
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    // Normalise route: replace UUIDs and numeric IDs to avoid high-cardinality labels
+    const route = req.route?.path ?? req.path.replace(/\/[0-9a-f-]{8,}/gi, "/:id").replace(/\/\d+/g, "/:id");
+    recordHttpMetric(route, req.method, res.statusCode, Date.now() - start);
+  });
+  next();
+});
+
 app.use(requestLogger);
 
 const corsOrigins: cors.CorsOptions["origin"] = (() => {
