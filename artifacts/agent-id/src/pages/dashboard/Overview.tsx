@@ -256,6 +256,14 @@ interface StatGridProps {
 }
 
 function StatGrid({ agent }: StatGridProps) {
+  const [messageCount, setMessageCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    api.mail.inboxStats(agent.id)
+      .then(s => setMessageCount(s.messages.total))
+      .catch(() => setMessageCount(null));
+  }, [agent.id]);
+
   const walletBalance = agent.walletUsdcBalance
     ? `$${parseFloat(agent.walletUsdcBalance).toFixed(2)}`
     : '$0.00';
@@ -270,7 +278,7 @@ function StatGrid({ agent }: StatGridProps) {
     },
     {
       label: 'Messages',
-      value: '0',
+      value: messageCount === null ? '…' : String(messageCount),
       icon: MessageSquare,
       color: 'var(--domain)',
       bg: 'rgba(52,211,153,0.08)',
