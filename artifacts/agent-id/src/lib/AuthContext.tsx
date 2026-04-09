@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     try {
       const result = await api.agents.list();
-      setAgents(result.agents);
+      setAgents(result.agents ?? []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load agents');
     }

@@ -366,7 +366,7 @@ function Overview() {
     try {
       const dashStats = await api.dashboard.stats();
       setStats(dashStats as unknown as Record<string, unknown>);
-      setRecentActivity((dashStats as unknown as Record<string, unknown>).recentActivity as ActivityItem[] || []);
+      setRecentActivity(((dashStats as unknown as Record<string, unknown>).recentActivity as ActivityItem[] | null) ?? []);
       try {
         const transferMap: Record<string, TransferSaleType> = {};
         const activeStatuses = ['in_handoff', 'pending_acceptance', 'hold_pending', 'transfer_pending', 'listed', 'draft', 'disputed'];
@@ -2201,7 +2201,7 @@ function SettingsPage() {
                     ) : (
                       keys.map(k => (
                         <div key={k.id} className="text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
-                          {k.keyPrefix}… · {k.scopes.length > 0 ? k.scopes.join(', ') : 'all scopes'} · {new Date(k.createdAt).toLocaleDateString()}
+                          {k.keyPrefix}… · {(k.scopes ?? []).length > 0 ? (k.scopes ?? []).join(', ') : 'all scopes'} · {new Date(k.createdAt).toLocaleDateString()}
                         </div>
                       ))
                     )}
@@ -3098,7 +3098,7 @@ function DeveloperPage() {
                         </button>
                       </div>
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {(client.allowedScopes as string[]).map(s => (
+                        {((client.allowedScopes as string[] | null) ?? []).map(s => (
                           <span key={s} className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)', border: '1px solid var(--border-color)' }}>{s}</span>
                         ))}
                       </div>
@@ -3121,11 +3121,11 @@ function DeveloperPage() {
                       </div>
                     )}
                   </div>
-                  {client.redirectUris && (client.redirectUris as string[]).length > 0 && (
+                  {((client.redirectUris as string[] | null) ?? []).length > 0 && (
                     <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
                       <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-dim)' }}>Redirect URIs</p>
                       <div className="flex flex-wrap gap-1">
-                        {(client.redirectUris as string[]).map(uri => (
+                        {((client.redirectUris as string[] | null) ?? []).map(uri => (
                           <code key={uri} className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{uri}</code>
                         ))}
                       </div>
@@ -3184,7 +3184,7 @@ function DeveloperPage() {
                       <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{conn.clientName}</div>
                       {conn.clientDescription && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{conn.clientDescription}</p>}
                       <div className="flex flex-wrap gap-1 mt-1.5">
-                        {(conn.scopes as string[]).map(s => (
+                        {((conn.scopes as string[] | null) ?? []).map(s => (
                           <span key={s} className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)', border: '1px solid var(--border-color)' }}>{s}</span>
                         ))}
                       </div>
