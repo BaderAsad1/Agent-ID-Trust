@@ -147,6 +147,10 @@ const checkoutSchema = z.object({
   billingInterval: z.enum(["monthly", "yearly"]).default("monthly"),
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional(),
+  // Optional: link a pending handle to this subscription so the webhook assigns it automatically
+  // after payment. Used by the onboarding wizard when a user picks a paid plan + handle.
+  pendingHandle: z.string().max(32).optional(),
+  pendingAgentId: z.string().uuid().optional(),
 }).refine((d) => d.plan || d.priceId, { message: "priceId or plan required" });
 
 router.post("/checkout", requireAuth, async (req, res, next) => {
@@ -203,6 +207,16 @@ router.post("/checkout", requireAuth, async (req, res, next) => {
           .where(eq(usersTable.id, req.userId!));
       }
 
+      const baseMeta: Record<string, string> = {
+        userId: req.userId!,
+        plan: resolvedPlan,
+        billingInterval: body.billingInterval,
+      };
+      if (body.pendingHandle && body.pendingAgentId) {
+        baseMeta.pendingHandle = body.pendingHandle;
+        baseMeta.pendingAgentId = body.pendingAgentId;
+      }
+
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ["card"],
@@ -210,10 +224,10 @@ router.post("/checkout", requireAuth, async (req, res, next) => {
         mode: "subscription",
         success_url: `${successUrl}&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: cancelUrl,
-        metadata: { userId: req.userId!, plan: resolvedPlan, billingInterval: body.billingInterval },
+        metadata: baseMeta,
         allow_promotion_codes: true,
         billing_address_collection: "auto",
-        subscription_data: { metadata: { userId: req.userId! } },
+        subscription_data: { metadata: baseMeta },
       });
 
       return res.json({ url: session.url });

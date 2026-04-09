@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod/v4";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { userRateLimit } from "../../middlewares/rate-limit";
 import { isAgentOwner } from "../../services/agents";
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -51,7 +52,7 @@ const createOrgSchema = z.object({
   websiteUrl: z.string().url().optional(),
 });
 
-router.post("/", requireAuth, async (req, res, next) => {
+router.post("/", requireAuth, userRateLimit, async (req, res, next) => {
   try {
     const parsed = createOrgSchema.safeParse(req.body);
     if (!parsed.success) {

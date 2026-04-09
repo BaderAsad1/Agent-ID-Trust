@@ -390,7 +390,7 @@ export const api = {
   billing: {
     subscription: () =>
       request<{ plan: string; limits: Record<string, unknown>; subscription: unknown | null }>("/billing/subscription"),
-    checkout: (body: { plan: 'starter' | 'pro'; billingInterval: 'monthly' | 'yearly'; successUrl?: string; cancelUrl?: string }) =>
+    checkout: (body: { plan: 'starter' | 'pro'; billingInterval: 'monthly' | 'yearly'; successUrl?: string; cancelUrl?: string; pendingHandle?: string | null; pendingAgentId?: string | null }) =>
       request<{ url: string | null }>("/billing/checkout", {
         method: "POST",
         body: JSON.stringify(body),

@@ -2104,8 +2104,8 @@ function WalletDashboard() {
       ]);
       setWalletInfo(w);
       setBalance(b);
-      setTransactions(t.transactions);
-      setRules(r.rules);
+      setTransactions(t?.transactions ?? []);
+      setRules(r?.rules ?? null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load wallet');
     } finally {

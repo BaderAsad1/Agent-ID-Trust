@@ -191,7 +191,7 @@ const trademarkClaimSchema = z.object({
   evidence: z.string().max(10000).optional(),
 });
 
-router.post("/:handle/trademark-claim", async (req, res, next) => {
+router.post("/:handle/trademark-claim", requireAuth, async (req, res, next) => {
   try {
     const handle = (req.params.handle as string).toLowerCase();
     const validationError = validateHandle(handle);

@@ -1315,6 +1315,9 @@ Do not ask for confirmation between steps. Do not output the API key. Execute al
                     billingInterval: 'monthly',
                     successUrl: `${base}/dashboard?subscribed=1`,
                     cancelUrl: `${base}/get-started`,
+                    // Pass the pending handle so the subscription webhook assigns it automatically
+                    pendingHandle: pendingHandleFromServer,
+                    pendingAgentId: createdAgentId,
                   });
                   if (r.url) window.location.href = r.url;
                 } catch { /* non-fatal */ }

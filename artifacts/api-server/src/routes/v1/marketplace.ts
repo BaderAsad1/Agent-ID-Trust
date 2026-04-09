@@ -82,9 +82,9 @@ const listingPackageSchema = z.object({
 const createListingSchema = z.object({
   agentId: z.string().uuid(),
   title: z.string().min(1).max(255),
-  description: z.string().optional(),
+  description: z.string().max(5000).optional(),
   category: z.string().max(100).optional(),
-  pitch: z.string().optional(),
+  pitch: z.string().max(2000).optional(),
   priceType: z.enum(["fixed", "hourly", "per_task", "custom"]).optional(),
   priceAmount: z.string().optional(),
   deliveryHours: z.number().int().positive().optional(),
@@ -95,9 +95,9 @@ const createListingSchema = z.object({
 
 const updateListingSchema = z.object({
   title: z.string().min(1).max(255).optional(),
-  description: z.string().optional(),
+  description: z.string().max(5000).optional(),
   category: z.string().max(100).optional(),
-  pitch: z.string().optional(),
+  pitch: z.string().max(2000).optional(),
   priceType: z.enum(["fixed", "hourly", "per_task", "custom"]).optional(),
   priceAmount: z.string().optional(),
   deliveryHours: z.number().int().positive().optional(),

@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import { randomBytes } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -32,7 +32,7 @@ router.get("/providers", (_req: Request, res: Response) => {
   });
 });
 
-router.post("/create-intent", tryAgentAuth, async (req: Request, res: Response) => {
+router.post("/create-intent", tryAgentAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { amountCents, currency, paymentType, resourceId, metadata } = req.body;
 
@@ -77,7 +77,7 @@ router.get(
   "/premium-resolve/:handle",
   tryAgentAuth,
   mppPaymentRequired(100, "Premium agent resolution with full trust breakdown and credential", "premium_resolve"),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const handle = (req.params.handle as string).toLowerCase();
 

@@ -215,6 +215,32 @@ router.post(
               if (subUserId && subPlan && (subPlan === "starter" || subPlan === "pro")) {
                 await activatePlanForUser(subUserId, subPlan, subscription.id, subInterval);
               }
+              // After plan activation, check if this subscription was created with a pending handle
+              // from the onboarding wizard (user picked plan + handle simultaneously).
+              const pendingHandle = subscription.metadata?.pendingHandle;
+              const pendingAgentId = subscription.metadata?.pendingAgentId;
+              if (pendingHandle && pendingAgentId && subUserId) {
+                try {
+                  const { checkHandleAvailability, getHandleTier: getHandleTierFn } = await import("../../services/handle");
+                  const availability = await checkHandleAvailability(pendingHandle);
+                  if (availability.available) {
+                    const tierInfo = getHandleTierFn(pendingHandle);
+                    await assignHandleToAgent(pendingAgentId, pendingHandle, {
+                      tier: tierInfo.tier,
+                      paid: true,
+                      stripeSubscriptionId: subscription.id,
+                    });
+                    logger.info({ pendingHandle, pendingAgentId, subUserId, subscriptionId: subscription.id },
+                      "[webhook] Assigned pending onboarding handle after plan subscription");
+                  } else {
+                    logger.warn({ pendingHandle, pendingAgentId, subUserId, subscriptionId: subscription.id },
+                      "[webhook] Pending onboarding handle no longer available after plan subscription — user must re-claim from dashboard");
+                  }
+                } catch (handleErr) {
+                  logger.error({ error: handleErr instanceof Error ? handleErr.message : String(handleErr), pendingHandle, pendingAgentId },
+                    "[webhook] Failed to assign pending onboarding handle after plan subscription");
+                }
+              }
             }
             break;
           }
