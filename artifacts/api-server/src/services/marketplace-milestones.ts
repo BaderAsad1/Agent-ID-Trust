@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   marketplaceMilestonesTable,
@@ -144,8 +144,15 @@ export async function markMilestoneComplete(
       completedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(marketplaceMilestonesTable.id, milestoneId))
+    .where(and(
+      eq(marketplaceMilestonesTable.id, milestoneId),
+      sql`${marketplaceMilestonesTable.status} IN ('pending', 'in_progress')`,
+    ))
     .returning();
+
+  if (!updated) {
+    return { success: false, error: "MILESTONE_ALREADY_COMPLETED" };
+  }
 
   return { success: true, milestone: updated };
 }
@@ -216,9 +223,6 @@ export async function releaseMilestoneEscrow(
   }
 
   const capturedAmount = (capturedAmountCents / 100).toFixed(2);
-  const newReleasedAmount = (
-    parseFloat(String(order.releasedAmount ?? "0")) + parseFloat(capturedAmount)
-  ).toFixed(2);
 
   let stripeTransferId: string | null = null;
   let milestonePayoutStatus: "pending_manual_payout" | "completed" = "pending_manual_payout";
@@ -289,7 +293,10 @@ export async function releaseMilestoneEscrow(
 
       await tx
         .update(marketplaceOrdersTable)
-        .set({ releasedAmount: newReleasedAmount, updatedAt: new Date() })
+        .set({
+          releasedAmount: sql`(COALESCE(${marketplaceOrdersTable.releasedAmount}::numeric, 0) + ${parseFloat(capturedAmount)})::text`,
+          updatedAt: new Date(),
+        })
         .where(eq(marketplaceOrdersTable.id, order.id));
 
       await tx.insert(payoutLedgerTable).values({

@@ -608,6 +608,11 @@ if (fs.existsSync(frontendDist)) {
   });
 }
 
+// JSON 404 for API routes — prevents HTML fallback for unknown endpoints
+app.use("/api", (_req: Request, res: Response) => {
+  res.status(404).json({ error: "NOT_FOUND", message: "Endpoint not found" });
+});
+
 app.use(errorHandler);
 
 export default app;

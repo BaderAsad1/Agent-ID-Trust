@@ -860,10 +860,9 @@ export async function handleAgentDiscovery(req: Request, res: Response, next: Ne
     let whereClause = and(...conditions);
 
     if (q && q.trim().length > 0) {
-      const sanitized = q.trim().replace(/[<>&'"]/g, "");
-      const tsQuery = sanitized.split(/\s+/).filter(Boolean).map(w => w + ":*").join(" & ");
+      const sanitized = q.trim().replace(/[^a-zA-Z0-9\s\-_.]/g, "").slice(0, 200);
       const fullTextFilter = sql`(
-        "search_vector" @@ to_tsquery('english', ${tsQuery})
+        "search_vector" @@ websearch_to_tsquery('english', ${sanitized})
         OR ${agentsTable.handle} % ${sanitized}
         OR ${agentsTable.displayName} % ${sanitized}
       )`;

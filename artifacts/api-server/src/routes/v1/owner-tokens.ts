@@ -2,6 +2,7 @@ import { Router } from "express";
 import { randomBytes, createHash } from "crypto";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
+import { challengeRateLimit } from "../../middlewares/rate-limit";
 import { db } from "@workspace/db";
 import { ownerTokensTable, agentsTable, apiKeysTable } from "@workspace/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
@@ -38,7 +39,7 @@ ownerTokenRouter.post("/generate", requireAuth, async (req, res, next) => {
   }
 });
 
-agentLinkOwnerRouter.post("/link-owner", async (req, res, next) => {
+agentLinkOwnerRouter.post("/link-owner", challengeRateLimit, async (req, res, next) => {
   try {
     const agentKey = req.headers["x-api-key"] as string | undefined;
     if (!agentKey) {

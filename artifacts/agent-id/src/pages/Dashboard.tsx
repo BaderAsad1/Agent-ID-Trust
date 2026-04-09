@@ -2474,11 +2474,11 @@ export function Dashboard() {
   else if (path === '/dashboard/orders') content = <BuyerOrders />;
   else if (path === '/dashboard/credential') content = <CredentialDashboard />;
   else if (path === '/dashboard/wallet') content = <WalletDashboard />;
-  else if (path === '/dashboard/domain' || path === '/dashboard/handles') content = <DomainDashboard />;
+  else if (path === '/dashboard/domain') content = <DomainDashboard />;
+  else if (path === '/dashboard/handles') content = <HandlesClaim />;
   else if (path === '/dashboard/fleet') content = <FleetManagement />;
   else if (path === '/dashboard/settings') content = <SettingsPage />;
   else if (path.startsWith('/dashboard/transfers')) content = <TransferDashboardPage />;
-  else if (path === '/dashboard/handles') content = <HandlesClaim />;
   else content = <Overview />;
 
   return <DashboardLayout>{content}</DashboardLayout>;

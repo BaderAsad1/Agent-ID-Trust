@@ -68,9 +68,8 @@ router.post("/create-intent", tryAgentAuth, async (req: Request, res: Response) 
       currency: currency || "usd",
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ error: msg }, "[mpp] Failed to create payment intent");
-    res.status(500).json({ error: "INTERNAL_ERROR", message: msg });
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, "[mpp] Failed to create payment intent");
+    next(err);
   }
 });
 
@@ -118,8 +117,7 @@ router.get(
         payment: (req as Request & { mppPayment?: unknown }).mppPayment,
       });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ error: "INTERNAL_ERROR", message: msg });
+      next(err);
     }
   },
 );
@@ -138,8 +136,8 @@ router.get("/payments/history", tryAgentAuth, async (req: Request, res: Response
     const result = await getMppPaymentHistory(agentId, limit, offset);
     res.json(result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "INTERNAL_ERROR", message: msg });
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, "[mpp] Request failed");
+    res.status(500).json({ error: "INTERNAL_ERROR", message: "Internal server error" });
   }
 });
 
@@ -162,8 +160,8 @@ router.get("/payments/:paymentId", tryAgentAuth, async (req: Request, res: Respo
 
     res.json({ payment });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "INTERNAL_ERROR", message: msg });
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, "[mpp] Request failed");
+    res.status(500).json({ error: "INTERNAL_ERROR", message: "Internal server error" });
   }
 });
 

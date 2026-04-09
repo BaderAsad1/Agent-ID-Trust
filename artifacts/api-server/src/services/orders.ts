@@ -348,24 +348,34 @@ export async function completeOrder(
 
       const pi = await stripe.paymentIntents.retrieve(paymentRef);
       if (pi.status === "requires_capture") {
-        await stripe.paymentIntents.capture(paymentRef);
+        await stripe.paymentIntents.capture(
+          paymentRef,
+          {},
+          { idempotencyKey: `order_capture_${orderId}` },
+        );
 
-        const transfer = await stripe.transfers.create({
-          amount: sellerPayoutCents,
-          currency: "usd",
-          destination: sellerAgent.stripeConnectAccountId!,
-          metadata: { orderId, listingId: order.listingId },
-        });
+        const transfer = await stripe.transfers.create(
+          {
+            amount: sellerPayoutCents,
+            currency: "usd",
+            destination: sellerAgent.stripeConnectAccountId!,
+            metadata: { orderId, listingId: order.listingId },
+          },
+          { idempotencyKey: `order_transfer_${orderId}` },
+        );
         stripeTransferId = transfer.id;
         payoutStatus = "completed";
         logger.info({ orderId, agentId: order.agentId, transferId: transfer.id }, "[completeOrder] Stripe Connect payout executed via PI capture + transfer");
       } else if (pi.status === "succeeded") {
-        const transfer = await stripe.transfers.create({
-          amount: sellerPayoutCents,
-          currency: "usd",
-          destination: sellerAgent.stripeConnectAccountId!,
-          metadata: { orderId, listingId: order.listingId },
-        });
+        const transfer = await stripe.transfers.create(
+          {
+            amount: sellerPayoutCents,
+            currency: "usd",
+            destination: sellerAgent.stripeConnectAccountId!,
+            metadata: { orderId, listingId: order.listingId },
+          },
+          { idempotencyKey: `order_transfer_${orderId}` },
+        );
         stripeTransferId = transfer.id;
         payoutStatus = "completed";
         logger.info({ orderId, transferId: transfer.id }, "[completeOrder] Stripe Connect transfer executed");
@@ -536,6 +546,27 @@ export async function cancelOrder(
       }
 
       const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
+      // Reverse any Stripe Connect transfer to seller before recording ledger entries
+      try {
+        const existingPayout = await db.query.payoutLedgerTable.findFirst({
+          where: and(
+            eq(payoutLedgerTable.relatedOrderId, orderId),
+            eq(payoutLedgerTable.status, "completed"),
+          ),
+        });
+        const transferId = (existingPayout?.metadata as Record<string, unknown>)?.stripeTransferId as string | undefined;
+        if (transferId) {
+          const stripe = getStripe();
+          await stripe.transfers.createReversal(transferId, {}, { idempotencyKey: `order_reversal_${orderId}` });
+          logger.info({ orderId, transferId }, "[cancelOrder] Stripe Connect transfer reversed");
+        }
+      } catch (reversalErr) {
+        logger.error(
+          { orderId, error: reversalErr instanceof Error ? reversalErr.message : String(reversalErr) },
+          "[cancelOrder] Failed to reverse Stripe Connect transfer — manual reversal needed",
+        );
+      }
+
       await db.insert(paymentLedgerTable).values([
         {
           relatedOrderId: orderId,
@@ -584,8 +615,15 @@ export async function cancelOrder(
   const [updated] = await db
     .update(marketplaceOrdersTable)
     .set({ status: "cancelled", updatedAt: new Date() })
-    .where(eq(marketplaceOrdersTable.id, orderId))
+    .where(and(
+      eq(marketplaceOrdersTable.id, orderId),
+      sql`${marketplaceOrdersTable.status} NOT IN ('completed', 'cancelled')`,
+    ))
     .returning();
+
+  if (!updated) {
+    return { success: false, error: "ORDER_ALREADY_COMPLETED_OR_CANCELLED" };
+  }
 
   return { success: true, order: updated };
 }

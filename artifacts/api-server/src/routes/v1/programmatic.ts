@@ -689,6 +689,7 @@ router.post("/agents/verify", challengeRateLimit, async (req, res, next) => {
     const claimUrl = `${APP_URL}/claim?token=${encodeURIComponent(claimToken)}`;
 
     const verifyCanonicalDid = `did:web:getagent.id:agents:${agentId}`;
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.json({
       verified: true,
       agentId,
@@ -841,6 +842,7 @@ router.post("/agents/:agentId/api-keys", requireAuth, async (req, res, next) => 
       userAgent: req.headers["user-agent"],
     });
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.status(201).json({
       id: record.id,
       name: record.name,
@@ -916,6 +918,7 @@ router.post("/agents/:agentId/api-keys/rotate", requireAuth, async (req, res, ne
       userAgent: req.headers["user-agent"],
     });
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.json({
       apiKey: apiKey.raw,
       keyPrefix: apiKey.prefix,

@@ -383,6 +383,7 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
       storageSafety: "sensitive — store in environment variables or secrets manager only. NEVER place in system prompts, chat context, or any text visible to end users.",
     };
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.json({
       activated: true,
       identity,
