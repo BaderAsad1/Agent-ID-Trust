@@ -37,11 +37,13 @@ describe('Canonical four-plan pricing model', () => {
       expect(t.includesOnChainMint).toBe(true);
     });
 
-    it('has standard_5plus tier at $0 standalone, includedWithPaidPlan=true, isFree=false', () => {
+    it('has standard_5plus tier at $5/yr standalone retail, includedWithPaidPlan=true, isFree=false', () => {
+      // $5/yr is the standalone retail price for free-plan users or additional handles.
+      // Starter/Pro users get their first standard handle included free (not charged separately).
       const t = HANDLE_PRICING_TIERS.find(t => t.tier === 'standard_5plus')!;
       expect(t).toBeDefined();
-      expect(t.annualPriceUsd).toBe(0);
-      expect(t.annualPriceCents).toBe(0);
+      expect(t.annualPriceUsd).toBe(5);
+      expect(t.annualPriceCents).toBe(500);
       expect(t.isFree).toBe(false);
       expect(t.includedWithPaidPlan).toBe(true);
       expect(t.includesOnChainMint).toBe(false);
@@ -405,10 +407,10 @@ describe('Pricing entitlement cross-surface consistency', () => {
     expect(isEligibleForIncludedHandle('starter')).toBe(true);
     expect(hasCustomHandleEntitlement('starter')).toBe(false);
     expect(isAllowedHandleAccess('starter')).toBe(true);
-    // Free/none: no handle access at all
+    // Free/none: no FREE included handle — but can still purchase at $5/yr via Stripe checkout
     expect(isEligibleForIncludedHandle('free')).toBe(false);
     expect(hasCustomHandleEntitlement('free')).toBe(false);
-    expect(isAllowedHandleAccess('free')).toBe(false);
+    expect(isAllowedHandleAccess('free')).toBe(false); // means no free included entitlement, not purchase-blocked
   });
 
   it('shared-pricing standard_5plus: only ONE tier is included with paid plan — Starter and Pro each get 1, not 5', () => {

@@ -710,27 +710,26 @@ describe("BR-DUR — Included-handle eligibility gate: explicit error when agent
     expect(fnBody).not.toMatch(/usersTable\s*\.\s*plan/);
   });
 
-  it("billing.ts createHandleCheckoutSession blocks Free plan using canonical getUserPlan()", () => {
+  it("billing.ts createHandleCheckoutSession uses canonical getUserPlan() — plan determines free entitlement, not total access", () => {
+    // Free/none plan users can still purchase handles at $5/yr retail via Stripe checkout.
+    // Plan only gates the free included-handle entitlement (Starter/Pro get 1 free standard handle).
     const fs = require("fs");
     const path = require("path");
     const src: string = fs.readFileSync(
       path.join(__dirname, "../services/billing.ts"),
       "utf8",
     );
-    // Find the export function declaration (not the import reference)
     const exportFnIdx = src.indexOf("export async function createHandleCheckoutSession");
     expect(exportFnIdx).toBeGreaterThan(-1);
-    // Large window needed — function body includes pending audit + claim + assign + compensate logic
     const fnBody = src.slice(exportFnIdx, exportFnIdx + 15000);
-    expect(fnBody).toContain("PLAN_REQUIRED_FOR_HANDLE");
     // Must use getUserPlan() (canonical subscription-backed resolver) — not direct usersTable.plan query
     expect(fnBody).toMatch(/getUserPlan\(userId\)/);
     expect(fnBody).not.toMatch(/usersTable\.plan/);
-    // Plan check must appear before Stripe customer creation
-    const planGateInFn = fnBody.indexOf("PLAN_REQUIRED_FOR_HANDLE");
+    // getUserPlan must appear before Stripe customer creation
+    const planCheckIdx = fnBody.indexOf("getUserPlan(userId)");
     const stripeIdx = fnBody.indexOf("getStripe()");
     expect(stripeIdx).toBeGreaterThan(-1);
-    expect(planGateInFn).toBeLessThan(stripeIdx);
+    expect(planCheckIdx).toBeLessThan(stripeIdx);
   });
 
   it("billing.ts /handle-checkout route maps entitlement errors to intentional status codes", () => {
