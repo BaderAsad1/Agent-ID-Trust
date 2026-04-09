@@ -61,8 +61,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const userPlanLevel = planLevel(userPlan);
 
   const navItems = [
-    { path: '/dashboard', icon: LayoutDashboard, label: 'Overview', minPlan: 0 },
-    { path: '/dashboard/agents', icon: Bot, label: 'My Agents', minPlan: 0 },
+    { path: '/dashboard', icon: Bot, label: 'My Agents', minPlan: 0 },
     { path: '/dashboard/handles', icon: AtSign, label: 'Handles', minPlan: 0 },
     { path: '/dashboard/inbox', icon: Inbox, label: 'Task Inbox', count: inboxCount, minPlan: 2 },
     { path: '/dashboard/mail', icon: Mail, label: 'Agent Mail', dot: 'cyan' as const, minPlan: 2 },

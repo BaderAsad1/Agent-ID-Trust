@@ -13,7 +13,6 @@ import { TransferWizardModal, TransferStatusBadge, TransferDashboardPage } from 
 import { HandlesClaim } from '@/pages/HandlesClaim';
 import { QRCodeSVG } from 'qrcode.react';
 import { OnboardingScreen } from '@/pages/dashboard/Onboarding';
-import { DashboardOverview } from '@/pages/dashboard/Overview';
 import { BuyerOrders } from '@/pages/BuyerOrders';
 
 async function initiateHandleCheckout(handle: string) {
@@ -387,7 +386,7 @@ function Overview() {
 
   if (loading) return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Overview</h1>
+      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>My Agents</h1>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         {[1,2,3,4,5].map(i => <CardSkeleton key={i} />)}
       </div>
@@ -407,7 +406,7 @@ function Overview() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Overview</h1>
+      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>My Agents</h1>
       {paymentResult === 'success' && (
         <div className="flex items-center gap-3 p-4 rounded-xl mb-6" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}>
           <CheckCircle className="w-5 h-5" style={{ color: 'var(--success)' }} />
@@ -2683,17 +2682,11 @@ export function Dashboard() {
   const navigate = useNavigate();
   const { userId, agents, refreshAgents, loading: authLoading } = useAuth();
   const [agentLinked, setAgentLinked] = useState(false);
-  const [userPlan, setUserPlan] = useState<string | undefined>(undefined);
   const path = location.pathname;
 
   useEffect(() => {
     if (!userId) navigate('/sign-in');
   }, [userId, navigate]);
-
-  useEffect(() => {
-    if (!userId) return;
-    api.billing.subscription().then(res => setUserPlan(res.plan)).catch(() => {});
-  }, [userId]);
 
   const handleAgentLinked = useCallback(async () => {
     await refreshAgents();
@@ -2703,19 +2696,9 @@ export function Dashboard() {
   if (!userId || authLoading) return null;
 
   const hasAgents = agents.length > 0;
-  const isOnboardingPath = path === '/dashboard' || path === '/dashboard/agents';
 
-  if (isOnboardingPath && !hasAgents && !agentLinked) {
+  if ((path === '/dashboard' || path === '/dashboard/agents') && !hasAgents && !agentLinked) {
     return <Navigate to="/get-started" replace />;
-  }
-
-  if (isOnboardingPath && hasAgents) {
-    const primaryAgent = agents[0];
-    return (
-      <DashboardLayout>
-        <DashboardOverview agent={primaryAgent} plan={userPlan} />
-      </DashboardLayout>
-    );
   }
 
   let content;
