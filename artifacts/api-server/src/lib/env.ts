@@ -259,6 +259,10 @@ export function validateEnv(): Env {
     envLogger.fatal("[env] CLAIM_TOKEN_SECRET is required in production for HMAC-signed programmatic claim tokens.");
     process.exit(1);
   }
+  if (isProd && !env.DATABASE_URL) {
+    envLogger.fatal("[env] DATABASE_URL is required in production.");
+    process.exit(1);
+  }
   if (isProd && !env.ADMIN_SECRET_KEY) {
     envLogger.fatal("[env] ADMIN_SECRET_KEY is required in production. All admin routes will deny all requests without it.");
     process.exit(1);

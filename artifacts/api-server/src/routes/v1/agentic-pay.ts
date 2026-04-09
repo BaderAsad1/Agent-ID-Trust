@@ -259,11 +259,8 @@ router.post("/execute-upgrade", requireAgentAuth, async (req, res, next) => {
       agentId: agent.id,
       message: `Plan upgraded to ${plan} via x402 autonomous payment`,
     });
-  } catch (err: any) {
-    return res.status(500).json({
-      error: "EXECUTION_FAILED",
-      message: err.message,
-    });
+  } catch (err) {
+    return next(err);
   }
 });
 

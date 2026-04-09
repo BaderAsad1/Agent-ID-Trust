@@ -15,6 +15,16 @@ export function getStripe(): Stripe {
     ? process.env.STRIPE_LIVE_SECRET_KEY
     : process.env.STRIPE_SECRET_KEY;
   if (key) {
+    // Guard: prevent test keys in production and live keys in non-production.
+    // A mismatch here means billing operations will silently target the wrong environment.
+    const isLiveKey = key.startsWith("sk_live_") || key.startsWith("rk_live_");
+    const isTestKey = key.startsWith("sk_test_") || key.startsWith("rk_test_");
+    if (isProd && isTestKey) {
+      throw new Error("FATAL: Stripe test key detected in production environment. Set STRIPE_LIVE_SECRET_KEY to a live key.");
+    }
+    if (!isProd && isLiveKey) {
+      throw new Error("FATAL: Stripe live key detected in non-production environment. Use a test key (sk_test_...) for STRIPE_SECRET_KEY in development/staging.");
+    }
     stripeInstance = new Stripe(key, {
       apiVersion: "2025-04-30.basil" as Stripe.LatestApiVersion,
     });

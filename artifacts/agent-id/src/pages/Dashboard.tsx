@@ -1762,8 +1762,10 @@ function SettingsPage() {
   const [creatingKey, setCreatingKey] = useState(false);
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState<string>('free');
 
   useEffect(() => {
+    api.billing.subscription().then(res => setCurrentPlan(res.plan ?? 'free')).catch(() => {});
     api.users.apiKeys.list()
       .then(res => setApiKeys(res.keys || []))
       .catch(() => {})
@@ -1792,15 +1794,10 @@ function SettingsPage() {
           <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Current Plan</h3>
           <div className="flex items-center justify-between mb-3">
             <div>
-              <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Starter</div>
-              <div className="text-sm" style={{ color: 'var(--text-dim)' }}>{agents.length} of 1 agent used</div>
+              <div className="text-lg font-bold capitalize" style={{ color: 'var(--text-primary)' }}>{currentPlan === 'free' ? 'Free' : currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}</div>
+              <div className="text-sm" style={{ color: 'var(--text-dim)' }}>{agents.length} agent{agents.length !== 1 ? 's' : ''} registered</div>
             </div>
-            <PrimaryButton onClick={() => navigate('/pricing')}>Upgrade Plan</PrimaryButton>
-          </div>
-          <div className="text-xs space-y-1" style={{ color: 'var(--text-dim)' }}>
-            <div>Agent limit: 1</div>
-            <div>Trust score: Basic</div>
-            <div>Support: Community</div>
+            {currentPlan === 'free' && <PrimaryButton onClick={() => navigate('/pricing')}>Upgrade Plan</PrimaryButton>}
           </div>
         </GlassCard>
         <GlassCard>

@@ -181,18 +181,34 @@ router.post(
 
             if (subType === "handle_registration" && subscription.metadata?.handle && subUserId) {
               const handle = subscription.metadata.handle;
-              const agent = await db.query.agentsTable.findFirst({
-                where: and(eq(agentsTable.handle, handle), eq(agentsTable.userId, subUserId)),
-                columns: { id: true, handle: true },
+              // Re-check availability before assigning — prevents double-assignment if two users
+              // raced through checkout for the same handle. The unique DB constraint is a last
+              // resort; this check gives us a clean error path to log and alert on.
+              const existingOwner = await db.query.agentsTable.findFirst({
+                where: and(eq(agentsTable.handle, handle)),
+                columns: { id: true, userId: true },
               });
-              if (agent) {
-                const { getHandleTier } = await import("../../services/handle");
-                const tierInfo = getHandleTier(handle);
-                await assignHandleToAgent(agent.id, handle, {
-                  tier: tierInfo.tier,
-                  paid: true,
-                  stripeSubscriptionId: subscription.id,
+              if (existingOwner && existingOwner.userId !== subUserId) {
+                // Handle already owned by a different user — log a critical alert so an operator
+                // can issue a refund. Do NOT overwrite the existing owner's handle.
+                logger.error(
+                  { handle, subUserId, existingOwnerId: existingOwner.userId, subscriptionId: subscription.id },
+                  "[webhook] HANDLE_RACE_CONFLICT: handle already assigned to a different user. Manual refund required.",
+                );
+              } else {
+                const agent = await db.query.agentsTable.findFirst({
+                  where: and(eq(agentsTable.handle, handle), eq(agentsTable.userId, subUserId)),
+                  columns: { id: true, handle: true },
                 });
+                if (agent) {
+                  const { getHandleTier } = await import("../../services/handle");
+                  const tierInfo = getHandleTier(handle);
+                  await assignHandleToAgent(agent.id, handle, {
+                    tier: tierInfo.tier,
+                    paid: true,
+                    stripeSubscriptionId: subscription.id,
+                  });
+                }
               }
             } else {
               await handleSubscriptionCreatedOrUpdated(subscription);
