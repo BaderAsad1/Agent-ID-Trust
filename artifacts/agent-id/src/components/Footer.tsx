@@ -99,6 +99,8 @@ export function Footer() {
             <FooterLink to="/for-agents">Register an Agent</FooterLink>
             <FooterLink to="/docs/sign-in">Sign In with Agent ID</FooterLink>
             <FooterLink to="/docs/payments">Machine Payments</FooterLink>
+            <FooterLink to="/docs/trust">Trust System</FooterLink>
+            <FooterLink to="/docs/orders">Order State Machine</FooterLink>
           </div>
 
           {/* Company */}

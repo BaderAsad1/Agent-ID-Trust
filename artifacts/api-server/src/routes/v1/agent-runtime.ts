@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import { createHash } from "crypto";
 import { z } from "zod/v4";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
@@ -48,6 +49,18 @@ function ensureAgentOwnership(req: Request, agentId: string): Agent {
 
 function inboxPollEndpoint(agentId: string): string {
   return `/api/v1/mail/agents/${agentId}/messages`;
+}
+
+/**
+ * Compute a stable checksum for a prompt-block payload.
+ * Used by agents to detect whether their block has changed since last fetch
+ * without having to diff the full content.
+ *   version  — first 8 hex chars, human-readable shorthand
+ *   checksum — full 64-char SHA-256 hex, machine-comparable
+ */
+function computeBlockChecksum(content: string): { version: string; checksum: string } {
+  const checksum = createHash("sha256").update(content, "utf8").digest("hex");
+  return { version: checksum.slice(0, 8), checksum };
 }
 
 function buildPromptBlockText(
@@ -224,6 +237,110 @@ function buildPromptBlockJson(
   };
 }
 
+/**
+ * Structured prompt-block format — separates four distinct documents:
+ *
+ *  identity   — who this agent is (stable; changes rarely)
+ *  policy     — what this agent is allowed to do (trust, scopes, limits)
+ *  behavior   — LLM guidance text (the existing text block; changes on platform updates)
+ *  marketplace — discoverability and economic parameters
+ *
+ * Each document has its own lifecycle. Agents should track the `meta.checksum`
+ * to detect changes and re-ingest only the document(s) that changed.
+ */
+function buildPromptBlockStructured(
+  agent: Agent,
+  trust: TrustResult,
+  inbox: AgentInbox | null,
+  capabilities: string[],
+  limits?: ReturnType<typeof getPlanLimits>,
+  appUrl?: string,
+  planName?: string,
+  apiKeyPrefix?: string,
+): Record<string, unknown> {
+  const APP_URL = appUrl || process.env.APP_URL || "https://getagent.id";
+  const hasHandle = !!(agent.handlePaid && agent.handle);
+  const scopes = (agent.scopes as string[]) || [];
+  const breakdown = (agent.trustBreakdown as Record<string, number>) || {};
+
+  // Tier-to-consequence mapping — kept in sync with trust-score service
+  const tierConsequences: Record<string, { escrowCapCents: number; txLimitCents: number; discoverable: boolean; listingEligible: boolean }> = {
+    unverified: { escrowCapCents: 0,       txLimitCents: 0,       discoverable: false, listingEligible: false },
+    basic:      { escrowCapCents: 10_000,  txLimitCents: 5_000,   discoverable: true,  listingEligible: false },
+    verified:   { escrowCapCents: 100_000, txLimitCents: 50_000,  discoverable: true,  listingEligible: true  },
+    trusted:    { escrowCapCents: 500_000, txLimitCents: 250_000, discoverable: true,  listingEligible: true  },
+    elite:      { escrowCapCents: -1,      txLimitCents: -1,      discoverable: true,  listingEligible: true  }, // -1 = unlimited
+  };
+  const tierConseq = tierConsequences[trust.trustTier] ?? tierConsequences.unverified;
+
+  const identity = {
+    agentId:             agent.id,
+    did:                 `did:web:getagent.id:agents:${agent.id}`,
+    displayName:         agent.displayName,
+    status:              agent.status,
+    verificationStatus:  agent.verificationStatus,
+    handle:              hasHandle ? agent.handle : null,
+    protocolAddress:     hasHandle ? `${agent.handle}.agentid` : null,
+    publicProfileUrl:    hasHandle ? `${APP_URL}/${agent.handle}` : `${APP_URL}/id/${agent.id}`,
+    inboxAddress:        inbox?.address || null,
+    createdAt:           agent.createdAt?.toISOString() ?? null,
+  };
+
+  const policy = {
+    trustTier:           trust.trustTier,
+    trustScore:          trust.trustScore,
+    trustBreakdown:      breakdown,
+    allowedScopes:       scopes,
+    capabilities,
+    rateLimitRpm:        60,
+    maxPayloadBytes:     1_048_576,
+    spendLimitCents:     agent.authorizedSpendLimitCents ?? 0,
+    paymentAuthorized:   agent.paymentAuthorized ?? false,
+    plan:                planName || "none",
+  };
+
+  const marketplace = {
+    trustTier:           trust.trustTier,
+    trustScore:          trust.trustScore,
+    discoverable:        tierConseq.discoverable,
+    listingEligible:     tierConseq.listingEligible,
+    escrowCapCents:      tierConseq.escrowCapCents,   // -1 = unlimited
+    transactionLimitCents: tierConseq.txLimitCents,   // -1 = unlimited
+  };
+
+  const behavior = buildPromptBlockText(agent, trust, inbox, capabilities, limits, appUrl, planName, apiKeyPrefix);
+
+  // Compute per-document checksums so agents can detect partial changes
+  const identityChecksum = computeBlockChecksum(JSON.stringify(identity));
+  const policyChecksum   = computeBlockChecksum(JSON.stringify(policy));
+  const behaviorChecksum = computeBlockChecksum(behavior);
+  const marketplaceChecksum = computeBlockChecksum(JSON.stringify(marketplace));
+
+  // Top-level checksum covers all four documents
+  const fullChecksum = computeBlockChecksum(
+    identityChecksum.checksum + policyChecksum.checksum + behaviorChecksum.checksum + marketplaceChecksum.checksum
+  );
+
+  return {
+    meta: {
+      schemaVersion: "1",
+      version:       fullChecksum.version,
+      checksum:      fullChecksum.checksum,
+      updatedAt:     agent.updatedAt?.toISOString() ?? new Date().toISOString(),
+      documents: {
+        identity:    { version: identityChecksum.version,    checksum: identityChecksum.checksum },
+        policy:      { version: policyChecksum.version,      checksum: policyChecksum.checksum },
+        behavior:    { version: behaviorChecksum.version,    checksum: behaviorChecksum.checksum },
+        marketplace: { version: marketplaceChecksum.version, checksum: marketplaceChecksum.checksum },
+      },
+    },
+    identity,
+    policy,
+    behavior,
+    marketplace,
+  };
+}
+
 router.get("/:agentId/bootstrap", requireAgentAuth, async (req, res, next) => {
   try {
     const agent = ensureAgentOwnership(req, req.params.agentId as string);
@@ -288,7 +405,7 @@ router.get("/:agentId/prompt-block", requireAgentAuth, async (req, res, next) =>
     const agent = ensureAgentOwnership(req, req.params.agentId as string);
     const format = (req.query.format as string) || "text";
 
-    const [trust, inbox, keyRecord] = await Promise.all([
+    const [trust, inbox, keyRecord, userPlan] = await Promise.all([
       computeTrustScore(agent.id),
       getInboxByAgent(agent.id),
       db.query.apiKeysTable.findFirst({
@@ -299,17 +416,41 @@ router.get("/:agentId/prompt-block", requireAgentAuth, async (req, res, next) =>
         ),
         columns: { keyPrefix: true },
       }),
+      getUserPlan(agent.userId),
     ]);
 
     const capabilities = (agent.capabilities as string[]) || [];
     const apiKeyPrefix = keyRecord?.keyPrefix;
+    const limits = getPlanLimits(userPlan);
+    const APP_URL = process.env.APP_URL || "https://getagent.id";
 
-    if (format === "json") {
+    if (format === "structured") {
+      // Canonical format: four separated documents with per-document checksums
+      const block = buildPromptBlockStructured(
+        agent, trust, inbox, capabilities, limits, APP_URL, userPlan, apiKeyPrefix,
+      );
+      res.setHeader("X-AgentID-Block-Version", block.meta.version as string);
+      res.setHeader("X-AgentID-Block-Checksum", block.meta.checksum as string);
+      res.setHeader("X-AgentID-Block-UpdatedAt", block.meta.updatedAt as string);
+      res.json(block);
+    } else if (format === "json") {
       const block = buildPromptBlockJson(agent, trust, inbox, capabilities);
-      res.json({ format: "json", prompt_block: block });
+      const content = JSON.stringify(block);
+      const { version, checksum } = computeBlockChecksum(content);
+      res.setHeader("X-AgentID-Block-Version", version);
+      res.setHeader("X-AgentID-Block-Checksum", checksum);
+      res.setHeader("X-AgentID-Block-UpdatedAt", agent.updatedAt?.toISOString() ?? new Date().toISOString());
+      res.json({ format: "json", version, checksum, prompt_block: block });
     } else {
-      const block = buildPromptBlockText(agent, trust, inbox, capabilities, undefined, undefined, undefined, apiKeyPrefix);
+      // Default: text
+      const block = buildPromptBlockText(
+        agent, trust, inbox, capabilities, limits, APP_URL, userPlan, apiKeyPrefix,
+      );
+      const { version, checksum } = computeBlockChecksum(block);
       res.setHeader("Content-Type", "text/plain");
+      res.setHeader("X-AgentID-Block-Version", version);
+      res.setHeader("X-AgentID-Block-Checksum", checksum);
+      res.setHeader("X-AgentID-Block-UpdatedAt", agent.updatedAt?.toISOString() ?? new Date().toISOString());
       res.send(block);
     }
   } catch (err) {
@@ -362,6 +503,12 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
       .set(updates)
       .where(eq(agentsTable.id, agent.id));
 
+    // Capture pre-heartbeat state for diff computation.
+    // `agent` from ensureAgentOwnership holds the DB row as-of request time.
+    const prevTrustScore = agent.trustScore ?? 0;
+    const prevTrustTier  = agent.trustTier  ?? "unverified";
+    const prevCapabilities = (agent.capabilities as string[]) || [];
+
     const [, freshAgent, trust, inbox] = await Promise.all([
       logActivity({
         agentId: agent.id,
@@ -392,6 +539,19 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
       unreadCount = stats.unread;
     }
 
+    // Compute current prompt-block checksum so agents can detect stale blocks
+    const currentCapabilities = (current.capabilities as string[]) || [];
+    const promptBlockContent = buildPromptBlockText(
+      current, trust, inbox, currentCapabilities,
+    );
+    const { version: promptBlockVersion, checksum: promptBlockChecksum } = computeBlockChecksum(promptBlockContent);
+
+    // State delta — what changed since the last heartbeat
+    const capabilitiesAdded   = currentCapabilities.filter(c => !prevCapabilities.includes(c));
+    const capabilitiesRemoved = prevCapabilities.filter(c => !currentCapabilities.includes(c));
+    const trustScoreDelta     = trust.trustScore - prevTrustScore;
+    const trustTierChanged    = trust.trustTier !== prevTrustTier;
+
     res.json({
       acknowledged: true,
       server_time: now.toISOString(),
@@ -406,7 +566,7 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
         trustTier: trust.trustTier,
         verificationStatus: current.verificationStatus,
         status: current.status,
-        capabilities: (current.capabilities as string[]) || [],
+        capabilities: currentCapabilities,
         inbox: inbox?.address || null,
       },
       mail: {
@@ -414,8 +574,21 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
         hasNewMessages: unreadCount > 0,
         inboxEndpoint: `${APP_URL}/api/v1/mail/agents/${agent.id}/inbox/unread`,
       },
-      promptBlockUrl: `${APP_URL}/api/v1/agents/${agent.id}/prompt-block?format=text`,
-      updateContextInstructions: "The identity object in this heartbeat response is your authoritative current state (trust score, inbox, capabilities). Act on it now — no prompt replacement needed mid-conversation. To refresh for your NEXT conversation: fetch promptBlockUrl and include the full response text in your system prompt BEFORE the first user turn. You cannot hot-swap a system prompt inside a running session.",
+      // State delta — diffs since last heartbeat, not just a snapshot.
+      // action_required = true when something material changed that the agent should re-ingest.
+      state_delta: {
+        trust_score_delta:      trustScoreDelta,
+        trust_tier_changed:     trustTierChanged,
+        previous_trust_tier:    trustTierChanged ? prevTrustTier : null,
+        capabilities_added:     capabilitiesAdded,
+        capabilities_removed:   capabilitiesRemoved,
+        prompt_block_version:   promptBlockVersion,
+        prompt_block_checksum:  promptBlockChecksum,
+        unread_count:           unreadCount,
+        action_required:        trustTierChanged || capabilitiesAdded.length > 0 || capabilitiesRemoved.length > 0,
+      },
+      promptBlockUrl: `${APP_URL}/api/v1/agents/${agent.id}/prompt-block?format=structured`,
+      updateContextInstructions: "Use state_delta to determine what changed. If action_required is true, refetch promptBlockUrl. Compare prompt_block_checksum against your cached version to detect stale blocks without re-fetching. The identity object is authoritative for current session state.",
     });
   } catch (err) {
     next(err);

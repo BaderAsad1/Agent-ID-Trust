@@ -3,7 +3,8 @@ import { Footer } from '@/components/Footer';
 import { useSEO } from '@/lib/useSEO';
 import {
   BookOpen, Zap, Code2, Shield, Blocks, CreditCard,
-  Webhook, Star, ChevronRight, Terminal, Globe, Building2
+  Webhook, Star, ChevronRight, Terminal, Globe, Building2,
+  ShieldCheck, GitBranch
 } from 'lucide-react';
 
 interface DocCard {
@@ -86,6 +87,21 @@ const CARDS: DocCard[] = [
     description: 'How Agent ID DIDs, resolution, trust propagation, and the escrow network work.',
     href: '/protocol',
     accent: '#0EA5E9',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Trust System',
+    description: 'Five tiers, ten score providers, defined consequences. Trust score 26 means something specific.',
+    href: '/docs/trust',
+    accent: '#34D399',
+  },
+  {
+    icon: GitBranch,
+    title: 'Order State Machine',
+    description: 'Exact states, transition guards, idempotency guarantees, and failure modes for marketplace orders.',
+    href: '/docs/orders',
+    accent: '#F59E0B',
+    badge: 'Money-adjacent',
   },
 ];
 
