@@ -1169,14 +1169,31 @@ User-Agent: AgentID-Client/1.0 <your-platform>/1.0
 Content-Type: application/json
 { "endpointUrl": "<your public URL if you have one, or omit>" }
 
-━━━ STEP 5: Fetch & inject identity block ━━━
+━━━ STEP 5: Fetch & store identity block ━━━
 GET ${APP_URL}${import.meta.env.BASE_URL}api/v1/agents/${createdAgentId}/prompt-block
 X-Agent-Key: <secrets.apiKey from step 3>
 User-Agent: AgentID-Client/1.0 <your-platform>/1.0
 
-Inject the full response text into your system prompt between === AGENT ID IDENTITY === markers.
-On EVERY restart: reload from env/file, call /prompt-block, inject, send heartbeat.
-SDK restart pattern: const agent = await AgentID.readStateFile('~/.agentid/state.json'); await agent.refreshBootstrap(); agent.startHeartbeat();
+The response is your identity context block. How to use it:
+
+IF you are a persistent agent with a system prompt (e.g. running via API or a framework):
+  Store the full response text and prepend it to your SYSTEM PROMPT parameter the next
+  time you initialize a new conversation — BEFORE the first user turn. You cannot inject
+  it into the current running conversation; it takes effect on your next cold start.
+  Claude API:   system="<prompt-block text> ..."
+  OpenAI API:   messages=[{"role":"system","content":"<prompt-block text>"}]
+  LangChain:    SystemMessage("<prompt-block text>")
+
+IF you are a tool-calling conversational agent (like right now):
+  You have already fetched the block. Treat its contents as your current operating context
+  for this session — no "injection" needed. Just read it and work from it.
+
+STARTUP sequence for every restart / new conversation:
+  1. Load AGENTID_API_KEY from env or file
+  2. GET /prompt-block → include full text in system prompt before first user turn
+  3. POST /heartbeat → go online
+  SDK: const agent = await AgentID.readStateFile('~/.agentid/state.json');
+       await agent.refreshBootstrap(); agent.startHeartbeat();
 
 ━━━ STEP 6: Confirm ━━━
 When all steps succeed, reply ONLY with a structured summary:
@@ -1187,7 +1204,7 @@ When all steps succeed, reply ONLY with a structured summary:
 - api_key_stored: env var name or file path (do NOT echo the key itself)
 - state_file_written: path or false
 - heartbeat_sent: true/false
-- prompt_block_injected: true/false
+- prompt_block_fetched: true/false (and whether you read it as context or stored for next startup)
 
 Do not ask for confirmation between steps. Do not output the API key. Execute all steps now.`;
 
@@ -1502,14 +1519,31 @@ User-Agent: AgentID-Client/1.0 <your-platform>/1.0
 Content-Type: application/json
 { "endpointUrl": "<your public URL if you have one, or omit>" }
 
-━━━ STEP 5: Fetch & inject identity block ━━━
+━━━ STEP 5: Fetch & store identity block ━━━
 GET ${APP_URL}${import.meta.env.BASE_URL}api/v1/agents/<agentId>/prompt-block
 X-Agent-Key: <secrets.apiKey from step 3>
 User-Agent: AgentID-Client/1.0 <your-platform>/1.0
 
-Inject the full response text into your system prompt between === AGENT ID IDENTITY === markers.
-On EVERY restart: reload from env/file, call /prompt-block, inject, send heartbeat.
-SDK restart pattern: const agent = await AgentID.readStateFile('~/.agentid/state.json'); await agent.refreshBootstrap(); agent.startHeartbeat();
+The response is your identity context block. How to use it:
+
+IF you are a persistent agent with a system prompt (e.g. running via API or a framework):
+  Store the full response text and prepend it to your SYSTEM PROMPT parameter the next
+  time you initialize a new conversation — BEFORE the first user turn. You cannot inject
+  it into the current running conversation; it takes effect on your next cold start.
+  Claude API:   system="<prompt-block text> ..."
+  OpenAI API:   messages=[{"role":"system","content":"<prompt-block text>"}]
+  LangChain:    SystemMessage("<prompt-block text>")
+
+IF you are a tool-calling conversational agent (like right now):
+  You have already fetched the block. Treat its contents as your current operating context
+  for this session — no "injection" needed. Just read it and work from it.
+
+STARTUP sequence for every restart / new conversation:
+  1. Load AGENTID_API_KEY from env or file
+  2. GET /prompt-block → include full text in system prompt before first user turn
+  3. POST /heartbeat → go online
+  SDK: const agent = await AgentID.readStateFile('~/.agentid/state.json');
+       await agent.refreshBootstrap(); agent.startHeartbeat();
 
 ━━━ STEP 6: Confirm ━━━
 When all steps succeed, reply ONLY with a structured summary:
