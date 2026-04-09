@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Check, ChevronRight, Shield, Zap, Code2, Globe, Key, Lock } from 'lucide-react';
+import { Copy, Check, ChevronRight, ChevronDown, Shield, Zap } from 'lucide-react';
 import { Footer } from '@/components/Footer';
 import { useSEO } from '@/lib/useSEO';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -32,24 +32,12 @@ function CodeBlock({ code, language = 'typescript' }: { code: string; language?:
   );
 }
 
-function Section({ id, title, subtitle, children }: { id: string; title: string; subtitle?: string; children: React.ReactNode }) {
+function StepCard({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} style={{ marginBottom: 64 }}>
-      <div style={{ marginBottom: 28 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', letterSpacing: '-0.02em', marginBottom: 6 }}>{title}</h2>
-        {subtitle && <p style={{ fontSize: 14.5, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>{subtitle}</p>}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', gap: 16, marginBottom: 28 }}>
-      <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: '50%', background: 'rgba(79,125,243,0.15)', border: '1px solid rgba(79,125,243,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#7da5f5', marginTop: 1 }}>{n}</div>
+    <div style={{ display: 'flex', gap: 20, marginBottom: 32 }}>
+      <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', background: 'rgba(79,125,243,0.15)', border: '1px solid rgba(79,125,243,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#7da5f5', marginTop: 2 }}>{n}</div>
       <div style={{ flex: 1 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 10, lineHeight: 1.3 }}>{title}</h3>
+        <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12, lineHeight: 1.3 }}>{title}</h3>
         {children}
       </div>
     </div>
@@ -71,24 +59,111 @@ function Callout({ type, children }: { type: 'info' | 'warn' | 'tip'; children: 
   );
 }
 
+function AdvancedSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, overflow: 'hidden' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'rgba(255,255,255,0.02)', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+      >
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>{title}</span>
+        <ChevronDown size={15} style={{ color: 'rgba(255,255,255,0.3)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+      </button>
+      {open && (
+        <div style={{ padding: '20px 20px 24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const BASE = 'https://getagent.id';
 
-const DELEGATED_STEP1 = `// 1. Generate PKCE code verifier + challenge (RFC 7636)
-//    Use cryptographically random bytes, NOT UUIDs
-const randomBytes = new Uint8Array(32);
-crypto.getRandomValues(randomBytes);
-const codeVerifier = btoa(String.fromCharCode(...randomBytes))
-  .replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
+// ── Quick-start code snippets ─────────────────────────────────────────────────
 
-const enc = new TextEncoder();
-const digest = await crypto.subtle.digest('SHA-256', enc.encode(codeVerifier));
-const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-  .replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
+const INSTALL = `npm install @agentid/sdk`;
 
-// 2. Store verifier in session for later
-sessionStorage.setItem('pkce_verifier', codeVerifier);
+const REACT_PROVIDER = `// main.tsx  (or index.tsx)
+import { AgentIDProvider } from '@agentid/sdk/react';
 
-// 3. Build authorization URL
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <AgentIDProvider clientId="agclient_...">
+    <App />
+  </AgentIDProvider>
+);`;
+
+const REACT_BUTTON = `// AnyPage.tsx
+import { SignInWithAgentID } from '@agentid/sdk/react';
+
+export function LoginPage() {
+  return (
+    <SignInWithAgentID
+      onSuccess={agent => {
+        console.log(agent.handle);     // "clawd"
+        console.log(agent.trustTier);  // "trusted"
+        // save to your session / redirect
+      }}
+    />
+  );
+}`;
+
+const WHAT_YOU_GET = `// The agent object passed to onSuccess:
+{
+  agentId:    "3f8a2...",          // permanent UUID
+  handle:     "clawd",             // human-readable name (or null)
+  displayName: "Clawd",
+  trustTier:  "trusted",           // unverified | basic | verified | trusted | elite
+  ownerBacked: true,               // has a human or org owner
+  scopes:     ["read", "agents:read"],
+  sessionType: "delegated",        // delegated (browser) or autonomous (M2M)
+}`;
+
+const NEXTJS_EXAMPLE = `// app/api/auth/callback/route.ts
+import { exchangeAgentIDCode } from '@agentid/sdk/server';
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const agent = await exchangeAgentIDCode({
+    code:        searchParams.get('code')!,
+    clientId:    process.env.AGENTID_CLIENT_ID!,
+    redirectUri: process.env.AGENTID_REDIRECT_URI!,
+  });
+
+  // agent.handle, agent.trustTier, etc.
+  // set a cookie / session and redirect
+}`;
+
+const HTML_EXAMPLE = `<!-- Plain HTML — no build step needed -->
+<script src="https://cdn.getagent.id/sdk/v1/agentid.min.js"></script>
+
+<div id="agentid-btn"></div>
+
+<script>
+  AgentID.renderButton('#agentid-btn', {
+    clientId: 'agclient_...',
+    onSuccess: function(agent) {
+      console.log('Signed in as', agent.handle);
+    }
+  });
+</script>`;
+
+// ── Advanced / raw OAuth snippets ─────────────────────────────────────────────
+
+const RAW_PKCE = `// 1. Generate PKCE verifier + challenge
+const bytes = new Uint8Array(32);
+crypto.getRandomValues(bytes);
+const verifier = btoa(String.fromCharCode(...bytes))
+  .replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=/g,'');
+
+const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+  .replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=/g,'');
+
+sessionStorage.setItem('pkce_verifier', verifier);
+
+// 2. Redirect to Agent ID
 const state = crypto.randomUUID();
 sessionStorage.setItem('oauth_state', state);
 
@@ -98,91 +173,40 @@ url.searchParams.set('client_id',     'YOUR_CLIENT_ID');
 url.searchParams.set('redirect_uri',  'https://yourapp.com/callback');
 url.searchParams.set('scope',         'read agents:read');
 url.searchParams.set('state',         state);
-url.searchParams.set('code_challenge', codeChallenge);
+url.searchParams.set('code_challenge', challenge);
 url.searchParams.set('code_challenge_method', 'S256');
+window.location.href = url.toString();
 
-window.location.href = url.toString();`;
-
-const DELEGATED_STEP2 = `// /callback route  -  after user approves
-const params = new URLSearchParams(window.location.search);
-const code  = params.get('code');
-const state = params.get('state');
-
-// Validate state
-if (state !== sessionStorage.getItem('oauth_state')) {
-  throw new Error('State mismatch  -  possible CSRF');
-}
-
-const codeVerifier = sessionStorage.getItem('pkce_verifier');
-
+// 3. In your /callback route: validate state, exchange code for tokens
 const resp = await fetch('${BASE}/oauth/token', {
   method: 'POST',
   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   body: new URLSearchParams({
     grant_type:    'authorization_code',
     client_id:     'YOUR_CLIENT_ID',
-    code,
+    code:          new URLSearchParams(location.search).get('code')!,
     redirect_uri:  'https://yourapp.com/callback',
-    code_verifier: codeVerifier,
+    code_verifier: sessionStorage.getItem('pkce_verifier')!,
   }),
 });
+const { access_token, refresh_token } = await resp.json();`;
 
-const { access_token, refresh_token, expires_in, token_type } = await resp.json();`;
+const RAW_M2M = `// Autonomous (M2M) — no browser, no human
+// Pre-req: your agent has a registered Ed25519 key pair.
 
-const DELEGATED_STEP3 = `// Fetch agent identity from userinfo endpoint
-const resp = await fetch('${BASE}/oauth/userinfo', {
-  headers: { Authorization: \`Bearer \${access_token}\` },
-});
-
-const agent = await resp.json();
-// agent = {
-//   sub: 'did:web:getagent.id:agents:<uuid>',
-//   agent_id: '...',
-//   handle: 'clawd',
-//   trust_tier: 'trusted',
-//   verification_status: 'verified',
-//   claim_state: 'claimed',
-//   owner_backed: true,
-//   session_type: 'delegated',
-//   scope: 'read agents:read',
-//   trust_context: { capabilities: [...] },
-// }
-
-// Create your local session
-createLocalSession({ agentDid: agent.sub, handle: agent.handle, trustTier: agent.trust_tier });`;
-
-const AUTONOMOUS_CHALLENGE = `// 1. Request a challenge nonce from Agent ID
-const resp = await fetch('${BASE}/api/v1/auth/challenge', {
+// 1. Request a challenge nonce
+const { nonce } = await fetch('${BASE}/api/v1/auth/challenge', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    agent_id:  'YOUR_AGENT_ID',
-    client_id: 'YOUR_CLIENT_ID',
-    audience:  '${BASE}',
-  }),
-});
+  body: JSON.stringify({ agent_id: 'YOUR_AGENT_ID', client_id: 'YOUR_CLIENT_ID', audience: '${BASE}' }),
+}).then(r => r.json());
 
-const { nonce, expiresAt } = await resp.json();`;
+// 2. Sign a JWT assertion with your Ed25519 private key
+import { signAssertion } from '@agentid/sdk';
+const assertion = await signAssertion({ agentId: 'YOUR_AGENT_ID', nonce, scope: 'read agents:read' }, privateKey);
 
-const AUTONOMOUS_ASSERTION = `import { signAssertion } from '@agentid/sdk'; // or use the snippet below
-
-// 2. Sign the assertion with your agent's Ed25519 private key
-//    The assertion is a JWT: header.claims.signature
-const now = Math.floor(Date.now() / 1000);
-const claims = {
-  iss: \`did:web:getagent.id:agents:\${AGENT_ID}\`,
-  sub: \`did:web:getagent.id:agents:\${AGENT_ID}\`,
-  aud: ['${BASE}'],
-  iat: now,
-  exp: now + 120,          // 2 minute window
-  jti: nonce,              // Use the server-issued nonce as jti
-  scope: 'read agents:read',
-};
-
-const assertion = await signEdDSAJwt(claims, privateKey, keyId);`;
-
-const AUTONOMOUS_TOKEN = `// 3. Exchange the signed assertion for a token
-const resp = await fetch('${BASE}/oauth/token', {
+// 3. Exchange for a token
+const { access_token } = await fetch('${BASE}/oauth/token', {
   method: 'POST',
   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   body: new URLSearchParams({
@@ -192,48 +216,23 @@ const resp = await fetch('${BASE}/oauth/token', {
     scope:      'read agents:read',
     assertion,
   }),
-});
+}).then(r => r.json());`;
 
-const { access_token, expires_in } = await resp.json();
-// access_token is a short-lived (15 min) JWT signed by Agent ID`;
-
-const VALIDATE_TOKEN = `// Server-side validation (Node.js example)
+const RAW_VALIDATE = `// Server-side token validation (Node.js)
 import * as jose from 'jose';
 
-const JWKS = jose.createRemoteJWKSet(
-  new URL('${BASE}/.well-known/jwks.json')
-);
+const JWKS = jose.createRemoteJWKSet(new URL('${BASE}/.well-known/jwks.json'));
 
-async function validateAgentToken(token: string) {
+async function validateToken(token: string) {
   const { payload } = await jose.jwtVerify(token, JWKS, {
     issuer:     '${BASE}',
     audience:   'YOUR_CLIENT_ID',
-    algorithms: ['EdDSA'],   // pin to Ed25519 - reject unexpected algorithms
+    algorithms: ['EdDSA'],
   });
-
-  // Check agent state
-  if (payload.agent_state !== 'active') {
-    throw new Error('Agent is not active');
-  }
-
-  // Use trust tier for access decisions
-  const tier = payload.trust_tier as string;
-  const trustOrder = { unverified: 0, basic: 1, verified: 2, trusted: 3, elite: 4 };
-  const trustLevel = trustOrder[tier as keyof typeof trustOrder] ?? 0;
-
-  return {
-    agentDid:           payload.sub,
-    handle:             payload.handle as string,
-    trustTier:          tier,
-    trustLevel,
-    verificationStatus: payload.verification_status as string,
-    sessionType:        payload.session_type as string,
-    scopes:             (payload.scope as string).split(' '),
-  };
+  return payload; // agentId, handle, trust_tier, agent_state, ...
 }`;
 
-const REFRESH_TOKEN = `// Exchange a refresh token for a new access token
-const resp = await fetch('${BASE}/oauth/token', {
+const RAW_REFRESH = `const resp = await fetch('${BASE}/oauth/token', {
   method: 'POST',
   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   body: new URLSearchParams({
@@ -242,334 +241,245 @@ const resp = await fetch('${BASE}/oauth/token', {
     refresh_token: storedRefreshToken,
   }),
 });
+const { access_token, refresh_token } = await resp.json();
+// Always store the NEW refresh_token — the old one is immediately invalidated.`;
 
-const { access_token, refresh_token, expires_in } = await resp.json();
-
-// Always rotate: store the NEW refresh_token immediately.
-// The previous token is invalidated after use.
-storeTokens({ access_token, refresh_token });`;
-
-const BUTTON_EMBED = `import { SignInWithAgentID } from './SignInWithAgentID';
-
-// Dark button (default)
-<SignInWithAgentID
-  clientId="agclient_..."
-  redirectUri="https://yourapp.com/callback"
-  scopes={['read', 'agents:read']}
-/>
-
-// Light variant
-<SignInWithAgentID
-  clientId="agclient_..."
-  redirectUri="https://yourapp.com/callback"
-  theme="light"
-  size="lg"
-/>
-
-// Headless  -  build the URL yourself
-import { buildAgentIDAuthUrl } from './SignInWithAgentID';
-
-const authUrl = buildAgentIDAuthUrl({
-  clientId: 'agclient_...',
-  redirectUri: 'https://yourapp.com/callback',
-  scopes: ['read'],
-  codeChallenge: computed_challenge,
-});`;
-
-const TOC = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'scopes', label: 'Scopes' },
-  { id: 'register', label: '1. Register your app' },
-  { id: 'delegated', label: '2. Delegated flow' },
-  { id: 'autonomous', label: '3. Autonomous flow' },
-  { id: 'refresh', label: '4. Refresh tokens' },
-  { id: 'validate', label: '5. Validate tokens' },
-  { id: 'button', label: '6. Button component' },
-  { id: 'claims', label: 'Token claims' },
-  { id: 'errors', label: 'Error codes' },
-  { id: 'security', label: 'Security notes' },
-];
+type Framework = 'react' | 'nextjs' | 'html';
 
 export function DocsSignIn() {
   useSEO({
     title: 'Sign in with Agent ID',
-    description: 'Integrate OAuth 2.0 + PKCE delegated auth or autonomous M2M signed assertions into your app. Full reference for Agent ID authentication.',
+    description: 'Add "Sign in with Agent ID" to your app in minutes — drop-in SDK for React, Next.js, and plain HTML.',
     noIndex: false,
   });
   const isMobile = useIsMobile();
-  const [activeSection, setActiveSection] = useState('overview');
+  const [framework, setFramework] = useState<Framework>('react');
 
-  function scrollTo(id: string) {
-    setActiveSection(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  const frameworks: { id: Framework; label: string }[] = [
+    { id: 'react', label: 'React' },
+    { id: 'nextjs', label: 'Next.js' },
+    { id: 'html', label: 'HTML' },
+  ];
 
   return (
     <div style={{ minHeight: '100vh', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+
       {/* Hero */}
-      <div style={{ padding: '64px 24px 48px', maxWidth: 900, margin: '0 auto' }}>
+      <div style={{ padding: '64px 24px 48px', maxWidth: 780, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(79,125,243,0.8)', background: 'rgba(79,125,243,0.1)', border: '1px solid rgba(79,125,243,0.2)', borderRadius: 6, padding: '2px 10px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Docs</span>
           <ChevronRight size={14} style={{ color: 'rgba(255,255,255,0.2)' }} />
           <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Sign in with Agent ID</span>
         </div>
-        <h1 style={{ fontSize: 36, fontWeight: 800, fontFamily: 'var(--font-display)', letterSpacing: '-0.03em', marginBottom: 14 }}>
-          Sign in with Agent ID <span style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '3px 10px', borderRadius: 6, verticalAlign: 'middle', letterSpacing: '0.04em' }}>BETA</span>
+        <h1 style={{ fontSize: 38, fontWeight: 800, fontFamily: 'var(--font-display)', letterSpacing: '-0.03em', marginBottom: 14 }}>
+          Sign in with Agent ID
         </h1>
-        <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, maxWidth: 620 }}>
-          Let your app authenticate AI agents  -  either through a human-delegated browser flow or fully autonomous machine-to-machine auth using signed assertions.
+        <p style={{ fontSize: 16.5, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, maxWidth: 580, marginBottom: 32 }}>
+          Add verified agent authentication to your app — the same way you'd add "Sign in with Google." Install the SDK, drop in the button, and you're done.
         </p>
 
-        {/* Mode cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginTop: 36 }}>
-          <div style={{ padding: '20px 22px', background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.2)', borderRadius: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <Globe size={16} style={{ color: '#7da5f5' }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#7da5f5' }}>Delegated (Browser)</span>
-            </div>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, margin: 0 }}>A human owner opens a consent screen, picks an agent, approves scopes. Your app gets an agent-centric token. Standard OAuth 2.0 + PKCE.</p>
+        {/* Mode pills */}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.2)', borderRadius: 10 }}>
+            <Shield size={14} style={{ color: '#7da5f5' }} />
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}><strong style={{ color: '#7da5f5' }}>Delegated</strong> — human approves in browser</span>
           </div>
-          <div style={{ padding: '20px 22px', background: 'rgba(124,92,246,0.07)', border: '1px solid rgba(124,92,246,0.2)', borderRadius: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <Zap size={16} style={{ color: '#a78bfa' }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#a78bfa' }}>Autonomous (M2M)</span>
-            </div>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, margin: 0 }}>No browser, no human. The agent signs a structured assertion with its Ed25519 key. Agent ID verifies and issues a short-lived access token.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', background: 'rgba(124,92,246,0.07)', border: '1px solid rgba(124,92,246,0.2)', borderRadius: 10 }}>
+            <Zap size={14} style={{ color: '#a78bfa' }} />
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}><strong style={{ color: '#a78bfa' }}>Autonomous</strong> — agent signs in itself (M2M)</span>
           </div>
         </div>
       </div>
 
-      {/* Body  -  sidebar + content */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '200px 1fr', gap: 48 }}>
+      {/* Main content */}
+      <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 100px' }}>
 
-        {/* Sticky TOC */}
-        <nav style={{ position: 'sticky', top: 80, height: 'fit-content', display: isMobile ? 'none' : undefined }}>
-          <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>On this page</p>
-          {TOC.map(item => (
-            <button key={item.id} onClick={() => scrollTo(item.id)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 0', fontSize: 13, color: activeSection === item.id ? '#7da5f5' : 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-body)', transition: 'color 0.15s' }}>
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        {/* ── Step 1: Get a client ID ── */}
+        <StepCard n={1} title="Get a client ID from your dashboard">
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', marginBottom: 14, lineHeight: 1.6 }}>
+            Go to <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Dashboard → Developer → OAuth Apps</strong> and create a new app. You'll get a <code style={{ color: '#7da5f5', fontSize: 13 }}>client_id</code> that looks like <code style={{ color: '#7da5f5', fontSize: 13 }}>agclient_...</code>
+          </p>
+          <Callout type="tip">
+            Set your redirect URI to wherever your app sends users after sign-in — e.g. <code>https://yourapp.com/callback</code>. Use <code>http://localhost:3000/callback</code> for local dev.
+          </Callout>
+        </StepCard>
 
-        {/* Main content */}
-        <main>
+        {/* ── Step 2: Install ── */}
+        <StepCard n={2} title="Install the SDK">
+          <CodeBlock language="bash" code={INSTALL} />
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginTop: 10 }}>
+            Works with React, Next.js, Vue, Svelte, or plain HTML. No build step required for the HTML version.
+          </p>
+        </StepCard>
 
-          {/* Overview */}
-          <Section id="overview" title="How it works" subtitle="Agent ID is a standard OIDC/OAuth 2.0 provider  -  any compliant library integrates with zero customisation.">
-            <div style={{ padding: '16px 20px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, marginBottom: 20 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Discovery document</p>
-              <code style={{ fontSize: 13, color: '#7da5f5' }}>GET {BASE}/.well-known/openid-configuration</code>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 20 }}>
-              {[
-                { icon: Shield, label: 'Authorization', val: `${BASE}/oauth/authorize` },
-                { icon: Key, label: 'Token endpoint', val: `${BASE}/oauth/token` },
-                { icon: Code2, label: 'Userinfo', val: `${BASE}/oauth/userinfo` },
-                { icon: Lock, label: 'JWKS', val: `${BASE}/.well-known/jwks.json` },
-              ].map(({ icon: Icon, label, val }) => (
-                <div key={label} style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 9 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                    <Icon size={12} style={{ color: 'rgba(255,255,255,0.3)' }} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{label}</span>
-                  </div>
-                  <code style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', wordBreak: 'break-all' }}>{val}</code>
+        {/* ── Step 3: Add the button ── */}
+        <StepCard n={3} title="Add the button">
+          {/* Framework tabs */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+            {frameworks.map(f => (
+              <button
+                key={f.id}
+                onClick={() => setFramework(f.id)}
+                style={{
+                  padding: '6px 14px', fontSize: 13, fontWeight: 500, borderRadius: 7, cursor: 'pointer', border: 'none',
+                  background: framework === f.id ? 'rgba(79,125,243,0.15)' : 'rgba(255,255,255,0.04)',
+                  color: framework === f.id ? '#7da5f5' : 'rgba(255,255,255,0.35)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {framework === 'react' && (
+            <>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>Wrap your app once with the provider, then drop the button anywhere.</p>
+              <CodeBlock code={REACT_PROVIDER} />
+              <div style={{ marginTop: 12 }}>
+                <CodeBlock code={REACT_BUTTON} />
+              </div>
+            </>
+          )}
+          {framework === 'nextjs' && (
+            <>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>Use the server helper to exchange the auth code in your API route.</p>
+              <CodeBlock code={NEXTJS_EXAMPLE} />
+            </>
+          )}
+          {framework === 'html' && (
+            <>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>No npm, no build step — just a script tag.</p>
+              <CodeBlock language="html" code={HTML_EXAMPLE} />
+            </>
+          )}
+        </StepCard>
+
+        {/* ── What you get back ── */}
+        <div style={{ marginBottom: 48, padding: '24px 26px', background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.15)', borderRadius: 14 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>That's it. Here's what you get back.</h2>
+          <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', marginBottom: 16, lineHeight: 1.6 }}>
+            The <code style={{ color: '#34d399' }}>agent</code> object in <code style={{ color: '#34d399' }}>onSuccess</code> has everything you need — no JWT parsing, no key verification, no crypto.
+          </p>
+          <CodeBlock code={WHAT_YOU_GET} />
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginTop: 14, lineHeight: 1.6 }}>
+            Use <code style={{ color: 'rgba(255,255,255,0.5)' }}>trustTier</code> to gate access to sensitive operations — e.g. only let <code style={{ color: 'rgba(255,255,255,0.5)' }}>verified</code> or above agents execute payments.
+          </p>
+        </div>
+
+        {/* ── Scopes ── */}
+        <div style={{ marginBottom: 48 }}>
+          <h2 style={{ fontSize: 19, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6, fontFamily: 'var(--font-display)' }}>Scopes</h2>
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginBottom: 16, lineHeight: 1.6 }}>
+            By default the SDK requests <code style={{ color: '#7da5f5' }}>read</code> only. Add scopes as your app needs them — users see each one on the approval screen.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {[
+              { scope: 'read',         risk: 'low',    desc: "Agent's public profile, handle, and trust tier" },
+              { scope: 'agents:read',  risk: 'low',    desc: 'List all agents owned by the authorizing user' },
+              { scope: 'tasks:read',   risk: 'low',    desc: 'View task history and results' },
+              { scope: 'mail:read',    risk: 'low',    desc: "Read the agent's inbox" },
+              { scope: 'write',        risk: 'medium', desc: "Update the agent's profile and settings" },
+              { scope: 'tasks:write',  risk: 'medium', desc: 'Create and run agent tasks' },
+              { scope: 'mail:write',   risk: 'medium', desc: 'Send messages as the agent' },
+              { scope: 'agents:write', risk: 'high',   desc: 'Create and modify agents on the user\'s behalf' },
+            ].map(({ scope, risk, desc }) => {
+              const riskColor = risk === 'high' ? '#f97316' : risk === 'medium' ? '#facc15' : '#34d399';
+              return (
+                <div key={scope} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '150px 60px 1fr', gap: isMobile ? 2 : 0, padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, alignItems: 'baseline', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                  <code style={{ fontSize: 12.5, color: '#7da5f5', fontFamily: "'Fira Code', monospace" }}>{scope}</code>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: riskColor }}>{risk}</span>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{desc}</span>
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Advanced sections ── */}
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>Advanced — only if you need it</p>
+
+          <AdvancedSection title="Raw OAuth 2.0 + PKCE flow (no SDK)">
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 16, lineHeight: 1.6 }}>
+              Agent ID is a standard OIDC provider — any compliant library works. Discovery document: <code style={{ color: '#7da5f5' }}>GET {BASE}/.well-known/openid-configuration</code>
+            </p>
+            <CodeBlock code={RAW_PKCE} />
+          </AdvancedSection>
+
+          <AdvancedSection title="Autonomous (M2M) agent-to-agent auth">
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 16, lineHeight: 1.6 }}>
+              No browser, no human. Your agent signs a cryptographic assertion with its Ed25519 key. Agent ID verifies and issues a short-lived token. Requires a registered key pair on the agent.
+            </p>
+            <CodeBlock code={RAW_M2M} />
+            <Callout type="warn">
+              Nonces are single-use and expire in 5 minutes. Never reuse one — replays are rejected.
+            </Callout>
+          </AdvancedSection>
+
+          <AdvancedSection title="Refreshing an access token">
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 16, lineHeight: 1.6 }}>
+              Access tokens expire in 15 minutes. The SDK handles refresh automatically — use this only if you're managing tokens manually.
+            </p>
+            <CodeBlock code={RAW_REFRESH} />
+          </AdvancedSection>
+
+          <AdvancedSection title="Validating tokens on your server">
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 16, lineHeight: 1.6 }}>
+              Tokens are EdDSA-signed JWTs. Verify locally against the JWKS — no network round-trip needed for standard checks.
+            </p>
+            <CodeBlock code={RAW_VALIDATE} />
             <Callout type="info">
-              Tokens are signed with <strong>EdDSA (Ed25519)</strong> and are short-lived (15 minutes). Verify them locally using the JWKS endpoint  -  no introspection call needed for typical auth checks.
+              For financial or write-access operations, call <code>{BASE}/api/v1/auth/introspect</code> to check real-time revocation and trust state.
             </Callout>
-          </Section>
+          </AdvancedSection>
 
-          {/* Scopes */}
-          <Section id="scopes" title="Scopes" subtitle="Request only the scopes your app actually needs. Users see each scope on the consent screen.">
-            <div style={{ overflowX: 'auto', marginBottom: 16 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 420 }}>
+          <AdvancedSection title="Token claims reference">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
-                { scope: 'read',          risk: 'low',    desc: 'View the agent\'s public profile, DID, handle, and trust tier' },
-                { scope: 'write',         risk: 'medium', desc: 'Update the agent\'s profile and settings' },
-                { scope: 'agents:read',   risk: 'low',    desc: 'List all agents belonging to the authorizing user' },
-                { scope: 'agents:write',  risk: 'high',   desc: 'Create and modify agents on the user\'s behalf' },
-                { scope: 'tasks:read',    risk: 'low',    desc: 'View task history and results' },
-                { scope: 'tasks:write',   risk: 'medium', desc: 'Create and execute agent tasks' },
-                { scope: 'mail:read',     risk: 'low',    desc: 'Read messages from the agent\'s inbox' },
-                { scope: 'mail:write',    risk: 'medium', desc: 'Send messages as the agent' },
-              ].map(({ scope, risk, desc }) => {
-                const riskColor = risk === 'high' ? '#f97316' : risk === 'medium' ? '#facc15' : '#34d399';
-                return (
-                  <div key={scope} style={{ display: 'grid', gridTemplateColumns: '140px 72px 1fr', gap: 0, padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, alignItems: 'baseline', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                    <code style={{ fontSize: 12.5, color: '#7da5f5', fontFamily: "'Fira Code', monospace" }}>{scope}</code>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: riskColor }}>{risk}</span>
-                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{desc}</span>
-                  </div>
-                );
-              })}
-            </div>
-            </div>
-            <Callout type="warn">
-              <code>agents:write</code> is a sensitive scope - it allows creating agents on the user's behalf. Only request it when strictly necessary, and display a clear explanation to the user.
-            </Callout>
-          </Section>
-
-          {/* Register */}
-          <Section id="register" title="1. Register your app" subtitle="Create an OAuth client to get your client_id.">
-            <Step n={1} title="POST to the registration endpoint">
-              <CodeBlock language="bash" code={`curl -X POST ${BASE}/api/v1/clients \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -d '{
-    "name": "My App",
-    "redirectUris": ["https://yourapp.com/callback"],
-    "grantTypes": ["authorization_code"],
-    "allowedScopes": ["read", "agents:read"],
-    "tokenEndpointAuthMethod": "none"
-  }'`} />
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 10, lineHeight: 1.6 }}>
-                You'll receive a <code style={{ color: '#7da5f5' }}>client_id</code>. For public clients (SPAs, mobile apps) set <code style={{ color: '#7da5f5' }}>tokenEndpointAuthMethod: "none"</code>  -  PKCE is then required.
-              </p>
-            </Step>
-            <Callout type="tip">
-              For autonomous agent auth (M2M), add <code>"urn:agentid:grant-type:signed-assertion"</code> to <code>grantTypes</code>. Autonomous clients must be public (no client secret).
-            </Callout>
-          </Section>
-
-          {/* Delegated */}
-          <Section id="delegated" title="2. Delegated flow (browser)" subtitle="The human owner approves access through Agent ID's consent screen. Your app gets agent-centric tokens.">
-            <Step n={1} title="Redirect to Agent ID authorization">
-              <CodeBlock code={DELEGATED_STEP1} />
-            </Step>
-            <Step n={2} title="Exchange the authorization code">
-              <CodeBlock code={DELEGATED_STEP2} />
-            </Step>
-            <Step n={3} title="Fetch agent identity and create session">
-              <CodeBlock code={DELEGATED_STEP3} />
-            </Step>
-          </Section>
-
-          {/* Autonomous */}
-          <Section id="autonomous" title="3. Autonomous flow (M2M)" subtitle="No browser, no human. The agent authenticates directly using its registered Ed25519 key.">
-            <div style={{ marginBottom: 20, padding: '14px 18px', background: 'rgba(124,92,246,0.07)', border: '1px solid rgba(124,92,246,0.18)', borderRadius: 10, fontSize: 13, color: 'rgba(160,130,255,0.9)', lineHeight: 1.6 }}>
-              <strong style={{ display: 'block', marginBottom: 4 }}>Pre-requisite</strong>
-              Your agent must be registered with Agent ID and have an active Ed25519 key pair. The public key must be uploaded to your agent's key registry.
-            </div>
-            <Step n={1} title="Request a nonce challenge">
-              <CodeBlock code={AUTONOMOUS_CHALLENGE} />
-            </Step>
-            <Step n={2} title="Sign the assertion with your private key">
-              <CodeBlock code={AUTONOMOUS_ASSERTION} />
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 10, lineHeight: 1.6 }}>
-                The assertion is a compact JWT (<code style={{ color: '#7da5f5' }}>alg: "EdDSA"</code>). The <code style={{ color: '#7da5f5' }}>jti</code> must exactly match the nonce from step 1  -  this is the replay-prevention binding.
-              </p>
-            </Step>
-            <Step n={3} title="Exchange for an access token">
-              <CodeBlock code={AUTONOMOUS_TOKEN} />
-            </Step>
-            <Callout type="warn">
-              Nonces are single-use and expire quickly (default 5 minutes). Never reuse a nonce  -  the server will reject replayed assertions.
-            </Callout>
-          </Section>
-
-          {/* Refresh */}
-          <Section id="refresh" title="4. Refresh tokens" subtitle="Access tokens expire in 15 minutes. Use the refresh token to get a new one without user interaction.">
-            <CodeBlock code={REFRESH_TOKEN} />
-            <div style={{ marginTop: 16 }}>
-              <Callout type="info">
-                Refresh tokens are single-use and rotate on every exchange. Store the latest refresh token immediately after each response - the previous one is invalidated. Autonomous (M2M) sessions do not use refresh tokens; re-authenticate via signed assertion instead.
-              </Callout>
-            </div>
-          </Section>
-
-          {/* Validate */}
-          <Section id="validate" title="5. Validate tokens" subtitle="Verify Agent ID-issued JWTs locally using the JWKS endpoint. No network round-trip required for standard checks.">
-            <CodeBlock code={VALIDATE_TOKEN} />
-            <div style={{ marginTop: 16 }}>
-              <Callout type="info">
-                For sensitive operations (financial, write access), supplement JWT validation with a live introspection call to <code>{BASE}/api/v1/auth/introspect</code> to check real-time revocation and trust state.
-              </Callout>
-            </div>
-          </Section>
-
-          {/* Button */}
-          <Section id="button" title="6. Button component" subtitle="Drop-in React component for the Sign in with Agent ID button.">
-            <CodeBlock code={BUTTON_EMBED} />
-          </Section>
-
-          {/* Claims */}
-          <Section id="claims" title="Token claims" subtitle="Every Agent ID access token includes these claims.">
-            <div style={{ overflowX: 'auto' }}><div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 480 }}>
-              {[
-                { claim: 'sub', desc: 'Agent DID  -  e.g. did:web:getagent.id:agents:<uuid>', type: 'string' },
-                { claim: 'iss', desc: 'Token issuer (https://getagent.id)', type: 'string' },
-                { claim: 'aud', desc: 'Your client_id', type: 'string' },
-                { claim: 'agent_id', desc: 'Internal Agent ID (UUID)', type: 'string' },
-                { claim: 'handle', desc: 'Agent handle (e.g. "clawd")', type: 'string | null' },
-                { claim: 'trust_tier', desc: 'unverified | basic | verified | trusted | elite', type: 'string' },
-                { claim: 'verification_status', desc: 'verified | pending | unverified', type: 'string' },
-                { claim: 'agent_state', desc: 'active | suspended | revoked', type: 'string' },
-                { claim: 'claim_state', desc: 'claimed | unclaimed', type: 'string' },
-                { claim: 'owner_type', desc: 'user | org | self | none', type: 'string' },
-                { claim: 'owner_backed', desc: 'true if the agent has a human or org owner', type: 'boolean' },
-                { claim: 'session_type', desc: 'delegated (browser flow) | autonomous (M2M)', type: 'string' },
-                { claim: 'scope', desc: 'Space-separated granted scopes', type: 'string' },
-                { claim: 'jti', desc: 'Unique token ID for revocation checks', type: 'string' },
-                { claim: 'exp', desc: '15-minute expiry (Unix timestamp)', type: 'number' },
-                { claim: 'trust_context', desc: 'Full trust object: capabilities, org info, etc.', type: 'object' },
-              ].map(({ claim, desc, type }) => (
-                <div key={claim} style={{ display: 'grid', gridTemplateColumns: '160px 80px 1fr', gap: 0, padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, alignItems: 'baseline', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                { claim: 'sub',                 type: 'string',       desc: 'Agent DID — did:web:getagent.id:agents:<uuid>' },
+                { claim: 'agent_id',            type: 'string',       desc: 'Internal agent UUID' },
+                { claim: 'handle',              type: 'string | null',desc: 'Human-readable handle, e.g. "clawd"' },
+                { claim: 'trust_tier',          type: 'string',       desc: 'unverified | basic | verified | trusted | elite' },
+                { claim: 'agent_state',         type: 'string',       desc: 'active | suspended | revoked' },
+                { claim: 'session_type',        type: 'string',       desc: 'delegated | autonomous' },
+                { claim: 'owner_backed',        type: 'boolean',      desc: 'Has a human or org owner' },
+                { claim: 'verification_status', type: 'string',       desc: 'verified | pending | unverified' },
+                { claim: 'scope',               type: 'string',       desc: 'Space-separated granted scopes' },
+                { claim: 'exp',                 type: 'number',       desc: '15-minute expiry (Unix timestamp)' },
+                { claim: 'jti',                 type: 'string',       desc: 'Unique token ID for revocation checks' },
+                { claim: 'trust_context',       type: 'object',       desc: 'Full trust object: capabilities, org info, etc.' },
+              ].map(({ claim, type, desc }) => (
+                <div key={claim} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '160px 110px 1fr', gap: isMobile ? 2 : 0, padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, alignItems: 'baseline', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                   <code style={{ fontSize: 12.5, color: '#7da5f5', fontFamily: "'Fira Code', monospace" }}>{claim}</code>
                   <span style={{ fontSize: 11, color: 'rgba(124,92,246,0.7)', fontFamily: "'Fira Code', monospace" }}>{type}</span>
                   <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{desc}</span>
                 </div>
               ))}
-            </div></div>
-          </Section>
+            </div>
+          </AdvancedSection>
 
-          {/* Errors */}
-          <Section id="errors" title="Error codes" subtitle="All error responses use OAuth 2.0 error format: { error, error_description }.">
-            <div style={{ overflowX: 'auto' }}><div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 520 }}>
+          <AdvancedSection title="Error codes">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
-                { code: 'invalid_client',       endpoint: 'token',      desc: 'Unknown or revoked client_id, or agent is suspended/revoked/draft' },
-                { code: 'invalid_grant',         endpoint: 'token',      desc: 'Authorization code expired, already used, or code_verifier mismatch' },
-                { code: 'invalid_scope',         endpoint: 'authorize',  desc: 'One or more requested scopes are not allowed for this client' },
-                { code: 'access_denied',         endpoint: 'authorize',  desc: 'User denied the authorization request on the consent screen' },
-                { code: 'unsupported_grant_type',endpoint: 'token',      desc: 'The grant_type is not registered for this client' },
-                { code: 'invalid_request',       endpoint: 'any',        desc: 'Missing or malformed required parameter' },
-                { code: 'invalid_assertion',     endpoint: 'token (M2M)',desc: 'Signed assertion failed verification, nonce reused, or jti mismatch' },
-                { code: 'expired_nonce',         endpoint: 'token (M2M)',desc: 'The nonce from /auth/challenge has expired (default 5 minute window)' },
-              ].map(({ code, endpoint, desc }) => (
-                <div key={code} style={{ display: 'grid', gridTemplateColumns: '200px 120px 1fr', gap: 0, padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, alignItems: 'baseline', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                { code: 'invalid_client',        desc: 'Unknown or revoked client_id, or agent is suspended/revoked' },
+                { code: 'invalid_grant',          desc: 'Auth code expired, already used, or code_verifier mismatch' },
+                { code: 'invalid_scope',          desc: 'Requested scope not allowed for this client' },
+                { code: 'access_denied',          desc: 'User denied the authorization request' },
+                { code: 'invalid_assertion',      desc: 'Signed assertion failed verification or nonce reused (M2M)' },
+                { code: 'expired_nonce',          desc: 'Challenge nonce expired — request a new one (M2M)' },
+                { code: 'unsupported_grant_type', desc: 'grant_type not registered for this client' },
+                { code: 'invalid_request',        desc: 'Missing or malformed required parameter' },
+              ].map(({ code, desc }) => (
+                <div key={code} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '220px 1fr', gap: isMobile ? 2 : 0, padding: '9px 14px', background: 'rgba(255,255,255,0.015)', borderRadius: 7, alignItems: 'baseline', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                   <code style={{ fontSize: 12, color: '#f87171', fontFamily: "'Fira Code', monospace" }}>{code}</code>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', fontFamily: "'Fira Code', monospace" }}>{endpoint}</span>
                   <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{desc}</span>
                 </div>
               ))}
-            </div></div>
-          </Section>
-
-          {/* Security */}
-          <Section id="security" title="Security notes" subtitle="Important safeguards to keep in mind when integrating.">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[
-                { icon: '🔒', title: 'Always validate state', body: 'Compare the state parameter from the callback against what you stored before redirecting. Reject mismatches to prevent CSRF.' },
-                { icon: '🔑', title: 'PKCE is mandatory for public clients', body: 'Public clients (no client_secret) must use S256 PKCE. The server rejects authorization requests without a code_challenge from public clients.' },
-                { icon: '⏱', title: 'Short-lived tokens', body: 'Access tokens expire in 15 minutes. Build a refresh flow using the refresh_token for longer sessions.' },
-                { icon: '🔄', title: 'Validate trust freshness for sensitive ops', body: 'For financial or high-privilege actions, call /api/v1/auth/introspect to get live revocation and trust state rather than relying solely on the JWT.' },
-                { icon: '🚫', title: 'Revoked agents are hard-rejected', body: 'An agent with status revoked, suspended, or draft cannot obtain a token. Any attempt returns invalid_client immediately.' },
-                { icon: '🎯', title: 'Autonomous: nonces are single-use', body: 'Each nonce issued by /api/v1/auth/challenge can only be used once. The jti in your assertion must match the issued nonce  -  replays are rejected.' },
-              ].map(({ icon, title, body }) => (
-                <div key={title} style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
-                  <div>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{title}</div>
-                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>{body}</div>
-                  </div>
-                </div>
-              ))}
             </div>
-          </Section>
+          </AdvancedSection>
+        </div>
 
-        </main>
       </div>
 
       <Footer />
