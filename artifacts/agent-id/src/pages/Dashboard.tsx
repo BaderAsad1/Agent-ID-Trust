@@ -575,7 +575,7 @@ function Overview() {
               )}
               <NftStatusSection agent={agent} onTransferred={refreshAgents} />
               <div className="flex gap-2 mt-4 pt-4 border-t flex-wrap" style={{ borderColor: 'var(--border-color)' }}>
-                <PrimaryButton variant="ghost" onClick={() => navigate(`/${agent.handle}`)}>View Profile</PrimaryButton>
+                <PrimaryButton variant="ghost" onClick={() => agent.handle ? navigate(`/${agent.handle}`) : navigate(`/id/${agent.id}`)}>View Profile</PrimaryButton>
                 <PrimaryButton variant="ghost" onClick={() => handleEditOpen(agent)}>Edit</PrimaryButton>
                 <PrimaryButton variant="danger" onClick={() => setDeletingAgent(agent)}>Delete</PrimaryButton>
                 {agent.verificationStatus !== 'verified' && (
