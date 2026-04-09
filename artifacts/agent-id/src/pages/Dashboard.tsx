@@ -549,7 +549,7 @@ function Overview() {
                   )}
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {(agent.capabilities || []).slice(0, 3).map(c => <CapabilityChip key={c} label={c} />)}
-                    {(agent.capabilities || []).length > 3 && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>+{agent.capabilities.length - 3} more</span>}
+                    {(agent.capabilities || []).length > 3 && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>+{(agent.capabilities || []).length - 3} more</span>}
                   </div>
                 </div>
                 <TrustScoreRing score={agent.trustScore || 0} size={48} />
