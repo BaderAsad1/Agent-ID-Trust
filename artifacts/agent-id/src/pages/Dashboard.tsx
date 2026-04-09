@@ -341,6 +341,14 @@ function Overview() {
   const [error, setError] = useState<string | null>(null);
   const [verifyingAgent, setVerifyingAgent] = useState<Agent | null>(null);
   const [transferringAgent, setTransferringAgent] = useState<Agent | null>(null);
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editEndpointUrl, setEditEndpointUrl] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingAgent, setDeletingAgent] = useState<Agent | null>(null);
+  const [deletingConfirm, setDeletingConfirm] = useState('');
+  const [deletingInProgress, setDeletingInProgress] = useState(false);
   const [agentTransfers, setAgentTransfers] = useState<Record<string, TransferSaleType>>({});
 
   const searchParams = new URLSearchParams(location.search);
@@ -384,6 +392,40 @@ function Overview() {
   }, [agents]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleEditOpen = (agent: Agent) => {
+    setEditDisplayName(agent.displayName || '');
+    setEditEndpointUrl(agent.endpointUrl || '');
+    setEditDescription(agent.description || '');
+    setEditingAgent(agent);
+  };
+  const handleEditSave = async () => {
+    if (!editingAgent) return;
+    setSavingEdit(true);
+    try {
+      await api.agents.update(editingAgent.id, {
+        displayName: editDisplayName.trim(),
+        endpointUrl: editEndpointUrl.trim() || null,
+        description: editDescription.trim() || null,
+      });
+      await refreshAgents();
+      setEditingAgent(null);
+    } catch (e) {
+      console.error('Edit failed', e);
+    } finally { setSavingEdit(false); }
+  };
+  const handleDelete = async () => {
+    if (!deletingAgent) return;
+    setDeletingInProgress(true);
+    try {
+      await api.agents.delete(deletingAgent.id);
+      await refreshAgents();
+      setDeletingAgent(null);
+      setDeletingConfirm('');
+    } catch (e) {
+      console.error('Delete failed', e);
+    } finally { setDeletingInProgress(false); }
+  };
 
   if (loading) return (
     <div>
@@ -442,7 +484,7 @@ function Overview() {
         <h2 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>My Agents</h2>
         {agents.length > 0 && (
           <button
-            onClick={() => navigate('/claim')}
+            onClick={() => navigate('/get-started')}
             className="text-xs flex items-center gap-1.5 cursor-pointer"
             style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}
           >
@@ -463,7 +505,7 @@ function Overview() {
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Claim a handle and set up your agent's public identity.</p>
               </div>
             </GlassCard>
-            <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/claim')}>
+            <GlassCard hover className="!p-6 cursor-pointer" onClick={() => navigate('/get-started')}>
               <div className="flex flex-col items-center text-center gap-3">
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.1)' }}>
                   <Link className="w-6 h-6" style={{ color: 'var(--success)' }} />
@@ -535,6 +577,8 @@ function Overview() {
               <NftStatusSection agent={agent} onTransferred={refreshAgents} />
               <div className="flex gap-2 mt-4 pt-4 border-t flex-wrap" style={{ borderColor: 'var(--border-color)' }}>
                 <PrimaryButton variant="ghost" onClick={() => navigate(`/${agent.handle}`)}>View Profile</PrimaryButton>
+                <PrimaryButton variant="ghost" onClick={() => handleEditOpen(agent)}>Edit</PrimaryButton>
+                <PrimaryButton variant="danger" onClick={() => setDeletingAgent(agent)}>Delete</PrimaryButton>
                 {agent.verificationStatus !== 'verified' && (
                   <PrimaryButton variant="ghost" onClick={() => setVerifyingAgent(agent)}>
                     <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Verify
@@ -575,7 +619,6 @@ function Overview() {
                     <ArrowRightLeft className="w-3.5 h-3.5 mr-1" /> Transfer / Sell
                   </PrimaryButton>
                 ) : null}
-                <PrimaryButton variant="ghost">Edit</PrimaryButton>
               </div>
             </GlassCard>
           ))}
@@ -609,6 +652,65 @@ function Overview() {
           onComplete={() => { fetchData(); refreshAgents(); }}
         />
       )}
+      {/* Edit Agent Modal */}
+      {editingAgent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="w-full max-w-md rounded-2xl p-6 relative" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
+            <button onClick={() => setEditingAgent(null)} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }}><X className="w-5 h-5" /></button>
+            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Edit Agent</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Display name</label>
+                <input value={editDisplayName} onChange={e => setEditDisplayName(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+              </div>
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Endpoint URL</label>
+                <input value={editEndpointUrl} onChange={e => setEditEndpointUrl(e.target.value)} placeholder="https://your-agent.example.com" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+              </div>
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Description</label>
+                <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={3} className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+              </div>
+              <div className="flex gap-3">
+                <PrimaryButton onClick={handleEditSave} disabled={savingEdit || !editDisplayName.trim()}>
+                  {savingEdit ? 'Saving…' : 'Save Changes'}
+                </PrimaryButton>
+                <PrimaryButton variant="ghost" onClick={() => setEditingAgent(null)}>Cancel</PrimaryButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Agent Modal */}
+      {deletingAgent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-6 relative" style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(239,68,68,0.25)' }}>
+            <button onClick={() => { setDeletingAgent(null); setDeletingConfirm(''); }} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }}><X className="w-5 h-5" /></button>
+            <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Delete Agent</h3>
+            <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
+              This permanently deletes <strong style={{ color: 'var(--text-primary)' }}>{deletingAgent.displayName}</strong> and all associated data. This cannot be undone.
+            </p>
+            <p className="text-xs mb-2" style={{ color: 'var(--text-dim)' }}>Type the agent name to confirm:</p>
+            <input
+              value={deletingConfirm}
+              onChange={e => setDeletingConfirm(e.target.value)}
+              placeholder={deletingAgent.displayName}
+              className="w-full rounded-lg border px-3 py-2 text-sm outline-none mb-4"
+              style={{ background: 'var(--bg-base)', borderColor: 'rgba(239,68,68,0.3)', color: 'var(--text-primary)' }}
+            />
+            <div className="flex gap-3">
+              <PrimaryButton
+                variant="danger"
+                disabled={deletingConfirm !== deletingAgent.displayName || deletingInProgress}
+                onClick={handleDelete}
+              >
+                {deletingInProgress ? 'Deleting…' : 'Delete Agent'}
+              </PrimaryButton>
+              <PrimaryButton variant="ghost" onClick={() => { setDeletingAgent(null); setDeletingConfirm(''); }}>Cancel</PrimaryButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -638,9 +740,9 @@ function TaskInbox() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Task Inbox</h1>
-        <div className="flex gap-2">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-3" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Task Inbox</h1>
+        <div className="flex gap-2 flex-wrap">
           {(['all', 'pending', 'accepted', 'completed'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)} className="text-xs px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: filter === f ? 'rgba(59,130,246,0.1)' : 'transparent', color: filter === f ? 'var(--accent)' : 'var(--text-dim)', border: 'none' }}>{f.replace('_', ' ')}</button>
           ))}
@@ -655,18 +757,32 @@ function TaskInbox() {
       ) : (
         <div className="space-y-3">
           {filtered.map(task => (
-            <GlassCard key={task.id} hover className="!p-4">
-              <div className="flex items-start gap-4">
+            <GlassCard key={task.id} className="!p-4">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{task.taskType}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full`} style={{
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                      {(task.taskType || 'Task').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full capitalize" style={{
                       background: task.status === 'pending' ? 'rgba(59,130,246,0.1)' : task.status === 'accepted' ? 'rgba(245,158,11,0.1)' : task.status === 'completed' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                      color: task.status === 'pending' ? 'var(--accent)' : task.status === 'accepted' ? 'var(--warning)' : task.status === 'completed' ? 'var(--success)' : 'var(--danger)',
+                      color: task.status === 'pending' ? 'var(--accent)' : task.status === 'accepted' ? '#f59e0b' : task.status === 'completed' ? 'var(--success)' : 'var(--danger)',
                     }}>{task.status}</span>
                   </div>
-                  <p className="text-sm truncate" style={{ color: 'var(--text-muted)' }}>{JSON.stringify(task.payload).slice(0, 100)}</p>
-                  <div className="flex items-center gap-3 mt-2 text-xs" style={{ color: 'var(--text-dim)' }}>
+                  {task.description && (
+                    <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{task.description}</p>
+                  )}
+                  {!task.description && task.payload && typeof task.payload === 'object' && (
+                    <div className="text-xs mb-2 space-y-0.5">
+                      {Object.entries(task.payload as Record<string, unknown>).slice(0, 3).map(([k, v]) => (
+                        <div key={k} className="flex gap-2">
+                          <span style={{ color: 'var(--text-dim)', minWidth: 80 }}>{k}:</span>
+                          <span className="truncate" style={{ color: 'var(--text-muted)' }}>{String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 text-xs flex-wrap" style={{ color: 'var(--text-dim)' }}>
                     <span>{new Date(task.createdAt).toLocaleString()}</span>
                     {task.paymentAmount != null && task.paymentAmount > 0 && (
                       <span className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{
@@ -674,11 +790,39 @@ function TaskInbox() {
                         color: task.paymentStatus === 'captured' ? 'var(--success)' : task.paymentStatus === 'cancelled' ? 'var(--danger)' : 'var(--accent)',
                       }}>
                         <DollarSign className="w-3 h-3" />
-                        ${(task.paymentAmount / 100).toFixed(2)}  -  {task.paymentStatus || 'pending'}
+                        ${(task.paymentAmount / 100).toFixed(2)} · {task.paymentStatus || 'pending'}
                       </span>
                     )}
                   </div>
                 </div>
+                {task.status === 'pending' && (
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.tasks.update(task.id, { status: 'accepted' });
+                          setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'accepted' } : t));
+                        } catch { /* ignore */ }
+                      }}
+                      className="text-xs px-3 py-1.5 rounded-lg font-medium cursor-pointer"
+                      style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.2)' }}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.tasks.update(task.id, { status: 'cancelled' });
+                          setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'cancelled' } : t));
+                        } catch { /* ignore */ }
+                      }}
+                      className="text-xs px-3 py-1.5 rounded-lg font-medium cursor-pointer"
+                      style={{ background: 'rgba(239,68,68,0.08)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.15)' }}
+                    >
+                      Decline
+                    </button>
+                  </div>
+                )}
               </div>
             </GlassCard>
           ))}
@@ -700,13 +844,12 @@ function ActivityLogPage() {
     setLoading(true);
     setError(null);
     try {
-      const allActivities: ActivityItem[] = [];
-      for (const agent of agents) {
-        try {
-          const result = await api.activity.list(agent.id);
-          allActivities.push(...(result.activities || []));
-        } catch { /* skip agent */ }
-      }
+      const results = await Promise.all(
+        agents.map(agent =>
+          api.activity.list(agent.id).catch(() => ({ activities: [] as ActivityItem[] }))
+        )
+      );
+      const allActivities = results.flatMap(r => r.activities || []);
       allActivities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setActivities(allActivities);
     } catch (e: unknown) {
@@ -729,15 +872,40 @@ function ActivityLogPage() {
         <EmptyState icon={<Activity className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No activity yet" description="Activity events will appear here as your agents receive tasks and complete work." action={<PrimaryButton variant="ghost" onClick={() => navigate('/for-agents')}>Learn how to get started</PrimaryButton>} />
       ) : (
         <GlassCard>
-          <div className="space-y-2">
-            {activities.map(evt => (
-              <div key={evt.id} className="flex items-center gap-3 text-sm py-2 border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-                <span className="text-xs font-mono w-16 flex-shrink-0" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>{evt.hmacHash?.slice(0, 8) || ' - '}</span>
-                <EventTypeIcon type={evt.eventType.includes('task') ? 'task_received' : 'task_completed'} />
-                <span className="flex-1 truncate" style={{ color: 'var(--text-muted)' }}>{evt.eventType}</span>
-                <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-dim)' }}>{new Date(evt.createdAt).toLocaleString()}</span>
-              </div>
-            ))}
+          <div className="space-y-0 divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+            {activities.map(evt => {
+              const label = evt.eventType
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, c => c.toUpperCase());
+              const summary = (() => {
+                const p = evt.payload as Record<string, unknown>;
+                if (p?.handle) return `@${p.handle}`;
+                if (p?.taskType) return String(p.taskType);
+                if (p?.amount) return `$${p.amount}`;
+                if (p?.status) return String(p.status);
+                return null;
+              })();
+              const agentId = evt.agentId;
+              const agentObj = agents.find(a => a.id === agentId);
+              const ts = new Date(evt.createdAt);
+              const isToday = ts.toDateString() === new Date().toDateString();
+              const timeStr = isToday
+                ? ts.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+                : ts.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+              return (
+                <div key={evt.id} className="flex items-start gap-3 py-2.5">
+                  <EventTypeIcon type={evt.eventType.includes('task') ? 'task_received' : evt.eventType.includes('heartbeat') ? 'task_completed' : 'task_received'} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{label}</span>
+                      {summary && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(79,125,243,0.08)', color: 'var(--accent)' }}>{summary}</span>}
+                    </div>
+                    {agentObj && <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{agentObj.displayName}{agentObj.handle ? ` · @${agentObj.handle}` : ''}</div>}
+                  </div>
+                  <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-dim)' }}>{timeStr}</span>
+                </div>
+              );
+            })}
           </div>
         </GlassCard>
       )}
@@ -1390,8 +1558,8 @@ function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; 
   if (loading) return <div className="h-20 rounded-lg animate-pulse mb-4" style={{ background: 'var(--bg-elevated)' }} />;
 
   return (
-    <div className="rounded-lg border overflow-hidden mb-4" style={{ borderColor: 'var(--border-color)' }}>
-      <table className="w-full text-sm">
+    <div className="rounded-lg border overflow-x-auto mb-4" style={{ borderColor: 'var(--border-color)' }}>
+      <table className="w-full text-sm" style={{ minWidth: 400 }}>
         <thead>
           <tr style={{ background: 'var(--bg-elevated)' }}>
             {['Type', 'Name', 'Value', 'TTL'].map(h => (
@@ -1544,7 +1712,7 @@ function FleetManagement() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Fleet Management</h1>
         <PrimaryButton onClick={() => setShowCreate(true)} disabled={rootHandles.length === 0}>
           <Network className="w-4 h-4 mr-1" /> Create Sub-Handle
@@ -1636,7 +1804,7 @@ function FleetManagement() {
                           <div className="text-xs" style={{ color: 'var(--text-dim)' }}>{sub.displayName}</div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <TrustScoreRing score={sub.trustScore} size={28} />
                         <StatusDot status={sub.status as 'active' | 'inactive' | 'draft'} />
                         <button onClick={() => handleDelete(sub.id)} className="text-xs cursor-pointer" style={{ color: 'var(--danger)', background: 'none', border: 'none' }}>Remove</button>
@@ -2189,7 +2357,7 @@ function WalletDashboard() {
           <select
             value={selectedAgent}
             onChange={e => setSelectedAgent(e.target.value)}
-            className="w-full max-w-xs rounded-lg border px-3 py-2 text-sm outline-none"
+            className="w-full sm:max-w-xs rounded-lg border px-3 py-2 text-sm outline-none"
             style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
           >
             {agents.map(a => (

@@ -368,6 +368,8 @@ export const api = {
     },
     submit: (data: Record<string, unknown>) =>
       request<{ task: TaskItem; payment?: { clientSecret: string; paymentIntentId: string } }>("/tasks", { method: "POST", body: JSON.stringify(data) }),
+    update: (taskId: string, data: { status?: string; result?: Record<string, unknown> }) =>
+      request<{ task: TaskItem }>(`/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify(data) }),
   },
 
   agentPayment: {
@@ -878,10 +880,15 @@ export interface ConnectStatus {
 
 export interface DashboardStats {
   totalAgents: number;
+  activeAgents: number;
   totalTasks: number;
+  tasksReceived: number;
+  tasksCompleted: number;
   avgTrustScore: number;
   totalEarnings: string;
+  marketplaceEarnings: number;
   activeDomains: number;
+  recentActivity?: ActivityItem[];
 }
 
 export interface ActivityItem {
