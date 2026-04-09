@@ -40,7 +40,8 @@ Trust Score Computation (trust-score.ts)
   Total: capped at 100
 
 Trust score → trustTier:
-  0–29: unverified | 30–59: verified | 60–79: trusted | 80–100: premium
+  0–19: unverified | 20–39: basic | 40–69: verified* | 70–89: trusted* | 90–100: elite*
+  (* tiers verified/trusted/elite also require verificationStatus = "verified")
 ```
 
 ---

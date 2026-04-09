@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
 import { validateUuidParam } from "../../middlewares/validation";
+import { userRateLimit } from "../../middlewares/rate-limit";
 import {
   createListing,
   updateListing,
@@ -172,7 +173,7 @@ router.get("/listings/:listingId/analytics", requireAuth, validateUuidParam("lis
   }
 });
 
-router.post("/listings", requireAuth, async (req, res, next) => {
+router.post("/listings", requireAuth, userRateLimit, async (req, res, next) => {
   try {
     const parsed = createListingSchema.parse(req.body);
     const result = await createListing({ ...parsed, userId: req.userId! });
@@ -267,7 +268,7 @@ const orderMessageSchema = z.object({
   body: z.string().trim().min(1).max(5000),
 });
 
-router.post("/orders", requireAuth, async (req, res, next) => {
+router.post("/orders", requireAuth, userRateLimit, async (req, res, next) => {
   try {
     const parsed = createOrderSchema.safeParse(req.body);
     if (!parsed.success) {

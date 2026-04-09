@@ -512,6 +512,197 @@ export function createServer(): McpServer {
     },
   );
 
+  server.tool(
+    "agentid_send_message",
+    "Send a message to another agent's inbox. Authenticated using the server-configured AGENTID_API_KEY.",
+    {
+      fromAgentId: z.string().describe("Your agent ID (the sender)"),
+      toAgentId: z.string().describe("Recipient agent ID"),
+      subject: z.string().optional().describe("Message subject line"),
+      body: z.string().describe("Message body text"),
+      threadId: z.string().optional().describe("Thread UUID for conversation threading"),
+    },
+    async (params) => {
+      const result = (await apiRequest(
+        "POST",
+        `/api/v1/mail/agents/${params.fromAgentId}/messages`,
+        serverBaseUrl,
+        serverApiKey,
+        {
+          recipientAddress: `${params.toAgentId}@getagent.id`,
+          subject: params.subject || "(no subject)",
+          body: params.body,
+          direction: "outbound",
+          senderType: "agent",
+          threadId: params.threadId,
+        },
+      )) as Record<string, unknown>;
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  server.tool(
+    "agentid_spawn_subagent",
+    "Spawn a child (sub)agent that inherits lineage from the authenticated parent agent. Requires the parent to be verified. Returns the child agent ID and API key.",
+    {
+      handle: z.string().min(3).max(32).describe("Handle for the new child agent"),
+      displayName: z.string().describe("Human-readable display name"),
+      description: z.string().optional().describe("What this child agent does"),
+      agentType: z.enum(["subagent", "ephemeral"]).default("subagent").describe("'subagent' persists; 'ephemeral' auto-expires"),
+      ttlHours: z.number().int().min(1).max(168).optional().describe("For ephemeral agents: lifetime in hours (1–168)"),
+      capabilities: z.array(z.string()).optional().describe("Capabilities for the child agent"),
+      endpointUrl: z.string().optional().describe("URL where the child receives tasks"),
+    },
+    async (params) => {
+      // Resolve the authenticated agent's ID first
+      const whoami = (await apiRequest(
+        "GET",
+        "/api/v1/agents/whoami",
+        serverBaseUrl,
+        serverApiKey,
+      )) as { id?: string; agent_id?: string };
+      const parentId = whoami.id || whoami.agent_id;
+      if (!parentId) {
+        throw new Error("Could not resolve parent agent ID from AGENTID_API_KEY");
+      }
+
+      const keyPair = await generateKeyPair();
+
+      const result = (await apiRequest(
+        "POST",
+        `/api/v1/agents/${parentId}/subagents`,
+        serverBaseUrl,
+        serverApiKey,
+        {
+          handle: params.handle,
+          displayName: params.displayName,
+          description: params.description,
+          agentType: params.agentType,
+          ttlHours: params.ttlHours,
+          capabilities: params.capabilities,
+          endpointUrl: params.endpointUrl,
+          publicKey: keyPair.publicKey,
+          keyType: "ed25519",
+        },
+      )) as Record<string, unknown>;
+
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            ...result,
+            message: "Child agent spawned. Save the apiKey immediately — it cannot be retrieved again.",
+          }, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    "agentid_mpp_providers",
+    "List available Machine Payments Protocol (MPP) providers and the payment methods each supports.",
+    {},
+    async () => {
+      const result = (await apiRequest(
+        "GET",
+        "/api/v1/mpp/providers",
+        serverBaseUrl,
+        serverApiKey,
+      )) as Record<string, unknown>;
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  server.tool(
+    "agentid_mpp_pay",
+    "Initiate a Stripe Machine Payments Protocol (MPP) payment intent for a machine-to-machine transaction. Returns a paymentIntentId and clientSecret for confirmation.",
+    {
+      amountCents: z.number().int().positive().describe("Amount in cents (e.g. 100 = $1.00 USD)"),
+      currency: z.string().length(3).default("usd").describe("ISO 4217 currency code (default: usd)"),
+      paymentType: z.string().default("api_call").describe("Payment type label (e.g. 'api_call', 'task', 'data')"),
+      resourceId: z.string().optional().describe("Optional ID of the resource being paid for"),
+    },
+    async (params) => {
+      const result = (await apiRequest(
+        "POST",
+        "/api/v1/mpp/create-intent",
+        serverBaseUrl,
+        serverApiKey,
+        {
+          amountCents: params.amountCents,
+          currency: params.currency,
+          paymentType: params.paymentType,
+          resourceId: params.resourceId,
+        },
+      )) as Record<string, unknown>;
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    },
+  );
+
+  server.tool(
+    "agentid_get_trust",
+    "Get a detailed trust score breakdown for any agent. Returns score, tier, per-provider signal weights, and a visual bar chart.",
+    {
+      identifier: z.string().describe("Agent handle (e.g. 'research-agent') or UUID"),
+    },
+    async (params) => {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.identifier);
+      const path = isUuid
+        ? `/api/v1/resolve/id/${params.identifier}`
+        : `/api/v1/resolve/${encodeURIComponent(params.identifier.replace(/\.(agentid|agent)$/i, "").toLowerCase())}`;
+
+      const resolved = (await apiRequest("GET", path, serverBaseUrl)) as {
+        agent?: {
+          trustScore?: number;
+          trustTier?: string;
+          trustBreakdown?: Record<string, number>;
+          verificationStatus?: string;
+        };
+      };
+
+      const agent = resolved.agent || {};
+      const score = agent.trustScore ?? 0;
+      const tier = agent.trustTier ?? "unverified";
+      const breakdown = agent.trustBreakdown ?? {};
+
+      // Visual bar chart
+      const BAR_WIDTH = 20;
+      const bar = (val: number, max: number): string => {
+        const filled = Math.round((val / max) * BAR_WIDTH);
+        return "█".repeat(filled) + "░".repeat(BAR_WIDTH - filled);
+      };
+
+      const lines = [
+        `Trust Report: ${params.identifier}`,
+        `Score: ${score}/100  Tier: ${tier}  Verification: ${agent.verificationStatus ?? "unknown"}`,
+        `${"─".repeat(50)}`,
+        `Overall  [${bar(score, 100)}] ${score}/100`,
+        `${"─".repeat(50)}`,
+      ];
+
+      for (const [provider, providerScore] of Object.entries(breakdown)) {
+        const maxPerProvider = 25; // typical max per provider
+        lines.push(`${provider.padEnd(20)} [${bar(providerScore, maxPerProvider)}] ${providerScore}`);
+      }
+
+      lines.push(`${"─".repeat(50)}`);
+      lines.push(`Tier thresholds: unverified 0-19 | basic 20-39 | verified 40-69 | trusted 70-89 | elite 90-100`);
+
+      return {
+        content: [{ type: "text" as const, text: lines.join("\n") }],
+      };
+    },
+  );
+
   return server;
 }
 
