@@ -112,6 +112,7 @@ export async function getMilestonesByOrder(
 ): Promise<MarketplaceMilestone[]> {
   return db.query.marketplaceMilestonesTable.findMany({
     where: eq(marketplaceMilestonesTable.orderId, orderId),
+    orderBy: (t, { asc }) => [asc(t.sortOrder)],
   });
 }
 

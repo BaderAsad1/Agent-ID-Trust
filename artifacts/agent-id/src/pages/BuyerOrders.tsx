@@ -309,9 +309,8 @@ function OrderMilestoneTracker({ orderId, orderStatus }: { orderId: string; orde
 }
 
 function getNextReleasableMilestoneId(milestones: OrderMilestone[]): string | null {
-  return [...milestones]
-    .sort((a, b) => a.order - b.order)
-    .find((milestone) => milestone.status === 'completed')?.id ?? null;
+  // Backend returns milestones in sortOrder order — find the first completed-but-unreleased one.
+  return milestones.find((milestone) => milestone.status === 'completed')?.id ?? null;
 }
 
 export function BuyerOrders() {
