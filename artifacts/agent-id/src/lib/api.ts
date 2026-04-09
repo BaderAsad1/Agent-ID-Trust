@@ -404,6 +404,35 @@ export const api = {
       }),
   },
 
+  oauth: {
+    clients: {
+      list: () => request<{ clients: OAuthClient[] }>("/clients"),
+      create: (data: {
+        name: string;
+        description?: string;
+        redirectUris?: string[];
+        allowedScopes?: string[];
+        grantTypes?: string[];
+        clientType?: 'public' | 'confidential';
+      }) => request<OAuthClient & { clientSecret?: string; clientType?: string; warning?: string }>("/clients", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+      update: (clientId: string, data: { name?: string; description?: string; redirectUris?: string[]; allowedScopes?: string[] }) =>
+        request<OAuthClient>(`/clients/${clientId}`, { method: "PATCH", body: JSON.stringify(data) }),
+      delete: (clientId: string) =>
+        request<{ success: boolean; revokedAt: string }>(`/clients/${clientId}`, { method: "DELETE" }),
+      rotateSecret: (clientId: string) =>
+        request<{ clientId: string; clientSecret: string; warning: string }>(`/clients/${clientId}/rotate-secret`, { method: "POST" }),
+    },
+    tokens: {
+      list: (agentId: string) =>
+        request<{ connections: OAuthConnection[] }>(`/agents/${agentId}/oauth-tokens`),
+      revoke: (agentId: string, tokenId: string) =>
+        request<{ success: boolean; revokedAt: string }>(`/agents/${agentId}/oauth-tokens/${tokenId}`, { method: "DELETE" }),
+    },
+  },
+
   dashboard: {
     stats: () => request<DashboardStats>("/dashboard/stats"),
   },
@@ -1106,6 +1135,34 @@ export interface TransferEvent {
   eventType: string;
   payload: Record<string, unknown>;
   createdAt: string;
+}
+
+export interface OAuthClient {
+  id: string;
+  clientId: string;
+  name: string;
+  description?: string | null;
+  redirectUris: string[];
+  allowedScopes: string[];
+  grantTypes: string[];
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt?: string | null;
+  revokedAt?: string | null;
+}
+
+export interface OAuthConnection {
+  id: string;
+  tokenId: string;
+  clientId: string | null;
+  clientName: string;
+  clientDescription?: string | null;
+  scopes: string[];
+  grantType: string | null;
+  trustTier: string | null;
+  issuedAt: string | null;
+  expiresAt: string;
+  refreshExpiresAt: string | null;
 }
 
 export interface RawVerifiableCredential {

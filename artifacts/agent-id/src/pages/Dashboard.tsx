@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield, Key, MessageSquare, Send, Trash2, Edit } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield, Key, MessageSquare, Send, Trash2, Edit, Code, Eye, EyeOff } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
-import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus, type OrderMessage, type OrderMilestone } from '@/lib/api';
+import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus, type OrderMessage, type OrderMilestone, type OAuthClient, type OAuthConnection } from '@/lib/api';
 import { formatPrice } from '@/lib/pricing';
 import { useSEO } from '@/lib/useSEO';
 import { Mail } from '@/pages/Mail';
@@ -2844,6 +2844,371 @@ function WalletDashboard() {
   );
 }
 
+const SCOPES = ['read', 'write', 'agents:read', 'agents:write', 'tasks:read', 'tasks:write', 'mail:read', 'mail:write'];
+const GRANT_TYPES = ['authorization_code', 'urn:agentid:grant-type:signed-assertion'];
+
+function DeveloperPage() {
+  const { agents } = useAuth();
+  const [tab, setTab] = useState<'apps' | 'connected'>('apps');
+
+  // OAuth Apps state
+  const [clients, setClients] = useState<OAuthClient[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createDesc, setCreateDesc] = useState('');
+  const [createRedirects, setCreateRedirects] = useState('');
+  const [createScopes, setCreateScopes] = useState<string[]>(['read']);
+  const [createGrants, setCreateGrants] = useState<string[]>(['authorization_code']);
+  const [createType, setCreateType] = useState<'public' | 'confidential'>('public');
+  const [creating, setCreating] = useState(false);
+  const [newSecret, setNewSecret] = useState<{ clientId: string; secret: string } | null>(null);
+  const [secretVisible, setSecretVisible] = useState(false);
+  const [deletingClient, setDeletingClient] = useState<string | null>(null);
+  const [rotatingSecret, setRotatingSecret] = useState<string | null>(null);
+  const [rotatedSecret, setRotatedSecret] = useState<{ clientId: string; secret: string } | null>(null);
+
+  // Connected Apps state
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const [connections, setConnections] = useState<OAuthConnection[]>([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.oauth.clients.list()
+      .then(r => setClients(r.clients))
+      .catch(() => {})
+      .finally(() => setClientsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (agents.length > 0 && !selectedAgentId) setSelectedAgentId(agents[0].id);
+  }, [agents, selectedAgentId]);
+
+  useEffect(() => {
+    if (!selectedAgentId) return;
+    setConnectionsLoading(true);
+    api.oauth.tokens.list(selectedAgentId)
+      .then(r => setConnections(r.connections))
+      .catch(() => setConnections([]))
+      .finally(() => setConnectionsLoading(false));
+  }, [selectedAgentId]);
+
+  async function handleCreate() {
+    if (!createName.trim()) return;
+    setCreating(true);
+    try {
+      const uris = createRedirects.split('\n').map(s => s.trim()).filter(Boolean);
+      const result = await api.oauth.clients.create({
+        name: createName.trim(),
+        description: createDesc.trim() || undefined,
+        redirectUris: uris,
+        allowedScopes: createScopes,
+        grantTypes: createGrants,
+        clientType: createType,
+      });
+      setClients(prev => [result as OAuthClient, ...prev]);
+      if (result.clientSecret) {
+        setNewSecret({ clientId: result.clientId, secret: result.clientSecret });
+        setSecretVisible(true);
+      }
+      setShowCreate(false);
+      setCreateName(''); setCreateDesc(''); setCreateRedirects('');
+      setCreateScopes(['read']); setCreateGrants(['authorization_code']); setCreateType('public');
+    } catch { /* handled */ } finally { setCreating(false); }
+  }
+
+  async function handleDeleteClient(clientId: string) {
+    setDeletingClient(clientId);
+    try {
+      await api.oauth.clients.delete(clientId);
+      setClients(prev => prev.filter(c => c.clientId !== clientId));
+    } catch { /* handled */ } finally { setDeletingClient(null); }
+  }
+
+  async function handleRotateSecret(clientId: string) {
+    setRotatingSecret(clientId);
+    try {
+      const result = await api.oauth.clients.rotateSecret(clientId);
+      setRotatedSecret({ clientId, secret: result.clientSecret });
+    } catch { /* handled */ } finally { setRotatingSecret(null); }
+  }
+
+  async function handleRevoke(tokenId: string) {
+    setRevokingId(tokenId);
+    try {
+      await api.oauth.tokens.revoke(selectedAgentId, tokenId);
+      setConnections(prev => prev.filter(c => c.id !== tokenId));
+    } catch { /* handled */ } finally { setRevokingId(null); }
+  }
+
+  const scopeToggle = (s: string) => setCreateScopes(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  const grantToggle = (g: string) => setCreateGrants(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Developer</h1>
+      <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Manage OAuth apps and see which apps your agents have authorized.</p>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 p-1 rounded-lg w-fit" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)' }}>
+        {(['apps', 'connected'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className="px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer"
+            style={{ background: tab === t ? 'rgba(59,130,246,0.15)' : 'transparent', color: tab === t ? 'var(--accent)' : 'var(--text-muted)', border: 'none' }}>
+            {t === 'apps' ? 'OAuth Apps' : 'Connected Apps'}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'apps' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Your OAuth Apps</h2>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>Apps that use "Sign in with Agent ID" to authorize on behalf of agents.</p>
+            </div>
+            <PrimaryButton onClick={() => setShowCreate(true)}><Plus className="w-3.5 h-3.5 mr-1" />New App</PrimaryButton>
+          </div>
+
+          {/* New secret banner */}
+          {(newSecret || rotatedSecret) && (() => {
+            const s = rotatedSecret || newSecret!;
+            return (
+              <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold mb-1" style={{ color: 'var(--success)' }}>
+                      {rotatedSecret ? 'Secret rotated' : 'App created'} — save your client secret now
+                    </div>
+                    <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>This will not be shown again.</div>
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs px-2 py-1 rounded" style={{ background: 'rgba(0,0,0,0.3)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
+                        {secretVisible ? s.secret : '•'.repeat(40)}
+                      </code>
+                      <button onClick={() => setSecretVisible(v => !v)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', flexShrink: 0 }}>
+                        {secretVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                      <button onClick={() => { navigator.clipboard.writeText(s.secret); }} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', flexShrink: 0 }}>
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <button onClick={() => { setNewSecret(null); setRotatedSecret(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', flexShrink: 0 }}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Create form */}
+          {showCreate && (
+            <GlassCard className="mb-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Register new OAuth app</h3>
+                <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}><X className="w-4 h-4" /></button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>App Name *</label>
+                  <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="My App"
+                    className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>Description</label>
+                  <input value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="Optional"
+                    className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>Redirect URIs <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(one per line)</span></label>
+                  <textarea value={createRedirects} onChange={e => setCreateRedirects(e.target.value)} rows={3}
+                    placeholder="https://yourapp.com/callback"
+                    className="w-full px-3 py-2 rounded-lg text-sm resize-none" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-2" style={{ color: 'var(--text-dim)' }}>Scopes</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SCOPES.map(s => (
+                      <button key={s} onClick={() => scopeToggle(s)}
+                        className="px-2.5 py-1 rounded-md text-xs cursor-pointer transition-colors"
+                        style={{ background: createScopes.includes(s) ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)', color: createScopes.includes(s) ? 'var(--accent)' : 'var(--text-dim)', border: `1px solid ${createScopes.includes(s) ? 'rgba(59,130,246,0.4)' : 'var(--border-color)'}` }}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-2" style={{ color: 'var(--text-dim)' }}>Grant Types</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {GRANT_TYPES.map(g => (
+                      <button key={g} onClick={() => grantToggle(g)}
+                        className="px-2.5 py-1 rounded-md text-xs cursor-pointer transition-colors"
+                        style={{ background: createGrants.includes(g) ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)', color: createGrants.includes(g) ? 'var(--accent)' : 'var(--text-dim)', border: `1px solid ${createGrants.includes(g) ? 'rgba(59,130,246,0.4)' : 'var(--border-color)'}` }}>
+                        {g === 'authorization_code' ? 'Auth Code (PKCE)' : 'Signed Assertion (M2M)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-2" style={{ color: 'var(--text-dim)' }}>Client Type</label>
+                  <div className="flex gap-2">
+                    {(['public', 'confidential'] as const).map(t => (
+                      <button key={t} onClick={() => setCreateType(t)}
+                        className="px-3 py-1.5 rounded-md text-xs cursor-pointer"
+                        style={{ background: createType === t ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)', color: createType === t ? 'var(--accent)' : 'var(--text-dim)', border: `1px solid ${createType === t ? 'rgba(59,130,246,0.4)' : 'var(--border-color)'}` }}>
+                        {t === 'public' ? 'Public (SPA/mobile, PKCE only)' : 'Confidential (server-side, has secret)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <PrimaryButton onClick={handleCreate} disabled={creating || !createName.trim()}>
+                    {creating ? 'Creating…' : 'Create App'}
+                  </PrimaryButton>
+                  <PrimaryButton variant="ghost" onClick={() => setShowCreate(false)}>Cancel</PrimaryButton>
+                </div>
+              </div>
+            </GlassCard>
+          )}
+
+          {clientsLoading ? <ListSkeleton rows={3} /> : clients.length === 0 ? (
+            <EmptyState icon={<Code className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />}
+              title="No OAuth apps yet"
+              description="Register an app to let your users authorize agents via OAuth."
+              action={<PrimaryButton onClick={() => setShowCreate(true)}><Plus className="w-3.5 h-3.5 mr-1" />Register first app</PrimaryButton>} />
+          ) : (
+            <div className="space-y-3">
+              {clients.map(client => (
+                <GlassCard key={client.clientId}>
+                  <div className="flex items-start gap-3 flex-wrap">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(79,125,243,0.1)', border: '1px solid rgba(79,125,243,0.2)' }}>
+                      <Code className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{client.name}</span>
+                        {client.revokedAt && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>Revoked</span>}
+                      </div>
+                      {client.description && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{client.description}</p>}
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <code className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{client.clientId}</code>
+                        <button onClick={() => navigator.clipboard.writeText(client.clientId)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 0 }}>
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {(client.allowedScopes as string[]).map(s => (
+                          <span key={s} className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)', border: '1px solid var(--border-color)' }}>{s}</span>
+                        ))}
+                      </div>
+                      {client.lastUsedAt && (
+                        <p className="text-xs mt-1.5" style={{ color: 'var(--text-dim)' }}>Last used {new Date(client.lastUsedAt).toLocaleDateString()}</p>
+                      )}
+                    </div>
+                    {!client.revokedAt && (
+                      <div className="flex gap-2 flex-shrink-0 flex-wrap">
+                        <PrimaryButton variant="ghost" className="!py-1 !px-2.5 !text-xs"
+                          onClick={() => handleRotateSecret(client.clientId)}
+                          disabled={rotatingSecret === client.clientId}>
+                          <RotateCw className="w-3 h-3 mr-1" />{rotatingSecret === client.clientId ? 'Rotating…' : 'Rotate Secret'}
+                        </PrimaryButton>
+                        <PrimaryButton variant="danger" className="!py-1 !px-2.5 !text-xs"
+                          onClick={() => handleDeleteClient(client.clientId)}
+                          disabled={deletingClient === client.clientId}>
+                          {deletingClient === client.clientId ? 'Revoking…' : 'Revoke'}
+                        </PrimaryButton>
+                      </div>
+                    )}
+                  </div>
+                  {client.redirectUris && (client.redirectUris as string[]).length > 0 && (
+                    <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-dim)' }}>Redirect URIs</p>
+                      <div className="flex flex-wrap gap-1">
+                        {(client.redirectUris as string[]).map(uri => (
+                          <code key={uri} className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{uri}</code>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </GlassCard>
+              ))}
+            </div>
+          )}
+
+          {/* Docs callout */}
+          <div className="mt-6 p-4 rounded-xl flex items-start gap-3" style={{ background: 'rgba(79,125,243,0.06)', border: '1px solid rgba(79,125,243,0.15)' }}>
+            <Code className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
+            <div>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Integration guide</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                Learn how to implement the OAuth flow, use the signed-assertion grant for agent-to-agent auth, and embed the "Sign in with Agent ID" button.
+              </p>
+              <a href="/docs/sign-in" className="text-xs mt-1.5 inline-flex items-center gap-1" style={{ color: 'var(--accent)' }}>
+                Read the docs <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'connected' && (
+        <div>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div>
+              <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Connected Apps</h2>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>Third-party apps authorized to act on behalf of your agents. Revoke access at any time.</p>
+            </div>
+            {agents.length > 1 && (
+              <select value={selectedAgentId} onChange={e => setSelectedAgentId(e.target.value)}
+                className="px-3 py-1.5 rounded-lg text-sm sm:max-w-xs"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                {agents.map(a => <option key={a.id} value={a.id}>@{a.handle}</option>)}
+              </select>
+            )}
+          </div>
+
+          {connectionsLoading ? <ListSkeleton rows={3} /> : connections.length === 0 ? (
+            <EmptyState icon={<Shield className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />}
+              title="No connected apps"
+              description="When you authorize a third-party app to act as this agent, it will appear here." />
+          ) : (
+            <div className="space-y-3">
+              {connections.map(conn => (
+                <GlassCard key={conn.id}>
+                  <div className="flex items-start gap-3 flex-wrap">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                      {conn.clientName[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{conn.clientName}</div>
+                      {conn.clientDescription && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{conn.clientDescription}</p>}
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {(conn.scopes as string[]).map(s => (
+                          <span key={s} className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)', border: '1px solid var(--border-color)' }}>{s}</span>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-3 mt-1.5">
+                        {conn.issuedAt && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Authorized {new Date(conn.issuedAt).toLocaleDateString()}</span>}
+                        {conn.refreshExpiresAt && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Expires {new Date(conn.refreshExpiresAt).toLocaleDateString()}</span>}
+                      </div>
+                    </div>
+                    <PrimaryButton variant="danger" className="!py-1 !px-2.5 !text-xs flex-shrink-0"
+                      onClick={() => handleRevoke(conn.id)}
+                      disabled={revokingId === conn.id}>
+                      {revokingId === conn.id ? 'Revoking…' : 'Revoke Access'}
+                    </PrimaryButton>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Dashboard() {
   useSEO({ title: 'Dashboard — Agent ID', noIndex: true });
   const location = useLocation();
@@ -2882,6 +3247,7 @@ export function Dashboard() {
   else if (path === '/dashboard/handles') content = <HandlesClaim />;
   else if (path === '/dashboard/fleet') content = <FleetManagement />;
   else if (path === '/dashboard/settings') content = <SettingsPage />;
+  else if (path === '/dashboard/developer') content = <DeveloperPage />;
   else if (path.startsWith('/dashboard/transfers')) content = <TransferDashboardPage />;
   else content = <Overview />;
 
