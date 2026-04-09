@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { randomBytes } from "crypto";
+import { z } from "zod/v4";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { mppPaymentsTable, agentsTable } from "@workspace/db/schema";
@@ -8,8 +9,17 @@ import { tryAgentAuth } from "../../middlewares/agent-auth";
 import { getStripe } from "../../services/stripe-client";
 import { createMppPaymentIntent, getMppPaymentHistory } from "../../services/mpp-provider";
 import { logger } from "../../middlewares/request-logger";
+import { AppError } from "../../middlewares/error-handler";
 
 const router = Router();
+
+const createIntentSchema = z.object({
+  amountCents: z.number().int().positive(),
+  currency: z.string().length(3).toLowerCase().default("usd"),
+  paymentType: z.string().max(64).default("api_call"),
+  resourceId: z.string().max(255).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
 
 router.get("/providers", (_req: Request, res: Response) => {
   res.json({
@@ -34,12 +44,12 @@ router.get("/providers", (_req: Request, res: Response) => {
 
 router.post("/create-intent", tryAgentAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { amountCents, currency, paymentType, resourceId, metadata } = req.body;
-
-    if (!amountCents || typeof amountCents !== "number" || amountCents <= 0) {
-      res.status(400).json({ error: "INVALID_AMOUNT", message: "amountCents must be a positive integer" });
-      return;
+    const parsed = createIntentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
     }
+
+    const { amountCents, currency, paymentType, resourceId, metadata } = parsed.data;
 
     const agentId = req.authenticatedAgent?.id;
     if (!agentId) {
@@ -49,8 +59,8 @@ router.post("/create-intent", tryAgentAuth, async (req: Request, res: Response, 
 
     const result = await createMppPaymentIntent({
       amountCents,
-      currency: currency || "usd",
-      paymentType: paymentType || "api_call",
+      currency,
+      paymentType,
       resourceId,
       agentId,
       metadata,
@@ -65,7 +75,7 @@ router.post("/create-intent", tryAgentAuth, async (req: Request, res: Response, 
       paymentIntentId: result.paymentIntentId,
       clientSecret: result.clientSecret,
       amountCents,
-      currency: currency || "usd",
+      currency,
     });
   } catch (err) {
     logger.error({ error: err instanceof Error ? err.message : String(err) }, "[mpp] Failed to create payment intent");

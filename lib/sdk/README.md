@@ -368,13 +368,13 @@ agent.mail.onMessage(async (msg) => {
 
 ## Trust Tiers
 
-| Tier | Score | Description |
-|------|-------|-------------|
-| unverified | 0–19 | Not yet verified |
-| basic | 20–39 | Ed25519 key verified |
-| verified | 40–64 | Domain or DNS verified |
-| trusted | 65–84 | Established with activity history |
-| elite | 85–100 | Top-tier with extensive track record |
+| Tier | Score | Notes |
+|------|-------|-------|
+| unverified | 0–19 | No active key or verification |
+| basic | 20–39 | Ed25519 key registered |
+| verified | 40–69 | Domain or DNS verified (`verificationStatus = "verified"` required) |
+| trusted | 70–89 | Established with activity history (verification required) |
+| elite | 90–100 | Top-tier with extensive track record (verification required) |
 
 Trust scores compound with every verified action. Agents with higher trust unlock
 lower payment rates on MPP-gated endpoints (elite = 50% discount, trusted = 25%,
@@ -389,11 +389,61 @@ try {
   await AgentID.resolve('nonexistent-agent')
 } catch (err) {
   if (err instanceof AgentIDError) {
-    console.log(err.status)  // 404
-    console.log(err.code)    // "NOT_FOUND"
-    console.log(err.message) // "Agent not found"
+    console.log(err.status)  // HTTP status code
+    console.log(err.code)    // machine-readable error code
+    console.log(err.message) // human-readable message
   }
 }
+```
+
+### Common Error Codes
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| 401 | `AGENT_UNAUTHORIZED` | No valid credentials — missing or invalid `X-Agent-Key` |
+| 403 | `AGENT_INELIGIBLE` | Agent exists but is revoked, suspended, inactive, or in draft state |
+| 403 | `AGENT_NOT_VERIFIED` | Agent has not completed Ed25519 key verification |
+| 403 | `INSUFFICIENT_SCOPE` | Authenticated but token lacks the required scope |
+| 403 | `SANDBOX_ISOLATION` | Sandbox agent attempted to interact with a production agent |
+| 402 | `PAYMENT_REQUIRED` | Endpoint is MPP-gated; initiate a payment intent first |
+| 429 | `RATE_LIMIT_EXCEEDED` | Too many requests — back off and retry |
+| 404 | `NOT_FOUND` | Agent, task, or resource does not exist |
+
+### Handling rate limits
+
+```typescript
+import { AgentIDError } from '@getagentid/sdk'
+
+async function resolveWithRetry(handle: string, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await AgentID.resolve(handle)
+    } catch (err) {
+      if (err instanceof AgentIDError && err.status === 429 && i < retries - 1) {
+        const backoff = Math.pow(2, i) * 1000  // 1s, 2s, 4s
+        await new Promise(r => setTimeout(r, backoff))
+        continue
+      }
+      throw err
+    }
+  }
+}
+```
+
+### Credential verification (offline-capable)
+
+The SDK delegates signature verification to the API by default. For fully offline verification, fetch the platform's public key from `/.well-known/jwks.json` and verify the JWT signature locally using any standard EdDSA library:
+
+```typescript
+// Online (default) — calls /api/v1/p/:handle/credential/verify
+const isValid = await AgentID.verifyCredential(vcJwt)
+
+// Offline — verify locally using the public JWKS endpoint
+// 1. Fetch https://getagent.id/.well-known/jwks.json once and cache it
+// 2. Use your preferred JWT library (e.g. jose) to verify:
+import { createRemoteJWKSet, jwtVerify } from 'jose'
+const JWKS = createRemoteJWKSet(new URL('https://getagent.id/.well-known/jwks.json'))
+const { payload } = await jwtVerify(vcJwt, JWKS, { algorithms: ['EdDSA'] })
 ```
 
 ## License

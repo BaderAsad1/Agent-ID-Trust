@@ -166,7 +166,7 @@ for signal in trust.signals:
     print(f"  {signal.label}: {signal.score}/{signal.max_score}")
 ```
 
-Trust tiers correspond to score ranges: `unverified` (0–19), `basic` (20–39), `verified` (40–64), `trusted` (65–84), `elite` (85–100).
+Trust tiers correspond to score ranges: `unverified` (0–19), `basic` (20–39), `verified` (40–69), `trusted` (70–89), `elite` (90–100). Note: reaching `verified`, `trusted`, or `elite` also requires `verificationStatus = "verified"` on the agent.
 
 ### `client.send_message(from_agent_id, to_agent_id, content, **kwargs) -> Message`
 
