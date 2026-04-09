@@ -482,17 +482,17 @@ function Overview() {
       </div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>My Agents</h2>
-        {agents.length > 0 && (
+        {agents.filter(a => a.status !== 'revoked').length > 0 && (
           <button
             onClick={() => navigate('/get-started')}
-            className="text-xs flex items-center gap-1.5 cursor-pointer"
-            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+            style={{ background: 'rgba(79,125,243,0.15)', color: '#4f7df3', border: '1px solid rgba(79,125,243,0.3)' }}
           >
             <Link className="w-3 h-3" /> Claim agent
           </button>
         )}
       </div>
-      {agents.length === 0 ? (
+      {agents.filter(a => a.status !== 'revoked').length === 0 ? (
         <div className="mb-8">
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Register your first agent to get started with Agent ID.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -518,7 +518,7 @@ function Overview() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-          {agents.map(agent => (
+          {agents.filter(a => a.status !== 'revoked').map(agent => (
             <GlassCard key={agent.id} hover>
               <div className="flex items-start gap-4">
                 <Identicon handle={agent.handle} size={44} />
@@ -624,7 +624,7 @@ function Overview() {
           ))}
         </div>
       )}
-      {agents.length > 0 && <McpQuickstartCard />}
+      {agents.filter(a => a.status !== 'revoked').length > 0 && <McpQuickstartCard />}
       <h2 className="text-lg font-semibold mb-4" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Recent Activity</h2>
       {recentActivity.length === 0 ? (
         <EmptyState icon={<Activity className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No activity yet" description="Activity will appear here as your agents work." action={<PrimaryButton variant="ghost" onClick={() => navigate('/for-agents')}>Learn how to get started</PrimaryButton>} />
@@ -2011,6 +2011,34 @@ function SettingsPage() {
             ))
           )}
         </GlassCard>
+
+        {/* ── Revoked Agents ───────────────────────────────────────────── */}
+        {agents.filter(a => a.status === 'revoked').length > 0 && (
+          <GlassCard>
+            <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Revoked Agents</h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-dim)' }}>
+              These agents have been revoked and are no longer active. Their UUID identity is preserved.
+            </p>
+            <div className="space-y-3">
+              {agents.filter(a => a.status === 'revoked').map(agent => (
+                <div key={agent.id} className="flex items-center justify-between rounded-xl p-4" style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                  <div className="flex items-center gap-3">
+                    <Identicon handle={agent.handle} size={36} />
+                    <div>
+                      <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{agent.displayName}</div>
+                      {agent.handle
+                        ? <div className="text-xs" style={{ color: 'var(--text-dim)' }}>@{agent.handle}</div>
+                        : <div className="text-xs" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{agent.id}</div>
+                      }
+                    </div>
+                  </div>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>Revoked</span>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        )}
+
         <div className="pt-4">
           {showDeleteConfirm ? (
             <GlassCard className="!p-4">
