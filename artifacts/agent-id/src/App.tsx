@@ -57,9 +57,6 @@ function DashboardRoute({ children }: { children: ReactNode }) {
   const location = useLocation();
   if (loading) return null;
   if (!userId) return <Navigate to={`/sign-in?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
-  if (agents && agents.length === 0) {
-    return <Navigate to="/get-started" replace />;
-  }
   return <>{children}</>;
 }
 
