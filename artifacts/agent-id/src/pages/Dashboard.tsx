@@ -1529,9 +1529,10 @@ function MarketplaceDashboard() {
   );
 }
 
-function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; handle: string; domainName?: string }) {
+function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; handle: string | null | undefined; domainName?: string }) {
   const [records, setRecords] = useState<Array<{ type: string; name: string; value: string; ttl: number }>>([]);
   const [loading, setLoading] = useState(true);
+  const fallbackName = domainName || (handle ? `${handle}.agent` : `${agentId}.agent`);
 
   useEffect(() => {
     api.agents.domain(agentId)
@@ -1540,19 +1541,19 @@ function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; 
           setRecords(domain.dnsRecords);
         } else {
           setRecords([
-            { type: 'CNAME', name: domainName || `${handle}.agent`, value: 'edge.getagent.id', ttl: 300 },
+            { type: 'CNAME', name: fallbackName, value: 'edge.getagent.id', ttl: 300 },
             { type: 'TXT', name: '_agentid', value: `v=agentid1 id=${agentId}`, ttl: 3600 },
           ]);
         }
       })
       .catch(() => {
         setRecords([
-          { type: 'CNAME', name: domainName || `${handle}.agent`, value: 'edge.getagent.id', ttl: 300 },
+          { type: 'CNAME', name: fallbackName, value: 'edge.getagent.id', ttl: 300 },
           { type: 'TXT', name: '_agentid', value: `v=agentid1 id=${agentId}`, ttl: 3600 },
         ]);
       })
       .finally(() => setLoading(false));
-  }, [agentId, handle, domainName]);
+  }, [agentId, handle, domainName, fallbackName]);
 
   if (loading) return <div className="h-20 rounded-lg animate-pulse mb-4" style={{ background: 'var(--bg-elevated)' }} />;
 
@@ -1843,20 +1844,26 @@ function DomainDashboard() {
         <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agentid address." action={<PrimaryButton onClick={() => navigate('/get-started')}>Register an agent</PrimaryButton>} />
       ) : (
         <div className="space-y-6">
-          {agents.map(agent => {
+          {agents.filter(a => a.status !== 'revoked').map(agent => {
             const reg = registryStatuses[agent.id];
+            const displayDomain = agent.domainName || (agent.handle ? `${agent.handle}.agentid` : `${agent.id}.agentid`);
             return (
               <GlassCard key={agent.id}>
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <div className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{agent.domainName || `${agent.handle}.agentid`}</div>
+                    <div className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{displayDomain}</div>
+                    {!agent.handle && (
+                      <div className="text-xs mb-2" style={{ color: 'var(--text-dim)' }}>
+                        Resolving by UUID &middot; <span style={{ color: 'var(--accent)' }}>add a handle</span> for a human-readable address
+                      </div>
+                    )}
                     <StatusDot status={agent.domainStatus === 'active' ? 'active' : 'inactive'} />
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => setTransferAgent(agent)} className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer flex items-center gap-1" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Transfer">
                       <ArrowRightLeft className="w-3 h-3" /> Transfer
                     </button>
-                    <button className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Copy domain">Copy</button>
+                    <button onClick={() => navigator.clipboard.writeText(displayDomain)} className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Copy domain">Copy</button>
                   </div>
                 </div>
                 <DomainRecordsTable agentId={agent.id} handle={agent.handle} domainName={agent.domainName} />
@@ -1903,7 +1910,7 @@ function DomainDashboard() {
 
           <div className="rounded-xl border p-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
             <p className="text-sm" style={{ color: 'var(--domain)' }}>
-              Your .agentid address is part of a protocol-layer namespace purpose-built for AI agents. Every registered handle resolves through the Agent ID protocol (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agentid</code>) with a web domain at (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>).
+              Every agent has a UUID-based .agentid identity — no handle required. Handles are optional human-readable aliases that resolve through the Agent ID protocol (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agentid</code>) with a web domain at (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>). UUID-based addresses (<code style={{ fontFamily: 'var(--font-mono)' }}>{'{uuid}'}.agentid</code>) work the same way.
             </p>
           </div>
         </div>
