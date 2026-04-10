@@ -26,6 +26,7 @@ import {
   oauthClientsTable,
   auditEventsTable,
   agentClaimHistoryTable,
+  marketplaceOrdersTable,
 } from "@workspace/db/schema";
 import { AppError } from "../../middlewares/error-handler";
 import { logger } from "../../middlewares/request-logger";
@@ -544,6 +545,107 @@ router.post("/reconcile-handle", async (req: Request, res: Response, next: NextF
     res.json({
       success: true,
       ...result,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Dispute Resolution ───────────────────────────────────────────────────────
+// POST /v1/admin/orders/:orderId/dispute/resolve
+//
+// Adjudicate a marketplace dispute. Sets the outcome, fires a negative trust
+// event on the losing party's agent, and triggers trust recomputation.
+//
+// Body: { outcome: "buyer" | "seller", reason?: string }
+//   outcome "buyer"  — buyer wins; apply dispute_lost to the SELLER's agent
+//   outcome "seller" — seller wins; apply dispute_lost to the BUYER's agent (future: dispute_abusive)
+//
+// The negative trust event weight of 8 is calibrated to be meaningful even for
+// high-trust agents — approximately equivalent to losing ~2.5 months of earned
+// task activity. It decays out of the 90-day penalty window.
+
+const resolveDisputeSchema = z.object({
+  outcome: z.enum(["buyer", "seller"]),
+  reason: z.string().max(500).optional(),
+});
+
+router.post("/orders/:orderId/dispute/resolve", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orderId = req.params.orderId as string;
+    if (!orderId || !/^[0-9a-f-]{36}$/i.test(orderId)) {
+      throw new AppError(400, "INVALID_ORDER_ID", "orderId must be a valid UUID");
+    }
+
+    const parsed = resolveDisputeSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(400, "VALIDATION_ERROR", "outcome must be 'buyer' or 'seller'", parsed.error.issues);
+
+    const { outcome, reason } = parsed.data;
+
+    // Fetch order to find the agents on each side
+    const order = await db.query.marketplaceOrdersTable.findFirst({
+      where: eq(marketplaceOrdersTable.id, orderId),
+      columns: { id: true, agentId: true, buyerUserId: true, sellerUserId: true, status: true },
+    });
+
+    if (!order) throw new AppError(404, "ORDER_NOT_FOUND", "Order not found");
+    if (order.status !== "disputed") throw new AppError(409, "ORDER_NOT_DISPUTED", `Order is in status '${order.status}', not 'disputed'`);
+
+    // The seller's agent is the listing agent (order.agentId)
+    // For buyer side: find any agent owned by buyer — use seller's agent for the event on buyer loss
+    // We fire the event on the SELLER'S AGENT when buyer wins (seller failed to deliver)
+    const { addNegativeTrustEvent, recomputeAndStore } = await import("../../services/trust-score");
+
+    let penalisedAgentId: string | null = null;
+    let penalisedRole: "seller" | "buyer" = "seller";
+
+    if (outcome === "buyer") {
+      // Buyer wins: seller failed to deliver — penalise seller's agent
+      penalisedAgentId = order.agentId;
+      penalisedRole = "seller";
+    } else {
+      // Seller wins: buyer raised abusive/fraudulent dispute — penalise buyer's agent if they have one
+      const buyerAgent = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.userId, order.buyerUserId),
+        columns: { id: true },
+        orderBy: (t, { asc }) => [asc(t.createdAt)],
+      });
+      if (buyerAgent) {
+        penalisedAgentId = buyerAgent.id;
+        penalisedRole = "buyer";
+      }
+    }
+
+    if (penalisedAgentId) {
+      // weight: 8 — meaningful but not catastrophic; decays in 90 days
+      await addNegativeTrustEvent(
+        penalisedAgentId,
+        outcome === "buyer" ? "dispute_lost" : "dispute_abusive",
+        { weight: 8, reason: reason ?? `dispute_resolved:${outcome}`, metadata: { orderId, outcome } },
+      );
+      await recomputeAndStore(penalisedAgentId);
+    }
+
+    // Mark order status to completed or refunded depending on outcome
+    await db
+      .update(marketplaceOrdersTable)
+      .set({ status: outcome === "buyer" ? "cancelled" : "completed", updatedAt: new Date() })
+      .where(eq(marketplaceOrdersTable.id, orderId));
+
+    await writeAuditEvent(
+      "admin", "system", "admin.dispute.resolved", "order", orderId,
+      adminAuditMeta(req, { outcome, penalisedAgentId, penalisedRole, reason }),
+      getRequestorIp(req),
+    );
+
+    logger.info({ orderId, outcome, penalisedAgentId }, "[admin] Dispute resolved");
+
+    res.json({
+      success: true,
+      orderId,
+      outcome,
+      penalisedAgentId,
+      penalisedRole: penalisedAgentId ? penalisedRole : null,
     });
   } catch (err) {
     next(err);

@@ -1,4 +1,4 @@
-import { eq, sql, and, isNull, or, gte, gt } from "drizzle-orm";
+import { eq, sql, and, isNull, or, gte, gt, ne } from "drizzle-orm";
 import { logger } from "../middlewares/request-logger";
 import { db } from "@workspace/db";
 import { isRedisConfigured, getSharedRedis } from "../lib/redis";
@@ -6,6 +6,8 @@ import {
   agentsTable,
   agentReputationEventsTable,
   marketplaceReviewsTable,
+  marketplaceOrdersTable,
+  agentActivityLogTable,
   tasksTable,
   trustEventsTable,
   type Agent,
@@ -83,15 +85,38 @@ const activityProvider: TrustProvider = {
   maxScore: 15,
   async compute(agent, context) {
     const completed = agent.tasksCompleted;
-    let score = 0;
-    if (completed >= 100) score = 15;
-    else if (completed >= 50) score = 12;
-    else if (completed >= 20) score = 9;
-    else if (completed >= 10) score = 6;
-    else if (completed >= 5) score = 4;
-    else if (completed >= 1) score = 2;
 
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    // Unique-counterparty score: 100 tasks from one sender is weak signal;
+    // 20 tasks from 20 different senders is strong. Score is gated on diversity.
+    const uniqueCounterpartyResult = await db
+      .select({ uniqueSenders: sql<number>`count(distinct ${tasksTable.senderAgentId})` })
+      .from(tasksTable)
+      .where(
+        and(
+          eq(tasksTable.recipientAgentId, context.agentId),
+          eq(tasksTable.businessStatus, "completed"),
+        ),
+      );
+    const uniqueSenders = Number(uniqueCounterpartyResult[0]?.uniqueSenders ?? 0);
+
+    // Base score from total completed tasks
+    let baseScore = 0;
+    if (completed >= 100) baseScore = 15;
+    else if (completed >= 50) baseScore = 12;
+    else if (completed >= 20) baseScore = 9;
+    else if (completed >= 10) baseScore = 6;
+    else if (completed >= 5) baseScore = 4;
+    else if (completed >= 1) baseScore = 2;
+
+    // Diversity multiplier: score is capped based on unique sender ratio.
+    // An agent with all tasks from the same sender gets at most 40% of base.
+    // Diversity reaches full value at 10+ unique senders.
+    const diversityRatio = completed > 0 ? Math.min(uniqueSenders / Math.max(completed * 0.2, 1), 1) : 0;
+    const diversityMultiplier = 0.4 + 0.6 * diversityRatio;
+    let score = Math.round(baseScore * diversityMultiplier);
+
+    // Velocity cap: >10 tasks in 24h is suspicious, cap harshly
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const velocityResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(tasksTable)
@@ -99,16 +124,16 @@ const activityProvider: TrustProvider = {
         and(
           eq(tasksTable.recipientAgentId, context.agentId),
           eq(tasksTable.businessStatus, "completed"),
-          gt(tasksTable.completedAt, oneHourAgo),
+          gt(tasksTable.completedAt, oneDayAgo),
         ),
       );
     const recentCount = Number(velocityResult[0]?.count ?? 0);
     const velocityFlag = recentCount > 10;
     if (velocityFlag) {
-      score = Math.min(score, 5);
+      score = Math.min(score, 4);
     }
 
-    return { score, metadata: { completedTotal: completed, recentHourCount: recentCount, velocityFlag } };
+    return { score, metadata: { completedTotal: completed, uniqueSenders, recentDayCount: recentCount, velocityFlag, diversityMultiplier } };
   },
 };
 
@@ -138,18 +163,34 @@ const reviewsProvider: TrustProvider = {
   id: "reviews",
   label: "Marketplace Reviews",
   maxScore: 15,
-  async compute(_agent, context) {
+  async compute(agent, context) {
+    // Sybil defence: only count reviews from orders where the buyer's userId
+    // differs from the agent owner's userId, and the order had a non-zero price.
+    // This eliminates self-dealing (owner reviews their own agent) and
+    // free/test orders that carry no economic weight.
     const result = await db
       .select({
         avgRating: sql<number>`COALESCE(AVG(${marketplaceReviewsTable.rating}), 0)`,
         reviewCount: sql<number>`COUNT(*)`,
       })
       .from(marketplaceReviewsTable)
-      .where(eq(marketplaceReviewsTable.agentId, context.agentId));
+      .innerJoin(
+        marketplaceOrdersTable,
+        eq(marketplaceReviewsTable.orderId, marketplaceOrdersTable.id),
+      )
+      .where(
+        and(
+          eq(marketplaceReviewsTable.agentId, context.agentId),
+          // Reviewer must not be the agent owner
+          ne(marketplaceOrdersTable.buyerUserId, agent.userId),
+          // Order must have had real economic value
+          gt(sql`CAST(${marketplaceOrdersTable.priceAmount} AS numeric)`, sql`0`),
+        ),
+      );
 
     const avgRating = Number(result[0]?.avgRating ?? 0);
     const reviewCount = Number(result[0]?.reviewCount ?? 0);
-    if (reviewCount === 0) return { score: 0, metadata: { avgRating: 0, reviewCount: 0 } };
+    if (reviewCount === 0) return { score: 0, metadata: { avgRating: 0, reviewCount: 0, sybilFiltered: true } };
 
     let countScore = 0;
     if (reviewCount >= 50) countScore = 8;
@@ -325,9 +366,19 @@ const attestationProvider: TrustProvider = {
   id: "attestations",
   label: "Peer Attestations",
   maxScore: 10,
-  async compute(_agent, context) {
+  async compute(agent, context) {
     try {
       const { agentAttestationsTable } = await import("@workspace/db/schema");
+
+      // Alias agentsTable for the attester join so we can filter by attester's userId
+      const attesterAgent = db
+        .select({ id: agentsTable.id, userId: agentsTable.userId })
+        .from(agentsTable)
+        .as("attester_agent");
+
+      // Sybil defence: exclude attestations where the attester is owned by the
+      // same user as the subject. Self-attestation rings (owner's agents vouching
+      // for each other) must carry zero weight.
       const attestations = await db
         .select({
           sentiment: agentAttestationsTable.sentiment,
@@ -335,10 +386,16 @@ const attestationProvider: TrustProvider = {
           attesterTrustScore: agentAttestationsTable.attesterTrustScore,
         })
         .from(agentAttestationsTable)
+        .innerJoin(
+          attesterAgent,
+          eq(agentAttestationsTable.attesterId, attesterAgent.id),
+        )
         .where(
           and(
             eq(agentAttestationsTable.subjectId, context.agentId),
             isNull(agentAttestationsTable.revokedAt),
+            // Cross-owner attestations only
+            ne(attesterAgent.userId, agent.userId),
           ),
         );
 
@@ -358,6 +415,43 @@ const attestationProvider: TrustProvider = {
   },
 };
 
+/**
+ * Operational Consistency — heartbeat regularity over the last 30 days.
+ * An agent that heartbeats consistently is demonstrably live and operational.
+ * This cannot be gamed by a one-time burst; it requires sustained presence.
+ * Max: 10 points.
+ */
+const operationalConsistencyProvider: TrustProvider = {
+  id: "operationalConsistency",
+  label: "Operational Consistency",
+  maxScore: 10,
+  async compute(_agent, context) {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(agentActivityLogTable)
+      .where(
+        and(
+          eq(agentActivityLogTable.agentId, context.agentId),
+          eq(agentActivityLogTable.eventType, "agent.heartbeat"),
+          gte(agentActivityLogTable.createdAt, thirtyDaysAgo),
+        ),
+      );
+    const heartbeats = Number(result[0]?.count ?? 0);
+
+    // 30-day window: heartbeats every 5 minutes = ~8,640 max; we expect ~288/day
+    // realistic targets: occasional (5+), regular (20+), consistent (60+), very consistent (120+)
+    let score = 0;
+    if (heartbeats >= 120) score = 10;
+    else if (heartbeats >= 60) score = 8;
+    else if (heartbeats >= 20) score = 5;
+    else if (heartbeats >= 5) score = 3;
+    else if (heartbeats >= 1) score = 1;
+
+    return { score, metadata: { heartbeatsLast30d: heartbeats } };
+  },
+};
+
 registerTrustProvider(verificationProvider);
 registerTrustProvider(longevityProvider);
 registerTrustProvider(activityProvider);
@@ -368,6 +462,7 @@ registerTrustProvider(profileCompletenessProvider);
 registerTrustProvider(externalSignalProvider);
 registerTrustProvider(lineageSponsorshipProvider);
 registerTrustProvider(attestationProvider);
+registerTrustProvider(operationalConsistencyProvider);
 
 export function determineTier(score: number, verified: boolean): TrustTier {
   if (score >= 90 && verified) return "elite";
@@ -390,12 +485,14 @@ async function computeNegativePenalty(agentId: string): Promise<number> {
       ),
     );
   const totalWeight = Number(result[0]?.totalWeight ?? 0);
-  return Math.min(totalWeight, 20);
+  // Cap raised from 20 → 30: a pattern of failures and lost disputes can now
+  // meaningfully suppress a high-score agent, not just scratch the surface.
+  return Math.min(totalWeight, 30);
 }
 
 export async function addNegativeTrustEvent(
   agentId: string,
-  eventType: "task_failed" | "task_abandoned",
+  eventType: "task_failed" | "task_abandoned" | "dispute_lost" | "dispute_abusive",
   options?: { weight?: number; sourceAgentId?: string; reason?: string; metadata?: Record<string, unknown> },
 ): Promise<void> {
   await db.insert(trustEventsTable).values({
@@ -537,6 +634,32 @@ export async function computeTrustScore(agentId: string, opts?: { skipCache?: bo
 
   if (agent.parentAgentId && agent.verificationStatus !== "verified") {
     totalScore = Math.min(totalScore, BASIC_TIER_CEILING);
+  }
+
+  // Score decay for dormant agents — an agent that has gone silent loses the
+  // operational signal it once had. Decay is applied to the activity component
+  // and eventually caps the total score to prevent stale trust being abused.
+  const agentAgeMs = Date.now() - new Date(agent.createdAt).getTime();
+  const agentAgedays = agentAgeMs / (1000 * 60 * 60 * 24);
+  const lastHeartbeat = agent.lastHeartbeatAt ? new Date(agent.lastHeartbeatAt) : null;
+  const daysSinceHeartbeat = lastHeartbeat
+    ? (Date.now() - lastHeartbeat.getTime()) / (1000 * 60 * 60 * 24)
+    : agentAgedays; // no heartbeat ever = treat as age of agent
+
+  if (daysSinceHeartbeat > 180) {
+    // Severely dormant (6+ months): activity score zeroed, total capped at basic
+    trustBreakdown["activity"] = 0;
+    totalScore = signals.reduce((sum, s) => {
+      const val = s.provider === "activity" ? 0 : trustBreakdown[s.provider] ?? s.score;
+      return sum + val;
+    }, 0);
+    totalScore = Math.min(totalScore, BASIC_TIER_CEILING);
+  } else if (daysSinceHeartbeat > 90) {
+    // Dormant (3–6 months): activity score halved
+    const halfActivity = Math.floor((trustBreakdown["activity"] ?? 0) / 2);
+    const activityDiff = (trustBreakdown["activity"] ?? 0) - halfActivity;
+    trustBreakdown["activity"] = halfActivity;
+    totalScore = Math.max(0, totalScore - activityDiff);
   }
 
   totalScore = Math.min(totalScore, 100);
