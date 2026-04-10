@@ -742,7 +742,7 @@ function AnatomySection({ anatomyProgress }: { anatomyProgress: number }) {
       padding: 'clamp(24px, 4vh, 80px) clamp(24px, 4vw, 60px)',
       maxWidth: 1100,
       margin: '0 auto',
-      height: '100vh',
+      height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
@@ -1012,7 +1012,7 @@ function SystemActivationSection({ unlocksProgress }: { unlocksProgress: number 
       padding: 'clamp(24px, 4vh, 60px) clamp(24px, 4vw, 60px)',
       maxWidth: 900,
       margin: '0 auto',
-      height: '100vh',
+      height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
@@ -1305,7 +1305,7 @@ function OutcomeStripSection({ outcomeProgress }: { outcomeProgress: number }) {
       padding: 'clamp(24px, 4vh, 80px) clamp(24px, 4vw, 60px)',
       maxWidth: 1000,
       margin: '0 auto',
-      height: '100vh',
+      height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
@@ -1507,7 +1507,7 @@ if (agent.trustScore > 80 && agent.capabilities.includes("payments")) {
       padding: 'clamp(24px, 4vh, 80px) clamp(24px, 4vw, 60px)',
       maxWidth: 1100,
       margin: '0 auto',
-      height: '100vh',
+      height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
@@ -1710,7 +1710,7 @@ function DevToolingSection({ devToolingProgress }: { devToolingProgress: number 
       padding: 'clamp(24px, 4vh, 80px) clamp(24px, 4vw, 60px)',
       maxWidth: 1000,
       margin: '0 auto',
-      height: '100vh',
+      height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
@@ -1864,7 +1864,7 @@ function CTASection({ ctaProgress, onNavigate }: { ctaProgress: number; onNaviga
       textAlign: 'center',
       opacity,
       transform: `translateY(${translateY}px)`,
-      height: '100vh',
+      height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
@@ -2417,7 +2417,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         <div style={{
           position: 'sticky',
           top: 0,
-          height: '100vh',
+          height: '100dvh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -2458,6 +2458,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
           {/* Brand marquee — anchored to bottom of hero viewport, fades before credential animation */}
           <div style={{
             position: 'absolute', bottom: 0, left: 0, right: 0,
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
             opacity: scroll.heroProgress < 0.04 ? 1 : lerp(1, 0, (scroll.heroProgress - 0.04) / 0.05),
           }}>
             <p style={{
@@ -2532,7 +2533,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         <div className="outcome-sticky-container" style={{
           position: 'sticky',
           top: 0,
-          height: '100vh',
+          height: '100dvh',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: scroll.outcomeProgress > 0.92
@@ -2556,7 +2557,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         <div className="anatomy-sticky-container" style={{
           position: 'sticky',
           top: 0,
-          height: '100vh',
+          height: '100dvh',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: scroll.anatomyProgress > 0.92
@@ -2580,7 +2581,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         <div className="activation-sticky-container" style={{
           position: 'sticky',
           top: 0,
-          height: '100vh',
+          height: '100dvh',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: scroll.unlocksProgress > 0.92
@@ -2604,7 +2605,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         <div className="verification-sticky-container" style={{
           position: 'sticky',
           top: 0,
-          height: '100vh',
+          height: '100dvh',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: scroll.verificationProgress > 0.92
@@ -2628,7 +2629,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         <div className="devtooling-sticky-container" style={{
           position: 'sticky',
           top: 0,
-          height: '100vh',
+          height: '100dvh',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: scroll.devToolingProgress > 0.92
@@ -2652,7 +2653,7 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
         <div className="cta-sticky-container" style={{
           position: 'sticky',
           top: 0,
-          height: '100vh',
+          height: '100dvh',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
