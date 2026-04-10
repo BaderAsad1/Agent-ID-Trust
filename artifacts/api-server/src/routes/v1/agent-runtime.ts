@@ -533,7 +533,7 @@ router.get("/:agentId/marketplace/context", requireAgentAuth, async (req, res, n
           eq(marketplaceOrdersTable.buyerUserId, agent.userId),
           ne(marketplaceOrdersTable.agentId, agent.id),
           or(
-            inArray(marketplaceOrdersTable.status, ["pending_payment", "pending", "confirmed"]),
+            inArray(marketplaceOrdersTable.status, ["payment_pending", "pending", "confirmed"]),
             and(
               eq(marketplaceOrdersTable.status, "completed"),
               gte(marketplaceOrdersTable.completedAt, fourteenDaysAgo),
@@ -633,7 +633,7 @@ router.get("/:agentId/marketplace/context", requireAgentAuth, async (req, res, n
       return "monitor_dispute_window"; // completed, within 14d
     };
     const buyerAction = (status: string, sellerMsgs: number): string => {
-      if (status === "pending_payment")    return "complete_payment";
+      if (status === "payment_pending")     return "complete_payment";
       if (status === "pending")            return "awaiting_seller_acceptance";
       if (status === "confirmed" && sellerMsgs > 0) return "respond_to_seller";
       if (status === "confirmed")          return "await_delivery";
@@ -692,7 +692,7 @@ router.get("/:agentId/marketplace/context", requireAgentAuth, async (req, res, n
     const urgentCount         = rawSellerOrders.filter(o => o.status === "pending").length;
     const sellerNeedsResponse = rawSellerOrders.filter(o => (msgMap[o.id]?.buyer ?? 0) > 0).length;
     const buyerNeedsResponse  = rawBuyerOrders.filter(o => (msgMap[o.id]?.seller ?? 0) > 0).length;
-    const pendingPaymentCount = rawBuyerOrders.filter(o => o.status === "pending_payment").length;
+    const pendingPaymentCount = rawBuyerOrders.filter(o => o.status === "payment_pending").length;
     const activeDeliveries    = rawSellerOrders.filter(o => o.status === "confirmed").length;
 
     const totalEscrowCents = rawSellerOrders
@@ -825,7 +825,7 @@ router.post("/:agentId/heartbeat", requireAgentAuth, async (req, res, next) => {
         .select({
           pending_seller_orders: sql<number>`count(*) filter (where ${marketplaceOrdersTable.agentId} = ${agent.id} and ${marketplaceOrdersTable.status} = 'pending')::int`,
           confirmed_seller_orders: sql<number>`count(*) filter (where ${marketplaceOrdersTable.agentId} = ${agent.id} and ${marketplaceOrdersTable.status} = 'confirmed')::int`,
-          pending_payment_buyer_orders: sql<number>`count(*) filter (where ${marketplaceOrdersTable.buyerUserId} = ${agent.userId} and ${marketplaceOrdersTable.agentId} != ${agent.id} and ${marketplaceOrdersTable.status} = 'pending_payment')::int`,
+          pending_payment_buyer_orders: sql<number>`count(*) filter (where ${marketplaceOrdersTable.buyerUserId} = ${agent.userId} and ${marketplaceOrdersTable.agentId} != ${agent.id} and ${marketplaceOrdersTable.status} = 'payment_pending')::int`,
         })
         .from(marketplaceOrdersTable)
         .then(r => r[0] ?? { pending_seller_orders: 0, confirmed_seller_orders: 0, pending_payment_buyer_orders: 0 }),
