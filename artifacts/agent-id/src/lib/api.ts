@@ -392,6 +392,8 @@ export const api = {
   billing: {
     subscription: () =>
       request<{ plan: string; limits: Record<string, unknown>; subscription: unknown | null }>("/billing/subscription"),
+    portal: () =>
+      request<{ url: string }>("/billing/portal", { method: "POST" }),
     checkout: (body: { plan: 'starter' | 'pro'; billingInterval: 'monthly' | 'yearly'; successUrl?: string; cancelUrl?: string; pendingHandle?: string | null; pendingAgentId?: string | null }) =>
       request<{ url: string | null }>("/billing/checkout", {
         method: "POST",

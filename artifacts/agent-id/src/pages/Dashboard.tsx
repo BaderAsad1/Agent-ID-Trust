@@ -1952,6 +1952,21 @@ function SettingsPage() {
   const [rotatingAgent, setRotatingAgent] = useState<string | null>(null);
   const [rotatedKey, setRotatedKey] = useState<{ agentId: string; key: string } | null>(null);
 
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  const handleOpenPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const { url } = await api.billing.portal();
+      window.location.href = url;
+    } catch {
+      // If no subscription, go to pricing instead
+      window.location.href = '/pricing';
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   // Danger zone
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -2104,7 +2119,7 @@ function SettingsPage() {
             </div>
             <div className="flex items-center justify-between py-2.5" style={rowStyle}>
               <span style={labelStyle}>Agents</span>
-              <span style={valueStyle}>{agents.length}{agentLimit ? ` / ${agentLimit}` : ''}</span>
+              <span style={valueStyle}>{agents.filter(a => a.status !== 'revoked').length}{agentLimit ? ` / ${agentLimit}` : ''}</span>
             </div>
             <div className="flex items-center justify-between py-2.5" style={rowStyle}>
               <span style={labelStyle}>Handles owned</span>
@@ -2115,6 +2130,17 @@ function SettingsPage() {
                 <span style={labelStyle}>Rate limit</span>
                 <span style={valueStyle}>{planLimits.requestsPerMinute.toLocaleString()} req/min</span>
               </div>
+            )}
+          </div>
+          <div className="mt-4 flex gap-2">
+            {currentPlan !== 'free' ? (
+              <PrimaryButton variant="ghost" className="!text-xs !py-1.5" onClick={handleOpenPortal} disabled={portalLoading}>
+                {portalLoading ? 'Loading…' : 'Manage Subscription'}
+              </PrimaryButton>
+            ) : (
+              <PrimaryButton variant="ghost" className="!text-xs !py-1.5" onClick={() => window.location.href = '/pricing'}>
+                Upgrade Plan
+              </PrimaryButton>
             )}
           </div>
         </GlassCard>
