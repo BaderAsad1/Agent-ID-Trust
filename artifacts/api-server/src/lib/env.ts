@@ -288,11 +288,6 @@ export function validateEnv(): Env {
   if (!env.RESEND_API_KEY) {
     envLogger.warn("[env] RESEND_API_KEY not set — external email delivery disabled.");
   }
-  if (env.LAUNCH_MODE === "true" && isProd) {
-    envLogger.warn("[env] LAUNCH_MODE is enabled but this is PRODUCTION — automatically disabling LAUNCH_MODE. All billing controls and limits are enforced.");
-    env.LAUNCH_MODE = "false";
-    process.env.LAUNCH_MODE = "false";
-  }
   if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ZONE_ID) {
     envLogger.warn("[env] Cloudflare credentials not set — domain provisioning disabled.");
   }
