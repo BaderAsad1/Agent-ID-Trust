@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { buildAgentIDAuthUrl } from '@/components/SignInWithAgentID';
+import { SignInWithAgentID } from '@/components/SignInWithAgentID';
 import { useAuth } from '@/lib/AuthContext';
 import { useSEO } from '@/lib/useSEO';
 
@@ -40,39 +40,28 @@ export function DemoApp() {
 
   const { user } = useAuth();
   const navigate  = useNavigate();
-  const [starting, setStarting] = useState(false);
-  const [step, setStep] = useState<'idle' | 'pkce' | 'redirect'>('idle');
 
-  // If user just came back from a callback with code → show callback page
+  // Pre-generate PKCE on mount so the button is ready to navigate immediately
+  const [pkce, setPkce] = useState<{ state: string; codeChallenge: string } | null>(null);
+
   useEffect(() => {
+    // Redirect back to callback if code is present (user returning from OAuth)
     const sp = new URLSearchParams(window.location.search);
-    if (sp.get('code')) navigate('/demo/callback' + window.location.search, { replace: true });
+    if (sp.get('code')) {
+      navigate('/demo/callback' + window.location.search, { replace: true });
+      return;
+    }
+    // Generate PKCE pair for the upcoming auth request
+    async function gen() {
+      const verifier   = randomBase64Url(32);
+      const challenge  = await sha256Base64Url(verifier);
+      const state      = randomBase64Url(16);
+      sessionStorage.setItem('demo_code_verifier', verifier);
+      sessionStorage.setItem('demo_state', state);
+      setPkce({ state, codeChallenge: challenge });
+    }
+    gen();
   }, [navigate]);
-
-  async function startOAuth() {
-    setStarting(true);
-    setStep('pkce');
-    const codeVerifier  = randomBase64Url(32);
-    const codeChallenge = await sha256Base64Url(codeVerifier);
-    const state         = randomBase64Url(16);
-
-    sessionStorage.setItem('demo_code_verifier', codeVerifier);
-    sessionStorage.setItem('demo_state',          state);
-
-    setStep('redirect');
-
-    const callbackUri = window.location.origin + CALLBACK_PATH;
-    const authUrl = buildAgentIDAuthUrl({
-      clientId:            DEMO_CLIENT_ID,
-      redirectUri:         callbackUri,
-      scopes:              ['read', 'agents:read'],
-      state,
-      codeChallenge,
-      codeChallengeMethod: 'S256',
-    });
-
-    window.location.href = authUrl;
-  }
 
   return (
     <div style={{
@@ -176,41 +165,18 @@ export function DemoApp() {
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '24px 0' }} />
 
-            {/* The real button */}
-            <button
-              onClick={startOAuth}
-              disabled={starting}
-              style={{
-                width: '100%', height: 48,
-                background: starting ? 'rgba(79,125,243,0.3)' : 'rgba(15,18,30,0.95)',
-                border: '1px solid rgba(79,125,243,0.4)',
-                borderRadius: 12,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                cursor: starting ? 'not-allowed' : 'pointer',
-                transition: 'all 0.18s ease',
-                color: '#fff',
-                fontSize: 14, fontWeight: 600,
-                fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-              }}
-            >
-              {/* AgentID mark */}
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <rect width="24" height="24" rx="6" fill="url(#demo-grad)"/>
-                <defs>
-                  <linearGradient id="demo-grad" x1="0" y1="0" x2="24" y2="24">
-                    <stop offset="0%" stopColor="#4f7df3"/>
-                    <stop offset="100%" stopColor="#7c5cf6"/>
-                  </linearGradient>
-                </defs>
-                <path d="M12 4L5 7v5c0 4.4 3 8.4 7 9.4 4-1 7-5 7-9.4V7L12 4z" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2"/>
-                <path d="M9 12l2.5 2.5 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <div style={{ width: 1, height: 22, background: 'rgba(79,125,243,0.4)' }} />
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span>{starting ? step === 'pkce' ? 'Generating PKCE...' : 'Redirecting...' : 'Sign in with Agent ID'}</span>
-                <span style={{ fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.45)' }}>Powered by getagent.id</span>
-              </div>
-            </button>
+            {/* The real button — uses the official SignInWithAgentID component */}
+            <SignInWithAgentID
+              clientId={DEMO_CLIENT_ID}
+              redirectUri={window.location.origin + CALLBACK_PATH}
+              scopes={['read', 'agents:read']}
+              state={pkce?.state}
+              codeChallenge={pkce?.codeChallenge}
+              codeChallengeMethod="S256"
+              disabled={!pkce}
+              size="lg"
+              fullWidth
+            />
 
             {!user && (
               <p style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 14 }}>
