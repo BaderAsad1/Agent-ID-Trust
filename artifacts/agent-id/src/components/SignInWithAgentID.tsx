@@ -11,7 +11,7 @@
  */
 import { useMemo } from 'react';
 
-const AGENTID_BASE = 'https://getagent.id';
+const AGENTID_BASE = typeof window !== 'undefined' ? window.location.origin : 'https://getagent.id';
 
 export interface SignInWithAgentIDProps {
   clientId: string;
@@ -28,8 +28,10 @@ export interface SignInWithAgentIDProps {
   onClick?: () => void;
   /** Show "Powered by getagent.id" subtitle. Default: true */
   showBranding?: boolean;
-  /** Override the Agent ID base URL (useful for self-hosted or staging). Default: https://getagent.id */
+  /** Override the Agent ID base URL (useful for self-hosted or staging). Default: current origin */
   baseUrl?: string;
+  /** Stretch button to fill its container. Default: false */
+  fullWidth?: boolean;
 }
 
 export function buildAgentIDAuthUrl(params: {
@@ -119,6 +121,7 @@ export function SignInWithAgentID({
   onClick,
   showBranding = true,
   baseUrl,
+  fullWidth = false,
 }: SignInWithAgentIDProps) {
   const authUrl = useMemo(() => buildAgentIDAuthUrl({ clientId, redirectUri, scopes, state, codeChallenge, codeChallengeMethod, agentId, baseUrl }), [clientId, redirectUri, scopes, state, codeChallenge, codeChallengeMethod, agentId, baseUrl]);
 
@@ -135,7 +138,8 @@ export function SignInWithAgentID({
     <>
       <style>{`
         .agentid-btn {
-          display: inline-flex;
+          display: ${fullWidth ? 'flex' : 'inline-flex'};
+          width: ${fullWidth ? '100%' : 'auto'};
           align-items: center;
           justify-content: center;
           gap: ${sz.gap}px;
