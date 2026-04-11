@@ -73,6 +73,13 @@ const revokeSchema = z.object({
   client_secret: z.string().optional(),
 });
 
+const introspectSchema = z.object({
+  token: z.string().min(1),
+  token_type_hint: z.enum(["access_token", "refresh_token"]).optional(),
+  client_id: z.string().min(1).optional(),
+  client_secret: z.string().optional(),
+});
+
 // Hardcoded signin client — lets users sign into the platform itself using
 // their own Agent ID (Sign in with Agent ID on the sign-in page).
 // redirect_uri is validated as ending in /api/auth/agentid/callback.
@@ -305,7 +312,7 @@ router.post("/token", registrationRateLimit, async (req: Request, res: Response,
       }
 
       const result = await exchangeAuthorizationCode(code, client_id, redirect_uri, code_verifier);
-      res.json(result);
+      res.set("Cache-Control", "no-store").json(result);
     } else if (grantType === "refresh_token") {
       const parsed = tokenRefreshSchema.safeParse(req.body);
       if (!parsed.success) throw new AppError(400, "invalid_request", "Invalid refresh token request");
@@ -326,7 +333,7 @@ router.post("/token", registrationRateLimit, async (req: Request, res: Response,
       }
 
       const result = await refreshAccessToken(refresh_token, client_id);
-      res.json(result);
+      res.set("Cache-Control", "no-store").json(result);
     } else if (grantType === "urn:agentid:grant-type:signed-assertion") {
       const parsed = tokenAssertionSchema.safeParse(req.body);
       if (!parsed.success) throw new AppError(400, "invalid_request", "Invalid assertion token request");
@@ -356,7 +363,7 @@ router.post("/token", registrationRateLimit, async (req: Request, res: Response,
       }
 
       const result = await signedAssertionGrant(agent_id, client_id, scopes, assertion);
-      res.json(result);
+      res.set("Cache-Control", "no-store").json(result);
     } else {
       throw new AppError(400, "unsupported_grant_type", `Grant type '${grantType}' is not supported. Supported: authorization_code, refresh_token, urn:agentid:grant-type:signed-assertion`);
     }
@@ -480,6 +487,75 @@ router.post("/userinfo", async (req: Request, res: Response, next: NextFunction)
       iat: info.iat, exp: info.exp, trust_context: info.trust_context,
     });
   } catch (err) { next(err); }
+});
+
+/**
+ * POST /oauth/introspect  (RFC 7662)
+ *
+ * Allows resource servers to validate an access token and retrieve its metadata.
+ * Requires client authentication (client_id + client_secret in body, or Basic auth).
+ * Returns { active: false } for any invalid/expired/revoked token — never leaks why.
+ */
+router.post("/introspect", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Client authentication: Basic auth header or client_id/client_secret in body
+    let callerClientId: string | undefined;
+    let callerClientSecret: string | undefined;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Basic ")) {
+      const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf8");
+      const colonIdx = decoded.indexOf(":");
+      if (colonIdx > 0) {
+        callerClientId    = decoded.slice(0, colonIdx);
+        callerClientSecret = decoded.slice(colonIdx + 1);
+      }
+    }
+    callerClientId    ??= req.body.client_id as string | undefined;
+    callerClientSecret ??= req.body.client_secret as string | undefined;
+
+    if (!callerClientId) {
+      res.status(401)
+        .set("WWW-Authenticate", 'Basic realm="agentid-introspection"')
+        .json({ error: "invalid_client", error_description: "Client authentication is required to use token introspection" });
+      return;
+    }
+
+    // Validate caller client credentials
+    await validateClientSecret(callerClientId, callerClientSecret);
+
+    const parsed = introspectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      // RFC 7662 §2.2: invalid requests → active: false (never error out)
+      res.set("Cache-Control", "no-store").json({ active: false });
+      return;
+    }
+
+    const info = await introspectOAuthToken(parsed.data.token);
+
+    if (!info.active) {
+      res.set("Cache-Control", "no-store").json({ active: false });
+      return;
+    }
+
+    // RFC 7662 §2.2 standard response + Agent ID extensions
+    res.set("Cache-Control", "no-store").json({
+      active:               true,
+      scope:                info.scope,
+      client_id:            info.client_id,
+      sub:                  info.sub,
+      exp:                  info.exp,
+      iat:                  info.iat,
+      token_type:           "Bearer",
+      // Agent ID trust extensions
+      trust_tier:           info.trust_tier,
+      verification_status:  info.verification_status,
+      owner_type:           info.owner_type,
+      trust_context:        info.trust_context,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.post("/revoke", async (req: Request, res: Response, next: NextFunction) => {

@@ -179,7 +179,7 @@ export async function exchangeAuthorizationCode(
   clientId: string,
   redirectUri: string | undefined,
   codeVerifier: string | undefined,
-): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string }> {
+): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string; scope: string }> {
   const authCode = await db.query.oauthAuthorizationCodesTable.findFirst({
     where: and(
       eq(oauthAuthorizationCodesTable.code, code),
@@ -226,7 +226,7 @@ export async function signedAssertionGrant(
   clientId: string,
   scopes: string[],
   assertionJwt: string,
-): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string }> {
+): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string; scope: string }> {
   const parts = assertionJwt.split(".");
   if (parts.length !== 3) throw new Error("invalid_grant: malformed assertion JWT");
 
@@ -319,7 +319,7 @@ export async function issueTokenPair(
   clientId: string | null,
   scopes: string[],
   grantType: string,
-): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string }> {
+): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string; scope: string }> {
   const agent = await db.query.agentsTable.findFirst({
     where: eq(agentsTable.id, agentId),
   });
@@ -449,6 +449,7 @@ export async function issueTokenPair(
     refresh_token: refreshToken,
     expires_in: Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
     token_type: "Bearer",
+    scope: scopes.join(" "),  // RFC 6749 §5.1
   };
 }
 
@@ -460,18 +461,47 @@ export async function issueTokenPair(
 export async function refreshAccessToken(
   refreshToken: string,
   clientId: string,
-): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string }> {
+): Promise<{ access_token: string; refresh_token: string; expires_in: number; token_type: string; scope: string }> {
   const hash = hashToken(refreshToken);
 
+  // Fetch regardless of revocation status — needed for reuse detection.
   const tokenRecord = await db.query.oauthTokensTable.findFirst({
-    where: and(
-      eq(oauthTokensTable.refreshTokenHash, hash),
-      isNull(oauthTokensTable.revokedAt),
-    ),
+    where: eq(oauthTokensTable.refreshTokenHash, hash),
   });
 
   if (!tokenRecord) {
-    throw new Error("invalid_grant: Refresh token not found or already revoked");
+    throw new Error("invalid_grant: Refresh token not found");
+  }
+
+  // Refresh token reuse detection (OAuth 2.0 Security BCP §4.14).
+  // If this token was already rotated and someone is replaying it, it indicates
+  // the token may have been stolen. Revoke all active tokens for this agent+client
+  // pair to limit the blast radius.
+  if (tokenRecord.revokedAt) {
+    if (tokenRecord.revokedReason === "token_rotated") {
+      const familyWhere = tokenRecord.clientId
+        ? and(
+            eq(oauthTokensTable.agentId, tokenRecord.agentId),
+            eq(oauthTokensTable.clientId, tokenRecord.clientId),
+            isNull(oauthTokensTable.revokedAt),
+          )
+        : and(
+            eq(oauthTokensTable.agentId, tokenRecord.agentId),
+            isNull(oauthTokensTable.revokedAt),
+          );
+
+      await db.update(oauthTokensTable)
+        .set({ revokedAt: new Date(), revokedReason: "family_compromised" })
+        .where(familyWhere!);
+
+      await writeAuditEvent("system", tokenRecord.agentId, "auth.token.family_compromised", "token", tokenRecord.tokenId, {
+        tokenId: tokenRecord.tokenId,
+        clientId: tokenRecord.clientId,
+        signal: "refresh_token_reuse_detected",
+        description: "Previously rotated refresh token was replayed — possible token theft. All active sessions for this agent+client revoked.",
+      });
+    }
+    throw new Error("invalid_grant: Refresh token already revoked");
   }
 
   if (tokenRecord.clientId && tokenRecord.clientId !== clientId) {
@@ -482,7 +512,7 @@ export async function refreshAccessToken(
     throw new Error("invalid_grant: Refresh token expired");
   }
 
-  // Atomically rotate: revoke old record before issuing new pair
+  // Atomically rotate: revoke old record before issuing new pair.
   await db.update(oauthTokensTable)
     .set({ revokedAt: new Date(), revokedReason: "token_rotated" })
     .where(eq(oauthTokensTable.id, tokenRecord.id));

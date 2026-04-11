@@ -1,8 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 
 const BASE = import.meta.env.BASE_URL || '/';
+
+// ── Consent persistence (client-side, 30-day TTL) ────────────────────────────
+// Stores the fact that a user already approved client+agent+scopes so the
+// consent screen can be skipped on subsequent OAuth flows for the same app.
+
+function consentKey(clientId: string, agentId: string, scopeStr: string) {
+  return `agentid_consent::${clientId}::${agentId}::${scopeStr}`;
+}
+
+function hasStoredConsent(clientId: string, agentId: string, scopeStr: string): boolean {
+  try {
+    const raw = localStorage.getItem(consentKey(clientId, agentId, scopeStr));
+    if (!raw) return false;
+    const { expiresAt } = JSON.parse(raw) as { expiresAt: number };
+    return Date.now() < expiresAt;
+  } catch {
+    return false;
+  }
+}
+
+function storeConsent(clientId: string, agentId: string, scopeStr: string) {
+  try {
+    const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
+    localStorage.setItem(consentKey(clientId, agentId, scopeStr), JSON.stringify({ expiresAt }));
+  } catch { /* storage quota or private-browsing — silently skip */ }
+}
+
+function clearConsent(clientId: string, agentId: string, scopeStr: string) {
+  try {
+    localStorage.removeItem(consentKey(clientId, agentId, scopeStr));
+  } catch { /* ignore */ }
+}
 
 const SCOPE_META: Record<string, { label: string; desc: string; icon: string; risk: 'low' | 'medium' | 'high' }> = {
   'read':          { label: 'Read profile',    desc: 'View your agent profile and public data', icon: '○', risk: 'low' },
@@ -50,6 +82,8 @@ export function Authorize() {
   const [selectedAgentId, setSelectedAgentId] = useState(preselectedAgentId);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState('');
+  const [rememberConsent, setRememberConsent] = useState(false);
+  const autoApproveAttempted = useRef(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -65,10 +99,67 @@ export function Authorize() {
     }
   }, [agents, selectedAgentId]);
 
+  // Auto-approve when stored consent exists for this client+agent+scope combination.
+  useEffect(() => {
+    if (autoApproveAttempted.current) return;
+    if (!user || !selectedAgentId || !clientId || !redirectUri) return;
+    if (!hasStoredConsent(clientId, selectedAgentId, scopeStr)) return;
+
+    autoApproveAttempted.current = true;
+    setApproving(true);
+
+    const endpoint = `${BASE}api/oauth/authorize/approve`.replace(/\/\//g, '/');
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        client_id: clientId,
+        agent_id: selectedAgentId,
+        redirect_uri: redirectUri,
+        scope: scopeStr,
+        state,
+        code_challenge: codeChallenge || undefined,
+        code_challenge_method: codeChallenge ? codeChallengeMethod : undefined,
+      }),
+    })
+      .then(r => r.json().then(data => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok) {
+          window.location.href = data.redirect_url;
+        } else {
+          // Consent may be stale (agent revoked, scopes changed) — clear it and show screen
+          clearConsent(clientId, selectedAgentId, scopeStr);
+          setError(data.message || data.error || 'Auto-authorization failed. Please review and authorize manually.');
+          autoApproveAttempted.current = false;
+          setApproving(false);
+        }
+      })
+      .catch(() => {
+        autoApproveAttempted.current = false;
+        setApproving(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, selectedAgentId]);
+
   if (loading || !user) {
     return (
       <div style={fullscreenCenter}>
         <div style={spinner} />
+      </div>
+    );
+  }
+
+  // Auto-approving: show minimal loading state while the silent POST is in flight
+  if (approving && autoApproveAttempted.current && !error) {
+    return (
+      <div style={fullscreenCenter}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={spinner} />
+          <p style={{ marginTop: 16, fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
+            Authorizing as previously approved…
+          </p>
+        </div>
       </div>
     );
   }
@@ -124,6 +215,9 @@ export function Authorize() {
       if (!res.ok) {
         setError(data.message || data.error || 'Authorization failed. Please try again.');
         return;
+      }
+      if (rememberConsent) {
+        storeConsent(clientId, selectedAgentId, scopeStr);
       }
       window.location.href = data.redirect_url;
     } catch {
@@ -317,6 +411,30 @@ export function Authorize() {
               </div>
             )}
 
+            {/* Remember consent */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14, cursor: 'pointer', userSelect: 'none' }}>
+              <div
+                onClick={() => setRememberConsent(v => !v)}
+                style={{
+                  width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                  background: rememberConsent ? 'rgba(79,125,243,0.9)' : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${rememberConsent ? 'rgba(79,125,243,0.8)' : 'rgba(255,255,255,0.14)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+              >
+                {rememberConsent && (
+                  <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                    <path d="M1 3.5l2.5 2.5 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+              <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+                Remember for 30 days — skip this screen for{' '}
+                <span style={{ color: 'rgba(255,255,255,0.6)' }}>{clientName}</span>
+              </span>
+            </label>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
                 className="btn-approve"
@@ -360,7 +478,7 @@ export function Authorize() {
             <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center', lineHeight: 1.6 }}>
-                Secured by <strong style={{ color: 'rgba(79,125,243,0.5)' }}>Agent ID</strong> · You can revoke access at any time from your dashboard
+                Secured by <strong style={{ color: 'rgba(79,125,243,0.5)' }}>Agent ID</strong> · Revoke access at any time from your dashboard
               </p>
             </div>
           </div>
