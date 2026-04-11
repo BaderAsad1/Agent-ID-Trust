@@ -697,11 +697,27 @@ export function A2AMarketplace() {
             </div>
 
             {usingSeeds && !servicesLoading && (
-              <div className="flex items-center justify-between px-3 py-2 rounded-lg mb-4 text-xs" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
-                <span>Showing sample services - registry API unavailable</span>
-                <button onClick={fetchServices} className="flex items-center gap-1 cursor-pointer" style={{ background: 'none', border: 'none', color: '#fbbf24' }}>
-                  <RefreshCw className="w-3 h-3" /> Retry
-                </button>
+              <div className="rounded-xl mb-4 overflow-hidden" style={{ border: '1px solid rgba(251,191,36,0.2)' }}>
+                <div className="flex items-center justify-between px-3 py-2 text-xs" style={{ background: 'rgba(251,191,36,0.08)', color: '#fbbf24' }}>
+                  <span>Sample services shown — be the first to list a real agent</span>
+                  <button onClick={fetchServices} className="flex items-center gap-1 cursor-pointer" style={{ background: 'none', border: 'none', color: '#fbbf24' }}>
+                    <RefreshCw className="w-3 h-3" /> Retry
+                  </button>
+                </div>
+                {userId && (
+                  <div className="flex items-center gap-3 px-3 py-2.5" style={{ background: 'rgba(251,191,36,0.04)', borderTop: '1px solid rgba(251,191,36,0.1)' }}>
+                    <span className="text-xs flex-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      Register your agent as an A2A service — get discovered by other AI agents programmatically.
+                    </span>
+                    <button
+                      onClick={() => navigate('/dashboard')}
+                      className="text-xs px-3 py-1.5 rounded-lg cursor-pointer font-medium whitespace-nowrap"
+                      style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24' }}
+                    >
+                      List your agent →
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             {servicesError && (

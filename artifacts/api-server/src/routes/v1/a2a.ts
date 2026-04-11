@@ -23,13 +23,70 @@ import {
   agentSpendingRulesTable,
   agentActivityLogTable,
   a2aPayoutQueueTable,
+  a2aServiceListingsTable,
   type MarketplaceOrder,
+  type A2AServiceListing,
 } from "@workspace/db/schema";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { logger } from "../../middlewares/request-logger";
 import { env } from "../../lib/env";
 
 const PLATFORM_FEE_RATE = 0.10;
+
+// Transforms raw DB row → frontend A2ARegistryService shape
+function shapeService(
+  row: A2AServiceListing,
+  agentHandle: string | null,
+) {
+  const cap = row.capabilitySchema as {
+    inputTypes?: string[];
+    outputTypes?: string[];
+    sampleInput?: Record<string, unknown>;
+    sampleOutput?: Record<string, unknown>;
+  } | null;
+
+  const pricingAmount =
+    row.pricingModel === "per_call"   ? (row.pricePerCallUsdc   ?? "0.01") :
+    row.pricingModel === "per_token"  ? (row.pricePerTokenUsdc  ?? "0.0001") :
+    row.pricingModel === "per_second" ? (row.pricePerSecondUsdc ?? "0.001") :
+    "0.01";
+
+  const latencySla = row.latencySlaMs
+    ? (row.latencySlaMs < 1000 ? `< ${row.latencySlaMs}ms` : `< ${(row.latencySlaMs / 1000).toFixed(1)}s`)
+    : "varies";
+
+  const capabilities: string[] = [
+    ...(Array.isArray(row.tags) ? row.tags : []),
+    ...(cap?.inputTypes ?? []),
+  ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 6);
+
+  const handle = agentHandle
+    ? `${agentHandle}.agent.getagent.id`
+    : `${row.id.slice(0, 8)}.agent.getagent.id`;
+
+  return {
+    id: row.id,
+    name: row.name,
+    handle,
+    description: row.description ?? "",
+    capabilityType: row.capabilityType,
+    capabilities: capabilities.length > 0 ? capabilities : [row.capabilityType],
+    pricing: {
+      model: row.pricingModel as "per_call" | "per_token" | "per_second",
+      amount: String(pricingAmount),
+      currency: "USDC" as const,
+    },
+    latencySla,
+    availability: row.successRate ? `${Number(row.successRate).toFixed(1)}%` : "99.5%",
+    callSchema: cap ?? {},
+    exampleRequest: cap?.sampleInput ?? {},
+    exampleResponse: cap?.sampleOutput ?? {},
+    totalCalls: row.totalCalls,
+    successRate: row.successRate ? Number(row.successRate) : 99.5,
+    agentId: row.agentId,
+    status: row.status,
+  };
+}
 
 function getA2AHmacKey(): string {
   const secret = env().ACTIVITY_HMAC_SECRET;
@@ -87,7 +144,20 @@ router.get("/services", async (req, res, next) => {
       offset: req.query.offset ? Number(req.query.offset) : undefined,
     };
     const result = await listA2AServices(filters);
-    res.json(result);
+
+    // Join agent handles then reshape to frontend contract
+    const agentIds = [...new Set(result.services.map(s => s.agentId))];
+    const agentRows = agentIds.length > 0
+      ? await db.select({ id: agentsTable.id, handle: agentsTable.handle })
+          .from(agentsTable)
+          .where(inArray(agentsTable.id, agentIds))
+      : [];
+    const handleMap = new Map(agentRows.map(a => [a.id, a.handle]));
+
+    res.json({
+      services: result.services.map(s => shapeService(s, handleMap.get(s.agentId) ?? null)),
+      total: result.total,
+    });
   } catch (err) {
     next(err);
   }
@@ -97,7 +167,9 @@ router.get("/services/:serviceId", validateUuidParam("serviceId"), async (req, r
   try {
     const service = await getA2AServiceById(req.params.serviceId as string);
     if (!service) throw new AppError(404, "NOT_FOUND", "A2A service not found");
-    res.json(service);
+    const [agentRow] = await db.select({ id: agentsTable.id, handle: agentsTable.handle })
+      .from(agentsTable).where(eq(agentsTable.id, service.agentId)).limit(1);
+    res.json(shapeService(service, agentRow?.handle ?? null));
   } catch (err) {
     next(err);
   }

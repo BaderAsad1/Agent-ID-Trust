@@ -338,6 +338,15 @@ export const api = {
         const qs = params ? "?" + new URLSearchParams(params).toString() : "";
         return request<{ services: A2ARegistryService[] }>(`/a2a/services${qs}`);
       },
+      registerService: (data: {
+        agentId: string;
+        name: string;
+        description?: string;
+        capabilityType: string;
+        pricingModel: 'per_call' | 'per_token' | 'per_second';
+        pricePerCallUsdc?: string;
+        tags?: string[];
+      }) => request<A2ARegistryService>('/a2a/services', { method: 'POST', body: JSON.stringify(data) }),
     },
   },
 

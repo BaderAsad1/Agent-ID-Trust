@@ -44,6 +44,8 @@ import { DocsBestPractices } from '@/pages/DocsBestPractices';
 import { DocsOrganizations } from '@/pages/DocsOrganizations';
 import { DocsTrust } from '@/pages/DocsTrust';
 import { DocsOrders } from '@/pages/DocsOrders';
+import { DemoApp } from '@/pages/DemoApp';
+import { DemoCallback } from '@/pages/DemoCallback';
 import type { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -148,6 +150,8 @@ function AppContent() {
         <Route path="/docs/organizations" element={<DocsOrganizations />} />
         <Route path="/docs/trust" element={<DocsTrust />} />
         <Route path="/docs/orders" element={<DocsOrders />} />
+        <Route path="/demo/callback" element={<DemoCallback />} />
+        <Route path="/demo" element={<DemoApp />} />
         <Route path="/dashboard" element={<DashboardRoute><Dashboard /></DashboardRoute>} />
         <Route path="/dashboard/*" element={<DashboardRoute><Dashboard /></DashboardRoute>} />
         <Route path="/mail" element={<ProtectedRoute><Mail /></ProtectedRoute>} />
