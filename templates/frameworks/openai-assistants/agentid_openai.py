@@ -24,16 +24,11 @@ from agentid import AgentID
 
 
 @lru_cache(maxsize=1)
-def _agentid_client() -> AgentID:
-    return AgentID(
-        agent_key=os.environ["AGENTID_API_KEY"],
-        base_url=os.environ.get("AGENTID_BASE_URL", "https://getagent.id"),
-    )
+def _agent() -> AgentID:
+    """Singleton AgentID instance, initialized via from_env()."""
+    return AgentID.from_env()
 
 
-def _run_cold_start(persist_dir: str = ".agentid") -> dict[str, Any]:
-    agent_id = os.environ["AGENTID_AGENT_ID"]
-    return _agentid_client().cold_start(agent_id, persist_dir=persist_dir)
 
 
 # ── Chat Completions API ──────────────────────────────────────────────────────
@@ -60,8 +55,7 @@ def chat_with_identity(
     """
     from openai import OpenAI
 
-    result = _run_cold_start()
-    system_content = result["system_context"]
+    system_content = _agent().system_context
     if extra_system:
         system_content = f"{system_content}\n\n{extra_system}"
 
@@ -96,8 +90,7 @@ def build_messages_with_identity(
             messages=messages,
         )
     """
-    result = _run_cold_start()
-    system_content = result["system_context"]
+    system_content = _agent().system_context
     if extra_system:
         system_content = f"{system_content}\n\n{extra_system}"
 
@@ -136,8 +129,7 @@ def create_assistant_with_identity(
     """
     from openai import OpenAI
 
-    result = _run_cold_start()
-    system_context = result["system_context"]
+    system_context = _agent().system_context
     instructions = system_context
     if base_instructions:
         instructions = f"{system_context}\n\n{base_instructions}"
@@ -164,7 +156,6 @@ def update_assistant_identity(assistant_id: str) -> None:
     """
     from openai import OpenAI
 
-    result = _run_cold_start()
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     assistant = client.beta.assistants.retrieve(assistant_id)
     existing = assistant.instructions or ""
@@ -175,7 +166,7 @@ def update_assistant_identity(assistant_id: str) -> None:
         existing = existing[existing.find("\n\n", existing.find(agentid_marker)):].lstrip()
 
     new_instructions = (
-        f"{result['system_context']}\n\n{existing}".strip()
+        f"{_agent().system_context}\n\n{existing}".strip()
     )
     client.beta.assistants.update(assistant_id, instructions=new_instructions)
 
@@ -197,8 +188,7 @@ def stream_with_identity(
     """
     from openai import OpenAI
 
-    result = _run_cold_start()
-    system_content = result["system_context"]
+    system_content = _agent().system_context
     if extra_system:
         system_content = f"{system_content}\n\n{extra_system}"
 
@@ -218,7 +208,6 @@ def stream_with_identity(
 # ── Example ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    result = _run_cold_start()
-    print(f"Identity loaded: agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={result['stale']}")
+    print(f"Identity loaded: agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={getattr(_agent(), '_cold_start_result', {}).get('stale', False)}")
     reply = chat_with_identity("Introduce yourself briefly.")
     print(f"\nAgent response:\n{reply}")

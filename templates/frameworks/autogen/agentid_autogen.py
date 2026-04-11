@@ -26,16 +26,11 @@ from agentid import AgentID
 
 
 @lru_cache(maxsize=1)
-def _client() -> AgentID:
-    return AgentID(
-        agent_key=os.environ["AGENTID_API_KEY"],
-        base_url=os.environ.get("AGENTID_BASE_URL", "https://getagent.id"),
-    )
+def _agent() -> AgentID:
+    """Singleton AgentID instance, initialized via from_env()."""
+    return AgentID.from_env()
 
 
-def _cold_start(persist_dir: str = ".agentid") -> dict[str, Any]:
-    agent_id = os.environ["AGENTID_AGENT_ID"]
-    return _client().cold_start(agent_id, persist_dir=persist_dir)
 
 
 # ── AutoGen 0.2.x ─────────────────────────────────────────────────────────────
@@ -54,8 +49,7 @@ def build_system_message(base_message: str = "") -> str:
             llm_config={"model": "gpt-4o", "api_key": os.environ["OPENAI_API_KEY"]},
         )
     """
-    result = _cold_start()
-    identity = result["system_context"]
+    identity = _agent().system_context
     if base_message:
         return f"{identity}\n\n{base_message}"
     return identity
@@ -145,8 +139,7 @@ def patch_system_prompt_into_model_context(
     """
     from autogen_core.models import SystemMessage
 
-    result = _cold_start()
-    identity = result["system_context"]
+    identity = _agent().system_context
     if base_message:
         identity = f"{identity}\n\n{base_message}"
 
@@ -219,7 +212,6 @@ def create_group_chat_with_identity(
 # ── Example ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    result = _cold_start()
-    print(f"Identity loaded: agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={result['stale']}")
+    print(f"Identity loaded: agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={getattr(_agent(), '_cold_start_result', {}).get('stale', False)}")
     print("\nSystem message preview (first 300 chars):")
     print(build_system_message()[:300])

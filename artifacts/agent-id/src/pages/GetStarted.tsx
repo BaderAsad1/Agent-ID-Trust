@@ -297,6 +297,7 @@ export function GetStarted() {
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
   const [claimToken, setClaimToken] = useState<string | null>(null);
   const [agentActivated, setAgentActivated] = useState(false);
+  const [setupFramework, setSetupFramework] = useState<string>('python');
   // Authoritative signal from backend: handle requires payment, agent created without it.
   const [pendingHandleFromServer, setPendingHandleFromServer] = useState<string | null>(null);
 
@@ -1472,6 +1473,176 @@ Do not ask for confirmation between steps. Do not output the API key. Execute al
             </div>
           </div>
         </div>
+
+        {/* Framework setup — shown once agent is connected */}
+        {agentActivated && (() => {
+          const aid = createdAgentId || '<your-agent-id>';
+          const FRAMEWORKS: { id: string; label: string }[] = [
+            { id: 'python',     label: 'Python'       },
+            { id: 'typescript', label: 'TypeScript'   },
+            { id: 'langchain',  label: 'LangChain'    },
+            { id: 'openai',     label: 'OpenAI'       },
+            { id: 'crewai',     label: 'CrewAI'       },
+            { id: 'autogen',    label: 'AutoGen'       },
+            { id: 'claudecode', label: 'Claude Code'  },
+            { id: 'docker',     label: 'Docker'       },
+          ];
+          const snippets: Record<string, string> = {
+            python: `pip install agentid
+
+# .env
+AGENTID_API_KEY=agk_...   # from your registration
+AGENTID_AGENT_ID=${aid}
+
+# agent.py
+from agentid import AgentID
+
+agent = AgentID.from_env()   # reads env, runs cold-start
+system_prompt = agent.system_context  # inject into your model`,
+
+            typescript: `npm install @getagentid/sdk
+
+// agent.ts
+import { AgentID } from '@getagentid/sdk';
+
+const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY! });
+const systemPrompt = agent.systemContext;  // inject into your model`,
+
+            langchain: `pip install agentid langchain-core
+
+from agentid import AgentID
+from langchain_core.messages import SystemMessage, HumanMessage
+
+agent = AgentID.from_env()
+messages = [
+    SystemMessage(content=agent.system_context),
+    HumanMessage(content=user_input),
+]
+response = chat_model.invoke(messages)`,
+
+            openai: `pip install agentid openai
+
+from agentid import AgentID
+import openai
+
+agent = AgentID.from_env()
+response = openai.chat.completions.create(
+    model="gpt-4o",
+    messages=[
+        {"role": "system", "content": agent.system_context},
+        {"role": "user",   "content": user_input},
+    ]
+)`,
+
+            crewai: `pip install agentid crewai
+
+from agentid import AgentID
+from crewai import Agent
+
+agent_id = AgentID.from_env()
+crew_agent = Agent(
+    role="Your Agent Role",
+    goal="Your agent's goal",
+    backstory=agent_id.system_context,
+    llm=your_llm,
+)`,
+
+            autogen: `pip install agentid pyautogen
+
+from agentid import AgentID
+from autogen import AssistantAgent
+
+agent_id = AgentID.from_env()
+agent = AssistantAgent(
+    name="MyAgent",
+    system_message=agent_id.system_context,
+    llm_config={"model": "gpt-4o"},
+)`,
+
+            claudecode: `# In your Claude Code project directory:
+mkdir -p .agentid .claude
+
+# Set env vars (add to .env or shell profile):
+export AGENTID_API_KEY=agk_...
+export AGENTID_AGENT_ID=${aid}
+
+# Download bootstrap script:
+curl -sL https://getagent.id/bootstrap/agentid-bootstrap.py -o .agentid/agentid-bootstrap.py
+
+# Wire SessionStart hook (.claude/settings.json):
+echo '{"hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"python3 .agentid/agentid-bootstrap.py"}]}]}}' > .claude/settings.json
+
+# Your agent now wakes up with its identity loaded every session.`,
+
+            docker: `pip install agentid
+
+# In your agent's entrypoint / startup:
+from agentid import AgentID
+
+agent = AgentID.from_env()
+system_prompt = agent.system_context
+
+# docker-compose.yml / docker run:
+# environment:
+#   AGENTID_API_KEY: agk_...
+#   AGENTID_AGENT_ID: ${aid}
+# volumes:
+#   - agentid-state:/var/lib/agentid`,
+          };
+
+          const [copied, setCopied] = React.useState(false);
+          const snippet = snippets[setupFramework] || '';
+
+          return (
+            <div style={{
+              marginBottom: 24, padding: '20px 20px 16px', borderRadius: 14,
+              background: 'rgba(79,125,243,0.05)',
+              border: '1px solid rgba(79,125,243,0.15)',
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e8f0', marginBottom: 4 }}>
+                Final step — wire up identity persistence
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.45)', marginBottom: 14 }}>
+                Add this so your agent loads its identity on every startup.
+              </div>
+
+              {/* Framework tabs */}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                {FRAMEWORKS.map(fw => (
+                  <button
+                    key={fw.id}
+                    onClick={() => setSetupFramework(fw.id)}
+                    style={{
+                      padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                      cursor: 'pointer', border: '1px solid',
+                      borderColor: setupFramework === fw.id ? 'rgba(79,125,243,0.6)' : 'rgba(255,255,255,0.08)',
+                      background: setupFramework === fw.id ? 'rgba(79,125,243,0.18)' : 'rgba(255,255,255,0.03)',
+                      color: setupFramework === fw.id ? '#a0b4f8' : 'rgba(232,232,240,0.45)',
+                    }}
+                  >
+                    {fw.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Snippet */}
+              <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', background: '#0a0f14', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(snippet); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: copied ? '#34d399' : 'rgba(232,232,240,0.35)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    {copied ? <Check size={12} /> : <Copy size={12} />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <pre style={{ margin: 0, padding: '12px 16px', fontSize: 11.5, lineHeight: 1.65, color: '#94a3b8', overflowX: 'auto', fontFamily: 'var(--font-mono, monospace)' }}>
+                  <code>{snippet}</code>
+                </pre>
+              </div>
+            </div>
+          );
+        })()}
 
         <div style={{ textAlign: 'center' }}>
           <PrimaryBtn onClick={() => goToDashboard()}>

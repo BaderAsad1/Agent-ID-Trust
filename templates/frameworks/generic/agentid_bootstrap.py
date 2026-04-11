@@ -23,38 +23,26 @@ from agentid import AgentID
 
 
 @lru_cache(maxsize=1)
-def client() -> AgentID:
-    return AgentID(
-        agent_key=os.environ["AGENTID_API_KEY"],
-        base_url=os.environ.get("AGENTID_BASE_URL", "https://getagent.id"),
-    )
+def _agent() -> AgentID:
+    """Singleton AgentID instance, initialized from env vars via from_env()."""
+    return AgentID.from_env()
 
 
 # ── The one function you need ─────────────────────────────────────────────────
 
-def load_identity(persist_dir: str = ".agentid") -> dict[str, Any]:
+def load_identity() -> AgentID:
     """
-    Cold-start the agent and return its identity context.
+    Cold-start the agent and return an initialized AgentID instance.
 
     Call this ONCE at process startup, before the first user turn.
-    Injects ``system_context`` into whatever passes for your system prompt.
+    Uses AGENTID_API_KEY and AGENTID_AGENT_ID environment variables.
 
-    Returns a dict with:
-        system_context  — the text to inject into your system prompt
-        prompt_block    — structured prompt block from Agent ID
-        heartbeat       — latest heartbeat response (or None on failure)
-        marketplace     — marketplace context if action required (or None)
-        bootstrap       — full bootstrap bundle (or None)
-        stale           — True if any network call failed (using cache)
-        stale_reasons   — list of failure descriptions
+    Access the system context via .system_context on the returned instance:
+
+        agent = load_identity()
+        system_prompt = agent.system_context  # inject this
     """
-    agent_id = os.environ.get("AGENTID_AGENT_ID", "")
-    if not agent_id:
-        raise RuntimeError(
-            "AGENTID_AGENT_ID environment variable is not set. "
-            "Set it to your agent's UUID."
-        )
-    return client().cold_start(agent_id, persist_dir=persist_dir)
+    return _agent()
 
 
 # ── Convenience wrappers ──────────────────────────────────────────────────────
@@ -67,7 +55,7 @@ def get_system_prompt(base_prompt: str = "") -> str:
         system_prompt = get_system_prompt("You are a helpful coding assistant.")
         # → pass to your model's system parameter
     """
-    identity = load_identity()["system_context"]
+    identity = _agent().system_context
     if base_prompt:
         return f"{identity}\n\n{base_prompt}"
     return identity
@@ -81,8 +69,9 @@ def get_marketplace_actions() -> list[dict[str, Any]]:
     Each entry: { action, order_id, role, priority, description }
     """
     agent_id = os.environ["AGENTID_AGENT_ID"]
-    ctx = client().get_marketplace_context(agent_id)
-    return client().get_next_marketplace_actions(agent_id, ctx)
+    a = _agent()
+    ctx = a.get_marketplace_context(agent_id)
+    return a.get_next_marketplace_actions(agent_id, ctx)
 
 
 def start_background_heartbeat(
@@ -106,7 +95,7 @@ def start_background_heartbeat(
         # → runs in background, your main thread continues
     """
     agent_id = os.environ["AGENTID_AGENT_ID"]
-    client().start_heartbeat_scheduler(
+    _agent().start_heartbeat_scheduler(
         agent_id,
         interval_seconds=interval_seconds,
         persist_dir=".agentid",
@@ -147,24 +136,26 @@ def export_to_env() -> None:
     Useful when spawning child processes that need the identity context
     without running their own cold start.
     """
-    result = load_identity()
-    os.environ["AGENTID_SYSTEM_CONTEXT"] = result["system_context"]
-    os.environ["AGENTID_STALE"] = "1" if result["stale"] else "0"
+    agent = _agent()
+    os.environ["AGENTID_SYSTEM_CONTEXT"] = agent.system_context
+    cold = getattr(agent, "_cold_start_result", {})
+    os.environ["AGENTID_STALE"] = "1" if cold.get("stale") else "0"
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     try:
-        result = load_identity()
+        agent = load_identity()
     except RuntimeError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Identity loaded: agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={result['stale']}")
+    cold = getattr(agent, "_cold_start_result", {})
+    print(f"Identity loaded: agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={cold.get('stale', False)}")
 
-    if result["stale"]:
-        print(f"  Stale reasons: {result['stale_reasons']}", file=sys.stderr)
+    if cold.get("stale"):
+        print(f"  Stale reasons: {cold.get('stale_reasons', [])}", file=sys.stderr)
 
     actions = get_marketplace_actions()
     if actions:
@@ -175,4 +166,4 @@ if __name__ == "__main__":
         print("\nNo pending marketplace actions.")
 
     print("\nSystem prompt preview:")
-    print(result["system_context"][:500])
+    print(agent.system_context[:500])

@@ -22,16 +22,11 @@ from agentid import AgentID
 
 
 @lru_cache(maxsize=1)
-def _client() -> AgentID:
-    return AgentID(
-        agent_key=os.environ["AGENTID_API_KEY"],
-        base_url=os.environ.get("AGENTID_BASE_URL", "https://getagent.id"),
-    )
+def _agent() -> AgentID:
+    """Singleton AgentID instance, initialized via from_env()."""
+    return AgentID.from_env()
 
 
-def _cold_start(persist_dir: str = ".agentid") -> dict[str, Any]:
-    agent_id = os.environ["AGENTID_AGENT_ID"]
-    return _client().cold_start(agent_id, persist_dir=persist_dir)
 
 
 # ── CrewAI helpers ────────────────────────────────────────────────────────────
@@ -51,8 +46,7 @@ def build_agent_backstory(base_backstory: str = "") -> str:
             llm=your_llm,
         )
     """
-    result = _cold_start()
-    identity_block = result["system_context"]
+    identity_block = _agent().system_context
     if base_backstory:
         return f"{identity_block}\n\n{base_backstory}"
     return identity_block
@@ -116,8 +110,8 @@ def create_marketplace_task(agent: Any) -> Any:
     from crewai import Task
 
     agent_id = os.environ["AGENTID_AGENT_ID"]
-    ctx = _client().get_marketplace_context(agent_id)
-    actions = _client().get_next_marketplace_actions(agent_id, ctx)
+    ctx = _agent().get_marketplace_context(agent_id)
+    actions = _agent().get_next_marketplace_actions(agent_id, ctx)
 
     if not actions:
         description = (
@@ -196,7 +190,6 @@ def create_identified_crew(
 # ── Example ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    result = _cold_start()
-    print(f"Identity loaded: agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={result['stale']}")
+    print(f"Identity loaded: agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={getattr(_agent(), '_cold_start_result', {}).get('stale', False)}")
     print("\nBackstory preview (first 300 chars):")
     print(build_agent_backstory()[:300])
