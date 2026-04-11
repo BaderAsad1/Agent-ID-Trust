@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { GitHub, Google, generateState, generateCodeVerifier } from "arctic";
 import crypto from "crypto";
 import { db } from "@workspace/db";
-import { usersTable, magicLinkTokensTable } from "@workspace/db/schema";
+import { usersTable, magicLinkTokensTable, agentsTable } from "@workspace/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   clearSession,
@@ -19,6 +19,7 @@ import { env } from "../lib/env";
 import { logger } from "../middlewares/request-logger";
 import { sendMagicLinkEmail } from "../services/email";
 import { magicLinkSendRateLimit } from "../middlewares/rate-limit";
+import { exchangeAuthorizationCode } from "../services/oauth";
 
 const router = Router();
 
@@ -450,6 +451,103 @@ router.get("/logout", async (req: Request, res: Response) => {
   if (sid) await deleteSession(sid);
   res.clearCookie(SESSION_COOKIE, { path: "/" });
   res.redirect("/");
+});
+
+// ── Sign in with Agent ID ─────────────────────────────────────────────────────
+// Uses our own OAuth server as the identity provider, so users who have a
+// registered agent can sign back into the platform using that agent's identity.
+
+router.get("/auth/agentid", async (req: Request, res: Response) => {
+  const baseUrl = getAppUrl(req);
+  const returnTo = getSafeReturnTo(req.query.returnTo);
+
+  const codeVerifier  = crypto.randomBytes(32).toString("base64url");
+  const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
+  const state         = crypto.randomBytes(16).toString("hex");
+
+  setOauthCookie(res, "agentid_code_verifier", codeVerifier);
+  setOauthCookie(res, "agentid_state",          state);
+  setOauthCookie(res, "oauth_return_to",         returnTo);
+
+  const callbackUri = `${baseUrl}/api/auth/agentid/callback`;
+  const params = new URLSearchParams({
+    response_type:         "code",
+    client_id:             "agclient_signin",
+    redirect_uri:          callbackUri,
+    scope:                 "read agents:read",
+    state,
+    code_challenge:        codeChallenge,
+    code_challenge_method: "S256",
+  });
+
+  res.redirect(`${baseUrl}/oauth/authorize?${params.toString()}`);
+});
+
+router.get("/auth/agentid/callback", async (req: Request, res: Response) => {
+  const baseUrl = getAppUrl(req);
+  const returnTo = getSafeReturnTo(req.cookies?.oauth_return_to);
+
+  const { code, state, error } = req.query;
+
+  if (error) {
+    logger.warn({ error }, "Agent ID sign-in: user denied or provider error");
+    res.redirect(`${baseUrl}/sign-in?error=oauth_failed`);
+    return;
+  }
+
+  const storedState    = req.cookies?.agentid_state;
+  const codeVerifier   = req.cookies?.agentid_code_verifier;
+
+  if (!code || !state || !storedState || state !== storedState || !codeVerifier) {
+    res.redirect(`${baseUrl}/sign-in?error=oauth_state_mismatch`);
+    return;
+  }
+
+  try {
+    const callbackUri   = `${baseUrl}/api/auth/agentid/callback`;
+    const tokenResult   = await exchangeAuthorizationCode(
+      String(code),
+      "agclient_signin",
+      callbackUri,
+      codeVerifier,
+    );
+
+    // Decode JWT (no verification needed — we just issued it) to get agent_id
+    const jwtPayload = JSON.parse(
+      Buffer.from(tokenResult.access_token.split(".")[1], "base64url").toString("utf-8"),
+    ) as Record<string, unknown>;
+
+    const agentId: string | undefined =
+      (jwtPayload.agent_id as string | undefined) ??
+      (typeof jwtPayload.sub === "string" ? jwtPayload.sub.split(":").pop() : undefined);
+
+    if (!agentId) throw new Error("token missing agent_id claim");
+
+    const agent = await db.query.agentsTable.findFirst({
+      where: eq(agentsTable.id, agentId),
+      columns: { id: true, userId: true, handle: true, displayName: true },
+    });
+
+    if (!agent?.userId) throw new Error("agent not found or has no owner");
+
+    const userRow = await db.query.usersTable.findFirst({
+      where: eq(usersTable.id, agent.userId),
+    });
+
+    if (!userRow) throw new Error("user not found");
+
+    const user = toSessionUser(userRow);
+    const sid  = await createSession({ user } satisfies SessionData);
+    setSessionCookie(res, sid);
+
+    res.clearCookie("agentid_state");
+    res.clearCookie("agentid_code_verifier");
+    res.clearCookie("oauth_return_to");
+    res.redirect(returnTo);
+  } catch (err) {
+    logger.error({ err }, "Agent ID sign-in callback error");
+    res.redirect(`${baseUrl}/sign-in?error=oauth_failed`);
+  }
 });
 
 export default router;

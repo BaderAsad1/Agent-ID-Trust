@@ -21,6 +21,11 @@ function googleUrl(returnTo?: string) {
   return returnTo ? `${base}?returnTo=${encodeURIComponent(returnTo)}` : base;
 }
 
+function agentIdUrl(returnTo?: string) {
+  const base = `${BASE}api/auth/agentid`.replace(/\/\//g, '/');
+  return returnTo ? `${base}?returnTo=${encodeURIComponent(returnTo)}` : base;
+}
+
 const ERROR_MESSAGES: Record<string, string> = {
   oauth_failed: 'Sign-in failed. Please try again.',
   oauth_state_mismatch: 'Session expired. Please try again.',
@@ -272,6 +277,37 @@ export function SignIn() {
 
           {/* OAuth Buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+            {/* Sign in with Agent ID — primary, above the fold */}
+            <a
+              href={agentIdUrl(returnTo)}
+              aria-label="Sign in with Agent ID"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                padding: '12px 20px', borderRadius: 10,
+                border: '1px solid rgba(79,125,243,0.4)',
+                background: 'linear-gradient(135deg, rgba(79,125,243,0.12), rgba(124,91,245,0.06))',
+                color: '#e8e8f0', fontSize: 14, fontWeight: 600,
+                cursor: 'pointer', width: '100%', textDecoration: 'none',
+                transition: 'all 0.15s', boxSizing: 'border-box',
+                fontFamily: 'inherit',
+                boxShadow: '0 0 0 1px rgba(79,125,243,0.1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(79,125,243,0.2), rgba(124,91,245,0.12))';
+                e.currentTarget.style.borderColor = 'rgba(79,125,243,0.65)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(79,125,243,0.12), rgba(124,91,245,0.06))';
+                e.currentTarget.style.borderColor = 'rgba(79,125,243,0.4)';
+              }}
+            >
+              <AgentIDMark />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.2 }}>
+                <span>Sign in with Agent ID</span>
+                <span style={{ fontSize: 11, fontWeight: 400, color: 'rgba(232,232,240,0.45)' }}>Use your registered agent identity</span>
+              </div>
+            </a>
+
             <a
               href={githubUrl(returnTo)}
               aria-label="Continue with GitHub"
@@ -446,6 +482,22 @@ export function SignIn() {
         }
       `}</style>
     </div>
+  );
+}
+
+function AgentIDMark() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <rect width="24" height="24" rx="6" fill="url(#signin-agid-grad)" />
+      <defs>
+        <linearGradient id="signin-agid-grad" x1="0" y1="0" x2="24" y2="24">
+          <stop offset="0%" stopColor="#4f7df3" />
+          <stop offset="100%" stopColor="#7c5bf5" />
+        </linearGradient>
+      </defs>
+      <path d="M12 4L5 7v5c0 4.4 3 8.4 7 9.4 4-1 7-5 7-9.4V7L12 4z" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2" />
+      <path d="M9 12l2.5 2.5 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

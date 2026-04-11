@@ -709,19 +709,65 @@ export function GetStarted() {
   }
 
   if (step === 'auth') {
+    const BASE = import.meta.env.BASE_URL || '/';
+    const gsReturnTo = `/get-started?intent=${intent ?? 'new'}`;
+    const agentIdSignInUrl = `${BASE}api/auth/agentid`.replace(/\/\//g, '/') + `?returnTo=${encodeURIComponent(gsReturnTo)}`;
     return (
       <div style={pageStyle}>
         <StepIndicator steps={['handle', 'activate']} current={0} />
-        <h1 style={titleStyle}>Create your account</h1>
+        <h1 style={titleStyle}>
+          {intent === 'new' ? 'Create your account' : 'Sign in to continue'}
+        </h1>
         <p style={subtitleStyle}>
           {intent === 'new'
-            ? 'Free account required to claim your agent handle and set up your identity.'
+            ? 'Free account required to register your agent.'
             : 'Sign in to connect your existing agent to your account.'}
         </p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+
+        {/* Sign in with Agent ID — hero option */}
+        <a
+          href={agentIdSignInUrl}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            width: '100%', maxWidth: 340, margin: '0 auto 12px',
+            padding: '14px 20px', borderRadius: 12,
+            border: '1px solid rgba(79,125,243,0.4)',
+            background: 'linear-gradient(135deg, rgba(79,125,243,0.12), rgba(124,91,245,0.06))',
+            color: '#e8e8f0', fontSize: 14, fontWeight: 600,
+            textDecoration: 'none', cursor: 'pointer',
+            boxSizing: 'border-box',
+            transition: 'all 0.15s',
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+            <rect width="24" height="24" rx="6" fill="url(#gs-agid-grad)" />
+            <defs>
+              <linearGradient id="gs-agid-grad" x1="0" y1="0" x2="24" y2="24">
+                <stop offset="0%" stopColor="#4f7df3" />
+                <stop offset="100%" stopColor="#7c5bf5" />
+              </linearGradient>
+            </defs>
+            <path d="M12 4L5 7v5c0 4.4 3 8.4 7 9.4 4-1 7-5 7-9.4V7L12 4z" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2" />
+            <path d="M9 12l2.5 2.5 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <div style={{ flex: 1, textAlign: 'left' }}>
+            <div>Sign in with Agent ID</div>
+            <div style={{ fontSize: 11, fontWeight: 400, color: 'rgba(232,232,240,0.45)', marginTop: 1 }}>
+              Already have an agent? Use its identity
+            </div>
+          </div>
+        </a>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, maxWidth: 340, margin: '0 auto 12px', width: '100%' }}>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
+          <span style={{ fontSize: 12, color: 'rgba(232,232,240,0.28)' }}>or</span>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', maxWidth: 340, margin: '0 auto' }}>
           <GhostBtn onClick={() => setStep('intent')}>Back</GhostBtn>
           <PrimaryBtn onClick={handleAuthContinue}>
-            Create free account <ArrowRight size={16} />
+            {intent === 'new' ? <>New account <ArrowRight size={15} /></> : <>Sign in <ArrowRight size={15} /></>}
           </PrimaryBtn>
         </div>
       </div>
