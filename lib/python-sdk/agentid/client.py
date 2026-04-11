@@ -141,6 +141,80 @@ class AgentID:
         cls._instance = instance
         return instance
 
+    @classmethod
+    def from_env(
+        cls,
+        *,
+        persist_dir: str = ".agentid",
+        base_url: str = DEFAULT_BASE_URL,
+    ) -> "AgentID":
+        """
+        Create an AgentID instance from environment variables and run cold-start.
+
+        Reads ``AGENTID_API_KEY`` and ``AGENTID_AGENT_ID`` from the environment,
+        runs the full cold-start sequence (heartbeat → prompt block → marketplace
+        context if needed), and exposes the result via :attr:`system_context`.
+
+        This is the **recommended one-call setup** for any Python agent:
+
+        Example::
+
+            from agentid import AgentID
+
+            agent = AgentID.from_env()
+            # inject agent.system_context into your system prompt — done.
+
+        Args:
+            persist_dir: Directory to write state files into (default: ``.agentid``).
+            base_url:    Override the API base URL.
+
+        Raises:
+            RuntimeError: If ``AGENTID_API_KEY`` or ``AGENTID_AGENT_ID`` is not set.
+        """
+        import os as _os
+
+        agent_key = _os.environ.get("AGENTID_API_KEY", "").strip()
+        agent_id  = _os.environ.get("AGENTID_AGENT_ID", "").strip()
+
+        if not agent_key:
+            raise RuntimeError(
+                "AGENTID_API_KEY environment variable is not set.\n"
+                "Set it to your agent-scoped API key (prefix: agk_)."
+            )
+        if not agent_id:
+            raise RuntimeError(
+                "AGENTID_AGENT_ID environment variable is not set.\n"
+                "Set it to your agent's UUID from getagent.id."
+            )
+
+        instance = cls(agent_key=agent_key, base_url=base_url)
+        result = instance.cold_start(agent_id, persist_dir=persist_dir)
+        instance._cold_start_result: Dict[str, Any] = result
+        return instance
+
+    @property
+    def system_context(self) -> str:
+        """
+        The agent's identity block, ready to inject into a system prompt.
+
+        Available after :meth:`from_env` or a manual :meth:`cold_start` call.
+        Returns an empty string if cold-start has not been run.
+
+        Example::
+
+            agent = AgentID.from_env()
+            response = anthropic_client.messages.create(
+                model="claude-opus-4-6",
+                system=agent.system_context,
+                messages=[{"role": "user", "content": user_input}],
+                max_tokens=1024,
+            )
+        """
+        result = getattr(self, "_cold_start_result", None)
+        if result:
+            return result.get("system_context", "")
+        return ""
+
     def _request(
         self,
         method: str,

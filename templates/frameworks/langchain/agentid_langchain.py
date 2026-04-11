@@ -29,21 +29,9 @@ from agentid import AgentID
 # ── Bootstrap ────────────────────────────────────────────────────────────────
 
 @lru_cache(maxsize=1)
-def _client() -> AgentID:
-    return AgentID(
-        agent_key=os.environ["AGENTID_API_KEY"],
-        base_url=os.environ.get("AGENTID_BASE_URL", "https://getagent.id"),
-    )
-
-
-def cold_start(persist_dir: str = ".agentid") -> dict[str, Any]:
-    """
-    Run the Agent ID cold-start sequence and return the result.
-
-    Call this ONCE at agent startup before any LangChain chain is invoked.
-    """
-    agent_id = os.environ["AGENTID_AGENT_ID"]
-    return _client().cold_start(agent_id, persist_dir=persist_dir)
+def _agent() -> AgentID:
+    """Singleton AgentID instance, initialized via from_env()."""
+    return AgentID.from_env()
 
 
 # ── LangChain helpers ─────────────────────────────────────────────────────────
@@ -56,14 +44,14 @@ def get_system_message() -> "SystemMessage":  # type: ignore[name-defined]
         from langchain_core.messages import HumanMessage
         from agentid_langchain import get_system_message
 
-        result = cold_start()
+        _a = _agent()
         messages = [get_system_message(), HumanMessage(content=user_input)]
         response = chat_model.invoke(messages)
     """
     from langchain_core.messages import SystemMessage
 
-    result = cold_start()
-    return SystemMessage(content=result["system_context"])
+    _a = _agent()
+    return SystemMessage(content=_a.system_context)
 
 
 def build_system_prompt() -> str:
@@ -79,8 +67,8 @@ def build_system_prompt() -> str:
             ("human", "{input}"),
         ])
     """
-    result = cold_start()
-    return result["system_context"]
+    _a = _agent()
+    return _a.system_context
 
 
 def with_agent_id_system(
@@ -139,8 +127,8 @@ def inject_identity_into_state(state: dict[str, Any]) -> dict[str, Any]:
     """
     from langchain_core.messages import SystemMessage
 
-    result = cold_start()
-    identity_msg = SystemMessage(content=result["system_context"])
+    _a = _agent()
+    identity_msg = SystemMessage(content=_a.system_context)
     existing_messages = state.get("messages", [])
 
     # Don't inject twice
@@ -178,8 +166,8 @@ def marketplace_action_tool():
         """
         import json
         agent_id = os.environ["AGENTID_AGENT_ID"]
-        ctx = _client().get_marketplace_context(agent_id)
-        actions = _client().get_next_marketplace_actions(agent_id, ctx)
+        ctx = _agent().get_marketplace_context(agent_id)
+        actions = _agent().get_next_marketplace_actions(agent_id, ctx)
         if not actions:
             return "No pending marketplace actions."
         lines = ["Pending marketplace actions (in priority order):"]
@@ -193,7 +181,8 @@ def marketplace_action_tool():
 # ── Example usage ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    result = cold_start()
-    print(f"Identity loaded — agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={result['stale']}")
+    _a = _agent()
+    _stale = getattr(_a, "_cold_start_result", {}).get("stale", False)
+    print(f"Identity loaded — agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={_stale}")
     print("\nSystem context preview (first 500 chars):")
-    print(result["system_context"][:500])
+    print(_a.system_context[:500])

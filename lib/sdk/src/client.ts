@@ -198,6 +198,29 @@ export class AgentID {
     return formatPromptBlock(this.bootstrap);
   }
 
+  /**
+   * The agent's identity block, ready to inject into a system prompt.
+   *
+   * Available immediately after `AgentID.init()` — no extra API call needed.
+   * For the full cold-start sequence (heartbeat + marketplace), call `coldStart()`.
+   *
+   * @example
+   * ```ts
+   * const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY! });
+   * const response = await openai.chat.completions.create({
+   *   model: "gpt-4o",
+   *   messages: [
+   *     { role: "system", content: agent.systemContext },
+   *     { role: "user",   content: userMessage },
+   *   ],
+   * });
+   * ```
+   */
+  get systemContext(): string {
+    if (!this.bootstrap) return "";
+    return formatPromptBlock(this.bootstrap);
+  }
+
   async getIdentityContent(format: "openclaw" | "claude" | "generic" | "json" = "generic"): Promise<string> {
     if (!this.bootstrap) throw new Error("Agent not initialized. Call AgentID.init() first.");
     const agentId = this._agentId;
