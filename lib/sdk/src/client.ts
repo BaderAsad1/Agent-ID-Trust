@@ -225,6 +225,85 @@ export class AgentID {
     await writeFile(filePath, content, "utf-8");
   }
 
+  /**
+   * Execute the full Agent ID cold-start sequence.
+   *
+   * Call this **once at process startup**, before the first user turn.
+   * Returns everything needed to hydrate the agent's system context.
+   *
+   * Sequence:
+   * 1. Send heartbeat (marks agent online, gets state deltas)
+   * 2. Refresh prompt block / bootstrap if heartbeat signals a change
+   * 3. Fetch marketplace context if any action is required
+   *
+   * Falls back to cached bootstrap on any network failure so the agent
+   * always boots — even offline.
+   *
+   * @example
+   * ```ts
+   * const client = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY! });
+   * const { systemContext, stale } = await client.coldStart();
+   * // → inject systemContext into your framework's system prompt
+   * ```
+   */
+  async coldStart(): Promise<{
+    systemContext: string;
+    promptBlock: string;
+    heartbeat: HeartbeatResponse | null;
+    marketplace: Record<string, unknown> | null;
+    stale: boolean;
+    staleReasons: string[];
+  }> {
+    const staleReasons: string[] = [];
+    let hbResponse: HeartbeatResponse | null = null;
+    let marketplace: Record<string, unknown> | null = null;
+
+    // 1. Heartbeat ──────────────────────────────────────────────────────────
+    try {
+      hbResponse = await this.heartbeat();
+    } catch (err) {
+      staleReasons.push(`heartbeat: ${err}`);
+    }
+
+    // 2. Refresh bootstrap if signalled or not yet loaded ───────────────────
+    const needsBootstrapRefresh =
+      !this.bootstrap ||
+      (hbResponse as unknown as Record<string, unknown>)?.stateDelta &&
+      (hbResponse as unknown as Record<string, unknown>).stateDelta !== null;
+
+    if (needsBootstrapRefresh) {
+      try {
+        await this.fetchBootstrap();
+      } catch (err) {
+        staleReasons.push(`bootstrap: ${err}`);
+      }
+    }
+
+    // 3. Marketplace context (only when action required) ───────────────────
+    const stateDelta = (hbResponse as unknown as Record<string, unknown>)?.stateDelta as Record<string, unknown> | undefined;
+    const alerts = stateDelta?.marketplace_alerts as Record<string, unknown> | undefined;
+    if (alerts?.any_action_required) {
+      try {
+        marketplace = await this.http.get<Record<string, unknown>>(
+          `/api/v1/agents/${this._agentId}/marketplace/context`,
+        );
+      } catch (err) {
+        staleReasons.push(`marketplace/context: ${err}`);
+      }
+    }
+
+    const promptBlock = this.bootstrap ? formatPromptBlock(this.bootstrap) : "";
+
+    return {
+      systemContext: promptBlock,
+      promptBlock,
+      heartbeat: hbResponse,
+      marketplace,
+      stale: staleReasons.length > 0,
+      staleReasons,
+    };
+  }
+
   async heartbeat(options?: HeartbeatOptions): Promise<HeartbeatResponse> {
     const response = await this.http.post<HeartbeatResponse>(
       `/api/v1/agents/${this._agentId}/heartbeat`,
