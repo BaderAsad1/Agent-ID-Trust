@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { createHmac } from "crypto";
+import { createHmac, randomBytes } from "crypto";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { requireAgentAuth } from "../../middlewares/agent-auth";
 import { AppError } from "../../middlewares/error-handler";
@@ -14,7 +14,6 @@ import {
   incrementA2AServiceCallCount,
 } from "../../services/a2a-services";
 import { x402PaymentRequired, verifyAndSettleX402Payment } from "../../middlewares/x402";
-import { randomBytes } from "crypto";
 import { db } from "@workspace/db";
 import {
   x402PaymentsTable,
@@ -568,5 +567,224 @@ router.get("/lineage/:orderId", requireAuth, validateUuidParam("orderId"), async
     next(err);
   }
 });
+
+/**
+ * POST /a2a/services/:serviceId/execute
+ *
+ * THE core A2A interop endpoint. Agent A calls Agent B's registered service,
+ * gets the actual result back — identity-verified, signed, billed.
+ *
+ * Flow:
+ *  1. Authenticate calling agent (X-Agent-Key / PoP JWT)
+ *  2. Validate service + spending rules
+ *  3. Issue a short-lived A2A delegation JWT (proves caller identity to provider)
+ *  4. Forward payload to provider's registered endpointUrl with identity headers
+ *  5. Record billing entry + payout queue
+ *  6. Return { result, receipt } — result is whatever the provider returned
+ *
+ * Provider receives:
+ *   X-A2A-Caller-DID:    did:web:getagent.id:agents:<callerId>
+ *   X-A2A-Caller-Handle: @handle.agentid  (if claimed)
+ *   X-A2A-Trust-Tier:    trusted
+ *   X-A2A-Call-Id:       <unique-call-id>
+ *   Authorization:        Bearer <delegation-jwt>
+ */
+router.post(
+  "/services/:serviceId/execute",
+  requireAgentAuth,
+  validateUuidParam("serviceId"),
+  async (req, res, next) => {
+    try {
+      const serviceId    = req.params.serviceId as string;
+      const callingAgent = req.authenticatedAgent!;
+
+      const service = await getA2AServiceById(serviceId);
+      if (!service || service.status !== "active") {
+        throw new AppError(404, "NOT_FOUND", "A2A service not found or inactive");
+      }
+
+      // Require the service to have a registered endpoint URL
+      const endpointUrl = (service as Record<string, unknown>).endpointUrl as string | null | undefined
+        || (service as Record<string, unknown>).endpointPath as string | null | undefined;
+
+      if (!endpointUrl) {
+        throw new AppError(422, "NO_ENDPOINT", "Service provider has not registered an endpoint URL");
+      }
+
+      const priceUsdc   = service.pricePerCallUsdc ?? "0.01";
+      const amountCents = Math.round(parseFloat(priceUsdc) * 100);
+
+      const spendingCheck = await checkA2ASpendingRules(callingAgent.id, amountCents);
+      if (!spendingCheck.allowed) {
+        throw new AppError(402, "SPENDING_CAP_EXCEEDED", spendingCheck.reason!);
+      }
+
+      // Validate payload size (64 KB max per call)
+      const payload = req.body.payload ?? req.body;
+      const payloadBytes = Buffer.byteLength(JSON.stringify(payload), "utf8");
+      if (payloadBytes > 65_536) {
+        throw new AppError(413, "PAYLOAD_TOO_LARGE", "Request payload exceeds 64 KB limit");
+      }
+
+      const timeoutMs = Math.min(
+        typeof req.body.timeout_ms === "number" ? req.body.timeout_ms : 30_000,
+        120_000, // hard cap at 2 minutes
+      );
+
+      // Issue A2A delegation JWT — proves to the provider who is calling
+      const callId       = randomBytes(12).toString("hex");
+      const callerDid    = `did:web:getagent.id:agents:${callingAgent.id}`;
+      const providerAgent = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, service.agentId),
+        columns: { id: true, handle: true, walletAddress: true },
+      });
+
+      const { signJwt } = await import("../../services/oauth");
+      const now   = Math.floor(Date.now() / 1000);
+      const appUrl = env().APP_URL || "https://getagent.id";
+
+      const delegationJwt = await signJwt({
+        iss:           appUrl,
+        sub:           callerDid,
+        aud:           endpointUrl,
+        iat:           now,
+        exp:           now + 300, // 5 min — plenty for one call
+        jti:           callId,
+        call_id:       callId,
+        service_id:    serviceId,
+        provider_did:  `did:web:getagent.id:agents:${service.agentId}`,
+        trust_tier:    callingAgent.trustTier,
+        verification_status: callingAgent.verificationStatus,
+      });
+
+      // Forward to provider with identity headers + delegation token
+      const callHeaders: Record<string, string> = {
+        "Content-Type":         "application/json",
+        "Accept":               "application/json",
+        "Authorization":        `Bearer ${delegationJwt}`,
+        "X-A2A-Caller-DID":     callerDid,
+        "X-A2A-Trust-Tier":     callingAgent.trustTier || "unverified",
+        "X-A2A-Call-Id":        callId,
+        "X-A2A-Service-Id":     serviceId,
+        "X-A2A-Platform":       appUrl,
+        "User-Agent":           "AgentID-A2A/1.0 (+https://getagent.id/a2a)",
+      };
+      if (callingAgent.handle) {
+        callHeaders["X-A2A-Caller-Handle"] = `@${callingAgent.handle}.agentid`;
+      }
+
+      let providerResponse: Response;
+      let resultBody: unknown;
+      let executionMs: number;
+
+      const callStart = Date.now();
+      try {
+        const controller = new AbortController();
+        const timeout    = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          providerResponse = await fetch(endpointUrl, {
+            method:  "POST",
+            headers: callHeaders,
+            body:    JSON.stringify(payload),
+            signal:  controller.signal,
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
+        executionMs = Date.now() - callStart;
+
+        const ct = providerResponse.headers.get("content-type") || "";
+        resultBody = ct.includes("application/json")
+          ? await providerResponse.json()
+          : await providerResponse.text();
+
+        if (!providerResponse.ok) {
+          throw new AppError(
+            502, "PROVIDER_ERROR",
+            `Provider returned HTTP ${providerResponse.status}`,
+            { provider_status: providerResponse.status, provider_body: resultBody },
+          );
+        }
+      } catch (err) {
+        if ((err as Error).name === "AbortError") {
+          throw new AppError(504, "PROVIDER_TIMEOUT", `Provider did not respond within ${timeoutMs}ms`);
+        }
+        throw err;
+      }
+
+      // Bill the caller — record in activity log + payout queue
+      await incrementA2AServiceCallCount(serviceId);
+
+      const totalUsdc      = parseFloat(priceUsdc);
+      const platformFeeUsd = Math.round(totalUsdc * PLATFORM_FEE_RATE * 1e6) / 1e6;
+      const providerUsd    = Math.round((totalUsdc - platformFeeUsd) * 1e6) / 1e6;
+      const timestamp      = new Date().toISOString();
+
+      const receiptPayload = {
+        callId,
+        serviceId,
+        callerAgentId:    callingAgent.id,
+        providerAgentId:  service.agentId,
+        amountUsdc:       priceUsdc,
+        platformFeeUsdc:  platformFeeUsd.toFixed(6),
+        providerPayoutUsdc: providerUsd.toFixed(6),
+        executionMs,
+        timestamp,
+      };
+      const { signature: receiptSig, receipt: receiptB64 } = signA2AReceipt(receiptPayload);
+
+      // Queue provider payout
+      try {
+        await db.insert(a2aPayoutQueueTable).values({
+          callId,
+          serviceId,
+          paymentId:             null,
+          txHash:                null,
+          callerAgentId:         callingAgent.id,
+          providerAgentId:       service.agentId,
+          providerWalletAddress: providerAgent?.walletAddress ?? null,
+          providerPayoutUsdc:    providerUsd.toFixed(6),
+          platformFeeUsdc:       platformFeeUsd.toFixed(6),
+          status:                "pending",
+        });
+      } catch (payoutErr) {
+        logger.error({ callId, serviceId, error: (payoutErr as Error).message }, "[a2a] Payout queue insert failed");
+      }
+
+      // Notify the provider agent via activity log (powers SSE stream)
+      await db.insert(agentActivityLogTable).values({
+        agentId:   service.agentId,
+        eventType: "a2a.call_received",
+        payload:   {
+          callId,
+          serviceId,
+          callerAgentId:  callingAgent.id,
+          callerDid,
+          callerHandle:   callingAgent.handle,
+          callerTrustTier: callingAgent.trustTier,
+          amountUsdc:     priceUsdc,
+          executionMs,
+        },
+      });
+
+      res.setHeader("X-A2A-Receipt",     receiptB64);
+      res.setHeader("X-A2A-Receipt-Sig", receiptSig);
+      res.setHeader("X-A2A-Call-Id",     callId);
+      res.setHeader("X-A2A-Execution-Ms", String(executionMs));
+
+      return res.json({
+        success:          true,
+        callId,
+        result:           resultBody,
+        receipt:          receiptPayload,
+        receiptSignature: receiptSig,
+        executionMs,
+      });
+    } catch (err) {
+      next(err);
+      return;
+    }
+  },
+);
 
 export default router;

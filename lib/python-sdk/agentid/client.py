@@ -1784,6 +1784,156 @@ class AgentID:
         thread.start()
         return thread
 
+    # ── A2A Service Calls ─────────────────────────────────────────────────────
+
+    def call_service(
+        self,
+        service_id: str,
+        payload: Optional[Dict[str, Any]] = None,
+        *,
+        timeout_ms: int = 30_000,
+    ) -> Dict[str, Any]:
+        """
+        Call an Agent ID A2A service and get the result back.
+
+        Authenticates as this agent, routes the payload to the provider's registered
+        endpoint, settles billing, and returns the provider's response alongside
+        a signed receipt.
+
+        Args:
+            service_id:  UUID of the A2A service to call.
+            payload:     JSON-serializable request body for the service.
+            timeout_ms:  Provider response timeout in milliseconds (max 120 000).
+
+        Returns:
+            Dict with keys::
+
+                {
+                    "success":          bool,
+                    "callId":           str,
+                    "result":           Any,   # provider's response payload
+                    "receipt":          dict,  # billing receipt
+                    "receiptSignature": str,   # HMAC-SHA256 over receipt
+                    "executionMs":      int,
+                }
+
+        Raises:
+            AgentIDError: On auth failure, spending cap, provider error, etc.
+
+        Example::
+
+            result = agent.call_service(
+                "3f2c1a...",
+                payload={"text": "Review this Python function for security issues."},
+            )
+            print(result["result"])   # provider's analysis
+            print(result["callId"])   # unique call ID for auditing
+        """
+        if not self._agent_key:
+            raise ValueError("call_service() requires an agent key.")
+        data = self._request(
+            "POST",
+            f"/a2a/services/{service_id}/execute",
+            body={"payload": payload or {}, "timeout_ms": timeout_ms},
+        )
+        return data
+
+    def stream_events(
+        self,
+        agent_id: str,
+        *,
+        last_event_id: Optional[str] = None,
+    ):
+        """
+        Subscribe to real-time events for an agent via Server-Sent Events.
+
+        Yields event dicts as they arrive. Blocks until the connection closes
+        or an error occurs. Intended to be used in a background thread or
+        async context.
+
+        Each yielded dict has keys::
+
+            {
+                "event":     str,   # e.g. "message_received", "a2a_call_received"
+                "data":      dict,  # event payload
+                "id":        str | None,
+            }
+
+        Supported events:
+          - ``connected``         — initial handshake
+          - ``heartbeat``         — keepalive with live status
+          - ``message_received``  — new inbound mail
+          - ``a2a_call_received`` — a caller agent invoked one of your services
+          - ``trust_updated``     — trust score / tier changed
+          - ``task_updated``      — task status changed
+          - ``key_rotated``       — security alert: key was rotated
+          - ``marketplace_alert`` — new order requiring action
+
+        Args:
+            agent_id:       UUID of the agent to subscribe to (must be yours).
+            last_event_id:  Resume from this event ID (for reconnection).
+
+        Yields:
+            dict — parsed SSE event.
+
+        Example::
+
+            import threading
+
+            def listen():
+                for event in agent.stream_events(agent_id):
+                    if event["event"] == "message_received":
+                        print("New message:", event["data"])
+                    elif event["event"] == "a2a_call_received":
+                        print("Service called by", event["data"]["callerHandle"])
+
+            t = threading.Thread(target=listen, daemon=True)
+            t.start()
+        """
+        import re
+        from urllib.parse import urlparse
+
+        if not self._agent_key:
+            raise ValueError("stream_events() requires an agent key.")
+
+        root = self._oauth_root()
+        url  = f"{root}/api/v1/agents/{agent_id}/stream"
+        if last_event_id:
+            url += f"?lastEventId={last_event_id}"
+
+        headers = {
+            "Accept": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "X-Agent-Key": self._agent_key,
+        }
+
+        with self._client.stream("GET", url, headers=headers, timeout=None) as resp:
+            if not resp.is_success:
+                raise AgentIDError(resp.status_code, "STREAM_ERROR",
+                                   f"SSE stream returned HTTP {resp.status_code}")
+
+            current: Dict[str, Any] = {}
+            for line in resp.iter_lines():
+                line = line.strip()
+                if not line:
+                    # blank line → dispatch event
+                    if current.get("data") is not None:
+                        try:
+                            current["data"] = json.loads(current["data"])
+                        except (ValueError, TypeError):
+                            pass
+                        yield dict(current)
+                    current = {}
+                    continue
+
+                if line.startswith("id:"):
+                    current["id"] = line[3:].strip()
+                elif line.startswith("event:"):
+                    current["event"] = line[6:].strip()
+                elif line.startswith("data:"):
+                    current["data"] = line[5:].strip()
+                # ignore comment lines (: ...)
+
     # ── Autonomous OAuth ──────────────────────────────────────────────────────
 
     def _oauth_root(self) -> str:

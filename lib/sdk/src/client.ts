@@ -375,7 +375,106 @@ export class AgentID {
     }
   }
 
-  // ── Autonomous OAuth ────────────────────────────────��───────────────────────
+  // ── A2A Service Calls ────────────────────────────────────────────────────
+
+  /**
+   * Call an Agent ID A2A service and get the result back.
+   *
+   * Routes the payload to the provider's registered endpoint with identity
+   * headers and a delegation JWT. Settles billing and returns the result
+   * alongside a signed receipt.
+   *
+   * @param serviceId   UUID of the A2A service to call.
+   * @param payload     JSON request body for the service.
+   * @param timeoutMs   Provider response timeout (default 30 s, max 120 s).
+   *
+   * @example
+   * ```typescript
+   * const result = await agent.callService(serviceId, {
+   *   text: "Review this function for security issues.",
+   * });
+   * console.log(result.result);  // provider's response
+   * console.log(result.callId);  // for auditing
+   * ```
+   */
+  async callService(
+    serviceId: string,
+    payload: Record<string, unknown> = {},
+    timeoutMs = 30_000,
+  ): Promise<{
+    success: boolean;
+    callId: string;
+    result: unknown;
+    receipt: Record<string, unknown>;
+    receiptSignature: string;
+    executionMs: number;
+  }> {
+    return this.http.post(`/api/v1/a2a/services/${serviceId}/execute`, {
+      payload,
+      timeout_ms: timeoutMs,
+    });
+  }
+
+  /**
+   * Subscribe to real-time events for this agent via Server-Sent Events.
+   *
+   * Works in any environment that supports `EventSource` (browser, Deno, Node 22+).
+   * For Node <22 use the `eventsource` npm package as a polyfill.
+   *
+   * @param onEvent      Called for every incoming event.
+   * @param onError      Called on connection error (optional).
+   * @param lastEventId  Resume from this SSE id (for reconnection).
+   * @returns A function to call to stop the stream.
+   *
+   * @example
+   * ```typescript
+   * const stop = agent.onEvent((event) => {
+   *   if (event.type === "message_received") {
+   *     console.log("New message:", event.data);
+   *   } else if (event.type === "a2a_call_received") {
+   *     console.log("Service called by", event.data.callerHandle);
+   *   }
+   * });
+   * // later: stop();
+   * ```
+   */
+  onEvent(
+    onEvent: (event: { type: string; data: unknown; id?: string }) => void,
+    onError?: (err: Event) => void,
+    lastEventId?: string,
+  ): () => void {
+    const base   = this._baseUrl.replace(/\/api\/v1\/?$/, "");
+    let   url    = `${base}/api/v1/agents/${this._agentId}/stream`;
+    if (lastEventId) url += `?lastEventId=${encodeURIComponent(lastEventId)}`;
+
+    // EventSource doesn't support custom headers natively in browsers.
+    // The agent key is passed via query param (server accepts it there too).
+    url += `${lastEventId ? "&" : "?"}agentKey=${encodeURIComponent(this._apiKey)}`;
+
+    const es = new EventSource(url);
+
+    // Generic message handler (catches all named events via the SSE spec)
+    const ALL_EVENTS = [
+      "connected", "heartbeat",
+      "message_received", "task_updated", "a2a_call_received",
+      "trust_updated", "key_rotated", "marketplace_alert",
+      "stream_closed",
+    ];
+
+    for (const eventType of ALL_EVENTS) {
+      es.addEventListener(eventType, (e: MessageEvent) => {
+        let data: unknown;
+        try { data = JSON.parse(e.data); } catch { data = e.data; }
+        onEvent({ type: eventType, data, id: e.lastEventId || undefined });
+      });
+    }
+
+    if (onError) es.addEventListener("error", onError);
+
+    return () => es.close();
+  }
+
+  // ── Autonomous OAuth ────────────────────────────────────────────────────
 
   /**
    * Autonomously approve an OAuth authorization request as this agent.
