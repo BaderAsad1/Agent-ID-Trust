@@ -313,6 +313,19 @@ function getNextReleasableMilestoneId(milestones: OrderMilestone[]): string | nu
   return milestones.find((milestone) => milestone.status === 'completed')?.id ?? null;
 }
 
+const REVIEWED_KEY = 'agentid_reviewed_orders';
+
+function getReviewedOrderIds(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(REVIEWED_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+
+function markOrderReviewed(orderId: string) {
+  const ids = getReviewedOrderIds();
+  ids.add(orderId);
+  localStorage.setItem(REVIEWED_KEY, JSON.stringify([...ids]));
+}
+
 export function BuyerOrders() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<EnrichedOrder[]>([]);
@@ -322,6 +335,8 @@ export function BuyerOrders() {
   const [periodMonths, setPeriodMonths] = useState(6);
   const [reviewOrder, setReviewOrder] = useState<EnrichedOrder | null>(null);
   const [disputeOrder, setDisputeOrder] = useState<EnrichedOrder | null>(null);
+  const [reviewedOrderIds, setReviewedOrderIds] = useState<Set<string>>(getReviewedOrderIds);
+  const autoOpenedRef = useRef(false);
   const [approvingOrderId, setApprovingOrderId] = useState<string | null>(null);
   const [releasableMilestoneIds, setReleasableMilestoneIds] = useState<Record<string, string | null>>({});
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
@@ -339,7 +354,7 @@ export function BuyerOrders() {
     });
   };
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (autoOpen = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -356,6 +371,19 @@ export function BuyerOrders() {
         })
       );
       setOrders(enriched);
+
+      // Auto-open review modal for the most recently completed unreviewed order —
+      // but only once per page load so we don't interrupt every visit.
+      if (autoOpen && !autoOpenedRef.current) {
+        const reviewed = getReviewedOrderIds();
+        const unreviewed = enriched
+          .filter(o => o.status === 'completed' && !reviewed.has(o.id))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        if (unreviewed.length > 0) {
+          autoOpenedRef.current = true;
+          setReviewOrder(unreviewed[0]);
+        }
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load orders');
     } finally {
@@ -377,7 +405,7 @@ export function BuyerOrders() {
     }
   }, []);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => { fetchOrders(true); }, [fetchOrders]);
   useEffect(() => {
     orders
       .filter((order) => order.status === 'confirmed')
@@ -418,13 +446,43 @@ export function BuyerOrders() {
 
   return (
     <div>
-      {reviewOrder && <ReviewModal order={reviewOrder} onClose={() => setReviewOrder(null)} onReviewed={fetchOrders} />}
+      {reviewOrder && <ReviewModal order={reviewOrder} onClose={() => setReviewOrder(null)} onReviewed={() => {
+        markOrderReviewed(reviewOrder.id);
+        setReviewedOrderIds(getReviewedOrderIds());
+        fetchOrders();
+      }} />}
       {disputeOrder && <DisputeModal order={disputeOrder} onClose={() => setDisputeOrder(null)} onDisputeSubmitted={fetchOrders} />}
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>My Orders</h1>
         <PrimaryButton variant="purple" onClick={() => navigate('/marketplace')}>Browse Marketplace</PrimaryButton>
       </div>
+
+      {(() => {
+        const pendingReviews = orders.filter(o => o.status === 'completed' && !reviewedOrderIds.has(o.id));
+        if (pendingReviews.length === 0) return null;
+        return (
+          <div
+            className="flex items-center justify-between gap-3 mb-5 px-4 py-3 rounded-xl"
+            style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <Star className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--warning)' }} />
+              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                <span className="font-semibold">{pendingReviews.length} completed {pendingReviews.length === 1 ? 'order' : 'orders'}</span>
+                <span style={{ color: 'var(--text-muted)' }}> waiting for your review — agent trust scores depend on honest feedback.</span>
+              </p>
+            </div>
+            <button
+              onClick={() => setReviewOrder(pendingReviews[0])}
+              className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer"
+              style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--warning)', border: '1px solid rgba(245,158,11,0.3)' }}
+            >
+              Review now
+            </button>
+          </div>
+        );
+      })()}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
@@ -597,10 +655,15 @@ export function BuyerOrders() {
                           <ThumbsUp className="w-3.5 h-3.5" /> {approvingOrderId === order.id ? 'Approving...' : 'Approve Milestone'}
                         </button>
                       )}
-                      {order.status === 'completed' && (
+                      {order.status === 'completed' && !reviewedOrderIds.has(order.id) && (
                         <button onClick={() => setReviewOrder(order)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'rgba(245,158,11,0.1)', color: 'var(--warning)', border: '1px solid rgba(245,158,11,0.2)' }}>
                           <Star className="w-3.5 h-3.5" /> Review
                         </button>
+                      )}
+                      {order.status === 'completed' && reviewedOrderIds.has(order.id) && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs" style={{ background: 'rgba(16,185,129,0.08)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                          <CheckCircle className="w-3.5 h-3.5" /> Reviewed
+                        </span>
                       )}
                       {(order.status === 'confirmed' || order.status === 'pending_payment' || order.status === 'completed') && (
                         <button onClick={() => setDisputeOrder(order)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'rgba(239,68,68,0.08)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.15)' }}>

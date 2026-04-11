@@ -3,6 +3,7 @@ import { and, eq, lte, sql, inArray, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, apiKeysTable, agentKeysTable, agentVerificationChallengesTable, agentClaimTokensTable } from "@workspace/db/schema";
 import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
+import { recordWorkerFailure, recordWorkerSuccess } from "./worker-failure";
 import { logger } from "../middlewares/request-logger";
 
 const QUEUE_NAME = "agent-expiry";
@@ -206,10 +207,15 @@ export function startAgentExpiryWorker(): void {
   });
 
   worker.on("failed", (job, err) => {
-    logger.error({ jobId: job?.id, error: err.message }, "[agent-expiry] Job failed");
+    recordWorkerFailure(err, {
+      worker: "agent-expiry",
+      jobId: job?.id,
+      retriesExhausted: (job?.attemptsMade ?? 0) >= (job?.opts.attempts ?? 5),
+    });
   });
 
   worker.on("completed", (job) => {
+    recordWorkerSuccess("agent-expiry");
     const result = job?.returnvalue as { expiredCount?: number; cleanedCount?: number } | undefined;
     if (result && ((result.expiredCount && result.expiredCount > 0) || (result.cleanedCount && result.cleanedCount > 0))) {
       logger.info({ jobId: job?.id, expiredCount: result.expiredCount, cleanedCount: result.cleanedCount }, "[agent-expiry] Job completed");

@@ -338,6 +338,15 @@ export const api = {
         const qs = params ? "?" + new URLSearchParams(params).toString() : "";
         return request<{ services: A2ARegistryService[] }>(`/a2a/services${qs}`);
       },
+      registerService: (data: {
+        agentId: string;
+        name: string;
+        description?: string;
+        capabilityType: string;
+        pricingModel: 'per_call' | 'per_token' | 'per_second';
+        pricePerCallUsdc?: string;
+        tags?: string[];
+      }) => request<A2ARegistryService>('/a2a/services', { method: 'POST', body: JSON.stringify(data) }),
     },
   },
 
@@ -392,6 +401,8 @@ export const api = {
   billing: {
     subscription: () =>
       request<{ plan: string; limits: Record<string, unknown>; subscription: unknown | null }>("/billing/subscription"),
+    portal: () =>
+      request<{ url: string }>("/billing/portal", { method: "POST" }),
     checkout: (body: { plan: 'starter' | 'pro'; billingInterval: 'monthly' | 'yearly'; successUrl?: string; cancelUrl?: string; pendingHandle?: string | null; pendingAgentId?: string | null }) =>
       request<{ url: string | null }>("/billing/checkout", {
         method: "POST",
@@ -402,6 +413,35 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ handle, agentId, successUrl, cancelUrl }),
       }),
+  },
+
+  oauth: {
+    clients: {
+      list: () => request<{ clients: OAuthClient[] }>("/clients"),
+      create: (data: {
+        name: string;
+        description?: string;
+        redirectUris?: string[];
+        allowedScopes?: string[];
+        grantTypes?: string[];
+        clientType?: 'public' | 'confidential';
+      }) => request<OAuthClient & { clientSecret?: string; clientType?: string; warning?: string }>("/clients", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+      update: (clientId: string, data: { name?: string; description?: string; redirectUris?: string[]; allowedScopes?: string[] }) =>
+        request<OAuthClient>(`/clients/${clientId}`, { method: "PATCH", body: JSON.stringify(data) }),
+      delete: (clientId: string) =>
+        request<{ success: boolean; revokedAt: string }>(`/clients/${clientId}`, { method: "DELETE" }),
+      rotateSecret: (clientId: string) =>
+        request<{ clientId: string; clientSecret: string; warning: string }>(`/clients/${clientId}/rotate-secret`, { method: "POST" }),
+    },
+    tokens: {
+      list: (agentId: string) =>
+        request<{ connections: OAuthConnection[] }>(`/agents/${agentId}/oauth-tokens`),
+      revoke: (agentId: string, tokenId: string) =>
+        request<{ success: boolean; revokedAt: string }>(`/agents/${agentId}/oauth-tokens/${tokenId}`, { method: "DELETE" }),
+    },
   },
 
   dashboard: {
@@ -1106,6 +1146,34 @@ export interface TransferEvent {
   eventType: string;
   payload: Record<string, unknown>;
   createdAt: string;
+}
+
+export interface OAuthClient {
+  id: string;
+  clientId: string;
+  name: string;
+  description?: string | null;
+  redirectUris: string[];
+  allowedScopes: string[];
+  grantTypes: string[];
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt?: string | null;
+  revokedAt?: string | null;
+}
+
+export interface OAuthConnection {
+  id: string;
+  tokenId: string;
+  clientId: string | null;
+  clientName: string;
+  clientDescription?: string | null;
+  scopes: string[];
+  grantType: string | null;
+  trustTier: string | null;
+  issuedAt: string | null;
+  expiresAt: string;
+  refreshExpiresAt: string | null;
 }
 
 export interface RawVerifiableCredential {

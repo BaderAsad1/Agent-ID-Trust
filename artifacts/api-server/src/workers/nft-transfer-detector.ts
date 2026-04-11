@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { AGENT_ID_HANDLE_ABI, getBaseConfig } from "../services/chains/base";
+import { recordWorkerFailure, recordWorkerSuccess } from "./worker-failure";
 
 /**
  * Normalise chainRegistrations to a mutable array regardless of whether it was
@@ -203,14 +204,18 @@ export function startNftTransferDetector(): void {
 
   logger.info("[nft-transfer-detector] Starting NFT transfer detector (60s polling)");
 
-  detectSecondarySales().catch(err => {
-    logger.error({ err }, "[nft-transfer-detector] Initial detection pass failed");
-  });
+  detectSecondarySales()
+    .then(() => recordWorkerSuccess("nft-transfer-detector"))
+    .catch(err => {
+      recordWorkerFailure(err, { worker: "nft-transfer-detector", jobType: "detectSecondarySales" });
+    });
 
   timer = setInterval(() => {
-    detectSecondarySales().catch(err => {
-      logger.error({ err }, "[nft-transfer-detector] Detection pass failed");
-    });
+    detectSecondarySales()
+      .then(() => recordWorkerSuccess("nft-transfer-detector"))
+      .catch(err => {
+        recordWorkerFailure(err, { worker: "nft-transfer-detector", jobType: "detectSecondarySales" });
+      });
   }, POLL_INTERVAL_MS);
 }
 

@@ -98,9 +98,10 @@ export function CapabilityChip({ label, variant = 'default' }: { label: string; 
   );
 }
 
-export function Identicon({ handle, size = 40 }: { handle: string; size?: number }) {
+export function Identicon({ handle, size = 40 }: { handle: string | null | undefined; size?: number }) {
+  const h = handle || '';
   let hash = 0;
-  for (let i = 0; i < handle.length; i++) { hash = handle.charCodeAt(i) + ((hash << 5) - hash); }
+  for (let i = 0; i < h.length; i++) { hash = h.charCodeAt(i) + ((hash << 5) - hash); }
   const hue = Math.abs(hash % 360);
   const cells = [];
   for (let i = 0; i < 25; i++) {

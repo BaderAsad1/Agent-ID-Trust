@@ -44,6 +44,7 @@ import { requireInboxAccess, requireAgentPlan, requirePlan, checkAgentLimit } fr
 import { tryAgentAuth } from "../../middlewares/agent-auth";
 import agentAuthRouter from "./agent-auth";
 import oauthClientsRouter from "./oauth-clients";
+import agentOAuthTokensRouter from "./agent-oauth-tokens";
 import adminRouter from "./admin";
 import claimHistoryRouter from "./claim-history";
 import orgPoliciesRouter from "./org-policies";
@@ -119,6 +120,7 @@ router.use("/owner-tokens", ownerTokenRouter);
 router.use("/agents", agentLinkOwnerRouter);
 router.use("/auth", agentAuthRouter);
 router.use("/clients", oauthClientsRouter);
+router.use("/agents", agentOAuthTokensRouter);
 router.use("/admin", adminRouter);
 router.use("/agents", claimHistoryRouter);
 router.use("/orgs/:orgId/policies", orgPoliciesRouter);

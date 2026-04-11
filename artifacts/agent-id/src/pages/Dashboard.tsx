@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield, Key, MessageSquare, Send, Trash2, Edit } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield, Key, MessageSquare, Send, Trash2, Edit, Code, Eye, EyeOff } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
-import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus, type OrderMessage, type OrderMilestone } from '@/lib/api';
+import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus, type OrderMessage, type OrderMilestone, type OAuthClient, type OAuthConnection } from '@/lib/api';
 import { formatPrice } from '@/lib/pricing';
 import { useSEO } from '@/lib/useSEO';
 import { Mail } from '@/pages/Mail';
@@ -13,7 +13,6 @@ import { TransferWizardModal, TransferStatusBadge, TransferDashboardPage } from 
 import { HandlesClaim } from '@/pages/HandlesClaim';
 import { QRCodeSVG } from 'qrcode.react';
 import { OnboardingScreen } from '@/pages/dashboard/Onboarding';
-import { DashboardOverview } from '@/pages/dashboard/Overview';
 import { BuyerOrders } from '@/pages/BuyerOrders';
 
 async function initiateHandleCheckout(handle: string) {
@@ -367,7 +366,7 @@ function Overview() {
     try {
       const dashStats = await api.dashboard.stats();
       setStats(dashStats as unknown as Record<string, unknown>);
-      setRecentActivity((dashStats as unknown as Record<string, unknown>).recentActivity as ActivityItem[] || []);
+      setRecentActivity(((dashStats as unknown as Record<string, unknown>).recentActivity as ActivityItem[] | null) ?? []);
       try {
         const transferMap: Record<string, TransferSaleType> = {};
         const activeStatuses = ['in_handoff', 'pending_acceptance', 'hold_pending', 'transfer_pending', 'listed', 'draft', 'disputed'];
@@ -429,7 +428,7 @@ function Overview() {
 
   if (loading) return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Overview</h1>
+      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>My Agents</h1>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         {[1,2,3,4,5].map(i => <CardSkeleton key={i} />)}
       </div>
@@ -449,7 +448,7 @@ function Overview() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Overview</h1>
+      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>My Agents</h1>
       {paymentResult === 'success' && (
         <div className="flex items-center gap-3 p-4 rounded-xl mb-6" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}>
           <CheckCircle className="w-5 h-5" style={{ color: 'var(--success)' }} />
@@ -550,7 +549,7 @@ function Overview() {
                   )}
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {(agent.capabilities || []).slice(0, 3).map(c => <CapabilityChip key={c} label={c} />)}
-                    {(agent.capabilities || []).length > 3 && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>+{agent.capabilities.length - 3} more</span>}
+                    {(agent.capabilities || []).length > 3 && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>+{(agent.capabilities || []).length - 3} more</span>}
                   </div>
                 </div>
                 <TrustScoreRing score={agent.trustScore || 0} size={48} />
@@ -576,7 +575,7 @@ function Overview() {
               )}
               <NftStatusSection agent={agent} onTransferred={refreshAgents} />
               <div className="flex gap-2 mt-4 pt-4 border-t flex-wrap" style={{ borderColor: 'var(--border-color)' }}>
-                <PrimaryButton variant="ghost" onClick={() => navigate(`/${agent.handle}`)}>View Profile</PrimaryButton>
+                <PrimaryButton variant="ghost" onClick={() => agent.handle ? navigate(`/${agent.handle}`) : navigate(`/id/${agent.id}`)}>View Profile</PrimaryButton>
                 <PrimaryButton variant="ghost" onClick={() => handleEditOpen(agent)}>Edit</PrimaryButton>
                 <PrimaryButton variant="danger" onClick={() => setDeletingAgent(agent)}>Delete</PrimaryButton>
                 {agent.verificationStatus !== 'verified' && (
@@ -1530,9 +1529,10 @@ function MarketplaceDashboard() {
   );
 }
 
-function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; handle: string; domainName?: string }) {
+function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; handle: string | null | undefined; domainName?: string }) {
   const [records, setRecords] = useState<Array<{ type: string; name: string; value: string; ttl: number }>>([]);
   const [loading, setLoading] = useState(true);
+  const fallbackName = domainName || (handle ? `${handle}.agent` : `${agentId}.agent`);
 
   useEffect(() => {
     api.agents.domain(agentId)
@@ -1541,19 +1541,19 @@ function DomainRecordsTable({ agentId, handle, domainName }: { agentId: string; 
           setRecords(domain.dnsRecords);
         } else {
           setRecords([
-            { type: 'CNAME', name: domainName || `${handle}.agent`, value: 'edge.getagent.id', ttl: 300 },
+            { type: 'CNAME', name: fallbackName, value: 'edge.getagent.id', ttl: 300 },
             { type: 'TXT', name: '_agentid', value: `v=agentid1 id=${agentId}`, ttl: 3600 },
           ]);
         }
       })
       .catch(() => {
         setRecords([
-          { type: 'CNAME', name: domainName || `${handle}.agent`, value: 'edge.getagent.id', ttl: 300 },
+          { type: 'CNAME', name: fallbackName, value: 'edge.getagent.id', ttl: 300 },
           { type: 'TXT', name: '_agentid', value: `v=agentid1 id=${agentId}`, ttl: 3600 },
         ]);
       })
       .finally(() => setLoading(false));
-  }, [agentId, handle, domainName]);
+  }, [agentId, handle, domainName, fallbackName]);
 
   if (loading) return <div className="h-20 rounded-lg animate-pulse mb-4" style={{ background: 'var(--bg-elevated)' }} />;
 
@@ -1844,20 +1844,26 @@ function DomainDashboard() {
         <EmptyState icon={<Search className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />} title="No agents" description="Register an agent to get your .agentid address." action={<PrimaryButton onClick={() => navigate('/get-started')}>Register an agent</PrimaryButton>} />
       ) : (
         <div className="space-y-6">
-          {agents.map(agent => {
+          {agents.filter(a => a.status !== 'revoked').map(agent => {
             const reg = registryStatuses[agent.id];
+            const displayDomain = agent.domainName || (agent.handle ? `${agent.handle}.agentid` : `${agent.id}.agentid`);
             return (
               <GlassCard key={agent.id}>
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <div className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{agent.domainName || `${agent.handle}.agentid`}</div>
+                    <div className="text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-mono)', color: 'var(--domain)' }}>{displayDomain}</div>
+                    {!agent.handle && (
+                      <div className="text-xs mb-2" style={{ color: 'var(--text-dim)' }}>
+                        Resolving by UUID &middot; <span style={{ color: 'var(--accent)' }}>add a handle</span> for a human-readable address
+                      </div>
+                    )}
                     <StatusDot status={agent.domainStatus === 'active' ? 'active' : 'inactive'} />
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => setTransferAgent(agent)} className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer flex items-center gap-1" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Transfer">
                       <ArrowRightLeft className="w-3 h-3" /> Transfer
                     </button>
-                    <button className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Copy domain">Copy</button>
+                    <button onClick={() => navigator.clipboard.writeText(displayDomain)} className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer" style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)', background: 'transparent' }} aria-label="Copy domain">Copy</button>
                   </div>
                 </div>
                 <DomainRecordsTable agentId={agent.id} handle={agent.handle} domainName={agent.domainName} />
@@ -1904,7 +1910,7 @@ function DomainDashboard() {
 
           <div className="rounded-xl border p-4" style={{ borderColor: 'rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.05)' }}>
             <p className="text-sm" style={{ color: 'var(--domain)' }}>
-              Your .agentid address is part of a protocol-layer namespace purpose-built for AI agents. Every registered handle resolves through the Agent ID protocol (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agentid</code>) with a web domain at (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>).
+              Every agent has a UUID-based .agentid identity — no handle required. Handles are optional human-readable aliases that resolve through the Agent ID protocol (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.agentid</code>) with a web domain at (<code style={{ fontFamily: 'var(--font-mono)' }}>handle.getagent.id</code>). UUID-based addresses (<code style={{ fontFamily: 'var(--font-mono)' }}>{'{uuid}'}.agentid</code>) work the same way.
             </p>
           </div>
         </div>
@@ -1924,21 +1930,79 @@ function DomainDashboard() {
 function SettingsPage() {
   const navigate = useNavigate();
   const { userId, agents } = useAuth();
+
+  // Profile
+  const [profile, setProfile] = useState<{ id: string; email?: string; displayName?: string; provider?: string; githubUsername?: string } | null>(null);
+  const [displayNameDraft, setDisplayNameDraft] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  // Billing
+  const [subscription, setSubscription] = useState<{ plan: string; limits: Record<string, unknown>; subscription: unknown } | null>(null);
+
+  // User API keys
   const [apiKeys, setApiKeys] = useState<Array<{ id: string; prefix: string; label: string; createdAt: string }>>([]);
-  const [loading, setLoading] = useState(true);
+  const [apiKeysLoading, setApiKeysLoading] = useState(true);
   const [newKeyLabel, setNewKeyLabel] = useState('');
   const [creatingKey, setCreatingKey] = useState(false);
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
+
+  // Per-agent keys
+  const [agentKeys, setAgentKeys] = useState<Record<string, Array<{ id: string; name: string; keyPrefix: string; scopes: string[]; createdAt: string }>>>({});
+  const [rotatingAgent, setRotatingAgent] = useState<string | null>(null);
+  const [rotatedKey, setRotatedKey] = useState<{ agentId: string; key: string } | null>(null);
+
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  const handleOpenPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const { url } = await api.billing.portal();
+      window.location.href = url;
+    } catch {
+      // If no subscription, go to pricing instead
+      window.location.href = '/pricing';
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  // Danger zone
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [currentPlan, setCurrentPlan] = useState<string>('free');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   useEffect(() => {
-    api.billing.subscription().then(res => setCurrentPlan(res.plan ?? 'free')).catch(() => {});
-    api.users.apiKeys.list()
-      .then(res => setApiKeys(res.keys || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    Promise.all([
+      api.users.me().catch(() => null),
+      api.billing.subscription().catch(() => null),
+      api.users.apiKeys.list().catch(() => ({ keys: [] })),
+    ]).then(([me, sub, keysRes]) => {
+      if (me) {
+        setProfile(me);
+        setDisplayNameDraft(me.displayName ?? '');
+      }
+      if (sub) setSubscription(sub as typeof subscription);
+      setApiKeys((keysRes as { keys: typeof apiKeys }).keys ?? []);
+      setApiKeysLoading(false);
+    });
+    // Fetch agent-scoped keys for each agent
+    agents.forEach(a => {
+      api.agents.apiKeys.list(a.id)
+        .then(res => setAgentKeys(prev => ({ ...prev, [a.id]: res.keys ?? [] })))
+        .catch(() => {});
+    });
+  }, [agents]);
+
+  const handleSaveProfile = async () => {
+    if (!displayNameDraft.trim()) return;
+    setSavingProfile(true);
+    try {
+      await api.users.update({ displayName: displayNameDraft.trim() });
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2000);
+    } catch { /* show nothing — non-critical */ }
+    finally { setSavingProfile(false); }
+  };
 
   const handleCreateKey = async () => {
     if (!newKeyLabel.trim()) return;
@@ -1950,67 +2014,236 @@ function SettingsPage() {
       setNewKeyLabel('');
     } catch (e: unknown) {
       console.error("[Settings] API key creation failed:", e instanceof Error ? e.message : e);
-    }
-    finally { setCreatingKey(false); }
+    } finally { setCreatingKey(false); }
   };
+
+  const handleRotateAgentKey = async (agentId: string) => {
+    setRotatingAgent(agentId);
+    try {
+      const res = await api.agents.apiKeys.rotate(agentId);
+      setRotatedKey({ agentId, key: res.apiKey });
+      setAgentKeys(prev => ({
+        ...prev,
+        [agentId]: [{ id: 'rotated', name: 'Current key', keyPrefix: res.keyPrefix, scopes: [], createdAt: new Date().toISOString() }],
+      }));
+    } catch { /* error visible from empty state */ }
+    finally { setRotatingAgent(null); }
+  };
+
+  const currentPlan = subscription?.plan ?? 'free';
+  const planLabel = currentPlan === 'free' ? 'Free' : currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1);
+  const planLimits = subscription?.limits as Record<string, number> | undefined;
+  const agentLimit = planLimits?.maxAgents ?? (currentPlan === 'free' ? 1 : currentPlan === 'starter' ? 5 : currentPlan === 'pro' ? 25 : null);
+
+  const rowStyle = { borderColor: 'rgba(255,255,255,0.05)' };
+  const labelStyle: React.CSSProperties = { color: 'var(--text-dim)', fontSize: 12 };
+  const valueStyle: React.CSSProperties = { color: 'var(--text-primary)', fontSize: 14 };
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Settings</h1>
+      <h1 className="text-2xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Settings</h1>
+      <p className="text-sm mb-6" style={{ color: 'var(--text-dim)' }}>Manage your account, API credentials, and billing.</p>
+
       <div className="space-y-6">
+        {/* ── Profile ───────────────────────────────────────────────────── */}
         <GlassCard>
-          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Current Plan</h3>
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <div className="text-lg font-bold capitalize" style={{ color: 'var(--text-primary)' }}>{currentPlan === 'free' ? 'Free' : currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}</div>
-              <div className="text-sm" style={{ color: 'var(--text-dim)' }}>{agents.length} agent{agents.length !== 1 ? 's' : ''} registered</div>
-            </div>
-            {currentPlan === 'free' && <PrimaryButton onClick={() => navigate('/pricing')}>Upgrade Plan</PrimaryButton>}
-          </div>
-        </GlassCard>
-        <GlassCard>
-          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Account</h3>
+          <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Profile</h3>
           <div className="space-y-4">
-            <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-              <div><div className="text-sm" style={{ color: 'var(--text-muted)' }}>Account</div><div className="text-sm" style={{ color: 'var(--text-primary)' }}>Active</div></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs mb-1" style={labelStyle}>Display name</label>
+                <input
+                  value={displayNameDraft}
+                  onChange={e => setDisplayNameDraft(e.target.value)}
+                  placeholder="Your name"
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                  style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={labelStyle}>Email</label>
+                <input
+                  value={profile?.email ?? ''}
+                  readOnly
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--border-color)', color: 'var(--text-dim)', cursor: 'default' }}
+                />
+              </div>
             </div>
-            <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-              <div><div className="text-sm" style={{ color: 'var(--text-muted)' }}>Agents</div><div className="text-sm" style={{ color: 'var(--text-primary)' }}>{agents.length} registered</div></div>
+            <div className="flex items-center gap-3">
+              <PrimaryButton
+                variant="ghost"
+                onClick={handleSaveProfile}
+                disabled={savingProfile || !displayNameDraft.trim() || displayNameDraft === profile?.displayName}
+              >
+                {savingProfile ? 'Saving…' : profileSaved ? '✓ Saved' : 'Save Profile'}
+              </PrimaryButton>
+              {profile?.provider && (
+                <span className="text-xs px-2 py-1 rounded-md" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  via {profile.provider}{profile.githubUsername ? ` · @${profile.githubUsername}` : ''}
+                </span>
+              )}
             </div>
           </div>
         </GlassCard>
+
+        {/* ── Plan & Billing ────────────────────────────────────────────── */}
         <GlassCard>
-          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>API Keys</h3>
+          <div className="flex items-start justify-between mb-4">
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Plan & Billing</h3>
+            <div className="flex gap-2">
+              {currentPlan !== 'free' && (
+                <a
+                  href="/api/v1/billing/portal"
+                  className="text-xs px-3 py-1.5 rounded-lg font-medium transition-opacity hover:opacity-80"
+                  style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.08)', textDecoration: 'none' }}
+                >
+                  Manage billing
+                </a>
+              )}
+              {currentPlan === 'free' && (
+                <PrimaryButton variant="blue" onClick={() => navigate('/pricing')}>Upgrade Plan</PrimaryButton>
+              )}
+            </div>
+          </div>
+          <div className="space-y-0 divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+            <div className="flex items-center justify-between py-2.5">
+              <span style={labelStyle}>Current plan</span>
+              <span className="text-sm font-semibold px-2.5 py-0.5 rounded-full" style={{
+                background: currentPlan === 'free' ? 'rgba(255,255,255,0.05)' : 'rgba(79,125,243,0.12)',
+                color: currentPlan === 'free' ? 'var(--text-dim)' : 'var(--accent)',
+                border: `1px solid ${currentPlan === 'free' ? 'rgba(255,255,255,0.08)' : 'rgba(79,125,243,0.25)'}`,
+              }}>
+                {planLabel}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-2.5" style={rowStyle}>
+              <span style={labelStyle}>Agents</span>
+              <span style={valueStyle}>{agents.filter(a => a.status !== 'revoked').length}{agentLimit ? ` / ${agentLimit}` : ''}</span>
+            </div>
+            <div className="flex items-center justify-between py-2.5" style={rowStyle}>
+              <span style={labelStyle}>Handles owned</span>
+              <span style={valueStyle}>{agents.filter(a => a.handle).length}</span>
+            </div>
+            {planLimits?.requestsPerMinute && (
+              <div className="flex items-center justify-between py-2.5" style={rowStyle}>
+                <span style={labelStyle}>Rate limit</span>
+                <span style={valueStyle}>{planLimits.requestsPerMinute.toLocaleString()} req/min</span>
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex gap-2">
+            {currentPlan !== 'free' ? (
+              <PrimaryButton variant="ghost" className="!text-xs !py-1.5" onClick={handleOpenPortal} disabled={portalLoading}>
+                {portalLoading ? 'Loading…' : 'Manage Subscription'}
+              </PrimaryButton>
+            ) : (
+              <PrimaryButton variant="ghost" className="!text-xs !py-1.5" onClick={() => window.location.href = '/pricing'}>
+                Upgrade Plan
+              </PrimaryButton>
+            )}
+          </div>
+        </GlassCard>
+
+        {/* ── User API Keys ─────────────────────────────────────────────── */}
+        <GlassCard>
+          <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>User API Keys</h3>
+          <p className="text-xs mb-4" style={{ color: 'var(--text-dim)' }}>
+            User-scoped keys authenticate as you across all your agents. Use these in server-side integrations.
+          </p>
           <div className="flex gap-2 mb-4">
-            <input value={newKeyLabel} onChange={e => setNewKeyLabel(e.target.value)} placeholder="Key label (e.g. production)" className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
-            <PrimaryButton variant="ghost" onClick={handleCreateKey} disabled={creatingKey || !newKeyLabel.trim()}>{creatingKey ? 'Creating...' : 'Create Key'}</PrimaryButton>
+            <input
+              value={newKeyLabel}
+              onChange={e => setNewKeyLabel(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreateKey()}
+              placeholder="Key label (e.g. production, ci)"
+              className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none"
+              style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+            />
+            <PrimaryButton variant="ghost" onClick={handleCreateKey} disabled={creatingKey || !newKeyLabel.trim()}>
+              {creatingKey ? 'Creating…' : 'Create'}
+            </PrimaryButton>
           </div>
           {newKeyValue && (
-            <div className="p-3 rounded-lg mb-4 text-sm" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--success)' }}>
-              <div className="text-xs mb-1" style={{ color: 'var(--text-dim)' }}>Copy this key now  -  it won't be shown again:</div>
-              <code style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{newKeyValue}</code>
+            <div className="p-3 rounded-lg mb-4" style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)' }}>
+              <div className="text-xs mb-1.5 font-semibold" style={{ color: 'var(--success)' }}>Key created — copy it now, it won't be shown again</div>
+              <code className="text-xs break-all" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{newKeyValue}</code>
             </div>
           )}
-          {loading ? (
+          {apiKeysLoading ? (
             <ListSkeleton rows={2} />
           ) : apiKeys.length === 0 ? (
             <EmptyState
-              icon={<Key className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />}
-              title="No API keys yet"
-              description="Create an API key to authenticate your agents programmatically."
+              icon={<Key className="w-7 h-7" style={{ color: 'var(--text-dim)' }} />}
+              title="No API keys"
+              description="Create a key to authenticate server-side calls."
             />
           ) : (
-            apiKeys.map(k => (
-              <div key={k.id} className="flex items-center justify-between py-2">
-                <div>
-                  <div className="text-sm" style={{ color: 'var(--text-primary)' }}>{k.label}</div>
-                  <div className="text-sm" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>{k.prefix}...</div>
+            <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+              {apiKeys.map(k => (
+                <div key={k.id} className="flex items-center justify-between py-2.5">
+                  <div>
+                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{k.label}</div>
+                    <div className="text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
+                      {k.prefix}… · created {new Date(k.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <PrimaryButton
+                    variant="ghost"
+                    onClick={() => api.users.apiKeys.revoke(k.id).then(() => setApiKeys(prev => prev.filter(x => x.id !== k.id)))}
+                  >
+                    Revoke
+                  </PrimaryButton>
                 </div>
-                <PrimaryButton variant="ghost" onClick={() => api.users.apiKeys.revoke(k.id).then(() => setApiKeys(prev => prev.filter(x => x.id !== k.id)))}>Revoke</PrimaryButton>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </GlassCard>
+
+        {/* ── Agent Keys ───────────────────────────────────────────────── */}
+        {agents.length > 0 && (
+          <GlassCard>
+            <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Agent Keys</h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-dim)' }}>
+              Agent-scoped keys are embedded in each agent process. Rotating a key immediately invalidates the previous one.
+            </p>
+            <div className="space-y-4">
+              {agents.map(agent => {
+                const keys = agentKeys[agent.id] ?? [];
+                const isRotating = rotatingAgent === agent.id;
+                const justRotated = rotatedKey?.agentId === agent.id;
+                return (
+                  <div key={agent.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{agent.displayName}</div>
+                        {agent.handle && <div className="text-xs" style={{ color: 'var(--text-dim)' }}>@{agent.handle}</div>}
+                      </div>
+                      <PrimaryButton variant="ghost" onClick={() => handleRotateAgentKey(agent.id)} disabled={isRotating}>
+                        {isRotating ? 'Rotating…' : 'Rotate Key'}
+                      </PrimaryButton>
+                    </div>
+                    {justRotated && rotatedKey && (
+                      <div className="p-3 rounded-lg mb-3" style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                        <div className="text-xs mb-1 font-semibold" style={{ color: 'var(--success)' }}>New key — copy now, won't be shown again</div>
+                        <code className="text-xs break-all" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{rotatedKey.key}</code>
+                      </div>
+                    )}
+                    {keys.length === 0 ? (
+                      <p className="text-xs" style={{ color: 'var(--text-dim)' }}>No keys found — rotate to generate one.</p>
+                    ) : (
+                      keys.map(k => (
+                        <div key={k.id} className="text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
+                          {k.keyPrefix}… · {(k.scopes ?? []).length > 0 ? (k.scopes ?? []).join(', ') : 'all scopes'} · {new Date(k.createdAt).toLocaleDateString()}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </GlassCard>
+        )}
 
         {/* ── Revoked Agents ───────────────────────────────────────────── */}
         {agents.filter(a => a.status === 'revoked').length > 0 && (
@@ -2039,18 +2272,70 @@ function SettingsPage() {
           </GlassCard>
         )}
 
-        <div className="pt-4">
-          {showDeleteConfirm ? (
-            <GlassCard className="!p-4">
-              <p className="text-sm mb-3" style={{ color: 'var(--text-primary)' }}>Are you sure you want to delete your account? This action cannot be undone.</p>
-              <div className="flex gap-3">
-                <PrimaryButton variant="danger" onClick={async () => { try { await api.users.deleteAccount(); window.location.href = '/'; } catch (e) { alert(e instanceof Error ? e.message : 'Failed to delete account. Please try again.'); } }}>Confirm Delete</PrimaryButton>
-                <PrimaryButton variant="ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</PrimaryButton>
+        {/* ── Security ─────────────────────────────────────────────────── */}
+        <GlassCard>
+          <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Account</h3>
+          <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+            <div className="flex items-center justify-between py-2.5">
+              <div>
+                <div className="text-sm" style={valueStyle}>User ID</div>
+                <code className="text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>{userId}</code>
               </div>
-            </GlassCard>
-          ) : (
-            <PrimaryButton variant="danger" onClick={() => setShowDeleteConfirm(true)}>Delete Account</PrimaryButton>
-          )}
+            </div>
+            <div className="flex items-center justify-between py-2.5">
+              <span style={labelStyle}>Status</span>
+              <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.2)' }}>Active</span>
+            </div>
+            <div className="flex items-center justify-between py-2.5">
+              <span style={labelStyle}>Auth provider</span>
+              <span className="text-sm capitalize" style={valueStyle}>{profile?.provider ?? '—'}</span>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* ── Danger Zone ───────────────────────────────────────────────── */}
+        <div>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: '#ef4444' }}>Danger Zone</h3>
+          <GlassCard style={{ borderColor: 'rgba(239,68,68,0.18)' }}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Delete account</div>
+                <div className="text-xs" style={{ color: 'var(--text-dim)' }}>
+                  Permanently deletes your account, all agents, handles, and data. This cannot be undone.
+                </div>
+              </div>
+              {!showDeleteConfirm && (
+                <PrimaryButton variant="danger" onClick={() => setShowDeleteConfirm(true)}>Delete Account</PrimaryButton>
+              )}
+            </div>
+            {showDeleteConfirm && (
+              <div className="mt-4 pt-4 border-t" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
+                <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
+                  Type <strong style={{ color: 'var(--text-primary)' }}>delete my account</strong> to confirm.
+                </p>
+                <input
+                  value={deleteConfirmText}
+                  onChange={e => setDeleteConfirmText(e.target.value)}
+                  placeholder="delete my account"
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none mb-3"
+                  style={{ background: 'var(--bg-base)', borderColor: 'rgba(239,68,68,0.35)', color: 'var(--text-primary)' }}
+                />
+                <div className="flex gap-3">
+                  <PrimaryButton
+                    variant="danger"
+                    disabled={deleteConfirmText !== 'delete my account'}
+                    onClick={async () => {
+                      try { await api.users.deleteAccount(); window.location.href = '/'; }
+                      catch (e) { alert(e instanceof Error ? e.message : 'Failed to delete account.'); }
+                    }}
+                  >
+                    Permanently Delete
+                  </PrimaryButton>
+                  <PrimaryButton variant="ghost" onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}>Cancel</PrimaryButton>
+                </div>
+              </div>
+            )}
+          </GlassCard>
         </div>
       </div>
     </div>
@@ -2559,21 +2844,23 @@ function WalletDashboard() {
                   <PrimaryButton variant="ghost" onClick={() => setEditingRules(false)}>Cancel</PrimaryButton>
                 </div>
               </div>
-            ) : (
+            ) : rules ? (
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <div className="text-xs" style={{ color: 'var(--text-dim)' }}>Max per tx</div>
-                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${(rules?.maxPerTransactionCents || 1000) / 100}</div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${rules.maxPerTransactionCents / 100}</div>
                 </div>
                 <div>
                   <div className="text-xs" style={{ color: 'var(--text-dim)' }}>Daily cap</div>
-                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${(rules?.dailyCapCents || 5000) / 100}</div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${rules.dailyCapCents / 100}</div>
                 </div>
                 <div>
                   <div className="text-xs" style={{ color: 'var(--text-dim)' }}>Monthly cap</div>
-                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${(rules?.monthlyCapCents || 50000) / 100}</div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${rules.monthlyCapCents / 100}</div>
                 </div>
               </div>
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--text-dim)' }}>No spending rules configured. Click Edit to set limits.</p>
             )}
           </GlassCard>
 
@@ -2617,23 +2904,382 @@ function WalletDashboard() {
   );
 }
 
+const SCOPES = ['read', 'write', 'agents:read', 'agents:write', 'tasks:read', 'tasks:write', 'mail:read', 'mail:write'];
+const GRANT_TYPES = ['authorization_code', 'urn:agentid:grant-type:signed-assertion'];
+
+function DeveloperPage() {
+  const { agents } = useAuth();
+  const [tab, setTab] = useState<'apps' | 'connected'>('apps');
+
+  // OAuth Apps state
+  const [clients, setClients] = useState<OAuthClient[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createDesc, setCreateDesc] = useState('');
+  const [createRedirects, setCreateRedirects] = useState('');
+  const [createScopes, setCreateScopes] = useState<string[]>(['read']);
+  const [createGrants, setCreateGrants] = useState<string[]>(['authorization_code']);
+  const [createType, setCreateType] = useState<'public' | 'confidential'>('public');
+  const [creating, setCreating] = useState(false);
+  const [newSecret, setNewSecret] = useState<{ clientId: string; secret: string } | null>(null);
+  const [secretVisible, setSecretVisible] = useState(false);
+  const [deletingClient, setDeletingClient] = useState<string | null>(null);
+  const [rotatingSecret, setRotatingSecret] = useState<string | null>(null);
+  const [rotatedSecret, setRotatedSecret] = useState<{ clientId: string; secret: string } | null>(null);
+
+  // Connected Apps state
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const [connections, setConnections] = useState<OAuthConnection[]>([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.oauth.clients.list()
+      .then(r => setClients(r.clients))
+      .catch(() => {})
+      .finally(() => setClientsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (agents.length > 0 && !selectedAgentId) setSelectedAgentId(agents[0].id);
+  }, [agents, selectedAgentId]);
+
+  useEffect(() => {
+    if (!selectedAgentId) return;
+    setConnectionsLoading(true);
+    api.oauth.tokens.list(selectedAgentId)
+      .then(r => setConnections(r.connections))
+      .catch(() => setConnections([]))
+      .finally(() => setConnectionsLoading(false));
+  }, [selectedAgentId]);
+
+  async function handleCreate() {
+    if (!createName.trim()) return;
+    setCreating(true);
+    try {
+      const uris = createRedirects.split('\n').map(s => s.trim()).filter(Boolean);
+      const result = await api.oauth.clients.create({
+        name: createName.trim(),
+        description: createDesc.trim() || undefined,
+        redirectUris: uris,
+        allowedScopes: createScopes,
+        grantTypes: createGrants,
+        clientType: createType,
+      });
+      setClients(prev => [result as OAuthClient, ...prev]);
+      if (result.clientSecret) {
+        setNewSecret({ clientId: result.clientId, secret: result.clientSecret });
+        setSecretVisible(true);
+      }
+      setShowCreate(false);
+      setCreateName(''); setCreateDesc(''); setCreateRedirects('');
+      setCreateScopes(['read']); setCreateGrants(['authorization_code']); setCreateType('public');
+    } catch { /* handled */ } finally { setCreating(false); }
+  }
+
+  async function handleDeleteClient(clientId: string) {
+    setDeletingClient(clientId);
+    try {
+      await api.oauth.clients.delete(clientId);
+      setClients(prev => prev.filter(c => c.clientId !== clientId));
+    } catch { /* handled */ } finally { setDeletingClient(null); }
+  }
+
+  async function handleRotateSecret(clientId: string) {
+    setRotatingSecret(clientId);
+    try {
+      const result = await api.oauth.clients.rotateSecret(clientId);
+      setRotatedSecret({ clientId, secret: result.clientSecret });
+    } catch { /* handled */ } finally { setRotatingSecret(null); }
+  }
+
+  async function handleRevoke(tokenId: string) {
+    setRevokingId(tokenId);
+    try {
+      await api.oauth.tokens.revoke(selectedAgentId, tokenId);
+      setConnections(prev => prev.filter(c => c.id !== tokenId));
+    } catch { /* handled */ } finally { setRevokingId(null); }
+  }
+
+  const scopeToggle = (s: string) => setCreateScopes(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  const grantToggle = (g: string) => setCreateGrants(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Developer</h1>
+      <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Manage OAuth apps and see which apps your agents have authorized.</p>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 p-1 rounded-lg w-fit" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)' }}>
+        {(['apps', 'connected'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className="px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer"
+            style={{ background: tab === t ? 'rgba(59,130,246,0.15)' : 'transparent', color: tab === t ? 'var(--accent)' : 'var(--text-muted)', border: 'none' }}>
+            {t === 'apps' ? 'OAuth Apps' : 'Connected Apps'}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'apps' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Your OAuth Apps</h2>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>Apps that use "Sign in with Agent ID" to authorize on behalf of agents.</p>
+            </div>
+            <PrimaryButton onClick={() => setShowCreate(true)}><Plus className="w-3.5 h-3.5 mr-1" />New App</PrimaryButton>
+          </div>
+
+          {/* New secret banner */}
+          {(newSecret || rotatedSecret) && (() => {
+            const s = rotatedSecret || newSecret!;
+            return (
+              <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold mb-1" style={{ color: 'var(--success)' }}>
+                      {rotatedSecret ? 'Secret rotated' : 'App created'} — save your client secret now
+                    </div>
+                    <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>This will not be shown again.</div>
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs px-2 py-1 rounded" style={{ background: 'rgba(0,0,0,0.3)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
+                        {secretVisible ? s.secret : '•'.repeat(40)}
+                      </code>
+                      <button onClick={() => setSecretVisible(v => !v)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', flexShrink: 0 }}>
+                        {secretVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                      <button onClick={() => { navigator.clipboard.writeText(s.secret); }} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', flexShrink: 0 }}>
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <button onClick={() => { setNewSecret(null); setRotatedSecret(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', flexShrink: 0 }}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Create form */}
+          {showCreate && (
+            <GlassCard className="mb-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Register new OAuth app</h3>
+                <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}><X className="w-4 h-4" /></button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>App Name *</label>
+                  <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="My App"
+                    className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>Description</label>
+                  <input value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="Optional"
+                    className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>Redirect URIs <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(one per line)</span></label>
+                  <textarea value={createRedirects} onChange={e => setCreateRedirects(e.target.value)} rows={3}
+                    placeholder="https://yourapp.com/callback"
+                    className="w-full px-3 py-2 rounded-lg text-sm resize-none" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-2" style={{ color: 'var(--text-dim)' }}>Scopes</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SCOPES.map(s => (
+                      <button key={s} onClick={() => scopeToggle(s)}
+                        className="px-2.5 py-1 rounded-md text-xs cursor-pointer transition-colors"
+                        style={{ background: createScopes.includes(s) ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)', color: createScopes.includes(s) ? 'var(--accent)' : 'var(--text-dim)', border: `1px solid ${createScopes.includes(s) ? 'rgba(59,130,246,0.4)' : 'var(--border-color)'}` }}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-2" style={{ color: 'var(--text-dim)' }}>Grant Types</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {GRANT_TYPES.map(g => (
+                      <button key={g} onClick={() => grantToggle(g)}
+                        className="px-2.5 py-1 rounded-md text-xs cursor-pointer transition-colors"
+                        style={{ background: createGrants.includes(g) ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)', color: createGrants.includes(g) ? 'var(--accent)' : 'var(--text-dim)', border: `1px solid ${createGrants.includes(g) ? 'rgba(59,130,246,0.4)' : 'var(--border-color)'}` }}>
+                        {g === 'authorization_code' ? 'Auth Code (PKCE)' : 'Signed Assertion (M2M)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-2" style={{ color: 'var(--text-dim)' }}>Client Type</label>
+                  <div className="flex gap-2">
+                    {(['public', 'confidential'] as const).map(t => (
+                      <button key={t} onClick={() => setCreateType(t)}
+                        className="px-3 py-1.5 rounded-md text-xs cursor-pointer"
+                        style={{ background: createType === t ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)', color: createType === t ? 'var(--accent)' : 'var(--text-dim)', border: `1px solid ${createType === t ? 'rgba(59,130,246,0.4)' : 'var(--border-color)'}` }}>
+                        {t === 'public' ? 'Public (SPA/mobile, PKCE only)' : 'Confidential (server-side, has secret)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <PrimaryButton onClick={handleCreate} disabled={creating || !createName.trim()}>
+                    {creating ? 'Creating…' : 'Create App'}
+                  </PrimaryButton>
+                  <PrimaryButton variant="ghost" onClick={() => setShowCreate(false)}>Cancel</PrimaryButton>
+                </div>
+              </div>
+            </GlassCard>
+          )}
+
+          {clientsLoading ? <ListSkeleton rows={3} /> : clients.length === 0 ? (
+            <EmptyState icon={<Code className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />}
+              title="No OAuth apps yet"
+              description="Register an app to let your users authorize agents via OAuth."
+              action={<PrimaryButton onClick={() => setShowCreate(true)}><Plus className="w-3.5 h-3.5 mr-1" />Register first app</PrimaryButton>} />
+          ) : (
+            <div className="space-y-3">
+              {clients.map(client => (
+                <GlassCard key={client.clientId}>
+                  <div className="flex items-start gap-3 flex-wrap">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(79,125,243,0.1)', border: '1px solid rgba(79,125,243,0.2)' }}>
+                      <Code className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{client.name}</span>
+                        {client.revokedAt && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>Revoked</span>}
+                      </div>
+                      {client.description && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{client.description}</p>}
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <code className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{client.clientId}</code>
+                        <button onClick={() => navigator.clipboard.writeText(client.clientId)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 0 }}>
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {((client.allowedScopes as string[] | null) ?? []).map(s => (
+                          <span key={s} className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)', border: '1px solid var(--border-color)' }}>{s}</span>
+                        ))}
+                      </div>
+                      {client.lastUsedAt && (
+                        <p className="text-xs mt-1.5" style={{ color: 'var(--text-dim)' }}>Last used {new Date(client.lastUsedAt).toLocaleDateString()}</p>
+                      )}
+                    </div>
+                    {!client.revokedAt && (
+                      <div className="flex gap-2 flex-shrink-0 flex-wrap">
+                        <PrimaryButton variant="ghost" className="!py-1 !px-2.5 !text-xs"
+                          onClick={() => handleRotateSecret(client.clientId)}
+                          disabled={rotatingSecret === client.clientId}>
+                          <RotateCw className="w-3 h-3 mr-1" />{rotatingSecret === client.clientId ? 'Rotating…' : 'Rotate Secret'}
+                        </PrimaryButton>
+                        <PrimaryButton variant="danger" className="!py-1 !px-2.5 !text-xs"
+                          onClick={() => handleDeleteClient(client.clientId)}
+                          disabled={deletingClient === client.clientId}>
+                          {deletingClient === client.clientId ? 'Revoking…' : 'Revoke'}
+                        </PrimaryButton>
+                      </div>
+                    )}
+                  </div>
+                  {((client.redirectUris as string[] | null) ?? []).length > 0 && (
+                    <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                      <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-dim)' }}>Redirect URIs</p>
+                      <div className="flex flex-wrap gap-1">
+                        {((client.redirectUris as string[] | null) ?? []).map(uri => (
+                          <code key={uri} className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>{uri}</code>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </GlassCard>
+              ))}
+            </div>
+          )}
+
+          {/* Docs callout */}
+          <div className="mt-6 p-4 rounded-xl flex items-start gap-3" style={{ background: 'rgba(79,125,243,0.06)', border: '1px solid rgba(79,125,243,0.15)' }}>
+            <Code className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
+            <div>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Integration guide</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                Learn how to implement the OAuth flow, use the signed-assertion grant for agent-to-agent auth, and embed the "Sign in with Agent ID" button.
+              </p>
+              <a href="/docs/sign-in" className="text-xs mt-1.5 inline-flex items-center gap-1" style={{ color: 'var(--accent)' }}>
+                Read the docs <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'connected' && (
+        <div>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div>
+              <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Connected Apps</h2>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>Third-party apps authorized to act on behalf of your agents. Revoke access at any time.</p>
+            </div>
+            {agents.length > 1 && (
+              <select value={selectedAgentId} onChange={e => setSelectedAgentId(e.target.value)}
+                className="px-3 py-1.5 rounded-lg text-sm sm:max-w-xs"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                {agents.map(a => <option key={a.id} value={a.id}>@{a.handle}</option>)}
+              </select>
+            )}
+          </div>
+
+          {connectionsLoading ? <ListSkeleton rows={3} /> : connections.length === 0 ? (
+            <EmptyState icon={<Shield className="w-8 h-8" style={{ color: 'var(--text-dim)' }} />}
+              title="No connected apps"
+              description="When you authorize a third-party app to act as this agent, it will appear here." />
+          ) : (
+            <div className="space-y-3">
+              {connections.map(conn => (
+                <GlassCard key={conn.id}>
+                  <div className="flex items-start gap-3 flex-wrap">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                      {conn.clientName[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{conn.clientName}</div>
+                      {conn.clientDescription && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{conn.clientDescription}</p>}
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {((conn.scopes as string[] | null) ?? []).map(s => (
+                          <span key={s} className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)', border: '1px solid var(--border-color)' }}>{s}</span>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-3 mt-1.5">
+                        {conn.issuedAt && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Authorized {new Date(conn.issuedAt).toLocaleDateString()}</span>}
+                        {conn.refreshExpiresAt && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>Expires {new Date(conn.refreshExpiresAt).toLocaleDateString()}</span>}
+                      </div>
+                    </div>
+                    <PrimaryButton variant="danger" className="!py-1 !px-2.5 !text-xs flex-shrink-0"
+                      onClick={() => handleRevoke(conn.id)}
+                      disabled={revokingId === conn.id}>
+                      {revokingId === conn.id ? 'Revoking…' : 'Revoke Access'}
+                    </PrimaryButton>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Dashboard() {
   useSEO({ title: 'Dashboard — Agent ID', noIndex: true });
   const location = useLocation();
   const navigate = useNavigate();
   const { userId, agents, refreshAgents, loading: authLoading } = useAuth();
   const [agentLinked, setAgentLinked] = useState(false);
-  const [userPlan, setUserPlan] = useState<string | undefined>(undefined);
   const path = location.pathname;
 
   useEffect(() => {
     if (!userId) navigate('/sign-in');
   }, [userId, navigate]);
-
-  useEffect(() => {
-    if (!userId) return;
-    api.billing.subscription().then(res => setUserPlan(res.plan)).catch(() => {});
-  }, [userId]);
 
   const handleAgentLinked = useCallback(async () => {
     await refreshAgents();
@@ -2643,19 +3289,9 @@ export function Dashboard() {
   if (!userId || authLoading) return null;
 
   const hasAgents = agents.length > 0;
-  const isOnboardingPath = path === '/dashboard' || path === '/dashboard/agents';
 
-  if (isOnboardingPath && !hasAgents && !agentLinked) {
+  if ((path === '/dashboard' || path === '/dashboard/agents') && !hasAgents && !agentLinked) {
     return <Navigate to="/get-started" replace />;
-  }
-
-  if (isOnboardingPath && hasAgents) {
-    const primaryAgent = agents[0];
-    return (
-      <DashboardLayout>
-        <DashboardOverview agent={primaryAgent} plan={userPlan} />
-      </DashboardLayout>
-    );
   }
 
   let content;
@@ -2671,6 +3307,7 @@ export function Dashboard() {
   else if (path === '/dashboard/handles') content = <HandlesClaim />;
   else if (path === '/dashboard/fleet') content = <FleetManagement />;
   else if (path === '/dashboard/settings') content = <SettingsPage />;
+  else if (path === '/dashboard/developer') content = <DeveloperPage />;
   else if (path.startsWith('/dashboard/transfers')) content = <TransferDashboardPage />;
   else content = <Overview />;
 

@@ -4,6 +4,7 @@ import { agentsTable, nftAuditLogTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { registerOnChain, BaseChainError } from "../services/chains/base";
 import { getHandleTier } from "../services/handle";
+import { recordWorkerFailure, recordWorkerSuccess } from "./worker-failure";
 
 const POLL_INTERVAL_MS = 60 * 1000;
 const MAX_RETRIES = 3;
@@ -217,9 +218,11 @@ export function startNftMintWorker(): void {
   });
 
   timer = setInterval(() => {
-    processPendingAnchors().catch(err => {
-      logger.error({ err }, "[nft-mint] Anchor pass failed");
-    });
+    processPendingAnchors()
+      .then(() => recordWorkerSuccess("nft-mint"))
+      .catch(err => {
+        recordWorkerFailure(err, { worker: "nft-mint", jobType: "processPendingAnchors" });
+      });
   }, POLL_INTERVAL_MS);
 }
 

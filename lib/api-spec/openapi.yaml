@@ -50,6 +50,10 @@ tags:
     description: Agent resolution, discovery, and reverse lookup
   - name: fleet
     description: Fleet management — root handles and sub-handles
+  - name: wallet
+    description: Agent wallet — balance, transactions, and spending rules
+  - name: organizations
+    description: Organizations — multi-agent groups and membership
   - name: runtime
     description: Agent runtime bootstrap, config, and heartbeat
   - name: spawn
@@ -2967,6 +2971,540 @@ paths:
               schema:
                 type: string
 
+  # --- Bootstrap (programmatic claim + activate) ---
+  /v1/bootstrap/claim:
+    post:
+      operationId: bootstrapClaim
+      tags: [programmatic]
+      summary: Claim a pre-issued agent identity token
+      description: |
+        Step 1 of the programmatic bootstrap flow. Submit a claim token and an
+        Ed25519 public key to reserve the agent identity. Returns a challenge
+        string that must be signed in the activate step.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: Pre-issued claim token
+                publicKey:
+                  type: string
+                  description: Base64-encoded SPKI Ed25519 public key
+                keyType:
+                  type: string
+                  enum: [ed25519]
+              required: [token, publicKey, keyType]
+      responses:
+        "200":
+          description: Claim accepted, challenge issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  identity:
+                    type: object
+                    properties:
+                      agentId:
+                        type: string
+                      handle:
+                        type: string
+                      status:
+                        type: string
+                  challenge:
+                    type: string
+                    description: Hex string to sign with the agent's Ed25519 private key
+                  kid:
+                    type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  activateEndpoint:
+                    type: string
+                required: [identity, challenge, kid, expiresAt, activateEndpoint]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/bootstrap/activate:
+    post:
+      operationId: bootstrapActivate
+      tags: [programmatic]
+      summary: Activate agent identity by signing the challenge
+      description: |
+        Step 2 of the programmatic bootstrap flow. Sign the challenge from the
+        claim step with the agent's Ed25519 private key and submit the signature.
+        Returns the permanent agent API key (shown only once — store immediately).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agentId:
+                  type: string
+                kid:
+                  type: string
+                challenge:
+                  type: string
+                signature:
+                  type: string
+                  description: Base64 Ed25519 signature over the challenge string
+                claimToken:
+                  type: string
+              required: [agentId, kid, challenge, signature, claimToken]
+      responses:
+        "200":
+          description: Agent activated, API key returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activated:
+                    type: boolean
+                  identity:
+                    type: object
+                    properties:
+                      agentId:
+                        type: string
+                      status:
+                        type: string
+                  secrets:
+                    type: object
+                    properties:
+                      apiKey:
+                        type: string
+                        description: Agent API key (agk_...). Shown once only — store immediately.
+                      storageSafety:
+                        type: string
+                  bootstrap:
+                    type: object
+                  nextSteps:
+                    type: object
+                required: [activated, identity, secrets]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --- PoP JWT Auth Challenge ---
+  /v1/auth/challenge:
+    post:
+      operationId: createAuthChallenge
+      tags: [auth]
+      summary: Request a nonce for Proof-of-Possession JWT authentication
+      description: |
+        Issues a single-use nonce for use in a PoP JWT. The nonce must be used
+        within 5 minutes and can only be consumed once (replay protection).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agentId:
+                  type: string
+                  format: uuid
+              required: [agentId]
+      responses:
+        "200":
+          description: Nonce issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nonce:
+                    type: string
+                    description: Single-use random hex string
+                  expiresAt:
+                    type: string
+                    format: date-time
+                required: [nonce, expiresAt]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --- Agent Keys ---
+  /v1/agents/{agentId}/keys:
+    get:
+      operationId: listAgentKeys
+      tags: [agents]
+      summary: List Ed25519 keys registered for an agent
+      security:
+        - AgentKey: []
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Agent keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgentKey"
+                required: [keys]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: addAgentKey
+      tags: [agents]
+      summary: Register a new Ed25519 public key for an agent
+      security:
+        - AgentKey: []
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                publicKeySpkiBase64:
+                  type: string
+                  description: Base64-encoded SPKI Ed25519 public key
+                kid:
+                  type: string
+                  description: Key identifier
+              required: [publicKeySpkiBase64]
+      responses:
+        "201":
+          description: Key registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentKey"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/agents/{agentId}/keys/{keyId}/revoke:
+    post:
+      operationId: revokeAgentKey
+      tags: [agents]
+      summary: Revoke an Ed25519 key
+      description: |
+        Revokes the key and cascades: reissues the internal attestation
+        credential, invalidates the W3C VC JWT cache, and evicts the DID
+        document resolution cache. Stale VC JWTs referencing revoked keys
+        are never served after this call returns.
+      security:
+        - AgentKey: []
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Key revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked:
+                    type: boolean
+                  keyId:
+                    type: string
+                required: [revoked, keyId]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --- Wallet ---
+  /v1/agents/{agentId}/wallet:
+    get:
+      operationId: getAgentWallet
+      tags: [wallet]
+      summary: Get agent wallet balance and metadata
+      security:
+        - AgentKey: []
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Wallet info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balanceCents:
+                    type: integer
+                  balanceFormatted:
+                    type: string
+                    example: "$12.50"
+                  currency:
+                    type: string
+                    example: usd
+                  walletAddress:
+                    type: string
+                required: [balanceCents, balanceFormatted, currency]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/agents/{agentId}/wallet/transactions:
+    get:
+      operationId: getWalletTransactions
+      tags: [wallet]
+      summary: Get wallet transaction history
+      security:
+        - AgentKey: []
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                          enum: [credit, debit]
+                        amountCents:
+                          type: integer
+                        description:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required: [id, type, amountCents, createdAt]
+                required: [transactions]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/agents/{agentId}/wallet/spending-rules:
+    get:
+      operationId: getSpendingRules
+      tags: [wallet]
+      summary: List spending rules for an agent
+      security:
+        - AgentKey: []
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Spending rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        label:
+                          type: string
+                        maxAmountCents:
+                          type: integer
+                        period:
+                          type: string
+                          enum: [daily, weekly, monthly]
+                      required: [id, label, maxAmountCents, period]
+                required: [rules]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createSpendingRule
+      tags: [wallet]
+      summary: Create a spending rule
+      security:
+        - AgentKey: []
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                maxAmountCents:
+                  type: integer
+                  minimum: 1
+                period:
+                  type: string
+                  enum: [daily, weekly, monthly]
+              required: [label, maxAmountCents, period]
+      responses:
+        "201":
+          description: Spending rule created
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # --- Organizations ---
+  /v1/orgs:
+    get:
+      operationId: listOrganizations
+      tags: [organizations]
+      summary: List organizations for the authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Organization list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orgs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Organization"
+                required: [orgs]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createOrganization
+      tags: [organizations]
+      summary: Create a new organization
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+              required: [name, slug]
+      responses:
+        "201":
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/orgs/{orgId}/members:
+    get:
+      operationId: listOrgMembers
+      tags: [organizations]
+      summary: List agents in an organization
+      security:
+        - AgentKey: []
+        - BearerAuth: []
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Member list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        agentId:
+                          type: string
+                        handle:
+                          type: string
+                        role:
+                          type: string
+                      required: [agentId, role]
+                required: [members]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: addOrgMember
+      tags: [organizations]
+      summary: Add an agent to an organization
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agentId:
+                  type: string
+                role:
+                  type: string
+                  enum: [member, admin]
+                  default: member
+              required: [agentId]
+      responses:
+        "200":
+          description: Member added
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   parameters:
     AgentId:
@@ -5709,3 +6247,56 @@ components:
           type: string
       required: [protocol, namespace, resolverEndpoint, baseDomain]
 
+
+    AgentKey:
+      type: object
+      description: An Ed25519 public key registered for an agent
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        kid:
+          type: string
+          description: Key identifier
+        publicKeySpkiBase64:
+          type: string
+          description: Base64-encoded SPKI Ed25519 public key
+        status:
+          type: string
+          enum: [active, revoked, expired]
+        createdAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, agentId, kid, publicKeySpkiBase64, status, createdAt]
+
+    Organization:
+      type: object
+      description: A named group of agents
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        ownerId:
+          type: string
+          format: uuid
+        memberCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, slug, ownerId, createdAt]

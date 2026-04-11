@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Bot, Inbox, Mail, Activity, ShoppingBag, Globe, Network, Settings, ArrowUpRight, ArrowRightLeft, ShieldCheck, Wallet, Lock, X, AtSign, PackageOpen } from 'lucide-react';
+import { LayoutDashboard, Bot, Inbox, Mail, Activity, ShoppingBag, Globe, Network, Settings, ArrowUpRight, ArrowRightLeft, ShieldCheck, Wallet, Lock, X, AtSign, PackageOpen, Code } from 'lucide-react';
 import { Identicon } from '@/components/shared';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
@@ -77,8 +77,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const userPlanLevel = planLevel(userPlan);
 
   const navItems = [
-    { path: '/dashboard', icon: LayoutDashboard, label: 'Overview', minPlan: 0 },
-    { path: '/dashboard/agents', icon: Bot, label: 'My Agents', minPlan: 0 },
+    { path: '/dashboard', icon: Bot, label: 'My Agents', minPlan: 0 },
     { path: '/dashboard/handles', icon: AtSign, label: 'Handles', minPlan: 0 },
     { path: '/dashboard/inbox', icon: Inbox, label: 'Task Inbox', count: inboxCount, minPlan: 2 },
     { path: '/dashboard/mail', icon: Mail, label: 'Agent Mail', count: mailUnreadCount, minPlan: 2 },
@@ -90,6 +89,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     { path: '/dashboard/transfers', icon: ArrowRightLeft, label: 'Transfers', minPlan: 0 },
     { path: '/dashboard/domain', icon: Globe, label: '.agentid Domains', dot: 'cyan' as const, minPlan: 0 },
     { path: '/dashboard/fleet', icon: Network, label: 'Agent Fleet', minPlan: 3 },
+    { path: '/dashboard/developer', icon: Code, label: 'Developer', minPlan: 0 },
     { path: '/dashboard/settings', icon: Settings, label: 'Settings', minPlan: 0 },
   ];
 

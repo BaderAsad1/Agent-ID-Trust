@@ -1,6 +1,7 @@
 """Agent ID Python SDK."""
 
 from .client import AgentID
+from .async_client import AsyncAgentID
 from .types import (
     Agent,
     AgentRegistration,
@@ -16,6 +17,7 @@ from .types import (
 
 __all__ = [
     "AgentID",
+    "AsyncAgentID",
     "Agent",
     "AgentRegistration",
     "ResolvedAgent",

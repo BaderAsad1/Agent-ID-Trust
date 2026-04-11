@@ -73,7 +73,50 @@ const revokeSchema = z.object({
   client_secret: z.string().optional(),
 });
 
+// Hardcoded signin client — lets users sign into the platform itself using
+// their own Agent ID (Sign in with Agent ID on the sign-in page).
+// redirect_uri is validated as ending in /api/auth/agentid/callback.
+const SIGNIN_CLIENT = {
+  id:               "00000000-0000-0000-0000-000000000002",
+  clientId:         "agclient_signin",
+  clientSecretHash: null,
+  name:             "Agent ID Platform",
+  description:      "Sign in to getagent.id using your agent identity",
+  redirectUris:     [] as string[], // matched dynamically — any */api/auth/agentid/callback
+  allowedScopes:    ["read", "agents:read"] as string[],
+  grantTypes:       ["authorization_code"] as string[],
+  ownerUserId:      "00000000-0000-0000-0000-000000000002",
+  lastUsedAt:       null,
+  revokedAt:        null,
+  createdAt:        new Date("2025-01-01"),
+  updatedAt:        new Date("2025-01-01"),
+};
+
+// Hardcoded demo client — no DB row required. Works for /demo and localhost dev.
+const DEMO_CLIENT = {
+  id:               "00000000-0000-0000-0000-000000000001",
+  clientId:         "agclient_demo",
+  clientSecretHash: null,
+  name:             "Agent ID Demo",
+  description:      "Interactive live demo of Sign in with Agent ID",
+  redirectUris:     [
+    "https://getagent.id/demo/callback",
+    "http://localhost:5173/demo/callback",
+    "http://localhost:3000/demo/callback",
+  ] as string[],
+  allowedScopes:    ["read", "agents:read"] as string[],
+  grantTypes:       ["authorization_code"] as string[],
+  ownerUserId:      "00000000-0000-0000-0000-000000000001",
+  lastUsedAt:       null,
+  revokedAt:        null,
+  createdAt:        new Date("2025-01-01"),
+  updatedAt:        new Date("2025-01-01"),
+};
+
 async function lookupClient(clientId: string) {
+  if (clientId === SIGNIN_CLIENT.clientId) return SIGNIN_CLIENT;
+  if (clientId === DEMO_CLIENT.clientId) return DEMO_CLIENT;
+
   const client = await db.query.oauthClientsTable.findFirst({
     where: and(
       eq(oauthClientsTable.clientId, clientId),
@@ -174,7 +217,13 @@ router.post("/authorize/approve", requireAuth, async (req: Request, res: Respons
     const effectiveRedirectUri = redirect_uri || registeredUris[0] || "";
 
     if (effectiveRedirectUri) {
-      if (!registeredUris.includes(effectiveRedirectUri)) {
+      // Hardcoded clients use dynamic redirect URI matching
+      const isDemoClient   = client_id === "agclient_demo";
+      const isSigninClient = client_id === "agclient_signin";
+      const uriAllowed = registeredUris.includes(effectiveRedirectUri) ||
+        (isDemoClient   && effectiveRedirectUri.endsWith("/demo/callback")) ||
+        (isSigninClient && effectiveRedirectUri.endsWith("/api/auth/agentid/callback"));
+      if (!uriAllowed) {
         throw new AppError(400, "invalid_request", "redirect_uri does not match any registered URI for this client");
       }
     } else {
@@ -227,7 +276,9 @@ router.post("/token", registrationRateLimit, async (req: Request, res: Response,
       if (!parsed.success) throw new AppError(400, "invalid_request", "Invalid token request");
 
       const { code, client_id, client_secret, redirect_uri, code_verifier } = parsed.data;
-      const client = await db.query.oauthClientsTable.findFirst({
+      const client = client_id === SIGNIN_CLIENT.clientId ? SIGNIN_CLIENT
+        : client_id === DEMO_CLIENT.clientId ? DEMO_CLIENT
+        : await db.query.oauthClientsTable.findFirst({
         where: and(eq(oauthClientsTable.clientId, client_id), isNull(oauthClientsTable.revokedAt)),
       });
       if (!client) throw new AppError(400, "invalid_client", "Unknown client_id");
@@ -260,7 +311,9 @@ router.post("/token", registrationRateLimit, async (req: Request, res: Response,
       if (!parsed.success) throw new AppError(400, "invalid_request", "Invalid refresh token request");
 
       const { refresh_token, client_id, client_secret } = parsed.data;
-      const client = await db.query.oauthClientsTable.findFirst({
+      const client = client_id === SIGNIN_CLIENT.clientId ? SIGNIN_CLIENT
+        : client_id === DEMO_CLIENT.clientId ? DEMO_CLIENT
+        : await db.query.oauthClientsTable.findFirst({
         where: and(eq(oauthClientsTable.clientId, client_id), isNull(oauthClientsTable.revokedAt)),
       });
       if (!client) throw new AppError(400, "invalid_client", "Unknown client_id");

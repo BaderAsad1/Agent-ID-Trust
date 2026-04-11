@@ -16,10 +16,13 @@ router.get("/stats", requireAuth, async (req, res, next) => {
   try {
     const userId = req.userId!;
 
-    const userAgents = await db.query.agentsTable.findMany({
+    const allUserAgents = await db.query.agentsTable.findMany({
       where: agentOwnerFilter(userId),
       columns: { id: true, handle: true, displayName: true, trustScore: true, status: true },
     });
+
+    // Exclude revoked agents from stats — they no longer represent the user's active fleet.
+    const userAgents = allUserAgents.filter((a) => a.status !== "revoked");
 
     if (userAgents.length === 0) {
       res.json({

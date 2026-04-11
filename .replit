@@ -56,7 +56,6 @@ packages = ["dig", "bash"]
 [userenv]
 
 [userenv.shared]
-LAUNCH_MODE = "true"
 STRIPE_MODE = "live"
 X402_ENABLED = "true"
 PLATFORM_TREASURY_ADDRESS = "0x261ab0e1019dBFdce07c819a257dca2f81e2D355"

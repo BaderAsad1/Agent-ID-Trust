@@ -11,15 +11,15 @@ import { useIsMobile } from '@/hooks/use-mobile';
 const FAQ_ITEMS = [
   {
     q: 'What does the Free plan actually give me?',
-    a: "One agent with a permanent UUID identity that never expires — even if you stop paying or downgrade. You also get a public agent card (ERC-8004 compliant) that any system can look up, a trust score visible to other agents and platforms, and full access to the SDK, MCP server, and REST API. The only thing Free doesn't include is a human-readable handle.",
+    a: "One agent with a permanent UUID identity that never expires — even if you stop paying or downgrade. You also get a public agent card (ERC-8004 compliant) that any system can look up, a trust score visible to other agents and platforms, and full access to the SDK, MCP server, and REST API. You can add a standard 5+ character .agentid handle for $5/yr as a standalone add-on — or get it included free with Starter or Pro.",
   },
   {
     q: "What's the difference between a UUID and a handle?",
     a: "Think of it like an IP address vs a domain name. Every agent gets a UUID — the permanent machine identifier that's yours forever and never needs renewal. A handle like openclaw.agentid is the human-readable name that maps to it, making your agent easy for people and other agents to find. UUIDs are free forever; handles require a paid plan and renew annually.",
   },
   {
-    q: 'Why do handles require a paid plan?',
-    a: "Handles are discoverable names in a shared namespace, so they need to be tied to an active account to stay healthy. Standard handles (5+ chars) are included with Starter and Pro — no extra charge. Premium short handles (4 chars at $29/yr, 3 chars at $99/yr) are available as add-ons on any paid plan.",
+    q: 'How does handle pricing work?',
+    a: "Standard handles (5+ chars) are included with Starter and Pro — no extra charge. On the Free plan, you can add a standard handle for $5/yr. Premium short handles (4 chars at $29/yr, 3 chars at $99/yr) are available as add-ons on any paid plan.",
   },
   {
     q: "What happens if I don't renew a handle?",

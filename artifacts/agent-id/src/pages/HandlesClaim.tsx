@@ -81,6 +81,7 @@ function isPlanLoading(plan: string | null): boolean {
 export function HandlesClaim() {
   const { userId } = useAuth();
   const [userPlan, setUserPlan] = useState<string | null>(null);
+  const [existingHandleCount, setExistingHandleCount] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<HandleStatus>('idle');
   const [result, setResult] = useState<CheckResult | null>(null);
@@ -91,9 +92,14 @@ export function HandlesClaim() {
 
   useEffect(() => {
     if (!userId) return;
-    api.billing.subscription()
-      .then(res => setUserPlan(res.plan ?? 'none'))
-      .catch(() => setUserPlan('unknown'));
+    Promise.all([
+      api.billing.subscription().catch(() => ({ plan: 'unknown' })),
+      api.agents.list().catch(() => ({ agents: [] })),
+    ]).then(([sub, agentData]) => {
+      setUserPlan((sub as { plan?: string }).plan ?? 'none');
+      const agents = (agentData as { agents: Array<{ handle?: string | null }> }).agents ?? [];
+      setExistingHandleCount(agents.filter(a => a.handle).length);
+    });
   }, [userId]);
 
   useEffect(() => {
@@ -137,26 +143,41 @@ export function HandlesClaim() {
     };
   }, [query]);
 
+  // A standard 5+ char handle is free only for paid plan users claiming their FIRST handle.
+  const standardHandleIsFree =
+    isStandardHandle(result ?? ({} as CheckResult)) &&
+    !isFreePlan(userPlan) &&
+    existingHandleCount === 0;
+
   const handleClaim = async () => {
     if (!result?.handle) return;
     setClaimLoading(true);
     setClaimError(null);
     try {
-      if (isStandardHandle(result)) {
+      if (standardHandleIsFree) {
+        // First handle on a paid plan — no charge
         await api.agents.create({ handle: result.handle, displayName: result.handle });
         const successUrl = `/dashboard/handles?claimed=${encodeURIComponent(result.handle)}`;
         window.location.href = successUrl;
         return;
       }
+      if (!isStandardHandle(result)) {
+        // Premium handle (3 or 4 char) — always paid via checkout
+        const base = window.location.origin;
+        const successUrl = `${base}/dashboard/handles?claimed=${encodeURIComponent(result.handle)}`;
+        const cancelUrl = `${base}/dashboard/handles`;
+        const data = await api.billing.handleCheckout(result.handle, undefined, successUrl, cancelUrl);
+        if (data.url) window.location.href = data.url;
+        else if (data.included) window.location.href = successUrl;
+        return;
+      }
+      // Standard handle but NOT free (free plan user, OR paid plan user already has a handle)
       const base = window.location.origin;
       const successUrl = `${base}/dashboard/handles?claimed=${encodeURIComponent(result.handle)}`;
       const cancelUrl = `${base}/dashboard/handles`;
       const data = await api.billing.handleCheckout(result.handle, undefined, successUrl, cancelUrl);
-      if (data.url) {
-        window.location.href = data.url;
-      } else if (data.included) {
-        window.location.href = successUrl;
-      }
+      if (data.url) window.location.href = data.url;
+      else if (data.included) window.location.href = successUrl;
     } catch (err: unknown) {
       setClaimError(err instanceof Error ? err.message : 'Failed to claim handle. Please try again.');
     } finally {
@@ -174,7 +195,7 @@ export function HandlesClaim() {
           Claim a Handle
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Search for a handle and claim it. Standard 5+ character handles are included with Starter or Pro; Enterprise access is provisioned via custom entitlement.
+          Search for a handle and claim it. Your first standard handle is included free on Starter or Pro; additional handles and all Free-plan handles are $5/yr.
         </p>
       </div>
 
@@ -218,80 +239,113 @@ export function HandlesClaim() {
 
         {normalizedQuery.length > 0 && status !== 'idle' && status !== 'loading' && (
           <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
-            {status === 'available' && result && (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-base font-bold font-mono" style={{ color: 'var(--text-primary)' }}>@{result.handle}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>
-                        Available
-                      </span>
-                      <ScarcityBadge handle={result.handle} />
-                    </div>
-                    <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {getTierLabel(result) && (
-                        <span className="capitalize">{getTierLabel(result)} handle</span>
-                      )}
-                      {isStandardHandle(result) && !isFreePlan(userPlan) && (
-                        <span className="font-semibold" style={{ color: 'var(--success)' }}>
-                          Included with paid plan
+            {status === 'available' && result && (() => {
+              const planLoading = isPlanLoading(userPlan) || existingHandleCount === null;
+              const isStandard = isStandardHandle(result);
+              const annualUsd = getAnnualUsd(result);
+
+              // Derive what this handle costs for this user
+              let handleCostLabel: string;
+              let handleCostNote: string | null = null;
+              if (!isStandard) {
+                handleCostLabel = annualUsd !== null ? `$${annualUsd}/yr` : 'Paid';
+              } else if (standardHandleIsFree) {
+                handleCostLabel = 'Included free';
+              } else if (isFreePlan(userPlan)) {
+                handleCostLabel = '$5/yr';
+                handleCostNote = 'Free plan · upgrade to Starter or Pro to get your first handle free';
+              } else {
+                // Paid plan but already has a handle
+                handleCostLabel = '$5/yr';
+                handleCostNote = `You already have ${existingHandleCount} handle${(existingHandleCount ?? 0) > 1 ? 's' : ''} — additional handles are $5/yr each`;
+              }
+
+              const ctaLabel = planLoading
+                ? null
+                : isStandard && standardHandleIsFree
+                  ? `Register @${result.handle} — Free`
+                  : isStandard
+                    ? `Add @${result.handle} for $5/yr`
+                    : `Claim @${result.handle}`;
+
+              return (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base font-bold font-mono" style={{ color: 'var(--text-primary)' }}>@{result.handle}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>
+                          Available
                         </span>
-                      )}
-                      {!isStandardHandle(result) && getAnnualUsd(result) !== null && (
-                        <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          ${getAnnualUsd(result)}/yr
-                        </span>
-                      )}
+                        <ScarcityBadge handle={result.handle} />
+                      </div>
+                      <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {getTierLabel(result) && (
+                          <span className="capitalize">{getTierLabel(result)} handle</span>
+                        )}
+                        {!planLoading && (
+                          <span className="font-semibold" style={{ color: standardHandleIsFree ? 'var(--success)' : 'var(--text-primary)' }}>
+                            {handleCostLabel}
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    {planLoading ? (
+                      <PrimaryButton variant="blue" className="flex-shrink-0" disabled>
+                        <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</span>
+                      </PrimaryButton>
+                    ) : (
+                      <PrimaryButton
+                        variant="blue"
+                        className="flex-shrink-0"
+                        disabled={claimLoading}
+                        onClick={handleClaim}
+                      >
+                        {claimLoading ? (
+                          <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</span>
+                        ) : ctaLabel}
+                      </PrimaryButton>
+                    )}
                   </div>
-                  {isStandardHandle(result) && isPlanLoading(userPlan) ? (
-                    <PrimaryButton variant="blue" className="flex-shrink-0" disabled>
-                      <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</span>
-                    </PrimaryButton>
-                  ) : isStandardHandle(result) && isFreePlan(userPlan) ? null : (
-                    <PrimaryButton
-                      variant="blue"
-                      className="flex-shrink-0"
-                      disabled={claimLoading}
-                      onClick={handleClaim}
-                    >
-                      {claimLoading ? (
-                        <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</span>
-                      ) : (
-                        isStandardHandle(result) ? `Register @${result.handle}` : `Claim @${result.handle}`
-                      )}
-                    </PrimaryButton>
+
+                  {/* Context note for non-free cases */}
+                  {!planLoading && handleCostNote && (
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-xl" style={{ background: 'rgba(79,125,243,0.06)', border: '1px solid rgba(79,125,243,0.2)' }}>
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#4f7df3' }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold mb-1" style={{ color: '#e8e8f0' }}>
+                          $5/yr for this handle
+                        </div>
+                        <div className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                          {handleCostNote}.{' '}
+                          {isFreePlan(userPlan)
+                            ? <>Standard 5+ character handles are <span style={{ color: '#34d399', fontWeight: 600 }}>included free</span> with Starter ($29/mo) or Pro ($79/mo).</>
+                            : <>Your first handle per plan cycle is included; additional handles are $5/yr each.</>
+                          }
+                        </div>
+                        {isFreePlan(userPlan) && (
+                          <a
+                            href="/pricing"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                            style={{ background: 'rgba(79,125,243,0.15)', color: '#4f7df3', border: '1px solid rgba(79,125,243,0.3)', textDecoration: 'none' }}
+                          >
+                            View plans <ArrowRight className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {claimError && (
+                    <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                      {claimError}
+                    </div>
                   )}
                 </div>
-                {isStandardHandle(result) && isFreePlan(userPlan) && (
-                  <div className="flex items-start gap-3 px-4 py-3 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#818cf8' }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold mb-1" style={{ color: '#818cf8' }}>
-                        Upgrade to claim this handle
-                      </div>
-                      <div className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-                        Standard 5+ character handles are included with Starter or Pro. Enterprise access is provisioned separately. Upgrade your plan to register @{result.handle}.
-                      </div>
-                      <a
-                        href="/pricing"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-                        style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)', textDecoration: 'none' }}
-                      >
-                        View plans <ArrowRight className="w-3 h-3" />
-                      </a>
-                    </div>
-                  </div>
-                )}
-                {claimError && (
-                  <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
-                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                    {claimError}
-                  </div>
-                )}
-              </div>
-            )}
+              );
+            })()}
 
             {status === 'in-auction' && result && (
               <div className="flex items-start gap-3">
@@ -356,14 +410,30 @@ export function HandlesClaim() {
           Handle pricing tiers
         </h3>
         <div className="space-y-3">
-          {HANDLE_PRICING_TIERS.map(tier => (
-            <div key={tier.label} className="flex items-center justify-between text-sm">
-              <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{tier.label}</span>
-              <span className="font-semibold" style={{ color: tier.annualPrice > 0 ? 'var(--text-primary)' : 'var(--success)' }}>
-                {tier.annualPrice === 0 ? 'Included with paid plan' : `$${tier.annualPrice}/yr`}
-              </span>
-            </div>
-          ))}
+          {HANDLE_PRICING_TIERS.map(tier => {
+            const isStandardTier = tier.annualPrice === 0;
+            let priceLabel: string;
+            let priceColor: string;
+            if (!isStandardTier) {
+              priceLabel = `$${tier.annualPrice}/yr`;
+              priceColor = 'var(--text-primary)';
+            } else if (userPlan === null || existingHandleCount === null) {
+              priceLabel = 'Included with paid plan';
+              priceColor = 'var(--success)';
+            } else if (!isFreePlan(userPlan) && existingHandleCount === 0) {
+              priceLabel = 'Included free (1st handle)';
+              priceColor = 'var(--success)';
+            } else {
+              priceLabel = isFreePlan(userPlan) ? '$5/yr' : '$5/yr (additional)';
+              priceColor = 'var(--text-primary)';
+            }
+            return (
+              <div key={tier.label} className="flex items-center justify-between text-sm">
+                <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{tier.label}</span>
+                <span className="font-semibold" style={{ color: priceColor }}>{priceLabel}</span>
+              </div>
+            );
+          })}
         </div>
         <p className="text-xs mt-3 pt-3 border-t" style={{ color: 'var(--text-dim)', borderColor: 'var(--border-color)' }}>
           Grace period: 90 days after expiry · Handle loss never affects your UUID machine identity.

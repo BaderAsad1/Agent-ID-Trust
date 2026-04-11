@@ -30,7 +30,7 @@ const PLANS: PlanOption[] = [
       'Full SDK, MCP server & REST API access',
       'Self-registration - no human required',
     ],
-    handleNote: 'Upgrade to Starter or Pro to claim a .agentid handle',
+    handleNote: 'Add a 5+ char .agentid handle for $5/yr, or get it free with Starter/Pro',
   },
   {
     id: 'starter',

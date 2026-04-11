@@ -3,21 +3,26 @@
   "base-mainnet": {
     "proxy": "",
     "implementation": "",
-    "erc8004Registry": "",
+    "erc8004Registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "explorerUrl": "https://basescan.org/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "nftExplorerUrl": "https://basescan.org/nft/0x8004a169fb4a3325136eb29fa0ceb6d2e539a432",
     "envVars": {
       "BASE_AGENTID_REGISTRAR": "",
-      "BASE_ERC8004_REGISTRY": "",
+      "BASE_ERC8004_REGISTRY": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
       "BASE_CHAIN_ID": "8453"
-    }
+    },
+    "_status": "erc8004Registry live on Base mainnet. BASE_AGENTID_REGISTRAR (proxy for writes) pending — set before enabling ONCHAIN_MINTING_ENABLED=true on mainnet."
   },
   "base-sepolia": {
     "proxy": "0x1D592A07dF4aFd897D25d348e90389C494034110",
     "implementation": "0xDcB100777D97e57c6f7080cB6Bcc0CA5D1d12976",
     "erc8004Registry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    "explorerUrl": "https://sepolia.basescan.org/address/0x1d592a07df4afd897d25d348e90389c494034110",
     "envVars": {
       "BASE_AGENTID_REGISTRAR": "0x1D592A07dF4aFd897D25d348e90389C494034110",
       "BASE_ERC8004_REGISTRY": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
       "BASE_CHAIN_ID": "84532"
-    }
+    },
+    "_status": "Fully deployed and operational on Base Sepolia testnet."
   }
 }
