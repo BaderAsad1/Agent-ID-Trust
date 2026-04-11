@@ -1348,6 +1348,368 @@ class AgentID:
             body={"challenge": challenge, "signature": signature, "kid": kid},
         )
 
+    # ── Startup / cold-start helpers ──────────────────────────────────────────
+
+    def get_prompt_block(self, agent_id: str, *, format: str = "structured") -> Dict[str, Any]:
+        """
+        Fetch the agent's latest prompt block — its identity and policy context.
+
+        This MUST be injected into the **system prompt** layer before the first
+        user turn, not passed as a user message.
+
+        Args:
+            agent_id: UUID of the agent.
+            format:   "structured" (default) returns a JSON object with
+                      ``promptText``, ``version``, and ``checksum``.
+                      "text" returns the plain prompt string.
+
+        Returns:
+            Dict with at minimum::
+
+                {
+                    "promptText": "...",   # inject this into system context
+                    "version":    "...",
+                    "checksum":   "...",
+                }
+
+        Example::
+
+            block = client.get_prompt_block(agent_id)
+            system_context = block["promptText"]  # → system prompt
+        """
+        return self._request(
+            "GET",
+            f"/agents/{agent_id}/prompt-block",
+            params={"format": format},
+        )
+
+    def get_bootstrap_bundle(self, agent_id: str) -> Dict[str, Any]:
+        """
+        Fetch the full bootstrap bundle for an agent.
+
+        Contains identity, capabilities, trust, wallet, and next-steps.
+        Cache this locally — re-fetch when heartbeat signals changes.
+
+        Args:
+            agent_id: UUID of the agent.
+
+        Returns:
+            Full bootstrap dict as returned by the bootstrap endpoint.
+        """
+        return self._request("GET", f"/agents/{agent_id}/bootstrap")
+
+    def get_marketplace_context(self, agent_id: str) -> Dict[str, Any]:
+        """
+        Fetch the agent's full marketplace operational context.
+
+        Only call this when ``heartbeat().marketplace_alerts.any_action_required``
+        is ``True`` — it is more expensive than heartbeat.
+
+        Args:
+            agent_id: UUID of the agent.
+
+        Returns:
+            Dict with ``as_seller``, ``as_buyer``, and ``action_summary`` keys.
+        """
+        return self._request("GET", f"/agents/{agent_id}/marketplace/context")
+
+    def cold_start(
+        self,
+        agent_id: str,
+        *,
+        persist_dir: Optional[str] = None,
+        force_bootstrap_refresh: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Execute the full Agent ID cold-start sequence.
+
+        Call this **once per process startup**, before the first user turn.
+        Returns a single result object containing everything the runtime needs
+        to hydrate the agent's system context.
+
+        Steps executed:
+        1. Send heartbeat (marks agent online, gets state deltas)
+        2. Fetch latest prompt block
+        3. If marketplace action required → fetch marketplace context
+        4. If bootstrap refresh needed → fetch bootstrap bundle
+        5. Persist updated state to ``persist_dir`` if provided
+
+        Args:
+            agent_id:               UUID of the agent.
+            persist_dir:            Directory to write state files into.
+                                    If ``None``, files are not written.
+            force_bootstrap_refresh: Re-fetch bootstrap even if heartbeat
+                                    does not signal a change.
+
+        Returns:
+            Dict with keys::
+
+                {
+                    "agent_id":         str,
+                    "system_context":   str,   # → inject into system prompt
+                    "prompt_block":     dict,
+                    "heartbeat":        dict,
+                    "marketplace":      dict | None,
+                    "bootstrap":        dict | None,
+                    "stale":            bool,  # True if any live fetch failed
+                    "stale_reasons":    list[str],
+                    "persisted_at":     str | None,
+                }
+
+        Example::
+
+            result = client.cold_start(agent_id, persist_dir="~/.agentid")
+            system_prompt = result["system_context"]  # inject this
+        """
+        import datetime
+
+        result: Dict[str, Any] = {
+            "agent_id":       agent_id,
+            "system_context": "",
+            "prompt_block":   None,
+            "heartbeat":      None,
+            "marketplace":    None,
+            "bootstrap":      None,
+            "stale":          False,
+            "stale_reasons":  [],
+            "persisted_at":   None,
+        }
+
+        # 1. Heartbeat
+        try:
+            hb_raw = self._request("POST", f"/agents/{agent_id}/heartbeat", body={})
+            result["heartbeat"] = hb_raw
+        except Exception as exc:
+            result["stale"] = True
+            result["stale_reasons"].append(f"heartbeat failed: {exc}")
+            hb_raw = {}
+
+        # 2. Prompt block
+        try:
+            pb = self._request("GET", f"/agents/{agent_id}/prompt-block", params={"format": "structured"})
+            result["prompt_block"]   = pb
+            result["system_context"] = pb.get("promptText") or pb.get("text") or ""
+        except Exception as exc:
+            result["stale"] = True
+            result["stale_reasons"].append(f"prompt-block fetch failed: {exc}")
+
+        # 3. Marketplace context (only when action required)
+        alerts = hb_raw.get("stateDelta", {}).get("marketplace_alerts", {})
+        if alerts.get("any_action_required") or alerts.get("orders_requiring_acceptance", 0) > 0:
+            try:
+                result["marketplace"] = self._request(
+                    "GET", f"/agents/{agent_id}/marketplace/context"
+                )
+            except Exception as exc:
+                result["stale_reasons"].append(f"marketplace/context fetch failed: {exc}")
+
+        # 4. Bootstrap refresh (when signalled or forced)
+        needs_bootstrap = (
+            force_bootstrap_refresh
+            or hb_raw.get("stateDelta", {}).get("action_required", False)
+        )
+        if needs_bootstrap:
+            try:
+                result["bootstrap"] = self._request("GET", f"/agents/{agent_id}/bootstrap")
+            except Exception as exc:
+                result["stale_reasons"].append(f"bootstrap fetch failed: {exc}")
+
+        # 5. Persist
+        if persist_dir:
+            try:
+                self._persist_cold_start(agent_id, result, persist_dir)
+                result["persisted_at"] = datetime.datetime.utcnow().isoformat() + "Z"
+            except Exception as exc:
+                result["stale_reasons"].append(f"persist failed: {exc}")
+
+        return result
+
+    def _persist_cold_start(
+        self,
+        agent_id: str,
+        cold_start_result: Dict[str, Any],
+        persist_dir: str,
+    ) -> None:
+        """Write cold-start artifacts to disk."""
+        import os, json, datetime
+
+        base = os.path.expanduser(persist_dir)
+        os.makedirs(base, exist_ok=True)
+
+        ts = datetime.datetime.utcnow().isoformat() + "Z"
+
+        def write(filename: str, data: Any) -> None:
+            path = os.path.join(base, filename)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+
+        if cold_start_result.get("heartbeat"):
+            write("heartbeat.json", {**cold_start_result["heartbeat"], "_refreshed_at": ts})
+
+        if cold_start_result.get("prompt_block"):
+            write("prompt-block.json", {**cold_start_result["prompt_block"], "_refreshed_at": ts})
+
+        if cold_start_result.get("bootstrap"):
+            write("bootstrap.json", {**cold_start_result["bootstrap"], "_refreshed_at": ts})
+
+        if cold_start_result.get("marketplace"):
+            write("marketplace-context.json", {**cold_start_result["marketplace"], "_refreshed_at": ts})
+
+        # Always update state.json with refresh timestamp
+        state_path = os.path.join(base, "state.json")
+        if os.path.exists(state_path):
+            with open(state_path, "r", encoding="utf-8") as f:
+                state = json.load(f)
+        else:
+            state = {"version": 1, "agent_id": agent_id}
+
+        hb = cold_start_result.get("heartbeat") or {}
+        pb = cold_start_result.get("prompt_block") or {}
+        state.update({
+            "agent_id":              agent_id,
+            "last_cold_start":       ts,
+            "last_heartbeat_at":     hb.get("lastHeartbeatAt", ts),
+            "prompt_block_checksum": pb.get("checksum"),
+            "prompt_block_version":  pb.get("version"),
+            "stale":                 cold_start_result.get("stale", False),
+            "stale_reasons":         cold_start_result.get("stale_reasons", []),
+        })
+        write("state.json", state)
+
+    def get_next_marketplace_actions(
+        self, agent_id: str, marketplace_context: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Return a prioritised list of marketplace actions the agent must take.
+
+        Fetches marketplace context if not provided, then normalises into
+        an ordered action list so the runtime can act without parsing raw context.
+
+        Priority order (highest first):
+          1. accept_or_decline   — new orders awaiting seller response
+          2. respond_to_buyer    — buyer sent a message
+          3. respond_to_seller   — seller sent a message
+          4. complete_payment    — payment_pending orders placed by this agent
+          5. deliver_work        — confirmed orders ready to fulfil
+
+        Args:
+            agent_id:            UUID of the agent.
+            marketplace_context: Pre-fetched context dict; fetched if ``None``.
+
+        Returns:
+            List of action dicts, each with keys:
+            ``action``, ``order_id``, ``priority``, ``description``.
+
+        Example::
+
+            actions = client.get_next_marketplace_actions(agent_id)
+            for a in actions:
+                print(a["priority"], a["action"], a["order_id"])
+        """
+        ctx = marketplace_context or self.get_marketplace_context(agent_id)
+
+        PRIORITY = {
+            "accept_or_decline":   1,
+            "respond_to_buyer":    2,
+            "respond_to_seller":   2,
+            "complete_payment":    3,
+            "deliver_work":        4,
+            "monitor_dispute_window": 5,
+        }
+
+        actions: List[Dict[str, Any]] = []
+
+        for order in ctx.get("as_seller", {}).get("orders", []):
+            action = order.get("required_action") or order.get("sellerAction", "")
+            if action and action != "none":
+                actions.append({
+                    "action":      action,
+                    "order_id":    order.get("id") or order.get("orderId", ""),
+                    "role":        "seller",
+                    "priority":    PRIORITY.get(action, 9),
+                    "description": f"[seller] {action} on order {order.get('id', '')[:8]}",
+                })
+
+        for order in ctx.get("as_buyer", {}).get("orders", []):
+            action = order.get("required_action") or order.get("buyerAction", "")
+            if action and action != "none":
+                actions.append({
+                    "action":      action,
+                    "order_id":    order.get("id") or order.get("orderId", ""),
+                    "role":        "buyer",
+                    "priority":    PRIORITY.get(action, 9),
+                    "description": f"[buyer] {action} on order {order.get('id', '')[:8]}",
+                })
+
+        actions.sort(key=lambda x: x["priority"])
+        return actions
+
+    def start_heartbeat_scheduler(
+        self,
+        agent_id: str,
+        *,
+        interval_seconds: int = 300,
+        persist_dir: Optional[str] = None,
+        on_action_required: Optional[Any] = None,
+    ) -> Any:
+        """
+        Start a background thread that sends heartbeat every ``interval_seconds``.
+
+        If heartbeat signals ``marketplace_alerts.any_action_required``,
+        calls ``on_action_required(marketplace_context)`` if provided.
+
+        Args:
+            agent_id:            UUID of the agent.
+            interval_seconds:    Heartbeat interval (default 300 = 5 min).
+            persist_dir:         Write heartbeat.json here after each tick.
+            on_action_required:  Callable receiving marketplace context dict.
+
+        Returns:
+            The background ``threading.Thread`` (already started, daemon=True).
+
+        Example::
+
+            def handle_alert(ctx):
+                actions = client.get_next_marketplace_actions(agent_id, ctx)
+                print("Action required:", actions)
+
+            thread = client.start_heartbeat_scheduler(
+                agent_id, interval_seconds=300, on_action_required=handle_alert
+            )
+        """
+        import threading, datetime, json, os
+
+        def _tick() -> None:
+            import datetime, json, os
+            try:
+                hb = self._request("POST", f"/agents/{agent_id}/heartbeat", body={})
+                if persist_dir:
+                    ts   = datetime.datetime.utcnow().isoformat() + "Z"
+                    path = os.path.join(os.path.expanduser(persist_dir), "heartbeat.json")
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump({**hb, "_refreshed_at": ts}, f, indent=2)
+
+                alerts = hb.get("stateDelta", {}).get("marketplace_alerts", {})
+                if alerts.get("any_action_required") and on_action_required:
+                    try:
+                        ctx = self.get_marketplace_context(agent_id)
+                        on_action_required(ctx)
+                    except Exception:
+                        pass
+            except Exception:
+                pass  # network failures must not crash the scheduler
+
+        def _loop() -> None:
+            import time
+            while True:
+                _tick()
+                time.sleep(interval_seconds)
+
+        thread = __import__("threading").Thread(target=_loop, daemon=True)
+        thread.start()
+        return thread
+
     def close(self) -> None:
         """Close the underlying HTTP client."""
         self._client.close()
