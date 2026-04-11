@@ -488,15 +488,25 @@ export function SignIn() {
 function AgentIDMark() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <rect width="24" height="24" rx="6" fill="url(#signin-agid-grad)" />
       <defs>
-        <linearGradient id="signin-agid-grad" x1="0" y1="0" x2="24" y2="24">
+        <linearGradient id="signin-agid-grad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#4f7df3" />
           <stop offset="100%" stopColor="#7c5bf5" />
         </linearGradient>
       </defs>
-      <path d="M12 4L5 7v5c0 4.4 3 8.4 7 9.4 4-1 7-5 7-9.4V7L12 4z" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2" />
-      <path d="M9 12l2.5 2.5 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <rect width="24" height="24" rx="7" fill="url(#signin-agid-grad)" />
+      {/* Center node */}
+      <circle cx="12" cy="12" r="2.2" fill="white" />
+      {/* Top-left node */}
+      <circle cx="6.5" cy="7.5" r="1.4" fill="white" fillOpacity="0.75" />
+      {/* Top-right node */}
+      <circle cx="17.5" cy="7.5" r="1.4" fill="white" fillOpacity="0.75" />
+      {/* Bottom node */}
+      <circle cx="12" cy="18" r="1.4" fill="white" fillOpacity="0.75" />
+      {/* Edges */}
+      <line x1="7.5"  y1="8.5"  x2="10.5" y2="11"   stroke="white" strokeWidth="1.1" strokeOpacity="0.55" strokeLinecap="round" />
+      <line x1="16.5" y1="8.5"  x2="13.5" y2="11"   stroke="white" strokeWidth="1.1" strokeOpacity="0.55" strokeLinecap="round" />
+      <line x1="12"   y1="14.2" x2="12"   y2="16.6" stroke="white" strokeWidth="1.1" strokeOpacity="0.55" strokeLinecap="round" />
     </svg>
   );
 }
