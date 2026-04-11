@@ -1,0 +1,55 @@
+# Example Dockerfile for a containerised Agent ID agent.
+#
+# This shows how to wire Agent ID identity bootstrap into any agent container.
+# Replace the CMD with your actual agent entrypoint.
+#
+# Build:
+#   docker build -f Dockerfile.example -t my-agentid-agent .
+#
+# Run:
+#   docker run \
+#     -e AGENTID_API_KEY=agk_your_key \
+#     -e AGENTID_AGENT_ID=your-agent-uuid \
+#     -v agentid-state:/var/lib/agentid \
+#     my-agentid-agent
+#
+# The volume mount persists identity state across container restarts.
+
+FROM python:3.12-slim
+
+# ── System deps ────────────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# ── Install Agent ID SDK ────────────────────────────────────────────────────
+RUN pip install --no-cache-dir agentid
+
+# ── Copy Agent ID bootstrap scripts ────────────────────────────────────────
+RUN mkdir -p /usr/local/lib/agentid
+COPY templates/agent-workspace/.agentid/agentid-bootstrap.py /usr/local/lib/agentid/agentid-bootstrap.py
+COPY templates/docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ── Create state dir with correct permissions ───────────────────────────────
+RUN mkdir -p /var/lib/agentid && chmod 700 /var/lib/agentid
+
+# ── Copy your agent code ────────────────────────────────────────────────────
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+
+# ── Identity env vars (override at runtime, never bake into image) ──────────
+# ENV AGENTID_API_KEY=   ← set at runtime
+# ENV AGENTID_AGENT_ID=  ← set at runtime
+ENV AGENTID_PERSIST_DIR=/var/lib/agentid
+
+# Persist state across restarts with a named volume:
+#   docker run -v agentid-state:/var/lib/agentid ...
+VOLUME ["/var/lib/agentid"]
+
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Replace with your actual agent command
+CMD ["python", "agent.py"]
