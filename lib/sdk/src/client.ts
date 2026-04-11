@@ -375,6 +375,135 @@ export class AgentID {
     }
   }
 
+  // ── Autonomous OAuth ────────────────────────────────��───────────────────────
+
+  /**
+   * Autonomously approve an OAuth authorization request as this agent.
+   *
+   * The agent authenticates itself (via API key) and consents to the OAuth
+   * request on its own behalf — no human session or browser required.
+   *
+   * @param params.clientId          OAuth client requesting access.
+   * @param params.redirectUri       Registered redirect URI for the client.
+   * @param params.scopes            Scopes to grant (default: `["read"]`).
+   * @param params.state             Opaque state value (CSRF token).
+   * @param params.codeChallenge     PKCE challenge (required for public clients).
+   * @param params.codeChallengeMethod  PKCE method — only "S256" is accepted.
+   *
+   * @returns `{ code, redirectUrl, state }` — follow `redirectUrl` to deliver
+   *          the authorization code to the third-party app.
+   *
+   * @example
+   * ```typescript
+   * const result = await agent.authorizeOAuthClient({
+   *   clientId:      "agclient_thirdparty",
+   *   redirectUri:   "https://thirdparty.com/callback",
+   *   scopes:        ["read", "agents:read"],
+   *   codeChallenge: myPkceChallenge,
+   *   state:         myState,
+   * });
+   * // result.redirectUrl → follow this to complete the flow
+   * ```
+   */
+  async authorizeOAuthClient(params: {
+    clientId: string;
+    redirectUri: string;
+    scopes?: string[];
+    state?: string;
+    codeChallenge?: string;
+    codeChallengeMethod?: "S256";
+  }): Promise<{ code: string; redirectUrl: string; state: string | null }> {
+    const body: Record<string, string> = {
+      client_id:    params.clientId,
+      redirect_uri: params.redirectUri,
+      scope:        (params.scopes ?? ["read"]).join(" "),
+    };
+    if (params.state)          body.state                 = params.state;
+    if (params.codeChallenge)  body.code_challenge        = params.codeChallenge;
+    if (params.codeChallengeMethod) body.code_challenge_method = params.codeChallengeMethod;
+
+    const data = await this.http.post<{ code: string; redirect_url: string; state: string | null }>(
+      "/oauth/authorize/agent",
+      body,
+    );
+    return { code: data.code, redirectUrl: data.redirect_url, state: data.state };
+  }
+
+  /**
+   * Complete a full OAuth flow autonomously from an authorization URL.
+   *
+   * Given the `authorizationUrl` that a third-party app redirected the agent to
+   * (e.g. `https://getagent.id/oauth/authorize?client_id=...`), this method:
+   * 1. Parses the URL parameters.
+   * 2. Generates a PKCE `code_verifier` / `code_challenge` pair.
+   * 3. Calls `authorizeOAuthClient` to approve consent.
+   * 4. Exchanges the code for an access + refresh token pair.
+   *
+   * @param authorizationUrl  The full `/oauth/authorize?...` URL.
+   * @returns Token response `{ access_token, refresh_token, expires_in, scope, ... }`.
+   *
+   * @example
+   * ```typescript
+   * const tokens = await agent.completeOAuthFlow(
+   *   "https://getagent.id/oauth/authorize?client_id=agclient_thirdparty&..."
+   * );
+   * console.log(tokens.access_token);
+   * ```
+   */
+  async completeOAuthFlow(authorizationUrl: string): Promise<{
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    token_type: string;
+    scope: string;
+    code: string;
+    redirectUrl: string;
+    state: string | null;
+  }> {
+    const url = new URL(authorizationUrl);
+    const clientId   = url.searchParams.get("client_id");
+    const redirectUri = url.searchParams.get("redirect_uri");
+    const scope      = url.searchParams.get("scope") ?? "read";
+    const state      = url.searchParams.get("state") ?? undefined;
+
+    if (!clientId)   throw new Error("authorization_url missing client_id");
+    if (!redirectUri) throw new Error("authorization_url missing redirect_uri");
+
+    // Generate PKCE pair
+    const verifierBytes = crypto.getRandomValues(new Uint8Array(32));
+    const verifier = btoa(String.fromCharCode(...verifierBytes))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    const challengeBytes = await crypto.subtle.digest(
+      "SHA-256", new TextEncoder().encode(verifier),
+    );
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(challengeBytes)))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+
+    const authResult = await this.authorizeOAuthClient({
+      clientId,
+      redirectUri,
+      scopes:              scope.split(" ").filter(Boolean),
+      state,
+      codeChallenge:       challenge,
+      codeChallengeMethod: "S256",
+    });
+
+    // Exchange the code for tokens
+    const tokenBody = new URLSearchParams({
+      grant_type:    "authorization_code",
+      code:          authResult.code,
+      client_id:     clientId,
+      redirect_uri:  redirectUri,
+      code_verifier: verifier,
+    });
+    const tokenData = await this.http.post<{
+      access_token: string; refresh_token: string;
+      expires_in: number; token_type: string; scope: string;
+    }>("/oauth/token", Object.fromEntries(tokenBody));
+
+    return { ...authResult, ...tokenData };
+  }
+
   static async resolve(
     handle: string,
     baseUrl?: string,

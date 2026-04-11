@@ -1784,6 +1784,239 @@ class AgentID:
         thread.start()
         return thread
 
+    # ── Autonomous OAuth ──────────────────────────────────────────────────────
+
+    def _oauth_root(self) -> str:
+        """Derive the server root (no /api/v1) for OAuth routes."""
+        from urllib.parse import urlparse
+        p = urlparse(self._base_url)
+        return f"{p.scheme}://{p.netloc}"
+
+    def authorize_oauth_client(
+        self,
+        agent_id: str,
+        client_id: str,
+        redirect_uri: str,
+        scopes: Optional[List[str]] = None,
+        *,
+        state: Optional[str] = None,
+        code_challenge: Optional[str] = None,
+        code_challenge_method: str = "S256",
+    ) -> Dict[str, Any]:
+        """
+        Autonomously approve an OAuth authorization request as this agent.
+
+        The agent authenticates itself (via ``X-Agent-Key``) and consents on its
+        own behalf — no human session or browser required.
+
+        Args:
+            agent_id:             UUID of the agent authorizing access.
+            client_id:            OAuth client requesting access.
+            redirect_uri:         Registered redirect URI for the client.
+            scopes:               Scopes to grant (default: ``["read"]``).
+            state:                Opaque state value to pass through (CSRF token).
+            code_challenge:       PKCE ``code_challenge`` (required for public clients).
+            code_challenge_method: PKCE method — only ``"S256"`` is accepted.
+
+        Returns:
+            Dict with keys::
+
+                {
+                    "code":         str,   # one-time authorization code
+                    "redirect_url": str,   # full callback URL with code + state
+                    "state":        str | None,
+                }
+
+        Raises:
+            AgentIDError: On API errors (invalid client, bad redirect URI, etc.).
+
+        Example — agent completing a third-party Sign-in-with-Agent-ID flow::
+
+            result = client.authorize_oauth_client(
+                agent_id=agent_id,
+                client_id="agclient_thirdparty",
+                redirect_uri="https://thirdparty.com/callback",
+                scopes=["read", "agents:read"],
+                code_challenge=my_pkce_challenge,
+                state=my_state,
+            )
+            # result["redirect_url"] → follow this to deliver the code
+        """
+        if not self._agent_key:
+            raise ValueError(
+                "authorize_oauth_client() requires an agent key. "
+                "Initialise AgentID with agent_key= or use AgentID.from_env()."
+            )
+
+        root = self._oauth_root()
+        payload: Dict[str, Any] = {
+            "client_id":   client_id,
+            "redirect_uri": redirect_uri,
+            "scope":       " ".join(scopes or ["read"]),
+        }
+        if state:
+            payload["state"] = state
+        if code_challenge:
+            payload["code_challenge"] = code_challenge
+            payload["code_challenge_method"] = code_challenge_method
+
+        resp = self._client.post(f"{root}/oauth/authorize/agent", json=payload)
+        if not resp.is_success:
+            try:
+                data = resp.json()
+                raise AgentIDError(
+                    status_code=resp.status_code,
+                    error_code=data.get("error", data.get("code", "UNKNOWN")),
+                    message=data.get("error_description", data.get("message", resp.text)),
+                )
+            except (ValueError, KeyError):
+                raise AgentIDError(resp.status_code, "HTTP_ERROR", resp.text)
+
+        return resp.json()
+
+    def complete_oauth_flow(
+        self,
+        agent_id: str,
+        authorization_url: str,
+        *,
+        exchange_code: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Complete a full OAuth flow autonomously from an authorization URL.
+
+        Given the ``authorization_url`` that a third-party app redirected the
+        agent to (e.g. ``https://getagent.id/oauth/authorize?client_id=...``),
+        this method:
+
+        1. Parses the URL parameters.
+        2. Generates a fresh PKCE ``code_verifier`` / ``code_challenge`` pair.
+        3. Calls :meth:`authorize_oauth_client` to approve the consent.
+        4. If ``exchange_code=True`` (default), exchanges the code for an
+           access + refresh token pair.
+
+        Args:
+            agent_id:          UUID of the agent.
+            authorization_url: The full ``/oauth/authorize?...`` URL.
+            exchange_code:     If ``True``, exchanges the code for tokens and
+                               returns the token response. If ``False``, returns
+                               the raw authorize response ``{code, redirect_url}``.
+
+        Returns:
+            When ``exchange_code=True``::
+
+                {
+                    "access_token":  str,
+                    "refresh_token": str,
+                    "expires_in":    int,
+                    "token_type":    "Bearer",
+                    "scope":         str,
+                    # original authorize result also included:
+                    "code":          str,
+                    "redirect_url":  str,
+                    "state":         str | None,
+                }
+
+            When ``exchange_code=False``: same as :meth:`authorize_oauth_client`.
+
+        Raises:
+            ValueError: If the authorization URL is missing required parameters.
+            AgentIDError: On API errors.
+
+        Example — agent handling a third-party OAuth redirect autonomously::
+
+            tokens = client.complete_oauth_flow(
+                agent_id=agent_id,
+                authorization_url=(
+                    "https://getagent.id/oauth/authorize"
+                    "?client_id=agclient_thirdparty"
+                    "&redirect_uri=https%3A%2F%2Fthirdparty.com%2Fcallback"
+                    "&response_type=code"
+                    "&scope=read+agents%3Aread"
+                    "&state=abc123"
+                    "&code_challenge=XXXX"
+                    "&code_challenge_method=S256"
+                ),
+            )
+            # tokens["access_token"] — ready to use
+        """
+        import hashlib, secrets, base64
+        from urllib.parse import urlparse, parse_qs, urlencode
+
+        parsed = urlparse(authorization_url)
+        qs = parse_qs(parsed.query, keep_blank_values=False)
+
+        def _one(key: str, required: bool = True) -> Optional[str]:
+            vals = qs.get(key)
+            if not vals:
+                if required:
+                    raise ValueError(f"authorization_url is missing required parameter: {key}")
+                return None
+            return vals[0]
+
+        client_id   = _one("client_id")
+        redirect_uri = _one("redirect_uri")
+        scope       = _one("scope", required=False) or "read"
+        state       = _one("state", required=False)
+
+        # If the caller already embedded a code_challenge use it; otherwise generate PKCE.
+        existing_challenge = _one("code_challenge", required=False)
+        existing_method    = _one("code_challenge_method", required=False) or "S256"
+
+        if existing_challenge:
+            code_challenge        = existing_challenge
+            code_challenge_method = existing_method
+            code_verifier         = None  # can't exchange without the verifier
+        else:
+            raw_verifier          = secrets.token_urlsafe(32)
+            code_verifier         = raw_verifier
+            digest                = hashlib.sha256(raw_verifier.encode()).digest()
+            code_challenge        = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+            code_challenge_method = "S256"
+
+        auth_result = self.authorize_oauth_client(
+            agent_id=agent_id,
+            client_id=client_id,  # type: ignore[arg-type]
+            redirect_uri=redirect_uri,  # type: ignore[arg-type]
+            scopes=scope.split(),
+            state=state,
+            code_challenge=code_challenge,
+            code_challenge_method=code_challenge_method,
+        )
+
+        if not exchange_code:
+            return auth_result
+
+        if code_verifier is None:
+            # Caller supplied their own challenge; can't exchange without verifier
+            raise ValueError(
+                "Cannot exchange code when code_challenge was embedded in the authorization_url "
+                "without the corresponding code_verifier. Pass exchange_code=False or use "
+                "authorize_oauth_client() directly with your own PKCE pair."
+            )
+
+        root = self._oauth_root()
+        token_payload: Dict[str, Any] = {
+            "grant_type":    "authorization_code",
+            "code":          auth_result["code"],
+            "client_id":     client_id,
+            "redirect_uri":  redirect_uri,
+            "code_verifier": code_verifier,
+        }
+        token_resp = self._client.post(f"{root}/oauth/token", data=token_payload,
+                                       headers={"Content-Type": "application/x-www-form-urlencoded"})
+        if not token_resp.is_success:
+            try:
+                err = token_resp.json()
+                raise AgentIDError(
+                    status_code=token_resp.status_code,
+                    error_code=err.get("error", "token_error"),
+                    message=err.get("error_description", token_resp.text),
+                )
+            except (ValueError, KeyError):
+                raise AgentIDError(token_resp.status_code, "token_error", token_resp.text)
+
+        return {**auth_result, **token_resp.json()}
+
     def close(self) -> None:
         """Close the underlying HTTP client."""
         self._client.close()

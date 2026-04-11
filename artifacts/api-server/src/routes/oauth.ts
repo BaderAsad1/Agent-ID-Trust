@@ -25,6 +25,7 @@ import {
 } from "../services/oauth";
 import { AppError } from "../middlewares/error-handler";
 import { requireAuth } from "../middlewares/replit-auth";
+import { requireAgentAuth } from "../middlewares/agent-auth";
 import { registrationRateLimit } from "../middlewares/rate-limit";
 import { env } from "../lib/env";
 
@@ -273,6 +274,89 @@ router.post("/authorize/approve", requireAuth, async (req: Request, res: Respons
     next(err);
   }
 });
+
+/**
+ * POST /oauth/authorize/agent  — Headless / autonomous authorization
+ *
+ * Allows an agent to consent to an OAuth authorization request on its own behalf,
+ * authenticated by its agent key or a PoP JWT — no human session required.
+ *
+ * This is the machine-readable equivalent of the /authorize consent screen.
+ * The agent proves it owns the identity being authorized and gets back the
+ * authorization code (+ redirect URL) immediately.
+ *
+ * Auth: X-Agent-Key: <key>  OR  Authorization: Bearer <pop-jwt>
+ *
+ * Returns: { code, redirect_url, state }
+ *
+ * Example — agent completing a third-party "Sign in with Agent ID" flow:
+ *   1. Third-party app sends agent to GET /oauth/authorize?client_id=...
+ *   2. Agent intercepts and POSTs here instead of loading the UI consent screen
+ *   3. Gets code back → follows redirect_url to complete the flow server-to-server
+ */
+router.post(
+  "/authorize/agent",
+  requireAgentAuth,
+  registrationRateLimit,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const agent = req.authenticatedAgent!;
+
+      const { client_id, redirect_uri, scope, state, code_challenge, code_challenge_method } = req.body;
+
+      if (!client_id) throw new AppError(400, "invalid_request", "client_id is required");
+      if (!redirect_uri) throw new AppError(400, "invalid_request", "redirect_uri is required");
+
+      const client = await lookupClient(client_id);
+
+      const clientGrantTypes = (client.grantTypes as string[]) || [];
+      if (!clientGrantTypes.includes("authorization_code")) {
+        throw new AppError(400, "unauthorized_client", "Client is not authorized for authorization_code grant type");
+      }
+
+      const isPublicClient = !client.clientSecretHash;
+      if (isPublicClient && !code_challenge) {
+        throw new AppError(400, "invalid_request", "PKCE code_challenge is required for public clients");
+      }
+
+      const registeredUris = (client.redirectUris as string[] | null | undefined) || [];
+      const isDemoClient   = client_id === DEMO_CLIENT.clientId;
+      const isSigninClient = client_id === SIGNIN_CLIENT.clientId;
+      const uriAllowed =
+        registeredUris.includes(redirect_uri) ||
+        (isDemoClient   && (redirect_uri as string).endsWith("/demo/callback")) ||
+        (isSigninClient && (redirect_uri as string).endsWith("/api/auth/agentid/callback"));
+
+      if (!uriAllowed) {
+        throw new AppError(400, "invalid_request", "redirect_uri does not match any registered URI for this client");
+      }
+
+      if (["revoked", "draft", "inactive", "suspended"].includes(agent.status)) {
+        throw new AppError(400, "access_denied", `Agent status '${agent.status}' is not eligible for authorization`);
+      }
+
+      const requestedScopes = ((scope || "") as string).split(" ").filter(Boolean);
+      const allowedScopes = (client.allowedScopes as string[]) || [];
+      const grantedScopes = requestedScopes.filter((s: string) => allowedScopes.includes(s));
+
+      const code = await createAuthorizationCode(
+        client_id,
+        agent.id,
+        redirect_uri,
+        grantedScopes,
+        code_challenge,
+        code_challenge_method,
+      );
+
+      const params = new URLSearchParams({ code, ...(state ? { state } : {}) });
+      const redirectUrl = `${redirect_uri}?${params.toString()}`;
+
+      res.json({ code, redirect_url: redirectUrl, state: state || null });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 router.post("/token", registrationRateLimit, async (req: Request, res: Response, next: NextFunction) => {
   try {
