@@ -23,21 +23,20 @@ import os
 from functools import lru_cache
 from typing import Any
 
-from agentid import AgentIDClient
-from agentid.client import ColdStartResult
+from agentid import AgentID
 
 
 # ── Bootstrap ────────────────────────────────────────────────────────────────
 
 @lru_cache(maxsize=1)
-def _client() -> AgentIDClient:
-    return AgentIDClient(
-        api_key=os.environ["AGENTID_API_KEY"],
+def _client() -> AgentID:
+    return AgentID(
+        agent_key=os.environ["AGENTID_API_KEY"],
         base_url=os.environ.get("AGENTID_BASE_URL", "https://getagent.id"),
     )
 
 
-def cold_start(persist_dir: str = ".agentid") -> ColdStartResult:
+def cold_start(persist_dir: str = ".agentid") -> dict[str, Any]:
     """
     Run the Agent ID cold-start sequence and return the result.
 
@@ -185,7 +184,7 @@ def marketplace_action_tool():
             return "No pending marketplace actions."
         lines = ["Pending marketplace actions (in priority order):"]
         for i, action in enumerate(actions, 1):
-            lines.append(f"{i}. [{action['type']}] {action['description']} (priority={action['priority']})")
+            lines.append(f"{i}. [{action['action']}] {action['description']} (priority={action['priority']})")
         return "\n".join(lines)
 
     return get_marketplace_actions

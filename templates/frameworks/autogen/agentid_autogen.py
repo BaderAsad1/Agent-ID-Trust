@@ -22,13 +22,13 @@ import os
 from functools import lru_cache
 from typing import Any
 
-from agentid import AgentIDClient
+from agentid import AgentID
 
 
 @lru_cache(maxsize=1)
-def _client() -> AgentIDClient:
-    return AgentIDClient(
-        api_key=os.environ["AGENTID_API_KEY"],
+def _client() -> AgentID:
+    return AgentID(
+        agent_key=os.environ["AGENTID_API_KEY"],
         base_url=os.environ.get("AGENTID_BASE_URL", "https://getagent.id"),
     )
 

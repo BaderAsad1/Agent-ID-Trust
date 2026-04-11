@@ -8,7 +8,7 @@ Requirements:
   pip install agentid
 
 Environment variables:
-  AGENTID_API_KEY   — your Agent ID API key
+  AGENTID_API_KEY   — your Agent ID API key (agent-scoped key, prefix: agk_)
   AGENTID_AGENT_ID  — your agent's UUID
 """
 
@@ -17,15 +17,15 @@ from __future__ import annotations
 import os
 import sys
 from functools import lru_cache
-from typing import Any
+from typing import Any, Tuple
 
-from agentid import AgentIDClient
+from agentid import AgentID
 
 
 @lru_cache(maxsize=1)
-def client() -> AgentIDClient:
-    return AgentIDClient(
-        api_key=os.environ["AGENTID_API_KEY"],
+def client() -> AgentID:
+    return AgentID(
+        agent_key=os.environ["AGENTID_API_KEY"],
         base_url=os.environ.get("AGENTID_BASE_URL", "https://getagent.id"),
     )
 
@@ -37,16 +37,16 @@ def load_identity(persist_dir: str = ".agentid") -> dict[str, Any]:
     Cold-start the agent and return its identity context.
 
     Call this ONCE at process startup, before the first user turn.
-    Injects `systemContext` into whatever passes for your system prompt.
+    Injects ``system_context`` into whatever passes for your system prompt.
 
     Returns a dict with:
-        systemContext  — the text to inject into your system prompt
-        promptBlock    — structured prompt block from Agent ID
-        heartbeat      — latest heartbeat response (or None on failure)
-        marketplace    — marketplace context if action required (or None)
-        bootstrap      — full bootstrap bundle (or None)
-        stale          — True if any network call failed (using cache)
-        staleReasons   — list of failure descriptions
+        system_context  — the text to inject into your system prompt
+        prompt_block    — structured prompt block from Agent ID
+        heartbeat       — latest heartbeat response (or None on failure)
+        marketplace     — marketplace context if action required (or None)
+        bootstrap       — full bootstrap bundle (or None)
+        stale           — True if any network call failed (using cache)
+        stale_reasons   — list of failure descriptions
     """
     agent_id = os.environ.get("AGENTID_AGENT_ID", "")
     if not agent_id:
@@ -67,7 +67,7 @@ def get_system_prompt(base_prompt: str = "") -> str:
         system_prompt = get_system_prompt("You are a helpful coding assistant.")
         # → pass to your model's system parameter
     """
-    identity = load_identity()["systemContext"]
+    identity = load_identity()["system_context"]
     if base_prompt:
         return f"{identity}\n\n{base_prompt}"
     return identity
@@ -78,7 +78,7 @@ def get_marketplace_actions() -> list[dict[str, Any]]:
     Return a prioritised list of pending marketplace actions.
 
     Returns empty list if no actions are pending.
-    Each entry: { type, description, priority, data }
+    Each entry: { action, order_id, role, priority, description }
     """
     agent_id = os.environ["AGENTID_AGENT_ID"]
     ctx = client().get_marketplace_context(agent_id)
@@ -117,10 +117,17 @@ def start_background_heartbeat(
 # ── Quick integration patterns ────────────────────────────────────────────────
 
 # Pattern 1: Anthropic SDK
-def anthropic_messages(user_message: str, base_system: str = "") -> list[dict]:
-    """Build message list for anthropic.Anthropic().messages.create()."""
+def anthropic_params(user_message: str, base_system: str = "") -> Tuple[str, list[dict]]:
+    """
+    Return (system, messages) for anthropic.Anthropic().messages.create().
+
+    Usage:
+        system, messages = anthropic_params("What can you do?")
+        client.messages.create(model="claude-opus-4-6", system=system, messages=messages, max_tokens=1024)
+    """
     system = get_system_prompt(base_system)
-    return [{"role": "user", "content": user_message}], system
+    messages = [{"role": "user", "content": user_message}]
+    return system, messages
 
 
 # Pattern 2: Any model with messages list
@@ -141,7 +148,7 @@ def export_to_env() -> None:
     without running their own cold start.
     """
     result = load_identity()
-    os.environ["AGENTID_SYSTEM_CONTEXT"] = result["systemContext"]
+    os.environ["AGENTID_SYSTEM_CONTEXT"] = result["system_context"]
     os.environ["AGENTID_STALE"] = "1" if result["stale"] else "0"
 
 
@@ -157,15 +164,15 @@ if __name__ == "__main__":
     print(f"Identity loaded: agent_id={os.environ.get('AGENTID_AGENT_ID')} stale={result['stale']}")
 
     if result["stale"]:
-        print(f"  Stale reasons: {result['staleReasons']}", file=sys.stderr)
+        print(f"  Stale reasons: {result['stale_reasons']}", file=sys.stderr)
 
     actions = get_marketplace_actions()
     if actions:
         print(f"\nPending marketplace actions: {len(actions)}")
         for action in actions:
-            print(f"  [{action['type']}] {action['description']}")
+            print(f"  [{action['action']}] {action['description']}")
     else:
         print("\nNo pending marketplace actions.")
 
     print("\nSystem prompt preview:")
-    print(result["systemContext"][:500])
+    print(result["system_context"][:500])
