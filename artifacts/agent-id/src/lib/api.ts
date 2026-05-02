@@ -423,6 +423,20 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ handle, agentId, successUrl, cancelUrl }),
       }),
+    /**
+     * Look up the resolved status of a handle-checkout Stripe session after the user
+     * returns from Stripe. Used to detect HANDLE_RACE_CONFLICT outcomes — when another
+     * user claimed the same handle within the same checkout window, the backend issues
+     * an automatic refund and this endpoint reports `race_lost` so the frontend can
+     * redirect the user back to handle selection.
+     */
+    handleCheckoutStatus: (sessionId: string) =>
+      request<{
+        status: 'claimed' | 'race_lost' | 'pending' | 'cancelled';
+        handle: string | null;
+        refundId?: string | null;
+        refundAmountCents?: number | null;
+      }>(`/billing/handle-checkout/status?session_id=${encodeURIComponent(sessionId)}`),
   },
 
   oauth: {

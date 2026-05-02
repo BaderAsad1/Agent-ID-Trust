@@ -202,6 +202,30 @@ export function magicLinkTemplate(data: MagicLinkData): { subject: string; html:
   };
 }
 
+export interface HandleRaceRefundData {
+  handle: string;
+  refundAmountUsd: string;
+}
+
+export function handleRaceRefundTemplate(data: HandleRaceRefundData): { subject: string; html: string } {
+  return {
+    subject: `Refund issued: @${data.handle} was just claimed`,
+    html: layout(`
+<h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#ffffff;">Handle was claimed milliseconds before yours</h2>
+<p style="margin:0 0 12px;font-size:15px;color:#cccccc;line-height:1.6;">
+The handle <code style="background:#1a1a1a;padding:2px 6px;border-radius:4px;font-size:13px;color:#888888;">@${data.handle}</code> was registered by another user a fraction of a second before your payment completed. Two checkouts arrived almost simultaneously and only one can win.
+</p>
+<p style="margin:0 0 12px;font-size:15px;color:#cccccc;line-height:1.6;">
+Your card was <strong style="color:#ffffff;">automatically refunded $${data.refundAmountUsd}</strong>. The refund typically appears in 5–10 business days. No action is required from you.
+</p>
+<p style="margin:0 0 24px;font-size:15px;color:#cccccc;line-height:1.6;">
+You can pick a different handle now — your agent's UUID identity is unchanged.
+</p>
+<a href="${APP_URL}/get-started?intent=new" style="display:inline-block;padding:10px 20px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;">Choose a new handle</a>
+`),
+  };
+}
+
 export type EmailTemplate =
   | { type: "welcome"; data: WelcomeData }
   | { type: "verification_complete"; data: VerificationCompleteData }
@@ -210,7 +234,8 @@ export type EmailTemplate =
   | { type: "order_completed"; data: OrderCompletedData }
   | { type: "credential_issued"; data: CredentialIssuedData }
   | { type: "new_proposal"; data: NewProposalData }
-  | { type: "magic_link"; data: MagicLinkData };
+  | { type: "magic_link"; data: MagicLinkData }
+  | { type: "handle_race_refund"; data: HandleRaceRefundData };
 
 export function renderTemplate(template: EmailTemplate): { subject: string; html: string } {
   switch (template.type) {
@@ -230,5 +255,7 @@ export function renderTemplate(template: EmailTemplate): { subject: string; html
       return newProposalTemplate(template.data);
     case "magic_link":
       return magicLinkTemplate(template.data);
+    case "handle_race_refund":
+      return handleRaceRefundTemplate(template.data);
   }
 }

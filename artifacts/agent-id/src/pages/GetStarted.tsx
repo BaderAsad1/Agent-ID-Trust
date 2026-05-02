@@ -283,6 +283,13 @@ export function GetStarted() {
   });
   const [step, setStep] = useState<FlowStep>('intent');
   const [error, setError] = useState<string | null>(null);
+  // Set when the user is redirected here from the dashboard after a HANDLE_RACE_CONFLICT
+  // — the value is the handle that was lost. Drives a toast on the handle-selection step
+  // explaining that their card has already been refunded.
+  const [raceLostHandle, setRaceLostHandle] = useState<string | null>(() => {
+    const v = new URLSearchParams(window.location.search).get('raceLost');
+    return v ? v : null;
+  });
 
   const [agentName, setAgentName] = useState('');
   const [handle, setHandle] = useState('');
@@ -372,6 +379,23 @@ export function GetStarted() {
       }
     }
   }, [authLoading, userId, step, intent, searchParams]);
+
+  // When arriving via /get-started?raceLost=foo (Dashboard redirect after
+  // HANDLE_RACE_CONFLICT), jump straight into the wizard at the handle-selection step
+  // and scrub the query param so a refresh doesn't replay this flow.
+  useEffect(() => {
+    if (!raceLostHandle || authLoading) return;
+    if (!userId) return;
+    setIntent('new');
+    setStep((s) => (s === 'intent' || s === 'auth' ? 'wizard-handle' : s));
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('raceLost')) {
+        url.searchParams.delete('raceLost');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch { /* non-fatal */ }
+  }, [raceLostHandle, userId, authLoading]);
 
   useEffect(() => {
     if (!handle) { setAvailable(null); return; }
@@ -786,6 +810,38 @@ export function GetStarted() {
       }}>
         <div style={{ width: '100%', maxWidth: 560 }}>
           <StepIndicator steps={['handle', 'skills', 'plan', 'connect']} current={0} />
+
+          {raceLostHandle && (
+            <div
+              role="alert"
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                padding: '14px 16px', marginBottom: 24, borderRadius: 12,
+                background: 'rgba(245,158,11,0.08)',
+                border: '1px solid rgba(245,158,11,0.28)',
+              }}
+            >
+              <AlertCircle size={18} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#e8e8f0', marginBottom: 4 }}>
+                  Handle was claimed milliseconds before yours
+                </div>
+                <div style={{ fontSize: 13, color: 'rgba(232,232,240,0.6)', lineHeight: 1.5 }}>
+                  Another user registered <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>@{raceLostHandle}</code> a fraction of a second before your payment finished. <strong style={{ color: '#e8e8f0' }}>Your card has been refunded automatically</strong> — pick a different handle below.
+                </div>
+              </div>
+              <button
+                aria-label="Dismiss"
+                onClick={() => setRaceLostHandle(null)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'rgba(232,232,240,0.4)', padding: 4, lineHeight: 0,
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
 
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <h1 style={{

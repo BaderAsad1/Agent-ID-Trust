@@ -241,6 +241,22 @@ export async function sendMagicLinkEmail(
   }
 }
 
+export async function sendHandleRaceRefundEmail(
+  userEmail: string,
+  handle: string,
+  refundAmountCents: number,
+  idempotencyKey?: string,
+): Promise<void> {
+  await sendEmail(
+    {
+      type: "handle_race_refund",
+      data: { handle, refundAmountUsd: (refundAmountCents / 100).toFixed(2) },
+    },
+    userEmail,
+    idempotencyKey,
+  );
+}
+
 export async function sendRenewalReminderEmail(
   userEmail: string,
   handle: string,

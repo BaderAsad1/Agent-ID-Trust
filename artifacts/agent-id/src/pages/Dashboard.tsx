@@ -353,12 +353,52 @@ function Overview() {
   const searchParams = new URLSearchParams(location.search);
   const paymentResult = searchParams.get('payment');
   const paymentHandle = searchParams.get('handle');
+  const checkoutSessionId = searchParams.get('session_id');
 
+  // After returning from a Stripe handle checkout, poll the status endpoint to detect
+  // a HANDLE_RACE_CONFLICT outcome. If two users completed checkout for the same handle
+  // within milliseconds, the losing user lands here with payment=success but the handle
+  // is owned by someone else; the backend has already refunded their card and we redirect
+  // them back to handle selection with a clear toast.
   useEffect(() => {
-    if (paymentResult === 'success') {
-      refreshAgents();
-    }
-  }, [paymentResult, refreshAgents]);
+    if (paymentResult !== 'success') return;
+    refreshAgents();
+    if (!checkoutSessionId) return;
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 8;
+    const poll = async () => {
+      attempts += 1;
+      try {
+        const res = await api.billing.handleCheckoutStatus(checkoutSessionId);
+        if (cancelled) return;
+        if (res.status === 'race_lost') {
+          const lostHandle = res.handle ?? paymentHandle ?? '';
+          navigate(
+            `/get-started?intent=new&raceLost=${encodeURIComponent(lostHandle)}`,
+            { replace: true },
+          );
+          return;
+        }
+        if (res.status === 'claimed' || res.status === 'cancelled') {
+          // Resolved — strip the session_id from the URL so a refresh doesn't re-poll.
+          if (checkoutSessionId) {
+            const params = new URLSearchParams(location.search);
+            params.delete('session_id');
+            navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+          }
+          return;
+        }
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 1500);
+        }
+      } catch {
+        if (attempts < maxAttempts) setTimeout(poll, 2000);
+      }
+    };
+    void poll();
+    return () => { cancelled = true; };
+  }, [paymentResult, checkoutSessionId, paymentHandle, refreshAgents, navigate, location.pathname, location.search]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);

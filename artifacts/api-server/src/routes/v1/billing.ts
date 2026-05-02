@@ -402,6 +402,31 @@ router.post("/crypto-payment-status", requireAuth, (_req, _res, next) => {
   next(new AppError(501, "CRYPTO_HANDLE_CHECKOUT_DISABLED", HANDLE_CRYPTO_DISABLED_MESSAGE));
 });
 
+// Status endpoint used by the dashboard after a Stripe checkout return to detect
+// HANDLE_RACE_CONFLICT outcomes. Returns one of:
+//   - "claimed":   handle is now owned by this user (success path)
+//   - "race_lost": another user won the race; refund was issued automatically
+//   - "pending":   webhook still in flight (frontend should poll briefly)
+//   - "cancelled": Stripe session was cancelled or unpaid
+router.get("/handle-checkout/status", requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = String(req.query.session_id ?? "").trim();
+    if (!sessionId || !sessionId.startsWith("cs_")) {
+      throw new AppError(400, "INVALID_SESSION_ID", "session_id query parameter is required");
+    }
+    const { getHandleCheckoutStatus } = await import("../../services/billing");
+    const status = await getHandleCheckoutStatus(req.userId!, sessionId);
+    res.json(status);
+  } catch (err) {
+    if (err instanceof AppError) return next(err);
+    const message = err instanceof Error ? err.message : "";
+    if (message === "STRIPE_SECRET_KEY is not configured") {
+      return next(new AppError(503, "STRIPE_NOT_CONFIGURED", "Payment processing is not yet configured"));
+    }
+    next(err);
+  }
+});
+
 router.post("/agents/:agentId/activate", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;

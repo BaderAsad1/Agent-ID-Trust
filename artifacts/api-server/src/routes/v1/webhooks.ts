@@ -14,6 +14,7 @@ import {
   finalizeWebhookEvent,
   activatePlanForUser,
   deactivatePlanForUser,
+  recoverHandleRaceConflict,
 } from "../../services/billing";
 import { assignHandleToAgent, processHandleExpiry } from "../../services/handle";
 import { AppError } from "../../middlewares/error-handler";
@@ -189,11 +190,33 @@ router.post(
                 columns: { id: true, userId: true },
               });
               if (existingOwner && existingOwner.userId !== subUserId) {
-                // Handle already owned by a different user — log a critical alert so an operator
-                // can issue a refund. Do NOT overwrite the existing owner's handle.
+                // Handle already owned by a different user — automated recovery: refund the
+                // losing user's payment, cancel their duplicate subscription, record the
+                // collision in webhook_events, and email them a clear explanation. The DB
+                // unique constraint on `agents.handle` is the source of truth for who won.
                 logger.error(
                   { handle, subUserId, existingOwnerId: existingOwner.userId, subscriptionId: subscription.id },
-                  "[webhook] HANDLE_RACE_CONFLICT: handle already assigned to a different user. Manual refund required.",
+                  "[webhook] HANDLE_RACE_CONFLICT detected — initiating automated refund recovery",
+                );
+                const recovery = await recoverHandleRaceConflict({
+                  subscription,
+                  losingUserId: subUserId,
+                  winningUserId: existingOwner.userId,
+                  handle,
+                  webhookEventId: event.id,
+                });
+                logger.info(
+                  {
+                    handle,
+                    losingUserId: subUserId,
+                    winningUserId: existingOwner.userId,
+                    subscriptionId: subscription.id,
+                    refundId: recovery.refundId,
+                    refundAmountCents: recovery.refundAmountCents,
+                    cancelled: recovery.cancelled,
+                    emailSent: recovery.emailSent,
+                  },
+                  "[webhook] HANDLE_RACE_CONFLICT recovery completed",
                 );
               } else {
                 const agent = await db.query.agentsTable.findFirst({

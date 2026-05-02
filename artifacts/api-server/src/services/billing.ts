@@ -19,6 +19,7 @@ import {
 import { getHandlePricingTier as sharedGetHandlePricingTier, isEligibleForIncludedHandle, isAllowedHandleAccess } from "@workspace/shared-pricing";
 import { env } from "../lib/env";
 import { getStripe } from "./stripe-client";
+import { sendHandleRaceRefundEmail } from "./email";
 import { getPlatformTreasuryAddress } from "../lib/cdp";
 
 export { isEligibleForIncludedHandle, hasCustomHandleEntitlement, isAllowedHandleAccess } from "@workspace/shared-pricing";
@@ -1217,7 +1218,13 @@ export async function createHandleCheckoutSession(
         quantity: 1,
       },
     ],
-    success_url: successUrl,
+    // Append the Stripe session id to the success URL so the dashboard can detect a
+    // race-lost outcome (handle was claimed by another user during the same checkout
+    // window) and redirect the user back to handle selection. See
+    // recoverHandleRaceConflict + getHandleCheckoutStatus for the full flow.
+    success_url: successUrl.includes("session_id=")
+      ? successUrl
+      : `${successUrl}${successUrl.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: cancelUrl,
     metadata: {
       userId: user.id,
@@ -1249,6 +1256,321 @@ export async function createHandleCheckoutSession(
   }
 
   return { url: session.url, priceCents };
+}
+
+/**
+ * Automated recovery for HANDLE_RACE_CONFLICT. When two users complete Stripe checkout
+ * for the same handle within milliseconds of each other, the second user's payment
+ * succeeds at Stripe but the database first-write-wins rule means they don't receive
+ * the handle. Without this recovery, an operator would have to manually issue a refund.
+ *
+ * This function:
+ *   1. Locates the latest invoice + payment_intent for the losing subscription.
+ *   2. Refunds the payment_intent in full.
+ *   3. Cancels the subscription (with prorate:false) so no future renewals are billed.
+ *   4. Updates the originating webhook_events row to record the refund metadata.
+ *   5. Sends a notification email to the affected user.
+ *
+ * The function is idempotent on its critical mutations:
+ *   - stripe.refunds.create is called with idempotencyKey = `race-refund-{subscriptionId}`,
+ *     so duplicate webhook deliveries do not create duplicate refunds.
+ *   - stripe.subscriptions.cancel is safe to retry — Stripe ignores cancel-on-cancelled.
+ *   - The webhook_events row update is keyed on the originating eventId.
+ *
+ * Failures of individual steps are logged but do not throw — the goal is best-effort
+ * recovery; operator alerts come from the structured logs if any step fails.
+ */
+export async function recoverHandleRaceConflict(params: {
+  subscription: Stripe.Subscription;
+  losingUserId: string;
+  winningUserId: string;
+  handle: string;
+  /** The Stripe event id (e.g. "evt_..."), matched against webhook_events.providerEventId. */
+  webhookEventId: string;
+}): Promise<{
+  refundId: string | null;
+  refundAmountCents: number | null;
+  cancelled: boolean;
+  emailSent: boolean;
+}> {
+  const { subscription, losingUserId, winningUserId, handle, webhookEventId } = params;
+  const stripe = getStripe();
+
+  let refundId: string | null = null;
+  let refundAmountCents: number | null = null;
+  let paymentIntentId: string | null = null;
+  let cancelled = false;
+  let emailSent = false;
+
+  try {
+    // Resolve the latest invoice for this subscription. The subscription event payload
+    // sometimes carries latest_invoice as a string ID, sometimes as an expanded object,
+    // and sometimes is missing entirely (e.g. zero-amount subs); fall back to invoices.list.
+    let invoiceId: string | null = null;
+    const latest = subscription.latest_invoice as Stripe.Invoice | string | null | undefined;
+    if (typeof latest === "string") {
+      invoiceId = latest;
+    } else if (latest && typeof latest === "object" && "id" in latest) {
+      invoiceId = (latest as Stripe.Invoice).id ?? null;
+    }
+    if (!invoiceId) {
+      const invoices = await stripe.invoices.list({ subscription: subscription.id, limit: 1 });
+      invoiceId = invoices.data[0]?.id ?? null;
+    }
+
+    if (invoiceId) {
+      const invoice = await stripe.invoices.retrieve(invoiceId);
+      // Stripe's invoice payment_intent moved between API versions — read defensively.
+      const piRef =
+        (invoice as unknown as { payment_intent?: string | { id?: string } | null }).payment_intent ??
+        invoice.parent?.subscription_details?.subscription ??
+        null;
+      if (typeof piRef === "string") {
+        paymentIntentId = piRef;
+      } else if (piRef && typeof piRef === "object" && "id" in piRef) {
+        paymentIntentId = (piRef as { id?: string }).id ?? null;
+      }
+      if (!paymentIntentId) {
+        // Final fallback: query payment intents tied to the customer with this invoice in metadata.
+        const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+        if (customerId) {
+          const pis = await stripe.paymentIntents.list({ customer: customerId, limit: 5 });
+          const match = pis.data.find((pi) => (pi as Stripe.PaymentIntent & { invoice?: string | null }).invoice === invoiceId);
+          paymentIntentId = match?.id ?? null;
+        }
+      }
+      refundAmountCents = invoice.amount_paid ?? null;
+    }
+
+    if (paymentIntentId) {
+      try {
+        const refund = await stripe.refunds.create(
+          {
+            payment_intent: paymentIntentId,
+            reason: "duplicate",
+            metadata: {
+              reason_code: "HANDLE_RACE_CONFLICT",
+              handle,
+              losingUserId,
+              winningUserId,
+              subscriptionId: subscription.id,
+            },
+          },
+          { idempotencyKey: `race-refund-${subscription.id}` },
+        );
+        refundId = refund.id;
+        if (refundAmountCents == null && typeof refund.amount === "number") {
+          refundAmountCents = refund.amount;
+        }
+        logger.info(
+          { refundId, paymentIntentId, handle, losingUserId, subscriptionId: subscription.id },
+          "[billing] HANDLE_RACE_CONFLICT: refund issued",
+        );
+      } catch (refundErr) {
+        logger.error(
+          {
+            err: refundErr instanceof Error ? refundErr.message : String(refundErr),
+            paymentIntentId,
+            handle,
+            losingUserId,
+            subscriptionId: subscription.id,
+          },
+          "[billing] HANDLE_RACE_CONFLICT: refund creation failed — manual operator action required",
+        );
+      }
+    } else {
+      logger.error(
+        { handle, losingUserId, subscriptionId: subscription.id, invoiceId },
+        "[billing] HANDLE_RACE_CONFLICT: no payment_intent located for refund — manual operator action required",
+      );
+    }
+
+    // Cancel the duplicate subscription so the user is not billed again next year.
+    // Safe to call even if Stripe has already cancelled the subscription (idempotent on Stripe's side).
+    try {
+      await stripe.subscriptions.cancel(subscription.id, { prorate: false });
+      cancelled = true;
+      logger.info(
+        { subscriptionId: subscription.id, handle, losingUserId },
+        "[billing] HANDLE_RACE_CONFLICT: duplicate subscription cancelled",
+      );
+    } catch (cancelErr) {
+      logger.warn(
+        {
+          err: cancelErr instanceof Error ? cancelErr.message : String(cancelErr),
+          subscriptionId: subscription.id,
+        },
+        "[billing] HANDLE_RACE_CONFLICT: subscription cancel failed (may already be cancelled)",
+      );
+    }
+
+    // Persist refund metadata onto the originating webhook_events row for auditability.
+    // We use a SQL jsonb_set to merge into any existing payload without clobbering it.
+    try {
+      const collisionMeta = {
+        handleRaceConflict: {
+          handle,
+          losingUserId,
+          winningUserId,
+          subscriptionId: subscription.id,
+          paymentIntentId,
+          refundId,
+          refundAmountCents,
+          cancelled,
+          recoveredAt: new Date().toISOString(),
+        },
+      };
+      await db
+        .update(webhookEventsTable)
+        .set({
+          payload: sql`jsonb_set(
+            COALESCE(${webhookEventsTable.payload}::jsonb, '{}'::jsonb),
+            '{handleRaceConflict}',
+            ${JSON.stringify(collisionMeta.handleRaceConflict)}::jsonb,
+            true
+          )`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(webhookEventsTable.provider, "stripe"),
+            eq(webhookEventsTable.providerEventId, webhookEventId),
+          ),
+        );
+    } catch (auditErr) {
+      logger.warn(
+        { err: auditErr instanceof Error ? auditErr.message : String(auditErr), webhookEventId },
+        "[billing] HANDLE_RACE_CONFLICT: failed to write refund metadata to webhook_events",
+      );
+    }
+
+    // Notify the losing user. Best-effort — the refund itself is what matters most.
+    try {
+      const losingUser = await db.query.usersTable.findFirst({
+        where: eq(usersTable.id, losingUserId),
+        columns: { email: true },
+      });
+      if (losingUser?.email) {
+        await sendHandleRaceRefundEmail(
+          losingUser.email,
+          handle,
+          refundAmountCents ?? getHandlePriceCents(handle),
+          // Idempotency: stable per losing subscription so retries don't double-send.
+          `race-${subscription.id}`,
+        );
+        emailSent = true;
+      } else {
+        logger.warn(
+          { losingUserId, handle, subscriptionId: subscription.id },
+          "[billing] HANDLE_RACE_CONFLICT: losing user has no email on file — refund notice not sent",
+        );
+      }
+    } catch (emailErr) {
+      logger.error(
+        {
+          err: emailErr instanceof Error ? emailErr.message : String(emailErr),
+          losingUserId,
+          handle,
+        },
+        "[billing] HANDLE_RACE_CONFLICT: failed to send refund notification email",
+      );
+    }
+  } catch (err) {
+    // Catch-all so this recovery cannot poison the webhook handler — better to log
+    // and let the webhook return 200 than to retry an event whose primary side effect
+    // (refund) may already have been issued.
+    logger.error(
+      {
+        err: err instanceof Error ? err.message : String(err),
+        handle,
+        losingUserId,
+        subscriptionId: subscription.id,
+      },
+      "[billing] HANDLE_RACE_CONFLICT: unexpected error during automated recovery",
+    );
+  }
+
+  return { refundId, refundAmountCents, cancelled, emailSent };
+}
+
+/**
+ * Status of a handle checkout session, used by the frontend to detect a race-lost
+ * outcome on return from Stripe and redirect the user back to handle selection.
+ */
+export interface HandleCheckoutStatus {
+  status: "claimed" | "race_lost" | "pending" | "cancelled";
+  handle: string | null;
+  refundId?: string | null;
+  refundAmountCents?: number | null;
+}
+
+export async function getHandleCheckoutStatus(
+  userId: string,
+  sessionId: string,
+): Promise<HandleCheckoutStatus> {
+  const stripe = getStripe();
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(sessionId);
+  } catch {
+    return { status: "pending", handle: null };
+  }
+
+  // Authorisation: the session must belong to this user. Stripe metadata is set when
+  // we create the session, so this is a strong ownership check.
+  const sessionUserId = session.metadata?.userId;
+  if (sessionUserId && sessionUserId !== userId) {
+    return { status: "pending", handle: null };
+  }
+
+  const handle = session.metadata?.handle?.toLowerCase() ?? null;
+  if (!handle) return { status: "pending", handle: null };
+
+  if (session.status === "expired" || session.payment_status === "unpaid") {
+    return { status: "cancelled", handle };
+  }
+
+  // Successful claim: the agent record now carries the handle for this user.
+  // (Effective ownership is fine for this read — handle column is unique.)
+  const owner = await db.query.agentsTable.findFirst({
+    where: eq(agentsTable.handle, handle),
+    columns: { id: true, userId: true, ownerUserId: true },
+  });
+  const effectiveOwnerId = owner?.ownerUserId ?? owner?.userId ?? null;
+  if (effectiveOwnerId === userId) {
+    return { status: "claimed", handle };
+  }
+
+  // Look for a recorded HANDLE_RACE_CONFLICT recovery for this subscription.
+  const subId = typeof session.subscription === "string"
+    ? session.subscription
+    : (session.subscription as { id?: string } | null)?.id ?? null;
+  if (subId) {
+    const evt = await db
+      .select({ payload: webhookEventsTable.payload })
+      .from(webhookEventsTable)
+      .where(
+        and(
+          eq(webhookEventsTable.provider, "stripe"),
+          sql`${webhookEventsTable.payload}->'handleRaceConflict'->>'subscriptionId' = ${subId}`,
+        ),
+      )
+      .limit(1);
+    if (evt.length > 0) {
+      const conflict = (evt[0].payload as Record<string, unknown> | null)?.handleRaceConflict as
+        | { refundId?: string | null; refundAmountCents?: number | null }
+        | undefined;
+      return {
+        status: "race_lost",
+        handle,
+        refundId: conflict?.refundId ?? null,
+        refundAmountCents: conflict?.refundAmountCents ?? null,
+      };
+    }
+  }
+
+  // No collision recorded yet — webhook may still be in flight.
+  return { status: "pending", handle };
 }
 
 export async function claimWebhookEvent(
