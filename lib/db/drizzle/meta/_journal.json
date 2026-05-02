@@ -232,6 +232,13 @@
       "when": 1777680000000,
       "tag": "0032_oauth_client_icon_url",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1777248000000,
+      "tag": "0033_ows_wallet_accounts_normalized",
+      "breakpoints": true
     }
   ]
 }

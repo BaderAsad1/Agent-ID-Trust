@@ -20,6 +20,7 @@ import {
   type RevokeAgentInput,
 } from "../../services/agents";
 import { logActivity } from "../../services/activity-logger";
+import { syncOwsWalletAccounts } from "../../services/ows-wallet-accounts";
 import { recomputeAndStore } from "../../services/trust-score";
 import { checkRateLimit, checkHandleRegistrationLimits, recordHandleRegistration, isHandleReserved } from "../../services/handle";
 import { requirePlanFeature, getHandlePriceCents, getUserPlan, getPlanLimits, isEligibleForIncludedHandle, claimIncludedHandleBenefit, claimIncludedHandleBenefitTx, releaseIncludedHandleClaim } from "../../services/billing";
@@ -1551,6 +1552,7 @@ router.post("/:agentId/wallets/ows", requireAgentAuth, async (req, res, next) =>
     const evmAccount = accounts.find((a) => a.startsWith("eip155:8453:")) ?? accounts.find((a) => a.startsWith("eip155:"));
     const evmAddress = evmAccount ? evmAccount.split(":")[2] : (accounts[0]?.split(":")[2] ?? accounts[0] ?? "");
 
+    let owsWalletRowId: string;
     if (existing) {
       await db
         .update(agentOwsWalletsTable)
@@ -1562,19 +1564,29 @@ router.post("/:agentId/wallets/ows", requireAgentAuth, async (req, res, next) =>
           updatedAt: new Date(),
         })
         .where(eq(agentOwsWalletsTable.id, existing.id));
+      owsWalletRowId = existing.id;
     } else {
-      await db.insert(agentOwsWalletsTable).values({
-        agentId,
-        userId: authenticatedAgent.userId,
-        walletId,
-        network: "base",
-        address: evmAddress,
-        accounts,
-        isSelfCustodial: true,
-        status: "active",
-        provisionedAt: new Date(),
-      });
+      const inserted = await db
+        .insert(agentOwsWalletsTable)
+        .values({
+          agentId,
+          userId: authenticatedAgent.userId,
+          walletId,
+          network: "base",
+          address: evmAddress,
+          accounts,
+          isSelfCustodial: true,
+          status: "active",
+          provisionedAt: new Date(),
+        })
+        .returning({ id: agentOwsWalletsTable.id });
+      owsWalletRowId = inserted[0]!.id;
     }
+
+    // Mirror accounts into the normalized agent_ows_wallet_accounts table so
+    // that /api/v1/resolve/address/:address can do an indexed lookup instead of
+    // an in-process JSONB scan.
+    await syncOwsWalletAccounts(agentId, owsWalletRowId, accounts);
 
     const walletProvisionedAt = existing ? undefined : new Date();
     await db.update(agentsTable).set({

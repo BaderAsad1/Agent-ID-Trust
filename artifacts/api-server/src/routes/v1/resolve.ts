@@ -9,7 +9,7 @@ import { detectAgent } from "../../middlewares/cli-markdown";
 import { generateAgentProfileMarkdown } from "../../services/agent-markdown";
 import { eq, and, gte, desc as drizzleDesc, sql, or, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { agentsTable, agentKeysTable, marketplaceListingsTable, resolutionEventsTable, agentOwsWalletsTable } from "@workspace/db/schema";
+import { agentsTable, agentKeysTable, marketplaceListingsTable, resolutionEventsTable, agentOwsWalletsTable, agentOwsWalletAccountsTable } from "@workspace/db/schema";
 import { normalizeHandle, formatHandle, formatDomain, formatProfileUrl, formatDID, formatResolverUrl } from "../../utils/handle";
 import { getResolutionCache, setResolutionCache, deleteResolutionCache } from "../../lib/resolution-cache";
 import { addressLookupRateLimit } from "../../middlewares/rate-limit";
@@ -586,33 +586,31 @@ router.get("/address/:address", addressLookupRateLimit, async (req: Request, res
       }
     }
 
-    // TODO: Replace this in-process scan with a GIN-indexed JSONB query or
-    // a dedicated ows_wallet_addresses table for sub-millisecond lookups at scale.
-    // TODO: Normalize agentOwsWallets.accounts into indexed table
-    const owsRows = await db.query.agentOwsWalletsTable.findMany({
-      columns: { agentId: true, accounts: true },
-      limit: 100,
-    });
+    // Normalized lookup against agent_ows_wallet_accounts.
+    // Indexed on (namespace, address_lower) so this scales O(log n) regardless
+    // of how many OWS wallets exist (replaces the previous in-process JSONB
+    // scan that was capped at 100 rows and blind to anything beyond).
+    const owsAccountWhere = isEvm
+      ? and(
+          eq(agentOwsWalletAccountsTable.namespace, "eip155"),
+          eq(agentOwsWalletAccountsTable.addressLower, addressLower),
+        )
+      : isTron
+        ? and(
+            eq(agentOwsWalletAccountsTable.namespace, "tron"),
+            eq(agentOwsWalletAccountsTable.address, addressExact),
+          )
+        : and(
+            eq(agentOwsWalletAccountsTable.namespace, "solana"),
+            eq(agentOwsWalletAccountsTable.address, addressExact),
+          );
 
-    const matchedOwsAgentIds: string[] = [];
-    for (const row of owsRows) {
-      const accounts = row.accounts ?? [];
-      const matched = accounts.some((acc: string) => {
-        const parts = acc.split(":");
-        if (parts.length < 3) return false;
-        const namespace = parts[0];
-        const accAddress = parts[parts.length - 1];
-        const isEvmNamespace = namespace === "eip155";
-        if (isEvmNamespace) {
-          return accAddress.toLowerCase() === addressLower;
-        }
-        return accAddress === addressExact;
-      });
+    const matchedOwsRows = await db
+      .selectDistinct({ agentId: agentOwsWalletAccountsTable.agentId })
+      .from(agentOwsWalletAccountsTable)
+      .where(owsAccountWhere);
 
-      if (matched) {
-        matchedOwsAgentIds.push(row.agentId);
-      }
-    }
+    const matchedOwsAgentIds = matchedOwsRows.map((r) => r.agentId);
 
     if (matchedOwsAgentIds.length > 0) {
       const owsAgents = await db.query.agentsTable.findMany({

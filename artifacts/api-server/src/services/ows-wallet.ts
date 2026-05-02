@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, agentOwsWalletsTable } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
+import { syncOwsWalletAccounts } from "./ows-wallet-accounts";
 import path from "path";
 
 const OWS_SDK_PACKAGE = "@open-wallet-standard/core";
@@ -60,20 +61,33 @@ export async function provisionOwsWallet(
       logger.error({ agentId, accounts: walletInfo.accounts }, "[ows-wallet] no EVM account found in wallet");
       return null;
     }
-    const accountAddresses = walletInfo.accounts.map((a) => a.address);
+    // Store accounts as CAIP-10 strings ("eip155:8453:0x...") so they can be
+    // backfilled into the normalized agent_ows_wallet_accounts table by chain
+    // namespace + lowercased address. Older rows that pre-date this change may
+    // still contain raw addresses; the backfill step in scripts/post-merge.sh
+    // skips those (they fail the 3-part CAIP-10 split).
+    const accountCaip10s = walletInfo.accounts.map((a) => `${a.chainId}:${a.address}`);
     const now = new Date();
 
-    await db.insert(agentOwsWalletsTable).values({
-      agentId,
-      userId,
-      walletId: walletInfo.id,
-      network: "base",
-      address,
-      accounts: accountAddresses,
-      isSelfCustodial: true,
-      status: "active",
-      provisionedAt: now,
-    });
+    const inserted = await db
+      .insert(agentOwsWalletsTable)
+      .values({
+        agentId,
+        userId,
+        walletId: walletInfo.id,
+        network: "base",
+        address,
+        accounts: accountCaip10s,
+        isSelfCustodial: true,
+        status: "active",
+        provisionedAt: now,
+      })
+      .returning({ id: agentOwsWalletsTable.id });
+
+    const owsWalletRowId = inserted[0]?.id;
+    if (owsWalletRowId) {
+      await syncOwsWalletAccounts(agentId, owsWalletRowId, accountCaip10s);
+    }
 
     await db.update(agentsTable).set({
       walletAddress: address,
@@ -89,7 +103,7 @@ export async function provisionOwsWallet(
       walletId: walletInfo.id,
       address,
       network: "base",
-      accounts: accountAddresses,
+      accounts: accountCaip10s,
       provisionedAt: now,
     };
   } catch (err) {

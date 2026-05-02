@@ -55,3 +55,45 @@ p.query(\`
 \`).then(() => { console.log('[post-merge] audit_events columns ensured'); p.end(); })
   .catch(e => { console.error('[post-merge] audit_events alter failed:', e.message); p.end(); process.exit(1); });
 " 2>/dev/null || true
+
+# Backfill agent_ows_wallet_accounts from agent_ows_wallets.accounts JSONB.
+# Idempotent (ON CONFLICT DO NOTHING). Required because drizzle-kit push only
+# syncs schema (CREATE TABLE / CREATE INDEX) and does not run data migrations.
+# See lib/db/drizzle/0032_ows_wallet_accounts_normalized.sql for the source SQL.
+node -e "
+const { Pool } = require('./lib/db/node_modules/pg');
+const p = new Pool({ connectionString: process.env.DATABASE_URL });
+(async () => {
+  const tableExists = await p.query(\`
+    SELECT 1 FROM information_schema.tables
+    WHERE table_name = 'agent_ows_wallet_accounts'
+  \`);
+  if (tableExists.rowCount === 0) {
+    console.log('[post-merge] agent_ows_wallet_accounts table not present yet, skipping backfill');
+    await p.end();
+    return;
+  }
+  const result = await p.query(\`
+    INSERT INTO agent_ows_wallet_accounts
+      (agent_id, ows_wallet_id, caip10, namespace, chain_reference, address, address_lower)
+    SELECT
+      w.agent_id,
+      w.id AS ows_wallet_id,
+      account_text AS caip10,
+      split_part(account_text, ':', 1) AS namespace,
+      split_part(account_text, ':', 2) AS chain_reference,
+      split_part(account_text, ':', 3) AS address,
+      lower(split_part(account_text, ':', 3)) AS address_lower
+    FROM agent_ows_wallets w
+    CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(w.accounts, '[]'::jsonb)) AS account_text
+    WHERE
+      array_length(string_to_array(account_text, ':'), 1) = 3
+      AND length(split_part(account_text, ':', 1)) > 0
+      AND length(split_part(account_text, ':', 2)) > 0
+      AND length(split_part(account_text, ':', 3)) > 0
+    ON CONFLICT (agent_id, caip10) DO NOTHING
+  \`);
+  console.log('[post-merge] agent_ows_wallet_accounts backfill: ' + result.rowCount + ' rows inserted');
+  await p.end();
+})().catch(e => { console.error('[post-merge] ows accounts backfill failed:', e.message); process.exit(1); });
+" 2>/dev/null || true
