@@ -338,6 +338,8 @@ export const api = {
         const qs = params ? "?" + new URLSearchParams(params).toString() : "";
         return request<{ services: A2ARegistryService[] }>(`/a2a/services${qs}`);
       },
+      get: (serviceId: string) =>
+        request<A2ARegistryService>(`/a2a/services/${serviceId}`),
       registerService: (data: {
         agentId: string;
         name: string;
@@ -347,6 +349,14 @@ export const api = {
         pricePerCallUsdc?: string;
         tags?: string[];
       }) => request<A2ARegistryService>('/a2a/services', { method: 'POST', body: JSON.stringify(data) }),
+      execute: (serviceId: string, payload: Record<string, unknown>, opts?: { timeoutMs?: number }) =>
+        request<A2AServiceCallResult>(`/a2a/services/${serviceId}/execute`, {
+          method: 'POST',
+          body: JSON.stringify({
+            payload,
+            ...(opts?.timeoutMs ? { timeout_ms: opts.timeoutMs } : {}),
+          }),
+        }),
     },
   },
 
@@ -836,6 +846,34 @@ export interface A2ARegistryService {
   exampleResponse: object;
   totalCalls: number;
   successRate: number;
+  agentId?: string;
+  status?: string;
+  trustScore?: number;
+  trustTier?: 'unverified' | 'basic' | 'verified' | 'trusted' | 'elite' | string;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | string;
+  endpointUrl?: string | null;
+  protocols?: string[];
+  authMethods?: string[];
+  requiresAuth?: boolean;
+}
+
+export interface A2AServiceCallResult {
+  success: boolean;
+  callId: string;
+  result: unknown;
+  receipt: {
+    callId: string;
+    serviceId: string;
+    callerAgentId: string;
+    providerAgentId: string;
+    amountUsdc: string;
+    platformFeeUsdc: string;
+    providerPayoutUsdc: string;
+    executionMs: number;
+    timestamp: string;
+  };
+  receiptSignature: string;
+  executionMs: number;
 }
 
 export interface OrderMilestone {

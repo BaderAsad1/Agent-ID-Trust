@@ -1,13 +1,28 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Code, Database, Search, ChevronRight, Copy, Check, Terminal, Activity, Shield, Clock, AlertCircle, X, ExternalLink, RefreshCw } from 'lucide-react';
-import { GlassCard, PrimaryButton, CapabilityChip, Identicon, ListSkeleton } from '@/components/shared';
-import { Footer } from '@/components/Footer';
-import { api, type A2AEngagement, type A2ARegistryService } from '@/lib/api';
+import { Zap, Code, Database, Search, ChevronRight, Copy, Check, Terminal, Activity, Shield, Clock, AlertCircle, X, ExternalLink, RefreshCw, Send, Award, TrendingUp, Lock, Globe, Cpu } from 'lucide-react';
+import { TrustScoreRing } from '@/components/shared';
+import { api, type A2AEngagement, type A2ARegistryService, type A2AServiceCallResult, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { useSEO } from '@/lib/useSEO';
 
 type CapabilityType = 'all' | 'research' | 'code' | 'data' | 'orchestration' | 'io' | 'compute';
+type TrustTierFilter = 'all' | 'elite' | 'trusted' | 'verified' | 'basic';
+type AvailabilityFilter = 'all' | 'high' | 'medium';
+
+const TRUST_TIERS: { key: TrustTierFilter; label: string; icon: React.ReactNode; color: string; minScore: number }[] = [
+  { key: 'all', label: 'Any', icon: null, color: '#7d8590', minScore: 0 },
+  { key: 'elite', label: 'Elite', icon: <Award className="w-3 h-3" />, color: '#fbbf24', minScore: 85 },
+  { key: 'trusted', label: 'Trusted', icon: <Shield className="w-3 h-3" />, color: '#4ade80', minScore: 65 },
+  { key: 'verified', label: 'Verified', icon: <Check className="w-3 h-3" />, color: '#79c0ff', minScore: 40 },
+  { key: 'basic', label: 'Basic+', icon: <TrendingUp className="w-3 h-3" />, color: '#a5b4fc', minScore: 20 },
+];
+
+const AVAILABILITY_FILTERS: { key: AvailabilityFilter; label: string; minPct: number }[] = [
+  { key: 'all', label: 'Any', minPct: 0 },
+  { key: 'high', label: '99%+', minPct: 99 },
+  { key: 'medium', label: '95%+', minPct: 95 },
+];
 
 const CAPABILITY_TYPES: { key: CapabilityType; label: string; icon: React.ReactNode; color: string; desc: string }[] = [
   { key: 'all', label: 'All', icon: <Zap className="w-4 h-4" />, color: 'var(--text-muted)', desc: 'All capability types' },
@@ -32,6 +47,13 @@ const SEED_SERVICES: A2AService[] = [
     pricing: { model: 'per_call', amount: '0.002', currency: 'USDC' },
     latencySla: '< 3s p95',
     availability: '99.9%',
+    trustScore: 92,
+    trustTier: 'elite',
+    verificationStatus: 'verified',
+    endpointUrl: 'https://research.agent.getagent.id/v1/call',
+    protocols: ['REST', 'MCP'],
+    authMethods: ['bearer', 'x402'],
+    requiresAuth: true,
     callSchema: {
       query: 'string (required)',
       depth: '"surface" | "deep" | "exhaustive"',
@@ -63,6 +85,13 @@ const SEED_SERVICES: A2AService[] = [
     pricing: { model: 'per_second', amount: '0.0005', currency: 'USDC' },
     latencySla: '< 500ms cold start',
     availability: '99.7%',
+    trustScore: 78,
+    trustTier: 'trusted',
+    verificationStatus: 'verified',
+    endpointUrl: 'https://exec.agent.getagent.id/v1/call',
+    protocols: ['REST', 'MCP', 'gRPC'],
+    authMethods: ['bearer', 'x402', 'mtls'],
+    requiresAuth: true,
     callSchema: {
       language: '"python" | "javascript" | "bash" | "typescript"',
       code: 'string (required)',
@@ -96,6 +125,13 @@ const SEED_SERVICES: A2AService[] = [
     pricing: { model: 'per_request', amount: '0.005', currency: 'USDC' },
     latencySla: '< 2s first byte',
     availability: '99.8%',
+    trustScore: 71,
+    trustTier: 'trusted',
+    verificationStatus: 'verified',
+    endpointUrl: 'https://pipeline.agent.getagent.id/v1/call',
+    protocols: ['REST', 'MCP'],
+    authMethods: ['bearer', 'x402'],
+    requiresAuth: true,
     callSchema: {
       source: '{ type: "api"|"s3"|"postgres"|"csv", config: object }',
       transform: 'TransformSpec[] (optional)',
@@ -128,6 +164,13 @@ const SEED_SERVICES: A2AService[] = [
     pricing: { model: 'per_call', amount: '0.01', currency: 'USDC' },
     latencySla: '< 5s orchestration overhead',
     availability: '99.5%',
+    trustScore: 88,
+    trustTier: 'elite',
+    verificationStatus: 'verified',
+    endpointUrl: 'https://orch.agent.getagent.id/v1/call',
+    protocols: ['REST', 'MCP', 'A2A'],
+    authMethods: ['bearer', 'x402'],
+    requiresAuth: true,
     callSchema: {
       workflow: 'WorkflowSpec (agents, steps, conditions)',
       agents: 'AgentSpec[] (id, endpoint, config)',
@@ -179,79 +222,354 @@ function JsonBlock({ data }: { data: object }) {
   );
 }
 
-function ServiceTestModal({ service, onClose }: { service: A2AService; onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<'schema' | 'request' | 'response'>('schema');
+type ServiceCallState =
+  | { status: 'idle' }
+  | { status: 'submitting' }
+  | { status: 'success'; result: A2AServiceCallResult }
+  | { status: 'error'; message: string; code?: string };
 
-  const codeSnippet = `const response = await fetch('https://${service.handle}/v1/call', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer $AGENT_TOKEN',
-    'X-Payment': 'x402 amount=${service.pricing.amount} currency=${service.pricing.currency}',
-  },
-  body: JSON.stringify(${JSON.stringify(service.exampleRequest, null, 4)})
-});
+function ServiceCallComposer({ service }: { service: A2AService }) {
+  const { agents } = useAuth();
+  const callableAgents = agents.filter(a => a.status === 'active');
+  const capabilityOptions = service.capabilities.length > 0 ? service.capabilities : [service.capabilityType];
+  const [taskType, setTaskType] = useState(capabilityOptions[0] ?? '');
+  const [selectedAgent, setSelectedAgent] = useState(callableAgents[0]?.id ?? '');
+  const [params, setParams] = useState<string>(() => JSON.stringify(service.exampleRequest ?? {}, null, 2));
+  const [callState, setCallState] = useState<ServiceCallState>({ status: 'idle' });
 
-const result = await response.json();`;
+  const isSeed = service.id.startsWith('svc-');
+  const callable = !!selectedAgent && !isSeed;
+
+  const handleCall = async () => {
+    setCallState({ status: 'submitting' });
+    try {
+      let parsedPayload: Record<string, unknown>;
+      try {
+        parsedPayload = params.trim() ? JSON.parse(params) : {};
+      } catch {
+        setCallState({ status: 'error', message: 'Parameters must be valid JSON' });
+        return;
+      }
+      const payload = { task_type: taskType, ...parsedPayload };
+      const result = await api.marketplace.a2aRegistry.execute(service.id, payload);
+      setCallState({ status: 'success', result });
+    } catch (e: unknown) {
+      const apiErr = e instanceof ApiError ? e : null;
+      setCallState({
+        status: 'error',
+        message: apiErr?.message || (e instanceof Error ? e.message : 'Service call failed'),
+        code: apiErr?.code,
+      });
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
-      <div className="relative w-full max-w-2xl rounded-2xl border max-h-[90vh] overflow-y-auto" style={{ background: '#0d1117', borderColor: 'rgba(99,102,241,0.3)' }}>
-        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          <div>
-            <h3 className="font-semibold" style={{ color: '#e6edf3', fontFamily: 'var(--font-mono)' }}>{service.handle}</h3>
-            <p className="text-xs mt-0.5" style={{ color: '#7d8590' }}>{service.name}</p>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#7d8590', cursor: 'pointer' }}>
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <div className="space-y-4">
+      <div className="rounded-lg p-3 text-xs" style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.18)', color: '#a5b4fc' }}>
+        Submit a structured service call to <code style={{ color: '#79c0ff', fontFamily: 'var(--font-mono)' }}>{service.handle}</code>. The provider authenticates the calling agent via DID + delegation JWT, and the response is signed with an A2A receipt.
+      </div>
 
-        <div className="flex border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          {[{ key: 'schema' as const, label: 'Schema' }, { key: 'request' as const, label: 'Example Request' }, { key: 'response' as const, label: 'Example Response' }].map(t => (
+      <div>
+        <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: '#7d8590' }}>Task type</label>
+        <div className="flex flex-wrap gap-1.5">
+          {capabilityOptions.map(c => (
+            <button
+              key={c}
+              onClick={() => setTaskType(c)}
+              className="text-xs px-2.5 py-1.5 rounded cursor-pointer transition-all"
+              style={{
+                background: taskType === c ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
+                color: taskType === c ? '#a5b4fc' : '#7d8590',
+                border: `1px solid ${taskType === c ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                fontFamily: 'var(--font-mono)',
+              }}
+            >{c}</button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: '#7d8590' }}>Calling agent</label>
+        {callableAgents.length > 0 ? (
+          <select
+            value={selectedAgent}
+            onChange={e => setSelectedAgent(e.target.value)}
+            className="w-full rounded-lg px-3 py-2.5 text-xs outline-none"
+            style={{ background: '#161b22', border: '1px solid rgba(255,255,255,0.1)', color: '#e6edf3', fontFamily: 'var(--font-mono)' }}
+          >
+            {callableAgents.map(a => <option key={a.id} value={a.id}>{a.displayName} (@{a.handle})</option>)}
+          </select>
+        ) : (
+          <div className="rounded-lg px-3 py-2.5 text-xs" style={{ background: 'rgba(239,68,68,0.06)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.2)' }}>
+            You need an active agent to call A2A services. <a href="/get-started" style={{ color: '#79c0ff' }}>Register one →</a>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: '#7d8590' }}>Parameters (JSON)</label>
+        <textarea
+          value={params}
+          onChange={e => setParams(e.target.value)}
+          rows={10}
+          spellCheck={false}
+          className="w-full rounded-lg px-3 py-2.5 text-xs outline-none resize-y"
+          style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', color: '#7ee787', fontFamily: 'var(--font-mono)', lineHeight: '1.6' }}
+        />
+        <p className="text-xs mt-1" style={{ color: '#7d8590' }}>
+          The composer sends <code style={{ color: '#a5b4fc', fontFamily: 'var(--font-mono)' }}>{`{ task_type, ...params }`}</code> to the provider's endpoint with your agent's identity headers.
+        </p>
+      </div>
+
+      <button
+        onClick={handleCall}
+        disabled={!callable || callState.status === 'submitting'}
+        className="w-full py-2.5 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-2"
+        style={{
+          background: callable && callState.status !== 'submitting' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
+          color: callable && callState.status !== 'submitting' ? '#a5b4fc' : '#4b5563',
+          border: `1px solid ${callable && callState.status !== 'submitting' ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.06)'}`,
+        }}
+        title={isSeed ? 'Sample services cannot be called — register a real A2A service to test live calls' : ''}
+      >
+        <Send className="w-3.5 h-3.5" />
+        {callState.status === 'submitting' ? 'Calling provider...' : isSeed ? 'Sample service (call disabled)' : `Send call · ${service.pricing.amount} ${service.pricing.currency}`}
+      </button>
+
+      {callState.status === 'error' && (
+        <div className="rounded-lg p-3 text-xs flex items-start gap-2" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#fca5a5' }}>
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <div>
+            {callState.code && <div className="font-mono mb-1 opacity-80">{callState.code}</div>}
+            {callState.message}
+          </div>
+        </div>
+      )}
+
+      {callState.status === 'success' && (
+        <div className="rounded-lg p-4 space-y-3" style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
+          <div className="flex items-center gap-2 text-xs">
+            <Check className="w-4 h-4" style={{ color: '#4ade80' }} />
+            <span style={{ color: '#4ade80', fontWeight: 600 }}>Call settled in {callState.result.executionMs}ms</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded p-2" style={{ background: 'rgba(0,0,0,0.3)' }}>
+              <div style={{ color: '#7d8590' }}>Call ID</div>
+              <div className="font-mono mt-0.5 truncate" style={{ color: '#79c0ff' }}>{callState.result.callId}</div>
+            </div>
+            <div className="rounded p-2" style={{ background: 'rgba(0,0,0,0.3)' }}>
+              <div style={{ color: '#7d8590' }}>Charged</div>
+              <div className="font-mono mt-0.5" style={{ color: '#4ade80' }}>{callState.result.receipt.amountUsdc} USDC</div>
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#7d8590' }}>Provider result</div>
+            <JsonBlock data={(callState.result.result as object) ?? {}} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgentDetailPanel({ service, onClose, onHire }: { service: A2AService; onClose: () => void; onHire: () => void }) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'schema' | 'integrate' | 'compose'>('overview');
+  const score = service.trustScore ?? 0;
+  const tierMeta = trustTierMeta(service.trustTier, score);
+  const capDef = CAPABILITY_TYPES.find(c => c.key === service.capabilityType);
+  const endpointUrl = service.endpointUrl || `https://${service.handle}/v1/call`;
+  const protocols = service.protocols ?? ['REST'];
+  const authMethods = service.authMethods ?? ['bearer', 'x402'];
+
+  const codeSnippet = `// Programmatic A2A call via Agent ID SDK
+import { AgentClient } from '@getagent/sdk';
+
+const client = new AgentClient({ token: process.env.AGENT_TOKEN });
+
+const { result, receipt } = await client.a2a.call('${service.handle}', {
+  task_type: '${service.capabilities[0] ?? service.capabilityType}',
+  ...${JSON.stringify(service.exampleRequest, null, 2)}
+});
+
+// Or call the endpoint directly:
+// POST ${endpointUrl}
+// Headers: Authorization: Bearer <delegation-jwt>, X-A2A-Caller-DID, X-Payment (x402)
+`;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <aside
+        role="dialog"
+        aria-label={`${service.name} details`}
+        className="absolute top-0 right-0 h-full w-full max-w-xl overflow-y-auto"
+        style={{ background: '#010409', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <header className="sticky top-0 z-10 px-5 py-4 border-b backdrop-blur" style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(1,4,9,0.92)' }}>
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${capDef?.color || '#7d8590'}15` }}>
+              <div style={{ color: capDef?.color || '#7d8590' }}>{capDef?.icon}</div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <h2 className="text-base font-bold truncate" style={{ color: '#e6edf3', fontFamily: 'var(--font-display)' }}>{service.name}</h2>
+                <span
+                  className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
+                  style={{ background: `${tierMeta.color}15`, color: tierMeta.color, border: `1px solid ${tierMeta.color}30` }}
+                >
+                  {tierMeta.icon} {tierMeta.label}
+                </span>
+              </div>
+              <code className="text-xs block truncate" style={{ color: '#79c0ff', fontFamily: 'var(--font-mono)' }}>{service.handle}</code>
+            </div>
+            <TrustScoreRing score={score} size={44} />
+            <button onClick={onClose} className="cursor-pointer flex-shrink-0" aria-label="Close panel" style={{ background: 'none', border: 'none', color: '#7d8590' }}>
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </header>
+
+        <nav className="flex border-b sticky top-[80px] z-10" style={{ borderColor: 'rgba(255,255,255,0.06)', background: '#010409' }}>
+          {[
+            { key: 'overview' as const, label: 'Overview' },
+            { key: 'schema' as const, label: 'API & Schema' },
+            { key: 'integrate' as const, label: 'Integrate' },
+            { key: 'compose' as const, label: 'Call Composer' },
+          ].map(t => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
               className="px-4 py-3 text-xs font-medium cursor-pointer transition-colors"
               style={{
-                color: activeTab === t.key ? '#7ee787' : '#7d8590',
+                color: activeTab === t.key ? '#a5b4fc' : '#7d8590',
                 background: 'none',
                 border: 'none',
-                borderBottom: `2px solid ${activeTab === t.key ? '#238636' : 'transparent'}`,
+                borderBottom: `2px solid ${activeTab === t.key ? '#6366f1' : 'transparent'}`,
               }}
+              aria-selected={activeTab === t.key}
             >{t.label}</button>
           ))}
-        </div>
+        </nav>
 
-        <div className="p-5 space-y-4">
-          {activeTab === 'schema' && (
-            <>
-              <div>
-                <h4 className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: '#7d8590' }}>Input Schema</h4>
-                <div className="rounded-lg overflow-hidden">
-                  <div className="relative">
-                    <pre className="text-xs p-3 overflow-x-auto" style={{ fontFamily: 'var(--font-mono)', color: '#79c0ff', background: '#161b22', lineHeight: '1.8' }}>
-                      {Object.entries(service.callSchema).map(([k, v]) => `  ${k}: ${v}`).join('\n')}
-                    </pre>
-                  </div>
+        <div className="p-5">
+          {activeTab === 'overview' && (
+            <div className="space-y-5">
+              <p className="text-sm" style={{ color: '#8b949e', lineHeight: 1.6 }}>{service.description}</p>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded p-3" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ color: '#7d8590' }}>Price</div>
+                  <div className="font-semibold mt-1" style={{ color: '#4ade80', fontFamily: 'var(--font-mono)' }}>{service.pricing.amount} {service.pricing.currency} / {service.pricing.model.replace('per_', '').replace('_', ' ')}</div>
+                </div>
+                <div className="rounded p-3" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ color: '#7d8590' }}>Latency SLA</div>
+                  <div className="font-semibold mt-1" style={{ color: '#e6edf3' }}>{service.latencySla}</div>
+                </div>
+                <div className="rounded p-3" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ color: '#7d8590' }}>Availability</div>
+                  <div className="font-semibold mt-1" style={{ color: '#4ade80' }}>{service.availability}</div>
+                </div>
+                <div className="rounded p-3" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ color: '#7d8590' }}>Total calls</div>
+                  <div className="font-semibold mt-1" style={{ color: '#79c0ff', fontFamily: 'var(--font-mono)' }}>{service.totalCalls.toLocaleString()}</div>
                 </div>
               </div>
+
               <div>
-                <h4 className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: '#7d8590' }}>Integration Code</h4>
+                <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7d8590' }}>Capabilities</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {service.capabilities.map(c => (
+                    <span key={c} className="text-xs px-2 py-1 rounded font-mono" style={{ background: 'rgba(255,255,255,0.04)', color: '#8b949e', border: '1px solid rgba(255,255,255,0.08)' }}>{c}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7d8590' }}>Supported protocols</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {protocols.map(p => <ProtocolBadge key={p} name={p} />)}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7d8590' }}>Accepted auth methods</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {authMethods.map(a => <AuthMethodBadge key={a} name={a} />)}
+                </div>
+              </div>
+
+              <button
+                onClick={onHire}
+                className="w-full py-2.5 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"
+                style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)' }}
+              >
+                <Zap className="w-3.5 h-3.5" /> Register an engagement contract
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'schema' && (
+            <div className="space-y-5">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: '#7d8590' }}>
+                  <Cpu className="w-3.5 h-3.5" /> API endpoint
+                </div>
                 <div className="relative rounded-lg overflow-hidden">
-                  <CopyButton text={codeSnippet} />
-                  <pre className="text-xs p-3 overflow-x-auto" style={{ fontFamily: 'var(--font-mono)', color: '#e6edf3', background: '#161b22', lineHeight: '1.6' }}>
-                    {codeSnippet}
+                  <CopyButton text={endpointUrl} />
+                  <pre className="text-xs p-3 pr-12 overflow-x-auto" style={{ fontFamily: 'var(--font-mono)', color: '#79c0ff', background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    POST {endpointUrl}
                   </pre>
                 </div>
               </div>
-            </>
+
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7d8590' }}>Required headers</div>
+                <pre className="text-xs p-3 rounded-lg overflow-x-auto" style={{ fontFamily: 'var(--font-mono)', color: '#a5b4fc', background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)', lineHeight: 1.7 }}>
+{`Authorization: Bearer <delegation-jwt>
+X-A2A-Caller-DID: did:web:getagent.id:agents:<id>
+X-Payment: x402 amount=${service.pricing.amount} currency=${service.pricing.currency}`}
+                </pre>
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7d8590' }}>Capability schema</div>
+                {Object.keys(service.callSchema).length === 0 ? (
+                  <div className="text-xs p-3 rounded-lg" style={{ background: '#0d1117', color: '#7d8590', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    Provider has not published a typed schema. Inspect the example request below.
+                  </div>
+                ) : (
+                  <pre className="text-xs p-3 rounded-lg overflow-x-auto" style={{ fontFamily: 'var(--font-mono)', color: '#79c0ff', background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)', lineHeight: 1.7 }}>
+                    {Object.entries(service.callSchema).map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')}
+                  </pre>
+                )}
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7d8590' }}>Sample request</div>
+                <JsonBlock data={service.exampleRequest} />
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7d8590' }}>Sample response</div>
+                <JsonBlock data={service.exampleResponse} />
+              </div>
+            </div>
           )}
-          {activeTab === 'request' && <JsonBlock data={service.exampleRequest} />}
-          {activeTab === 'response' && <JsonBlock data={service.exampleResponse} />}
+
+          {activeTab === 'integrate' && (
+            <div className="space-y-3">
+              <div className="text-xs" style={{ color: '#8b949e' }}>Drop this snippet into your agent's runtime to start calling the service. The Agent ID SDK handles auth, X402 settlement, and receipt verification.</div>
+              <div className="relative rounded-lg overflow-hidden">
+                <CopyButton text={codeSnippet} />
+                <pre className="text-xs p-3 pr-12 overflow-x-auto" style={{ fontFamily: 'var(--font-mono)', color: '#e6edf3', background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)', lineHeight: 1.6 }}>
+                  {codeSnippet}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'compose' && <ServiceCallComposer service={service} />}
         </div>
-      </div>
+      </aside>
     </div>
   );
 }
@@ -449,9 +767,40 @@ const result = await client.call('${service.handle}', {
   );
 }
 
-function ServiceCard({ service, onTest, onHire }: { service: A2AService; onTest: () => void; onHire: () => void }) {
+function trustTierMeta(tier: string | undefined, score: number) {
+  if (tier === 'elite' || score >= 85) return { label: 'Elite', color: '#fbbf24', icon: <Award className="w-3 h-3" /> };
+  if (tier === 'trusted' || score >= 65) return { label: 'Trusted', color: '#4ade80', icon: <Shield className="w-3 h-3" /> };
+  if (tier === 'verified' || score >= 40) return { label: 'Verified', color: '#79c0ff', icon: <Check className="w-3 h-3" /> };
+  if (tier === 'basic' || score >= 20) return { label: 'Basic', color: '#a5b4fc', icon: <TrendingUp className="w-3 h-3" /> };
+  return { label: 'Unverified', color: '#7d8590', icon: null };
+}
+
+function ProtocolBadge({ name }: { name: string }) {
+  const colorMap: Record<string, string> = {
+    REST: '#79c0ff', MCP: '#a78bfa', gRPC: '#f472b6', A2A: '#4ade80', Websocket: '#fbbf24',
+  };
+  const color = colorMap[name] || '#7d8590';
+  return (
+    <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: `${color}15`, color, border: `1px solid ${color}30` }}>
+      <Globe className="w-2.5 h-2.5" /> {name}
+    </span>
+  );
+}
+
+function AuthMethodBadge({ name }: { name: string }) {
+  const labels: Record<string, string> = { bearer: 'Bearer', x402: 'X402', mtls: 'mTLS', oauth2: 'OAuth2', apikey: 'API Key' };
+  return (
+    <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: 'rgba(255,255,255,0.04)', color: '#8b949e', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <Lock className="w-2.5 h-2.5" /> {labels[name] || name}
+    </span>
+  );
+}
+
+function ServiceCard({ service, onView, onHire }: { service: A2AService; onView: () => void; onHire: () => void }) {
   const capDef = CAPABILITY_TYPES.find(c => c.key === service.capabilityType);
   const pricingLabel = `${service.pricing.amount} ${service.pricing.currency} / ${service.pricing.model.replace('per_', '').replace('_', ' ')}`;
+  const score = service.trustScore ?? 0;
+  const tierMeta = trustTierMeta(service.trustTier, score);
 
   return (
     <div className="rounded-2xl p-5 transition-all duration-200 group" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)' }}
@@ -463,17 +812,33 @@ function ServiceCard({ service, onTest, onHire }: { service: A2AService; onTest:
           <div style={{ color: capDef?.color || '#7d8590' }}>{capDef?.icon}</div>
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold mb-0.5" style={{ color: '#e6edf3', fontFamily: 'var(--font-display)' }}>{service.name}</h3>
-          <code className="text-xs" style={{ color: '#79c0ff', fontFamily: 'var(--font-mono)' }}>{service.handle}</code>
+          <div className="flex items-center gap-2 mb-0.5">
+            <h3 className="text-sm font-semibold truncate" style={{ color: '#e6edf3', fontFamily: 'var(--font-display)' }}>{service.name}</h3>
+            <span
+              className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
+              style={{ background: `${tierMeta.color}15`, color: tierMeta.color, border: `1px solid ${tierMeta.color}30` }}
+              title={`Trust score: ${score}/100 · ${tierMeta.label}`}
+            >
+              {tierMeta.icon} {tierMeta.label}
+            </span>
+          </div>
+          <code className="text-xs truncate block" style={{ color: '#79c0ff', fontFamily: 'var(--font-mono)' }}>{service.handle}</code>
+        </div>
+        <div className="flex-shrink-0">
+          <TrustScoreRing score={score} size={40} showTooltip={false} />
         </div>
       </div>
 
       <p className="text-xs mb-3 line-clamp-2" style={{ color: '#8b949e', lineHeight: '1.6' }}>{service.description}</p>
 
-      <div className="flex flex-wrap gap-1 mb-3">
+      <div className="flex flex-wrap gap-1 mb-2">
         {service.capabilities.slice(0, 4).map(c => (
           <span key={c} className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: '#7d8590', border: '1px solid rgba(255,255,255,0.06)', fontFamily: 'var(--font-mono)' }}>{c}</span>
         ))}
+      </div>
+
+      <div className="flex flex-wrap gap-1 mb-3">
+        {(service.protocols ?? ['REST']).slice(0, 3).map(p => <ProtocolBadge key={p} name={p} />)}
       </div>
 
       <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
@@ -497,13 +862,13 @@ function ServiceCard({ service, onTest, onHire }: { service: A2AService; onTest:
 
       <div className="flex gap-2">
         <button
-          onClick={onTest}
+          onClick={onView}
           className="flex-1 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all"
           style={{ background: 'rgba(255,255,255,0.04)', color: '#8b949e', border: '1px solid rgba(255,255,255,0.1)' }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#e6edf3'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#8b949e'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
         >
-          <Terminal className="w-3.5 h-3.5 inline mr-1.5" />Test Call
+          <Terminal className="w-3.5 h-3.5 inline mr-1.5" />View & Call
         </button>
         <button
           onClick={onHire}
@@ -512,7 +877,7 @@ function ServiceCard({ service, onTest, onHire }: { service: A2AService; onTest:
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.25)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.15)'; }}
         >
-          <Zap className="w-3.5 h-3.5 inline mr-1.5" />Hire
+          <Zap className="w-3.5 h-3.5 inline mr-1.5" />Engage
         </button>
       </div>
     </div>
@@ -528,8 +893,10 @@ export function A2AMarketplace() {
   const navigate = useNavigate();
   const { userId } = useAuth();
   const [activeFilter, setActiveFilter] = useState<CapabilityType>('all');
+  const [trustFilter, setTrustFilter] = useState<TrustTierFilter>('all');
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [testService, setTestService] = useState<A2AService | null>(null);
+  const [detailService, setDetailService] = useState<A2AService | null>(null);
   const [hireService, setHireService] = useState<A2AService | null>(null);
   const [myEngagements, setMyEngagements] = useState<A2AEngagement[]>([]);
   const [services, setServices] = useState<A2AService[]>(SEED_SERVICES);
@@ -570,15 +937,38 @@ export function A2AMarketplace() {
 
   const totalServices = services.length;
 
-  const filtered = services.filter(s => {
-    if (activeFilter !== 'all' && s.capabilityType !== activeFilter) return false;
-    if (searchQuery && !s.name.toLowerCase().includes(searchQuery.toLowerCase()) && !s.description.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
+  const filtered = useMemo(() => {
+    const trustMin = TRUST_TIERS.find(t => t.key === trustFilter)?.minScore ?? 0;
+    const availMin = AVAILABILITY_FILTERS.find(a => a.key === availabilityFilter)?.minPct ?? 0;
+    const q = searchQuery.toLowerCase();
+    return services.filter(s => {
+      if (activeFilter !== 'all' && s.capabilityType !== activeFilter) return false;
+      if (trustMin > 0 && (s.trustScore ?? 0) < trustMin) return false;
+      if (availMin > 0) {
+        const pct = parseFloat(String(s.availability).replace('%', '')) || 0;
+        if (pct < availMin) return false;
+      }
+      if (q) {
+        const hay = [
+          s.name, s.description, s.handle,
+          ...(s.capabilities ?? []),
+          ...(s.protocols ?? []),
+        ].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [services, activeFilter, trustFilter, availabilityFilter, searchQuery]);
 
   return (
     <div className="pt-16 min-h-screen" style={{ background: '#010409' }}>
-      {testService && <ServiceTestModal service={testService} onClose={() => setTestService(null)} />}
+      {detailService && (
+        <AgentDetailPanel
+          service={detailService}
+          onClose={() => setDetailService(null)}
+          onHire={() => { setHireService(detailService); setDetailService(null); }}
+        />
+      )}
       {hireService && <A2AEngageModal service={hireService} onClose={() => { setHireService(null); if (userId) api.marketplace.engagements.list().then(r => setMyEngagements(r.engagements || [])).catch(() => {}); }} />}
 
       <div className="border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -644,6 +1034,46 @@ export function A2AMarketplace() {
                     </div>
                   </button>
                 ))}
+              </div>
+
+              <div className="mt-6">
+                <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7d8590' }}>Trust Tier</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {TRUST_TIERS.map(t => (
+                    <button
+                      key={t.key}
+                      onClick={() => setTrustFilter(t.key)}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg cursor-pointer transition-all"
+                      style={{
+                        background: trustFilter === t.key ? `${t.color}18` : 'rgba(255,255,255,0.03)',
+                        color: trustFilter === t.key ? t.color : '#7d8590',
+                        border: `1px solid ${trustFilter === t.key ? `${t.color}40` : 'rgba(255,255,255,0.06)'}`,
+                      }}
+                    >
+                      {t.icon} {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#7d8590' }}>Availability</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {AVAILABILITY_FILTERS.map(a => (
+                    <button
+                      key={a.key}
+                      onClick={() => setAvailabilityFilter(a.key)}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg cursor-pointer transition-all"
+                      style={{
+                        background: availabilityFilter === a.key ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.03)',
+                        color: availabilityFilter === a.key ? '#4ade80' : '#7d8590',
+                        border: `1px solid ${availabilityFilter === a.key ? 'rgba(74,222,128,0.4)' : 'rgba(255,255,255,0.06)'}`,
+                      }}
+                    >
+                      <Activity className="w-3 h-3" /> {a.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="mt-6 p-4 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
@@ -742,7 +1172,7 @@ export function A2AMarketplace() {
                   <ServiceCard
                     key={s.id}
                     service={s}
-                    onTest={() => setTestService(s)}
+                    onView={() => setDetailService(s)}
                     onHire={() => setHireService(s)}
                   />
                 ))}

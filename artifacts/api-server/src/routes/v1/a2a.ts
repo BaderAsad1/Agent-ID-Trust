@@ -32,10 +32,20 @@ import { env } from "../../lib/env";
 
 const PLATFORM_FEE_RATE = 0.10;
 
+interface AgentMetaForShape {
+  handle: string | null;
+  trustScore: number | null;
+  trustTier: string | null;
+  verificationStatus: string | null;
+  endpointUrl: string | null;
+  protocols: string[] | null;
+  authMethods: string[] | null;
+}
+
 // Transforms raw DB row → frontend A2ARegistryService shape
 function shapeService(
   row: A2AServiceListing,
-  agentHandle: string | null,
+  agent: AgentMetaForShape | null,
 ) {
   const cap = row.capabilitySchema as {
     inputTypes?: string[];
@@ -59,9 +69,16 @@ function shapeService(
     ...(cap?.inputTypes ?? []),
   ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 6);
 
-  const handle = agentHandle
-    ? `${agentHandle}.agent.getagent.id`
+  const handle = agent?.handle
+    ? `${agent.handle}.agent.getagent.id`
     : `${row.id.slice(0, 8)}.agent.getagent.id`;
+
+  const protocols = (agent?.protocols && agent.protocols.length > 0)
+    ? agent.protocols
+    : ["REST"];
+  const authMethods = (agent?.authMethods && agent.authMethods.length > 0)
+    ? agent.authMethods
+    : (row.requiresAuth ? ["bearer", "x402"] : ["x402"]);
 
   return {
     id: row.id,
@@ -84,6 +101,13 @@ function shapeService(
     successRate: row.successRate ? Number(row.successRate) : 99.5,
     agentId: row.agentId,
     status: row.status,
+    trustScore: agent?.trustScore ?? 0,
+    trustTier: agent?.trustTier ?? "unverified",
+    verificationStatus: agent?.verificationStatus ?? "unverified",
+    endpointUrl: agent?.endpointUrl ?? row.endpointPath ?? null,
+    protocols,
+    authMethods,
+    requiresAuth: row.requiresAuth,
   };
 }
 
@@ -144,17 +168,34 @@ router.get("/services", async (req, res, next) => {
     };
     const result = await listA2AServices(filters);
 
-    // Join agent handles then reshape to frontend contract
+    // Join agent metadata then reshape to frontend contract
     const agentIds = [...new Set(result.services.map(s => s.agentId))];
     const agentRows = agentIds.length > 0
-      ? await db.select({ id: agentsTable.id, handle: agentsTable.handle })
+      ? await db.select({
+          id: agentsTable.id,
+          handle: agentsTable.handle,
+          trustScore: agentsTable.trustScore,
+          trustTier: agentsTable.trustTier,
+          verificationStatus: agentsTable.verificationStatus,
+          endpointUrl: agentsTable.endpointUrl,
+          protocols: agentsTable.protocols,
+          authMethods: agentsTable.authMethods,
+        })
           .from(agentsTable)
           .where(inArray(agentsTable.id, agentIds))
       : [];
-    const handleMap = new Map(agentRows.map(a => [a.id, a.handle]));
+    const agentMap = new Map(agentRows.map(a => [a.id, {
+      handle: a.handle,
+      trustScore: a.trustScore,
+      trustTier: a.trustTier,
+      verificationStatus: a.verificationStatus,
+      endpointUrl: a.endpointUrl,
+      protocols: a.protocols,
+      authMethods: a.authMethods,
+    }]));
 
     res.json({
-      services: result.services.map(s => shapeService(s, handleMap.get(s.agentId) ?? null)),
+      services: result.services.map(s => shapeService(s, agentMap.get(s.agentId) ?? null)),
       total: result.total,
     });
   } catch (err) {
@@ -166,9 +207,25 @@ router.get("/services/:serviceId", validateUuidParam("serviceId"), async (req, r
   try {
     const service = await getA2AServiceById(req.params.serviceId as string);
     if (!service) throw new AppError(404, "NOT_FOUND", "A2A service not found");
-    const [agentRow] = await db.select({ id: agentsTable.id, handle: agentsTable.handle })
-      .from(agentsTable).where(eq(agentsTable.id, service.agentId)).limit(1);
-    res.json(shapeService(service, agentRow?.handle ?? null));
+    const [agentRow] = await db.select({
+      id: agentsTable.id,
+      handle: agentsTable.handle,
+      trustScore: agentsTable.trustScore,
+      trustTier: agentsTable.trustTier,
+      verificationStatus: agentsTable.verificationStatus,
+      endpointUrl: agentsTable.endpointUrl,
+      protocols: agentsTable.protocols,
+      authMethods: agentsTable.authMethods,
+    }).from(agentsTable).where(eq(agentsTable.id, service.agentId)).limit(1);
+    res.json(shapeService(service, agentRow ? {
+      handle: agentRow.handle,
+      trustScore: agentRow.trustScore,
+      trustTier: agentRow.trustTier,
+      verificationStatus: agentRow.verificationStatus,
+      endpointUrl: agentRow.endpointUrl,
+      protocols: agentRow.protocols,
+      authMethods: agentRow.authMethods,
+    } : null));
   } catch (err) {
     next(err);
   }
