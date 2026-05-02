@@ -20,6 +20,7 @@ export const oauthClientsTable = pgTable(
     clientSecretHash: varchar("client_secret_hash", { length: 255 }),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
+    iconUrl: varchar("icon_url", { length: 2048 }),
     redirectUris: jsonb("redirect_uris").$type<string[]>().default([]).notNull(),
     allowedScopes: jsonb("allowed_scopes").$type<string[]>().default([]).notNull(),
     grantTypes: jsonb("grant_types").$type<string[]>().default(["authorization_code"]).notNull(),

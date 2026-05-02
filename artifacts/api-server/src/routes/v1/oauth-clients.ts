@@ -25,6 +25,7 @@ router.use(requireAuth);
 const createClientSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
+  iconUrl: z.string().url().max(2048).optional(),
   redirectUris: z.array(z.string().url()).max(20).default([]),
   allowedScopes: z.array(z.string()).max(50).default(["read"]),
   grantTypes: z.array(z.enum([
@@ -37,6 +38,7 @@ const createClientSchema = z.object({
 const updateClientSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
+  iconUrl: z.string().url().max(2048).nullable().optional(),
   redirectUris: z.array(z.string().url()).min(1).max(20).optional(),
   allowedScopes: z.array(z.string()).max(50).optional(),
 });
@@ -59,6 +61,7 @@ function sanitizeClient(client: typeof oauthClientsTable.$inferSelect) {
     clientId: client.clientId,
     name: client.name,
     description: client.description,
+    iconUrl: client.iconUrl,
     redirectUris: client.redirectUris,
     allowedScopes: client.allowedScopes,
     grantTypes: client.grantTypes,
@@ -92,7 +95,7 @@ router.post("/", async (req, res, next) => {
       throw new AppError(400, "VALIDATION_ERROR", "Invalid input", parsed.error.issues);
     }
 
-    const { name, description, redirectUris, allowedScopes, grantTypes, clientType } = parsed.data;
+    const { name, description, iconUrl, redirectUris, allowedScopes, grantTypes, clientType } = parsed.data;
     const clientId = generateClientId();
     const userId = req.user!.id;
 
@@ -112,6 +115,7 @@ router.post("/", async (req, res, next) => {
       clientSecretHash: clientSecretHash ?? null,
       name,
       description,
+      iconUrl,
       redirectUris,
       allowedScopes,
       grantTypes,
@@ -178,6 +182,7 @@ router.patch("/:id", async (req, res, next) => {
     const updates: Partial<typeof oauthClientsTable.$inferInsert> = {};
     if (parsed.data.name !== undefined) updates.name = parsed.data.name;
     if (parsed.data.description !== undefined) updates.description = parsed.data.description;
+    if (parsed.data.iconUrl !== undefined) updates.iconUrl = parsed.data.iconUrl;
     if (parsed.data.redirectUris !== undefined) updates.redirectUris = parsed.data.redirectUris;
     if (parsed.data.allowedScopes !== undefined) updates.allowedScopes = parsed.data.allowedScopes;
 

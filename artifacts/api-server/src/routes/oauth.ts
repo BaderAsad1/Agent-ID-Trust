@@ -90,6 +90,7 @@ const SIGNIN_CLIENT = {
   clientSecretHash: null,
   name:             "Agent ID Platform",
   description:      "Sign in to getagent.id using your agent identity",
+  iconUrl:          null as string | null,
   redirectUris:     [] as string[], // matched dynamically — any */api/auth/agentid/callback
   allowedScopes:    ["read", "agents:read"] as string[],
   grantTypes:       ["authorization_code"] as string[],
@@ -107,6 +108,7 @@ const DEMO_CLIENT = {
   clientSecretHash: null,
   name:             "Agent ID Demo",
   description:      "Interactive live demo of Sign in with Agent ID",
+  iconUrl:          null as string | null,
   redirectUris:     [
     "https://getagent.id/demo/callback",
     "http://localhost:5173/demo/callback",
@@ -191,6 +193,7 @@ router.get("/authorize", async (req: Request, res: Response, next: NextFunction)
       scopes: grantedScopes.join(" "),
       state: state || "",
       redirect_uri: redirect_uri || (client.redirectUris?.[0] || ""),
+      ...(client.iconUrl ? { client_icon_url: client.iconUrl } : {}),
       ...(code_challenge ? { code_challenge, code_challenge_method: code_challenge_method || "S256" } : {}),
       ...(agent_id ? { agent_id } : {}),
     });

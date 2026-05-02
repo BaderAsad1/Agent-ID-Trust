@@ -225,6 +225,13 @@
       "when": 1775707200000,
       "tag": "0031_marketplace_order_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1777680000000,
+      "tag": "0032_oauth_client_icon_url",
+      "breakpoints": true
     }
   ]
 }

@@ -71,6 +71,7 @@ export function Authorize() {
 
   const clientId            = params.get('client_id') || '';
   const clientName          = params.get('client_name') || clientId || 'Unknown App';
+  const clientIconUrl       = params.get('client_icon_url') || '';
   const scopeStr            = params.get('scopes') || params.get('scope') || 'read';
   const scopes              = scopeStr.split(' ').filter(Boolean);
   const state               = params.get('state') || '';
@@ -83,6 +84,7 @@ export function Authorize() {
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState('');
   const [rememberConsent, setRememberConsent] = useState(false);
+  const [iconLoadFailed, setIconLoadFailed] = useState(false);
   const autoApproveAttempted = useRef(false);
 
   useEffect(() => {
@@ -234,6 +236,16 @@ export function Authorize() {
   let redirectDomain = '';
   try { redirectDomain = new URL(redirectUri).hostname; } catch { redirectDomain = redirectUri; }
 
+  // Stable per-app fallback color derived from the client name, so each
+  // unregistered icon still feels distinct and recognizable on return visits.
+  const fallbackHue = (() => {
+    const src = clientName || clientId || '?';
+    let hash = 0;
+    for (let i = 0; i < src.length; i++) hash = src.charCodeAt(i) + ((hash << 5) - hash);
+    return Math.abs(hash) % 360;
+  })();
+  const showIcon = Boolean(clientIconUrl) && !iconLoadFailed;
+
   return (
     <>
       <style>{`
@@ -267,10 +279,32 @@ export function Authorize() {
           <div style={{ padding: '36px 36px 28px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}>
             {/* App icon + connecting dots + Agent ID icon */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0, marginBottom: 24 }}>
-              {/* Third-party app icon placeholder */}
-              <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-                {clientName[0]?.toUpperCase() || '?'}
-              </div>
+              {showIcon ? (
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                  <img
+                    src={clientIconUrl}
+                    alt={`${clientName} icon`}
+                    referrerPolicy="no-referrer"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={() => setIconLoadFailed(true)}
+                  />
+                </div>
+              ) : (
+                <div
+                  aria-label={`${clientName} icon`}
+                  style={{
+                    width: 52, height: 52, borderRadius: 14,
+                    background: `linear-gradient(135deg, hsl(${fallbackHue}, 65%, 28%), hsl(${(fallbackHue + 40) % 360}, 65%, 18%))`,
+                    border: `1px solid hsla(${fallbackHue}, 65%, 55%, 0.35)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 22, fontWeight: 700, color: `hsl(${fallbackHue}, 80%, 85%)`,
+                    fontFamily: 'var(--font-display)', letterSpacing: '-0.02em',
+                    flexShrink: 0,
+                  }}
+                >
+                  {clientName[0]?.toUpperCase() || '?'}
+                </div>
+              )}
 
               {/* Connecting line */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingInline: 12 }}>
