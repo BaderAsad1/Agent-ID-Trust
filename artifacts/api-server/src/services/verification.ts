@@ -136,6 +136,71 @@ export async function verifyChallenge(
     logger.error({ err }, "[verification] Failed to reissue credential after verification");
   }
 
+  // Task #207: enqueue an on-chain credential anchor when the agent is verified.
+  // The nft-mint worker will pick up rows where nftStatus="pending_anchor" and
+  // submit the anchor tx via AgentIDRegistrar. We only enqueue when:
+  //   1. ONCHAIN_MINTING_ENABLED is set (no point queueing if the worker is a no-op)
+  //   2. The agent has a handle (the on-chain identifier)
+  //   3. nftStatus is currently null/none (not already anchored, in-flight, or failed —
+  //      pending_anchor / pending_claim / active / minted / anchor_failed are all
+  //      terminal-or-in-progress states and must not be reset by the verification path).
+  try {
+    const onchainEnabled =
+      process.env.ONCHAIN_MINTING_ENABLED === "true" ||
+      process.env.ONCHAIN_MINTING_ENABLED === "1";
+    if (onchainEnabled) {
+      const candidate = await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, agentId),
+        columns: { id: true, handle: true, nftStatus: true, handleTier: true },
+      });
+      const currentNftStatus = candidate?.nftStatus ?? null;
+      const isQueueable =
+        candidate?.handle &&
+        (currentNftStatus === null || currentNftStatus === "none");
+      if (isQueueable) {
+        await db
+          .update(agentsTable)
+          .set({
+            nftStatus: "pending_anchor",
+            nftCustodian: "platform",
+            updatedAt: new Date(),
+          })
+          .where(eq(agentsTable.id, agentId));
+
+        try {
+          const { nftAuditLogTable } = await import("@workspace/db/schema");
+          await db.insert(nftAuditLogTable).values({
+            agentId,
+            handle: candidate!.handle,
+            action: "queue_mint",
+            chain: "base",
+            status: "success",
+            metadata: {
+              source: "verification",
+              tier: candidate!.handleTier ?? null,
+              trigger: "agent.verified",
+            },
+          });
+        } catch (auditErr) {
+          logger.warn(
+            { auditErr, agentId },
+            "[verification] Failed to write anchor enqueue audit log",
+          );
+        }
+
+        logger.info(
+          { agentId, handle: candidate!.handle },
+          "[verification] Enqueued on-chain anchor (pending_anchor) after verification",
+        );
+      }
+    }
+  } catch (err) {
+    logger.error(
+      { err, agentId },
+      "[verification] Failed to enqueue on-chain anchor after verification",
+    );
+  }
+
   // Only send verification_complete email for standalone verification flows where
   // the agent was explicitly in pending_verification. Bootstrap activate handles
   // its own post-activation email (sendAgentRegisteredEmail) — sending here would

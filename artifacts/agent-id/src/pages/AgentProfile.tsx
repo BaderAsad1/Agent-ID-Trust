@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Check, Send, AlertCircle, RefreshCw, ExternalLink, Copy, Star, Clock, Zap, Globe, Activity } from 'lucide-react';
 import { Footer } from '@/components/Footer';
-import { api, type PublicProfile, type ActivityItem, type ProfileReview } from '@/lib/api';
+import { api, type PublicProfile, type ActivityItem, type ProfileReview, type OnchainAnchor, type AnchorStatus } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { formatPrice } from '@/lib/pricing';
 import { getSkillIcon } from '@/lib/skills';
@@ -107,7 +107,21 @@ function relativeTime(dateStr: string): string {
   return `${Math.floor(diffMonth / 12)}y ago`;
 }
 
-function ProfileCredentialCard({ agent, trustScore, listings, stats }: { agent: { handle: string; displayName: string; description?: string; capabilities?: string[]; endpointUrl?: string; status: string; verificationStatus?: string; verifiedAt?: string; domainName?: string; domainStatus?: string; createdAt: string; tasksCompleted?: number; metadata?: Record<string, unknown>; isClaimed?: boolean }; trustScore: number; listings?: Array<{ status: string; avgRating?: string }>; stats?: { tasksCompleted: number; avgRating: number | null; uptimePct: number | null } }) {
+function explorerTxUrl(chain: string | undefined, txHash: string | undefined): string | null {
+  if (!txHash) return null;
+  if (chain === "base-sepolia") return `https://sepolia.basescan.org/tx/${txHash}`;
+  return `https://basescan.org/tx/${txHash}`;
+}
+
+function shortHash(hash: string | undefined, head = 6, tail = 4): string {
+  if (!hash) return '';
+  if (hash.length <= head + tail + 2) return hash;
+  return `${hash.slice(0, head)}…${hash.slice(-tail)}`;
+}
+
+function ProfileCredentialCard({ agent, trustScore, listings, stats, onchainStatus, onchainAnchor }: { agent: { handle: string; displayName: string; description?: string; capabilities?: string[]; endpointUrl?: string; status: string; verificationStatus?: string; verifiedAt?: string; domainName?: string; domainStatus?: string; createdAt: string; tasksCompleted?: number; metadata?: Record<string, unknown>; isClaimed?: boolean }; trustScore: number; listings?: Array<{ status: string; avgRating?: string }>; stats?: { tasksCompleted: number; avgRating: number | null; uptimePct: number | null }; onchainStatus?: AnchorStatus; onchainAnchor?: OnchainAnchor | null }) {
+  const isAnchored = onchainStatus === 'anchored' && !!onchainAnchor;
+  const isAnchorPending = onchainStatus === 'pending';
   return (
     <div style={{
       position: 'relative', width: 520, maxWidth: '92vw', borderRadius: 22,
@@ -171,6 +185,30 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats }: { agent: 
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
                 letterSpacing: '0.16em', color: '#4f7df3',
               }}>HANDLER VERIFIED</span>
+            </>
+          )}
+          {isAnchored && (
+            <>
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%', background: '#a78bfa',
+                boxShadow: '0 0 16px rgba(167,139,250,0.6)', marginLeft: 12,
+              }} />
+              <span title={`Anchored on-chain via AgentIDRegistrar (${onchainAnchor?.chain ?? 'base'})`} style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                letterSpacing: '0.16em', color: '#a78bfa',
+              }}>ON-CHAIN VERIFIED</span>
+            </>
+          )}
+          {!isAnchored && isAnchorPending && (
+            <>
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%', background: 'rgba(167,139,250,0.5)',
+                boxShadow: '0 0 12px rgba(167,139,250,0.3)', marginLeft: 12,
+              }} />
+              <span title="Anchor transaction queued; awaiting on-chain confirmation" style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                letterSpacing: '0.16em', color: 'rgba(167,139,250,0.7)',
+              }}>ANCHOR PENDING</span>
             </>
           )}
           <span style={{
@@ -448,6 +486,11 @@ export function AgentProfile() {
   const listing = listings[0];
   const agentCaps = (agent.capabilities || []);
   const profileReviews = profile.reviews || [];
+  const anchor = profile.credential?.onchainAnchor ?? null;
+  const anchorTxHash = (anchor?.txHash as string | undefined) ?? undefined;
+  const anchorTxUrl = profile.credential?.onchainStatus === 'anchored'
+    ? explorerTxUrl(anchor?.chain as string | undefined, anchorTxHash)
+    : null;
   const defaultSkills = [
     { icon: '🔑', label: 'Ed25519 Cryptographic Identity', desc: `Cryptographic key pair bound to ${agent.handle}.agentid`, stats: '' },
     { icon: '📨', label: 'Agent Inbox', desc: `Receives messages at ${agent.handle}@agentid.email`, stats: '' },
@@ -486,7 +529,14 @@ export function AgentProfile() {
           }}>VERIFIED AGENT IDENTITY</div>
 
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 40 }}>
-            <ProfileCredentialCard agent={agent} trustScore={trustScore} listings={listings} stats={profile.stats} />
+            <ProfileCredentialCard
+              agent={agent}
+              trustScore={trustScore}
+              listings={listings}
+              stats={profile.stats}
+              onchainStatus={profile.credential?.onchainStatus}
+              onchainAnchor={profile.credential?.onchainAnchor ?? null}
+            />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -506,6 +556,17 @@ export function AgentProfile() {
                 fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
               }}>
                 <ExternalLink size={14} /> Endpoint
+              </button>
+            )}
+            {anchorTxUrl && (
+              <button onClick={() => window.open(anchorTxUrl, '_blank')} title={`On-chain anchor tx: ${anchorTxHash}`} style={{
+                padding: '10px 20px', borderRadius: 10,
+                background: 'rgba(167,139,250,0.06)',
+                border: '1px solid rgba(167,139,250,0.2)', color: '#a78bfa',
+                fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>
+                <ExternalLink size={14} /> On-chain · {shortHash(anchorTxHash)}
               </button>
             )}
           </div>

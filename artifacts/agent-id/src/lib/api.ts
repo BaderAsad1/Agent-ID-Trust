@@ -738,11 +738,27 @@ export interface ProfileReview {
   createdAt: string;
 }
 
+export interface OnchainAnchor {
+  chain?: string;
+  agentId?: string | number;
+  txHash?: string;
+  contractAddress?: string;
+  registeredAt?: string;
+  custodian?: string;
+  [key: string]: unknown;
+}
+
+export type AnchorStatus = "anchored" | "pending" | "off-chain";
+
 export interface ProfileCredential {
   did: string;
   domain: string;
   resolverUrl: string;
   erc8004Uri: string;
+  erc8004Status?: AnchorStatus;
+  onchainStatus?: AnchorStatus;
+  anchoringMethod?: "base-registrar" | "off-chain";
+  onchainAnchor?: OnchainAnchor | null;
   [key: string]: unknown;
 }
 
