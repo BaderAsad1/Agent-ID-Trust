@@ -146,6 +146,8 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    anchorRetry: (id: string) =>
+      request<Agent>(`/agents/${id}/anchor/retry`, { method: "POST" }),
     verify: {
       initiate: (id: string, method: string) =>
         request(`/agents/${id}/verify/initiate`, {
@@ -667,6 +669,7 @@ export interface Agent {
   onChainTokenId?: string;
   onChainOwner?: string;
   chainMints?: Record<string, unknown>;
+  chainRegistrations?: Array<Record<string, unknown>> | Record<string, unknown>;
 }
 
 export interface WalletInfo {

@@ -1824,6 +1824,75 @@ router.get("/:agentId/wallets/ows", requireAgentAuth, validateUuidParam("agentId
   }
 });
 
+/**
+ * Re-queue a stuck on-chain anchor.
+ *
+ * Owner-facing escape hatch when the nft-mint worker has marked the agent's
+ * handle as `anchor_failed` (max retries exceeded, or the most recent attempt
+ * failed and reached the retry cap). Resets:
+ *   - nftStatus → "pending_anchor"
+ *   - metadata.anchorAttempts → 0
+ *   - metadata.anchorFailureReason → cleared
+ *   - metadata.anchorFailedAt → cleared
+ * so the worker's next pass picks the agent up again.
+ *
+ * Only callable by the agent owner. Only valid when the current nftStatus is
+ * `anchor_failed` — other states (active, pending_anchor, none, etc.) return 409
+ * to avoid clobbering a healthy or in-flight anchor.
+ */
+router.post("/:agentId/anchor/retry", requireAuth, validateUuidParam("agentId"), async (req, res, next) => {
+  try {
+    const agentId = req.params.agentId as string;
+    const agent = await getAgentById(agentId);
+    if (!agent) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+    if (!isAgentOwner(agent, req.userId!)) {
+      throw new AppError(403, "FORBIDDEN", "You do not own this agent");
+    }
+    if (agent.nftStatus !== "anchor_failed") {
+      throw new AppError(
+        409,
+        "INVALID_ANCHOR_STATE",
+        `Anchor retry is only valid when nftStatus is 'anchor_failed' (current: '${agent.nftStatus ?? "none"}')`,
+      );
+    }
+
+    const existingMeta = (agent.metadata ?? {}) as Record<string, unknown>;
+    const nextMeta: Record<string, unknown> = { ...existingMeta };
+    delete nextMeta.anchorAttempts;
+    delete nextMeta.anchorFailureReason;
+    delete nextMeta.anchorFailedAt;
+    nextMeta.anchorRetryRequestedAt = new Date().toISOString();
+
+    const [updated] = await db
+      .update(agentsTable)
+      .set({
+        nftStatus: "pending_anchor",
+        metadata: nextMeta,
+        updatedAt: new Date(),
+      })
+      .where(eq(agentsTable.id, agentId))
+      .returning();
+
+    if (!updated) {
+      throw new AppError(404, "NOT_FOUND", "Agent not found");
+    }
+
+    await logActivity({
+      agentId,
+      eventType: "agent.anchor_retry_requested",
+      payload: { handle: agent.handle ?? null, previousStatus: "anchor_failed" },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.delete("/:agentId/wallets/ows", requireAgentAuth, validateUuidParam("agentId"), async (req, res, next) => {
   try {
     const agentId = req.params.agentId as string;

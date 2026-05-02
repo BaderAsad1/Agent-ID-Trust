@@ -227,6 +227,153 @@ function McpQuickstartCard() {
   );
 }
 
+function explorerTxUrl(chain: string | undefined, txHash: string | undefined): string | null {
+  if (!txHash) return null;
+  if (chain === 'base-sepolia') return `https://sepolia.basescan.org/tx/${txHash}`;
+  return `https://basescan.org/tx/${txHash}`;
+}
+
+function shortHash(hash: string | undefined, head = 6, tail = 4): string {
+  if (!hash) return '';
+  if (hash.length <= head + tail + 2) return hash;
+  return `${hash.slice(0, head)}…${hash.slice(-tail)}`;
+}
+
+/**
+ * Pull the canonical Base/Base-Sepolia anchor entry out of an agent's
+ * chainRegistrations field. Tolerates both the array form
+ * (`[{ chain, txHash, ... }]`) and the legacy object form
+ * (`{ base: { txHash, ... } }`) — same normalisation as the backend's
+ * deriveAnchorState helper, kept here so the dashboard does not need an
+ * extra round-trip.
+ */
+function getBaseAnchor(agent: Agent): Record<string, unknown> | null {
+  const regs = agent.chainRegistrations;
+  if (!regs) return null;
+  if (Array.isArray(regs)) {
+    return (regs.find((r) => {
+      const c = (r as Record<string, unknown>)?.chain;
+      return c === 'base' || c === 'base-sepolia';
+    }) as Record<string, unknown> | undefined) ?? null;
+  }
+  if (typeof regs === 'object') {
+    const obj = regs as Record<string, unknown>;
+    for (const key of ['base', 'base-sepolia']) {
+      const v = obj[key];
+      if (v && typeof v === 'object') {
+        const entry = v as Record<string, unknown>;
+        return entry.chain ? entry : { ...entry, chain: key };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Owner-facing on-chain anchor panel. Surfaces the agent's nft_status with
+ * the same explorer link the public profile shows, and exposes a retry
+ * action when the worker has marked the anchor as failed.
+ */
+function OnChainAnchorPanel({ agent, onChanged }: { agent: Agent; onChanged?: () => void }) {
+  const [retrying, setRetrying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const status = agent.nftStatus ?? 'none';
+  // Only render when the agent participates in the on-chain anchor lifecycle.
+  // 'none', undefined, and the legacy 4-char NFT states (pending_mint /
+  // minted / mint_failed / pending_claim) are handled elsewhere.
+  if (!['pending_anchor', 'active', 'anchor_failed'].includes(status)) return null;
+
+  const baseAnchor = getBaseAnchor(agent);
+  const txHash = (baseAnchor?.txHash as string | undefined) ?? undefined;
+  const chain = (baseAnchor?.chain as string | undefined) ?? undefined;
+  const txUrl = status === 'active' ? explorerTxUrl(chain, txHash) : null;
+
+  const meta = (agent.metadata ?? {}) as Record<string, unknown>;
+  const failureReason = typeof meta.anchorFailureReason === 'string' ? meta.anchorFailureReason : undefined;
+  const anchorAttempts = typeof meta.anchorAttempts === 'number' ? meta.anchorAttempts : 0;
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    setError(null);
+    try {
+      await api.agents.anchorRetry(agent.id);
+      if (onChanged) onChanged();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to re-queue anchor');
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  // Per-status visual treatment matching the public-profile palette.
+  const palette =
+    status === 'active'
+      ? { color: '#a78bfa', bg: 'rgba(167,139,250,0.06)', border: 'rgba(167,139,250,0.2)' }
+      : status === 'pending_anchor'
+        ? { color: 'rgba(167,139,250,0.85)', bg: 'rgba(167,139,250,0.04)', border: 'rgba(167,139,250,0.15)' }
+        : { color: 'var(--danger)', bg: 'rgba(239,68,68,0.05)', border: 'rgba(239,68,68,0.2)' };
+
+  return (
+    <div className="mt-3 p-3 rounded-lg" style={{ background: palette.bg, border: `1px solid ${palette.border}` }}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Network className="w-3.5 h-3.5 flex-shrink-0" style={{ color: palette.color }} />
+        <span className="text-xs font-semibold" style={{ color: palette.color, fontFamily: 'var(--font-mono)' }}>ON-CHAIN STATUS</span>
+        {status === 'active' && (
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>On-chain verified · anchored to Base</span>
+        )}
+        {status === 'pending_anchor' && (
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Anchor queued · awaiting on-chain confirmation</span>
+        )}
+        {status === 'anchor_failed' && (
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Anchor failed{anchorAttempts > 0 ? ` after ${anchorAttempts} attempt${anchorAttempts === 1 ? '' : 's'}` : ''}</span>
+        )}
+        {txUrl && (
+          <a
+            href={txUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`On-chain anchor tx: ${txHash}`}
+            className="text-xs ml-auto flex items-center gap-1"
+            style={{ color: palette.color, fontFamily: 'var(--font-mono)' }}
+          >
+            <ExternalLink className="w-3 h-3" /> {shortHash(txHash)}
+          </a>
+        )}
+      </div>
+      {status === 'anchor_failed' && failureReason && (
+        <div className="text-xs mt-1.5" style={{ color: 'var(--text-dim)' }}>Reason: {failureReason}</div>
+      )}
+      {status === 'anchor_failed' && (
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <PrimaryButton onClick={handleRetry} disabled={retrying} className="!py-1 !px-3 !text-xs">
+            <RotateCw className="w-3 h-3 mr-1" /> {retrying ? 'Re-queuing…' : 'Retry anchor'}
+          </PrimaryButton>
+          {error && <span className="text-xs" style={{ color: 'var(--danger)' }}>{error}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AnchorPendingBadge() {
+  return (
+    <span
+      title="Anchor transaction queued; awaiting on-chain confirmation"
+      className="text-[10px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded"
+      style={{
+        background: 'rgba(167,139,250,0.08)',
+        border: '1px solid rgba(167,139,250,0.25)',
+        color: '#a78bfa',
+        fontFamily: 'var(--font-mono)',
+        letterSpacing: '0.04em',
+      }}
+    >
+      <Network className="w-2.5 h-2.5" /> ANCHOR PENDING
+    </span>
+  );
+}
+
 function NftStatusSection({ agent, onTransferred }: { agent: Agent; onTransferred?: () => void }) {
   const [transferring, setTransferring] = useState(false);
   const [destAddress, setDestAddress] = useState('');
@@ -562,9 +709,10 @@ function Overview() {
               <div className="flex items-start gap-4">
                 <Identicon handle={agent.handle} size={44} />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{agent.displayName}</span>
                     <StatusDot status={agent.status as 'active' | 'inactive' | 'draft'} />
+                    {agent.nftStatus === 'pending_anchor' && <AnchorPendingBadge />}
                   </div>
                   <AgentHandle handle={agent.handle} size="sm" />
                   {agent.domainName && <div className="mt-1"><DomainBadge domain={agent.domainName} size="sm" /></div>}
@@ -614,6 +762,7 @@ function Overview() {
                 </div>
               )}
               <NftStatusSection agent={agent} onTransferred={refreshAgents} />
+              <OnChainAnchorPanel agent={agent} onChanged={refreshAgents} />
               <div className="flex gap-2 mt-4 pt-4 border-t flex-wrap" style={{ borderColor: 'var(--border-color)' }}>
                 <PrimaryButton variant="ghost" onClick={() => agent.handle ? navigate(`/${agent.handle}`) : navigate(`/id/${agent.id}`)}>View Profile</PrimaryButton>
                 <PrimaryButton variant="ghost" onClick={() => handleEditOpen(agent)}>Edit</PrimaryButton>

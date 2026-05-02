@@ -73,6 +73,7 @@ export type ActivityEventType =
   | "agent.claim_token_regenerated"
   | "agent.api_key.recovered"
   | "agent.api_key.recovery_attempted"
+  | "agent.anchor_retry_requested"
   | "transfer.created"
   | "transfer.accepted"
   | "transfer.readiness_report_generated"
