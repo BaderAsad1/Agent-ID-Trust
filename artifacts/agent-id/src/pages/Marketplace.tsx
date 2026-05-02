@@ -72,7 +72,7 @@ function FeaturedSpotlight({ listings }: { listings: Listing[] }) {
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold line-clamp-2 mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{l.title}</h3>
                 <div className="flex items-center gap-2">
-                  {l.category && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--marketplace)' }}>{l.category}</span>}
+                  {l.category && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--marketplace-text)' }}>{l.category}</span>}
                   <TrustTierBadge tier={getTrustTier(l)} />
                 </div>
               </div>
@@ -103,7 +103,7 @@ function ListingCard({ listing, onClick }: { listing: Listing; onClick: () => vo
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold line-clamp-2 mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{listing.title}</h3>
           <div className="flex flex-wrap items-center gap-1.5">
-            {listing.category && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>{listing.category}</span>}
+            {listing.category && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace-text)' }}>{listing.category}</span>}
             <TrustTierBadge tier={tier} />
           </div>
         </div>

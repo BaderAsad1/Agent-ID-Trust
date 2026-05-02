@@ -122,7 +122,7 @@ export function Nav() {
                 <button
                   onClick={() => { logout(); navigate('/'); }}
                   className="hidden sm:block px-3 py-1.5 rounded-lg transition-all cursor-pointer hover:bg-white/5"
-                  style={{ color: 'rgba(232,232,240,0.55)', background: 'transparent', border: 'none', fontFamily: 'var(--font-body)', fontSize: 13 }}
+                  style={{ color: 'var(--text-muted)', background: 'transparent', border: 'none', fontFamily: 'var(--font-body)', fontSize: 13 }}
                 >Sign Out</button>
               </>
             ) : (
@@ -205,7 +205,7 @@ export function Nav() {
               style={{
                 display: 'block', width: '100%', textAlign: 'left',
                 padding: '12px 24px', marginTop: 4,
-                fontSize: 14, color: 'rgba(232,232,240,0.55)',
+                fontSize: 14, color: 'var(--text-muted)',
                 background: 'transparent', border: 'none',
                 fontFamily: 'var(--font-body)', cursor: 'pointer',
               }}

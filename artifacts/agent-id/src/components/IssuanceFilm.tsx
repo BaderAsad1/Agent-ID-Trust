@@ -165,7 +165,7 @@ function CeremonyStatusBar({ state, trustScore }: { state: IssuanceCeremonyState
         <span style={{
           fontFamily: "'JetBrains Mono', monospace",
           fontSize: 10, fontWeight: 600,
-          color: 'rgba(232,232,240,0.3)',
+          color: 'var(--text-dim)',
           marginLeft: 8,
         }}>TRUST {trustScore}</span>
       )}

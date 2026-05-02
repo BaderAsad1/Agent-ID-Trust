@@ -187,7 +187,7 @@ function PackageSelector({ listing, selectedTier, onSelect }: { listing: Listing
             ))}
           </ul>
           {selectedTier === pkg.tier && (
-            <div className="mt-4 text-xs font-medium text-center" style={{ color: 'var(--marketplace)' }}>Selected</div>
+            <div className="mt-4 text-xs font-medium text-center" style={{ color: 'var(--marketplace-text)' }}>Selected</div>
           )}
         </div>
       ))}
@@ -390,7 +390,7 @@ function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing
               <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Payment</span><span style={{ color: 'var(--text-primary)' }}>{paymentMethod === 'usdc' ? 'USDC' : 'Card'}</span></div>
               <div className="flex justify-between font-semibold pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
                 <span style={{ color: 'var(--text-primary)' }}>Total</span>
-                <span style={{ color: 'var(--marketplace)' }}>{selectedPkg.price}{paymentMethod === 'usdc' ? ' USDC' : ''}</span>
+                <span style={{ color: 'var(--marketplace-text)' }}>{selectedPkg.price}{paymentMethod === 'usdc' ? ' USDC' : ''}</span>
               </div>
             </div>
             <PrimaryButton variant="purple" className="w-full" onClick={() => setStep(2)}>
@@ -402,7 +402,7 @@ function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing
         {step === 2 && (
           <div className="space-y-5">
             <h3 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Review your order milestones</h3>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Your <strong style={{ color: 'var(--marketplace)' }}>{selectedPkg.label}</strong> package includes these milestone steps. Funds are released milestone-by-milestone after your approval.</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Your <strong style={{ color: 'var(--marketplace-text)' }}>{selectedPkg.label}</strong> package includes these milestone steps. Funds are released milestone-by-milestone after your approval.</p>
             <MilestoneTimeline activeStep={0} />
             <div className="rounded-lg border p-4 space-y-2 text-sm" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-base)' }}>
               <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Package</span><span style={{ color: 'var(--text-primary)' }}>{selectedPkg.label}</span></div>
@@ -410,7 +410,7 @@ function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing
               <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Payment</span><span style={{ color: 'var(--text-primary)' }}>{paymentMethod === 'usdc' ? 'USDC' : 'Card'}</span></div>
               <div className="flex justify-between font-semibold pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
                 <span style={{ color: 'var(--text-primary)' }}>Total</span>
-                <span style={{ color: 'var(--marketplace)' }}>{selectedPkg.price}{paymentMethod === 'usdc' ? ' USDC' : ''}</span>
+                <span style={{ color: 'var(--marketplace-text)' }}>{selectedPkg.price}{paymentMethod === 'usdc' ? ' USDC' : ''}</span>
               </div>
             </div>
             <div className="flex gap-3">
@@ -428,7 +428,7 @@ function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing
             <div className="rounded-lg border p-4 space-y-2 text-sm mb-2" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-base)' }}>
               <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Service</span><span style={{ color: 'var(--text-primary)' }}>{listing.title}</span></div>
               <div className="flex justify-between"><span style={{ color: 'var(--text-dim)' }}>Package</span><span style={{ color: 'var(--text-primary)' }}>{selectedPkg.label}</span></div>
-              <div className="flex justify-between font-semibold"><span style={{ color: 'var(--text-primary)' }}>Total</span><span style={{ color: 'var(--marketplace)' }}>{selectedPkg.price}</span></div>
+              <div className="flex justify-between font-semibold"><span style={{ color: 'var(--text-primary)' }}>Total</span><span style={{ color: 'var(--marketplace-text)' }}>{selectedPkg.price}</span></div>
             </div>
             <Elements stripe={stripePromiseVal} options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#a855f7' } } }}>
               <CheckoutForm onSuccess={handlePaymentSuccess} onError={(msg) => setError(msg)} />
@@ -543,7 +543,7 @@ export function MarketplaceListing() {
                 <h1 className="text-2xl md:text-3xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{listing.title}</h1>
                 <div className="flex flex-wrap items-center gap-3">
                   {avgRating > 0 && <StarRating rating={avgRating} count={reviews.length} />}
-                  {listing.category && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>{listing.category}</span>}
+                  {listing.category && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace-text)' }}>{listing.category}</span>}
                   <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--domain)' }}>
                     <Shield className="w-3.5 h-3.5" /> Identity Verified
                   </span>
@@ -557,7 +557,7 @@ export function MarketplaceListing() {
                   key={t.key}
                   onClick={() => setTab(t.key)}
                   className="pb-3 text-sm font-medium cursor-pointer"
-                  style={{ color: tab === t.key ? 'var(--marketplace)' : 'var(--text-muted)', background: 'none', border: 'none', borderBottomWidth: '2px', borderBottomStyle: 'solid', borderBottomColor: tab === t.key ? 'var(--marketplace)' : 'transparent' }}
+                  style={{ color: tab === t.key ? 'var(--marketplace-text)' : 'var(--text-muted)', background: 'none', border: 'none', borderBottomWidth: '2px', borderBottomStyle: 'solid', borderBottomColor: tab === t.key ? 'var(--marketplace)' : 'transparent' }}
                   aria-label={t.label}
                 >{t.label}</button>
               ))}

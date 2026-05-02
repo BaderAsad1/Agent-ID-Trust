@@ -161,8 +161,8 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats, onchainStat
       <div style={{ padding: '14px 36px 0' }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600,
-          letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(232,232,240,0.2)',
-        }}>AGENT IDENTITY CREDENTIAL <span title="W3C Verifiable Credential encoded as a JSON Web Token (JWT). Interoperable with any VC-compatible verifier." style={{ fontSize: 8, color: 'rgba(52,211,153,0.6)', fontWeight: 500, marginLeft: 6, cursor: 'help' }}>W3C VERIFIABLE CREDENTIAL (JWT)</span></div>
+          letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)',
+        }}>AGENT IDENTITY CREDENTIAL <span title="W3C Verifiable Credential encoded as a JSON Web Token (JWT). Interoperable with any VC-compatible verifier." style={{ fontSize: 8, color: 'rgba(52,211,153,0.85)', fontWeight: 500, marginLeft: 6, cursor: 'help' }}>W3C VERIFIABLE CREDENTIAL (JWT)</span></div>
       </div>
 
       <div style={{ padding: '0 36px' }}>
@@ -244,7 +244,7 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats, onchainStat
             <div key={field.label}>
               <div style={{
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, fontWeight: 600,
-                letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 4,
+                letterSpacing: '0.12em', color: 'var(--text-dim)', marginBottom: 4,
               }}>{field.label}</div>
               {'isStatus' in field ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -254,7 +254,7 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats, onchainStat
               ) : (
                 <div style={{
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5,
-                  color: 'dim' in field ? 'rgba(232,232,240,0.25)' : 'rgba(232,232,240,0.55)',
+                  color: 'dim' in field ? 'var(--text-dim)' : 'var(--text-muted)',
                 }}>{field.value}</div>
               )}
             </div>
@@ -269,11 +269,11 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats, onchainStat
           <div>
             <div style={{
               fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, fontWeight: 600,
-              letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 4,
+              letterSpacing: '0.12em', color: 'var(--text-dim)', marginBottom: 4,
             }}>TRUST LEVEL</div>
             <div style={{
               fontFamily: "'Inter', sans-serif", fontSize: 12.5,
-              color: 'rgba(232,232,240,0.5)', lineHeight: 1.5,
+              color: 'var(--text-muted)', lineHeight: 1.5,
             }}>{[
               agent.verificationStatus === 'verified' ? 'Verified identity' : 'Unverified',
               stats?.tasksCompleted != null ? `${stats.tasksCompleted} tasks completed` : null,
@@ -288,13 +288,13 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats, onchainStat
       }}>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, fontWeight: 600,
-          letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 8,
+          letterSpacing: '0.12em', color: 'var(--text-dim)', marginBottom: 8,
         }}>CAPABILITY ATTESTATIONS</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
           {(agent.capabilities || []).map(cap => (
             <span key={cap} style={{
               fontSize: 10.5, fontFamily: "'JetBrains Mono', monospace",
-              color: 'rgba(232,232,240,0.5)', background: 'rgba(255,255,255,0.02)',
+              color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)',
               border: '1px solid rgba(255,255,255,0.05)', borderRadius: 4, padding: '3px 8px',
               display: 'flex', alignItems: 'center', gap: 4,
             }}>
@@ -312,9 +312,9 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats, onchainStat
         <div>
           <div style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, fontWeight: 600,
-            letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 3,
+            letterSpacing: '0.12em', color: 'var(--text-dim)', marginBottom: 3,
           }}>MARKETPLACE</div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: 'rgba(232,232,240,0.55)' }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: 'var(--text-muted)' }}>
             {(() => {
               const activeListing = (listings || []).find(l => l.status === 'active');
               if (!activeListing) return 'Not listed';
@@ -326,7 +326,7 @@ function ProfileCredentialCard({ agent, trustScore, listings, stats, onchainStat
         <div style={{ textAlign: 'right' }}>
           <div style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 8.5, fontWeight: 600,
-            letterSpacing: '0.12em', color: 'rgba(232,232,240,0.2)', marginBottom: 3,
+            letterSpacing: '0.12em', color: 'var(--text-dim)', marginBottom: 3,
           }}>ROUTING</div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: '#34d399' }}>
             Addressable

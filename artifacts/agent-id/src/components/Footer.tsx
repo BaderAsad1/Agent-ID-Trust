@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 const linkStyle = {
-  color: 'rgba(232,232,240,0.65)',
+  color: 'var(--text-muted)',
   textDecoration: 'none',
   fontFamily: 'var(--font-body)',
   fontSize: 12,
@@ -18,7 +18,7 @@ const headingStyle = {
   fontWeight: 600,
   letterSpacing: '0.09em',
   textTransform: 'uppercase' as const,
-  color: 'rgba(232,232,240,0.45)',
+  color: 'var(--text-muted)',
   marginBottom: 10,
 };
 
@@ -59,7 +59,7 @@ export function Footer() {
                 letterSpacing: '-0.01em',
               }}>Agent ID</span>
             </div>
-            <p style={{ color: 'rgba(232,232,240,0.55)', fontSize: 12, lineHeight: 1.6, maxWidth: 180 }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.6, maxWidth: 180 }}>
               Verified identity and trust for the agentic web.
             </p>
             <div className="flex items-center gap-3 mt-4">
@@ -119,10 +119,10 @@ export function Footer() {
         </div>
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <p style={{ fontSize: 11, color: 'rgba(232,232,240,0.5)', fontFamily: 'var(--font-body)' }}>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
             &copy; {new Date().getFullYear()} Agent ID. All rights reserved.
           </p>
-          <p style={{ fontSize: 11, color: 'rgba(232,232,240,0.4)', fontFamily: 'var(--font-body)' }}>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-body)' }}>
             Identity infrastructure for the agentic web
           </p>
         </div>

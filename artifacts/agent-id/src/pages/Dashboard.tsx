@@ -208,7 +208,7 @@ function McpQuickstartCard() {
           </p>
           <div className="flex flex-wrap gap-2 mb-3">
             <button onClick={() => navigate('/integrations/claude-desktop')} className="text-xs px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: 'rgba(79,125,243,0.08)', color: 'var(--accent)', border: '1px solid rgba(79,125,243,0.2)' }}>Claude Desktop</button>
-            <button onClick={() => navigate('/integrations/cursor')} className="text-xs px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: 'rgba(139,92,246,0.08)', color: 'var(--marketplace)', border: '1px solid rgba(139,92,246,0.2)' }}>Cursor</button>
+            <button onClick={() => navigate('/integrations/cursor')} className="text-xs px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: 'rgba(139,92,246,0.08)', color: 'var(--marketplace-text)', border: '1px solid rgba(139,92,246,0.2)' }}>Cursor</button>
             <button onClick={() => navigate('/integrations/vscode')} className="text-xs px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: 'rgba(59,130,246,0.08)', color: '#3B82F6', border: '1px solid rgba(59,130,246,0.2)' }}>VS Code</button>
           </div>
           <button onClick={() => setExpanded(!expanded)} className="text-xs font-medium cursor-pointer flex items-center gap-1" style={{ color: 'var(--text-dim)', background: 'none', border: 'none' }}>
@@ -1122,7 +1122,7 @@ function MultiSelectChips({ options, value, onChange, ariaLabel }: { options: re
             className="text-xs px-2.5 py-1 rounded-lg cursor-pointer transition-all"
             style={{
               background: selected ? 'rgba(139,92,246,0.15)' : 'var(--bg-base)',
-              color: selected ? 'var(--marketplace)' : 'var(--text-muted)',
+              color: selected ? 'var(--marketplace-text)' : 'var(--text-muted)',
               border: `1px solid ${selected ? 'rgba(139,92,246,0.4)' : 'var(--border-color)'}`,
             }}
           >
@@ -1647,7 +1647,7 @@ function MarketplaceDashboard() {
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             className="pb-3 text-sm font-medium cursor-pointer whitespace-nowrap"
-            style={{ color: activeTab === t.key ? 'var(--marketplace)' : 'var(--text-muted)', background: 'none', border: 'none', borderBottomWidth: '2px', borderBottomStyle: 'solid', borderBottomColor: activeTab === t.key ? 'var(--marketplace)' : 'transparent' }}
+            style={{ color: activeTab === t.key ? 'var(--marketplace-text)' : 'var(--text-muted)', background: 'none', border: 'none', borderBottomWidth: '2px', borderBottomStyle: 'solid', borderBottomColor: activeTab === t.key ? 'var(--marketplace)' : 'transparent' }}
           >{t.label}</button>
         ))}
       </div>
@@ -1683,7 +1683,7 @@ function MarketplaceDashboard() {
                               <>
                                 <span>·</span>
                                 {protocolBadges.slice(0, 3).map(p => (
-                                  <span key={p} className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.08)', color: 'var(--marketplace)', fontFamily: 'var(--font-mono)' }}>{p}</span>
+                                  <span key={p} className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.08)', color: 'var(--marketplace-text)', fontFamily: 'var(--font-mono)' }}>{p}</span>
                                 ))}
                               </>
                             )}
@@ -1696,7 +1696,7 @@ function MarketplaceDashboard() {
                           </div>
                         </td>
                         <td className="py-3 px-3" style={{ color: 'var(--text-primary)' }}>{formatPrice(l.priceAmount, l.priceType)}</td>
-                        <td className="py-3 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>{l.category || '-'}</span></td>
+                        <td className="py-3 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace-text)' }}>{l.category || '-'}</span></td>
                         <td className="py-3 px-3"><StarRating rating={Number(l.avgRating || 0)} count={l.reviewCount || 0} /></td>
                         <td className="py-3 px-3">
                           <button
@@ -1719,7 +1719,7 @@ function MarketplaceDashboard() {
                               disabled={!listingAgent}
                               className="cursor-pointer"
                               title="A2A settings (endpoint, protocols, auth)"
-                              style={{ background: 'none', border: 'none', color: listingAgent ? 'var(--marketplace)' : 'var(--text-dim)', display: 'flex', alignItems: 'center' }}
+                              style={{ background: 'none', border: 'none', color: listingAgent ? 'var(--marketplace-text)' : 'var(--text-dim)', display: 'flex', alignItems: 'center' }}
                             ><Network className="w-3.5 h-3.5" /></button>
                             <button
                               onClick={() => deleteListing(l.id)}
@@ -1907,11 +1907,11 @@ function MarketplaceDashboard() {
                                 const isPending = m.status === 'pending';
                                 return (
                                   <div key={m.id} className="flex items-center gap-3 rounded-lg px-3 py-2" style={{ background: 'var(--bg-base)', border: '1px solid var(--border-color)' }}>
-                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0" style={{ background: isCompleted ? 'rgba(16,185,129,0.15)' : isInProgress ? 'rgba(139,92,246,0.15)' : 'var(--bg-elevated)', border: `1.5px solid ${isCompleted ? 'var(--success)' : isInProgress ? 'var(--marketplace)' : 'var(--border-color)'}`, color: isCompleted ? 'var(--success)' : isInProgress ? 'var(--marketplace)' : 'var(--text-dim)' }}>
+                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0" style={{ background: isCompleted ? 'rgba(16,185,129,0.15)' : isInProgress ? 'rgba(139,92,246,0.15)' : 'var(--bg-elevated)', border: `1.5px solid ${isCompleted ? 'var(--success)' : isInProgress ? 'var(--marketplace)' : 'var(--border-color)'}`, color: isCompleted ? 'var(--success)' : isInProgress ? 'var(--marketplace-text)' : 'var(--text-dim)' }}>
                                       {isCompleted ? '✓' : m.order}
                                     </div>
                                     <span className="flex-1 text-xs" style={{ color: 'var(--text-primary)' }}>{m.label}</span>
-                                    <span className="text-xs" style={{ color: isCompleted ? 'var(--success)' : isInProgress ? 'var(--marketplace)' : 'var(--text-dim)' }}>{m.status.replace('_', ' ')}</span>
+                                    <span className="text-xs" style={{ color: isCompleted ? 'var(--success)' : isInProgress ? 'var(--marketplace-text)' : 'var(--text-dim)' }}>{m.status.replace('_', ' ')}</span>
                                     {(isInProgress || isPending) && (
                                       <button
                                         onClick={() => completeMilestone(order.id, m.id)}
@@ -1992,7 +1992,7 @@ function MarketplaceDashboard() {
                   const label = p === 'all' ? 'All' : p;
                   const isActive = revenuePeriod === p;
                   return (
-                    <button key={p} onClick={() => setRevenuePeriod(p)} className="text-xs px-2 py-1 rounded cursor-pointer" style={{ background: isActive ? 'rgba(139,92,246,0.15)' : 'transparent', color: isActive ? 'var(--marketplace)' : 'var(--text-dim)', border: 'none' }}>{label}</button>
+                    <button key={p} onClick={() => setRevenuePeriod(p)} className="text-xs px-2 py-1 rounded cursor-pointer" style={{ background: isActive ? 'rgba(139,92,246,0.15)' : 'transparent', color: isActive ? 'var(--marketplace-text)' : 'var(--text-dim)', border: 'none' }}>{label}</button>
                   );
                 })}
               </div>
@@ -2001,7 +2001,7 @@ function MarketplaceDashboard() {
               <BarChart data={earningsChartData}>
                 <XAxis dataKey="month" tick={{ fill: 'var(--text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis hide />
-                <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)', borderRadius: 8 }} labelStyle={{ color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--marketplace)' }} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Revenue']} />
+                <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)', borderRadius: 8 }} labelStyle={{ color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--marketplace-text)' }} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Revenue']} />
                 <Bar dataKey="amount" fill="var(--marketplace)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -2099,7 +2099,7 @@ function MarketplaceDashboard() {
                           </td>
                           <td className="py-2 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{providerLabel}</td>
                           <td className="py-2 px-3">
-                            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: isUsdc ? 'rgba(59,130,246,0.1)' : 'rgba(139,92,246,0.1)', color: isUsdc ? 'var(--accent)' : 'var(--marketplace)' }}>{currencyLabel}</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: isUsdc ? 'rgba(59,130,246,0.1)' : 'rgba(139,92,246,0.1)', color: isUsdc ? 'var(--accent)' : 'var(--marketplace-text)' }}>{currencyLabel}</span>
                           </td>
                           <td className="py-2 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}>Settled</span></td>
                         </tr>

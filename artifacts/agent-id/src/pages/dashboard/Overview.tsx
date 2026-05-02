@@ -230,7 +230,7 @@ function IdentityCard({ agent }: { agent: Agent }) {
                 <Shield className="w-3 h-3" /> Verified
               </span>
             )}
-            <span className="text-xs px-2 py-0.5 rounded-md font-medium" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)', border: '1px solid rgba(139,92,246,0.2)' }}>
+            <span className="text-xs px-2 py-0.5 rounded-md font-medium" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace-text)', border: '1px solid rgba(139,92,246,0.2)' }}>
               Trust {agent.trustScore ?? 0}
             </span>
             {tierBadge && (

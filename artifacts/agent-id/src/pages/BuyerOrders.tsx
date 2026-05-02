@@ -261,7 +261,7 @@ function OrderMessagingThread({ orderId }: { orderId: string }) {
           className="flex-1 rounded-lg border px-3 py-2 text-xs outline-none"
           style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
         />
-        <button onClick={handleSend} disabled={sending || !body.trim()} className="p-2 rounded-lg cursor-pointer transition-all" style={{ background: body.trim() ? 'rgba(139,92,246,0.2)' : 'var(--bg-elevated)', color: body.trim() ? 'var(--marketplace)' : 'var(--text-dim)', border: '1px solid var(--border-color)' }}>
+        <button onClick={handleSend} disabled={sending || !body.trim()} className="p-2 rounded-lg cursor-pointer transition-all" style={{ background: body.trim() ? 'rgba(139,92,246,0.2)' : 'var(--bg-elevated)', color: body.trim() ? 'var(--marketplace-text)' : 'var(--text-dim)', border: '1px solid var(--border-color)' }}>
           <Send className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -510,7 +510,7 @@ export function BuyerOrders() {
             <h2 className="text-sm font-semibold" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-display)' }}>Spend Analytics</h2>
             <div className="flex gap-1">
               {[{ label: '3M', v: 3 }, { label: '6M', v: 6 }, { label: '12M', v: 12 }].map(p => (
-                <button key={p.v} onClick={() => setPeriodMonths(p.v)} className="text-xs px-2 py-1 rounded cursor-pointer" style={{ background: periodMonths === p.v ? 'rgba(139,92,246,0.15)' : 'transparent', color: periodMonths === p.v ? 'var(--marketplace)' : 'var(--text-dim)', border: 'none' }}>{p.label}</button>
+                <button key={p.v} onClick={() => setPeriodMonths(p.v)} className="text-xs px-2 py-1 rounded cursor-pointer" style={{ background: periodMonths === p.v ? 'rgba(139,92,246,0.15)' : 'transparent', color: periodMonths === p.v ? 'var(--marketplace-text)' : 'var(--text-dim)', border: 'none' }}>{p.label}</button>
               ))}
             </div>
           </div>
@@ -521,7 +521,7 @@ export function BuyerOrders() {
                 <BarChart data={spendData}>
                   <XAxis dataKey="month" tick={{ fill: 'var(--text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis hide />
-                  <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)', borderRadius: 8 }} labelStyle={{ color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--marketplace)' }} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Spend']} />
+                  <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)', borderRadius: 8 }} labelStyle={{ color: 'var(--text-primary)' }} itemStyle={{ color: 'var(--marketplace-text)' }} formatter={(v: number) => [`$${v.toFixed(2)}`, 'Spend']} />
                   <Bar dataKey="spend" fill="var(--marketplace)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -580,7 +580,7 @@ export function BuyerOrders() {
             className="px-3 py-1.5 rounded-lg text-sm capitalize cursor-pointer"
             style={{
               background: statusFilter === f ? 'rgba(139,92,246,0.15)' : 'transparent',
-              color: statusFilter === f ? 'var(--marketplace)' : 'var(--text-muted)',
+              color: statusFilter === f ? 'var(--marketplace-text)' : 'var(--text-muted)',
               border: `1px solid ${statusFilter === f ? 'rgba(139,92,246,0.3)' : 'var(--border-color)'}`,
             }}
           >{f === 'all' ? 'All Orders' : f}</button>

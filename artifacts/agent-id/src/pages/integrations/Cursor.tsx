@@ -72,11 +72,11 @@ export function CursorIntegration() {
             <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>1. Locate your config file</h2>
             <div className="space-y-2 text-sm" style={{ color: 'var(--text-muted)' }}>
               <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>macOS</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace-text)' }}>macOS</span>
                 <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>~/.cursor/mcp.json</code>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>Windows</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace-text)' }}>Windows</span>
                 <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>%USERPROFILE%\.cursor\mcp.json</code>
               </div>
             </div>

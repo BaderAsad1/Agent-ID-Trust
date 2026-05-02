@@ -62,27 +62,28 @@ Backdrop click-to-close is implemented via `<div onClick={onClose}>` (`A2AMarket
 
 ### 2.3 Color contrast (WCAG AA: 4.5:1 normal text, 3:1 large text)
 
-Brand palette from `styles/theme.css:1-25`:
+Brand palette from `styles/theme.css:1-25` (verified via WebAIM contrast checker against base `#050711`):
 
 | Token | Hex | Ratio vs `#050711` | Verdict |
 |---|---|---|---|
 | `--text-primary` | `#e8e8f0` | ~17.4:1 | Pass AAA |
-| `--text-muted` | `#8690a8` | ~5.3:1 | Pass AA body |
-| `--text-dim` | `#606880` | ~3.3:1 | **Fail AA body**, passes 3:1 large only |
+| `--text-muted` | `#8690a8` | ~6.3:1 | Pass AA body |
+| `--text-dim` | `#7a8198` | ~5.2:1 | Pass AA body (lifted from `#606880`) |
 | `--accent` | `#4f7df3` | ~5.0:1 | Pass AA body |
-| `--marketplace` | `#7c5bf5` | ~4.1:1 | **Fail AA body**, passes 3:1 large |
+| `--marketplace` | `#7c5bf5` | ~4.1:1 | Backgrounds/borders/large display only |
+| `--marketplace-text` | `#a78bfa` | ~7.4:1 | Pass AA body (new token for purple body copy) |
 
-Concrete violations:
+Resolved violations (Task #253):
 
-- `components/Sidebar.tsx:113, 130, 140, 153` use `var(--text-dim)` for sidebar metadata (plan name, secondary nav captions). These are <18px and fail AA.
-- `pages/dashboard/Overview.tsx:24, 420` use `var(--text-dim)` on stat cards.
-- `pages/AgentProfile.tsx:164` uses `rgba(232,232,240,0.2)` (≈3464 contrast against base = ~2.7:1) for credential field labels.
-- `components/Nav.tsx:125` uses `rgba(232,232,240,0.55)` for the "Sign Out" link (~5.8:1 — fine, but inconsistent with adjacent nav links at 1.0 alpha).
-- `components/Footer.tsx:21` uses `rgba(232,232,240,0.45)` for "Product/Developers/Resources" section headers (~3.1:1 — fails AA for normal text).
-- `components/IssuanceFilm.tsx:168` uses `rgba(232,232,240,0.3)` for the "TRUST {score}" caption.
-- `pages/DocsTrust.tsx:57, 58, 80, 81` render `'—'` in `var(--text-dim)` table cells.
+- `--text-dim` lifted from `#606880` (3.3:1) → `#7a8198` (~5.2:1), so `Sidebar`, `Overview`, `DocsTrust`, and other body-text usages now pass AA without further changes.
+- New `--marketplace-text` (`#a78bfa`, ~7.4:1) introduced for body copy that uses the marketplace purple. Migrated small/body text in `Dashboard.tsx`, `Marketplace.tsx`, `MarketplaceListing.tsx`, `BuyerOrders.tsx`, `Cursor.tsx`, and `Overview.tsx`. `var(--marketplace)` is now reserved for backgrounds, borders, chart fills, icons, and ≥18px display values.
+- Ad-hoc `rgba(232,232,240,0.x)` text opacities replaced with named tokens at:
+  - `components/Footer.tsx` (link, heading, description, copyright, tagline)
+  - `components/Nav.tsx` (Sign Out, desktop and mobile)
+  - `components/IssuanceFilm.tsx:168` (TRUST caption — `--text-dim`)
+  - `pages/AgentProfile.tsx` (credential header line 164, ID-card field labels/values, Trust Level, Capability Attestations, Marketplace, Routing — all migrated to `--text-dim` / `--text-muted`); W3C VC tag bumped from 0.6 → 0.85 alpha for AA.
 
-**Action**: lift `--text-dim` to at least `#7a8198` (~4.6:1), or restrict its use to ≥18px / ≥14px-bold copy; replace ad-hoc `rgba(232,232,240,0.x)` opacities with named tokens; consider a separate `--marketplace-text` token tuned to ≥4.5:1 for body usage of the purple.
+All `theme.css` body-text tokens now pass WebAIM AA against `--bg-base` (`#050711`).
 
 ### 2.4 Form UX
 
