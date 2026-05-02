@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Code, Database, Search, ChevronRight, Copy, Check, Terminal, Activity, Shield, Clock, AlertCircle, X, ExternalLink, RefreshCw, Send, Award, TrendingUp, Lock, Globe, Cpu } from 'lucide-react';
 import { TrustScoreRing } from '@/components/shared';
-import { api, type A2AEngagement, type A2ARegistryService, type A2AServiceCallResult, ApiError } from '@/lib/api';
+import { api, type A2AEngagement, type A2AEngagementCall, type A2ARegistryService, type A2AServiceCallResult, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { useSEO } from '@/lib/useSEO';
 
@@ -368,6 +368,236 @@ function ServiceCallComposer({ service }: { service: A2AService }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CallStatusBadge({ status }: { status: string }) {
+  const meta = status === 'success'
+    ? { color: '#4ade80', bg: 'rgba(74,222,128,0.1)', border: 'rgba(74,222,128,0.3)', label: 'success' }
+    : status === 'timeout'
+    ? { color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.3)', label: 'timeout' }
+    : { color: '#fca5a5', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)', label: status };
+  return (
+    <span
+      className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-full"
+      style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, fontFamily: 'var(--font-mono)' }}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
+function EngagementCallsPanel({ engagement, onClose }: { engagement: A2AEngagement; onClose: () => void }) {
+  const [calls, setCalls] = useState<A2AEngagementCall[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [copiedReceipt, setCopiedReceipt] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await api.marketplace.engagements.calls(engagement.id);
+      setCalls(r.calls || []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load call history');
+    } finally {
+      setLoading(false);
+    }
+  }, [engagement.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const copyReceipt = (call: A2AEngagementCall) => {
+    const text = call.receiptB64
+      ? `${call.receiptB64}.${call.receiptSignature ?? ''}`
+      : call.callId;
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopiedReceipt(call.id);
+    setTimeout(() => setCopiedReceipt(null), 2000);
+  };
+
+  const contractId = engagement.id.slice(0, 8).toUpperCase();
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <aside
+        role="dialog"
+        aria-label={`${engagement.serviceName} call history`}
+        className="absolute top-0 right-0 h-full w-full max-w-2xl overflow-y-auto"
+        style={{ background: '#010409', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <header className="sticky top-0 z-10 px-5 py-4 border-b backdrop-blur" style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(1,4,9,0.92)' }}>
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(99,102,241,0.12)' }}>
+              <Activity className="w-5 h-5" style={{ color: '#a5b4fc' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.05)', color: '#79c0ff' }}>CONTRACT-{contractId}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{
+                  background: engagement.status === 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(251,191,36,0.1)',
+                  color: engagement.status === 'active' ? '#4ade80' : '#fbbf24',
+                }}>{engagement.status}</span>
+              </div>
+              <h2 className="text-base font-bold truncate" style={{ color: '#e6edf3', fontFamily: 'var(--font-display)' }}>{engagement.serviceName}</h2>
+              <code className="text-xs block truncate" style={{ color: '#79c0ff', fontFamily: 'var(--font-mono)' }}>{engagement.serviceHandle}</code>
+            </div>
+            <button onClick={load} className="cursor-pointer flex-shrink-0" aria-label="Refresh call history" title="Refresh" style={{ background: 'none', border: 'none', color: '#7d8590' }}>
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button onClick={onClose} className="cursor-pointer flex-shrink-0" aria-label="Close panel" style={{ background: 'none', border: 'none', color: '#7d8590' }}>
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </header>
+
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="rounded-lg p-2.5" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: '#7d8590' }}>Calls recorded</div>
+              <div className="font-bold mt-0.5" style={{ color: '#79c0ff', fontFamily: 'var(--font-mono)' }}>{calls?.length ?? '—'}</div>
+            </div>
+            <div className="rounded-lg p-2.5" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: '#7d8590' }}>Total spent</div>
+              <div className="font-bold mt-0.5" style={{ color: '#4ade80', fontFamily: 'var(--font-mono)' }}>{Number(engagement.totalSpentUsdc).toFixed(4)} USDC</div>
+            </div>
+            <div className="rounded-lg p-2.5" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: '#7d8590' }}>Spending cap</div>
+              <div className="font-bold mt-0.5" style={{ color: '#a5b4fc', fontFamily: 'var(--font-mono)' }}>{engagement.spendingCapUsdc} USDC</div>
+            </div>
+          </div>
+
+          {loading && (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="rounded-lg animate-pulse" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)', height: 84 }} />
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-lg p-3 text-xs flex items-start gap-2" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#fca5a5' }}>
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">{error}</div>
+              <button onClick={load} className="cursor-pointer underline" style={{ background: 'none', border: 'none', color: '#fca5a5' }}>Retry</button>
+            </div>
+          )}
+
+          {!loading && !error && calls && calls.length === 0 && (
+            <div className="text-center py-12 rounded-lg" style={{ background: '#0d1117', border: '1px dashed rgba(255,255,255,0.08)' }}>
+              <Terminal className="w-8 h-8 mx-auto mb-2" style={{ color: '#4e5969' }} />
+              <p className="text-sm" style={{ color: '#7d8590' }}>No calls recorded for this contract yet</p>
+              <p className="text-xs mt-1" style={{ color: '#4e5969' }}>Send a call from the marketplace to see it appear here</p>
+            </div>
+          )}
+
+          {!loading && !error && calls && calls.length > 0 && (
+            <div className="space-y-2">
+              {calls.map(call => {
+                const isOpen = !!expanded[call.id];
+                const ts = new Date(call.createdAt);
+                return (
+                  <div key={call.id} className="rounded-lg overflow-hidden" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <button
+                      onClick={() => setExpanded(s => ({ ...s, [call.id]: !s[call.id] }))}
+                      className="w-full px-3 py-2.5 flex items-center gap-3 cursor-pointer text-left"
+                      style={{ background: 'none', border: 'none' }}
+                    >
+                      <CallStatusBadge status={call.status} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-mono truncate" style={{ color: '#79c0ff' }}>{call.callId}</div>
+                        <div className="text-xs mt-0.5 flex items-center gap-2" style={{ color: '#7d8590' }}>
+                          <Clock className="w-3 h-3" /> {ts.toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-xs font-bold" style={{ color: '#4ade80', fontFamily: 'var(--font-mono)' }}>{Number(call.amountUsdc).toFixed(4)} {call.currency}</div>
+                        <div className="text-xs mt-0.5" style={{ color: '#7d8590', fontFamily: 'var(--font-mono)' }}>{call.executionMs}ms</div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 flex-shrink-0 transition-transform" style={{ color: '#7d8590', transform: isOpen ? 'rotate(90deg)' : 'none' }} />
+                    </button>
+
+                    {isOpen && (
+                      <div className="px-3 pb-3 space-y-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                        <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+                          <div className="rounded p-2" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                            <div style={{ color: '#7d8590' }}>Provider payout</div>
+                            <div className="font-mono mt-0.5" style={{ color: '#4ade80' }}>{Number(call.providerPayoutUsdc).toFixed(6)} USDC</div>
+                          </div>
+                          <div className="rounded p-2" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                            <div style={{ color: '#7d8590' }}>Platform fee</div>
+                            <div className="font-mono mt-0.5" style={{ color: '#a5b4fc' }}>{Number(call.platformFeeUsdc).toFixed(6)} USDC</div>
+                          </div>
+                          {call.httpStatus !== null && (
+                            <div className="rounded p-2" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                              <div style={{ color: '#7d8590' }}>HTTP status</div>
+                              <div className="font-mono mt-0.5" style={{ color: call.httpStatus < 400 ? '#4ade80' : '#fca5a5' }}>{call.httpStatus}</div>
+                            </div>
+                          )}
+                          <div className="rounded p-2" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                            <div style={{ color: '#7d8590' }}>Latency</div>
+                            <div className="font-mono mt-0.5" style={{ color: '#e6edf3' }}>{call.executionMs}ms</div>
+                          </div>
+                        </div>
+
+                        {call.errorMessage && (
+                          <div className="rounded p-2 text-xs" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', color: '#fca5a5' }}>
+                            {call.errorMessage}
+                          </div>
+                        )}
+
+                        <div>
+                          <div className="text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#7d8590' }}>Request payload</div>
+                          <JsonBlock data={(call.requestPayload as object) ?? {}} />
+                        </div>
+
+                        <div>
+                          <div className="text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#7d8590' }}>Response</div>
+                          <JsonBlock data={(call.responseBody as object) ?? {}} />
+                        </div>
+
+                        <div>
+                          <div className="text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: '#7d8590' }}>Receipt</div>
+                          <div className="rounded p-2.5 text-xs space-y-2" style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            <div>
+                              <div style={{ color: '#4e5969' }}>Receipt ID</div>
+                              <div className="font-mono break-all" style={{ color: '#79c0ff' }}>{call.callId}</div>
+                            </div>
+                            {call.receiptSignature && (
+                              <div>
+                                <div style={{ color: '#4e5969' }}>HMAC signature</div>
+                                <div className="font-mono break-all" style={{ color: '#a5b4fc' }}>{call.receiptSignature}</div>
+                              </div>
+                            )}
+                            {call.txHash && (
+                              <div>
+                                <div style={{ color: '#4e5969' }}>Tx hash</div>
+                                <div className="font-mono break-all" style={{ color: '#7ee787' }}>{call.txHash}</div>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => copyReceipt(call)}
+                              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded cursor-pointer"
+                              style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}
+                            >
+                              {copiedReceipt === call.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                              {copiedReceipt === call.id ? 'Copied' : 'Copy receipt'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </aside>
     </div>
   );
 }
@@ -899,6 +1129,7 @@ export function A2AMarketplace() {
   const [detailService, setDetailService] = useState<A2AService | null>(null);
   const [hireService, setHireService] = useState<A2AService | null>(null);
   const [myEngagements, setMyEngagements] = useState<A2AEngagement[]>([]);
+  const [callsEngagement, setCallsEngagement] = useState<A2AEngagement | null>(null);
   const [services, setServices] = useState<A2AService[]>(SEED_SERVICES);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [servicesError, setServicesError] = useState<string | null>(null);
@@ -970,6 +1201,7 @@ export function A2AMarketplace() {
         />
       )}
       {hireService && <A2AEngageModal service={hireService} onClose={() => { setHireService(null); if (userId) api.marketplace.engagements.list().then(r => setMyEngagements(r.engagements || [])).catch(() => {}); }} />}
+      {callsEngagement && <EngagementCallsPanel engagement={callsEngagement} onClose={() => setCallsEngagement(null)} />}
 
       <div className="border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
         <div className="max-w-[1200px] mx-auto px-6 py-12">
@@ -1263,6 +1495,17 @@ export function A2AMarketplace() {
                           title="Copy contract ID"
                         ><Copy className="w-3 h-3" /></button>
                       </div>
+
+                      <button
+                        onClick={() => setCallsEngagement(eng)}
+                        className="mt-3 w-full py-2 rounded-lg text-xs font-medium cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                        style={{ background: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.2)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.12)'; }}
+                      >
+                        <Activity className="w-3.5 h-3.5" />
+                        View calls{eng.callCount > 0 ? ` (${eng.callCount})` : ''}
+                      </button>
                     </div>
                   );
                 })}

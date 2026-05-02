@@ -334,10 +334,12 @@ export const api = {
         request<Review>("/marketplace/reviews", { method: "POST", body: JSON.stringify(data) }),
     },
     engagements: {
-      list: () => request<{ engagements: A2AEngagement[] }>("/a2a/engagements"),
+      list: () => request<{ engagements: A2AEngagement[] }>("/marketplace/a2a/engagements"),
       create: (data: Record<string, unknown>) =>
-        request<A2AEngagement>("/a2a/engagements", { method: "POST", body: JSON.stringify(data) }),
-      get: (id: string) => request<A2AEngagement>(`/a2a/engagements/${id}`),
+        request<A2AEngagement>("/marketplace/a2a/engagements", { method: "POST", body: JSON.stringify(data) }),
+      get: (id: string) => request<A2AEngagement>(`/marketplace/a2a/engagements/${id}`),
+      calls: (id: string) =>
+        request<{ calls: A2AEngagementCall[] }>(`/marketplace/a2a/engagements/${id}/calls`),
     },
     a2aRegistry: {
       list: (params?: Record<string, string>) => {
@@ -954,6 +956,25 @@ export interface A2AEngagement {
   paymentModel: string;
   pricePerUnit: string;
   currency: string;
+  createdAt: string;
+}
+
+export interface A2AEngagementCall {
+  id: string;
+  callId: string;
+  status: 'success' | 'failed' | 'timeout' | string;
+  httpStatus: number | null;
+  requestPayload: unknown;
+  responseBody: unknown;
+  errorMessage: string | null;
+  executionMs: number;
+  amountUsdc: string;
+  platformFeeUsdc: string;
+  providerPayoutUsdc: string;
+  currency: string;
+  receiptB64: string | null;
+  receiptSignature: string | null;
+  txHash: string | null;
   createdAt: string;
 }
 

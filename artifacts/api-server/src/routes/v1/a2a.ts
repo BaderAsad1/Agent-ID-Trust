@@ -23,6 +23,8 @@ import {
   agentActivityLogTable,
   a2aPayoutQueueTable,
   a2aServiceListingsTable,
+  a2aEngagementsTable,
+  a2aServiceCallsTable,
   type MarketplaceOrder,
   type A2AServiceListing,
 } from "@workspace/db/schema";
@@ -730,9 +732,21 @@ router.post(
         callHeaders["X-A2A-Caller-Handle"] = `@${callingAgent.handle}.agentid`;
       }
 
+      // Locate engagement (caller agent + service + caller user) for history attribution
+      const engagementRow = await db.query.a2aEngagementsTable.findFirst({
+        where: and(
+          eq(a2aEngagementsTable.agentId, callingAgent.id),
+          eq(a2aEngagementsTable.serviceId, serviceId),
+          eq(a2aEngagementsTable.userId, callingAgent.userId),
+        ),
+        columns: { id: true },
+      });
+      const engagementId = engagementRow?.id ?? null;
+
       let providerResponse: Response;
       let resultBody: unknown;
       let executionMs: number;
+      let providerHttpStatus: number | null = null;
 
       const callStart = Date.now();
       try {
@@ -749,6 +763,7 @@ router.post(
           clearTimeout(timeout);
         }
         executionMs = Date.now() - callStart;
+        providerHttpStatus = providerResponse.status;
 
         const ct = providerResponse.headers.get("content-type") || "";
         resultBody = ct.includes("application/json")
@@ -756,6 +771,31 @@ router.post(
           : await providerResponse.text();
 
         if (!providerResponse.ok) {
+          // Record failure before throwing
+          try {
+            await db.insert(a2aServiceCallsTable).values({
+              callId,
+              engagementId,
+              serviceId,
+              callerAgentId: callingAgent.id,
+              providerAgentId: service.agentId,
+              userId: callingAgent.userId,
+              status: "failed",
+              httpStatus: providerHttpStatus,
+              requestPayload: payload as object,
+              responseBody: (typeof resultBody === "object" ? resultBody : { raw: resultBody }) as object,
+              errorMessage: `Provider returned HTTP ${providerResponse.status}`,
+              executionMs,
+              amountUsdc: "0",
+              platformFeeUsdc: "0",
+              providerPayoutUsdc: "0",
+            });
+          } catch (recordErr) {
+            logger.warn(
+              { callId, error: (recordErr as Error).message },
+              "[a2a] Failed to record failed call entry",
+            );
+          }
           throw new AppError(
             502, "PROVIDER_ERROR",
             `Provider returned HTTP ${providerResponse.status}`,
@@ -764,6 +804,31 @@ router.post(
         }
       } catch (err) {
         if ((err as Error).name === "AbortError") {
+          executionMs = Date.now() - callStart;
+          try {
+            await db.insert(a2aServiceCallsTable).values({
+              callId,
+              engagementId,
+              serviceId,
+              callerAgentId: callingAgent.id,
+              providerAgentId: service.agentId,
+              userId: callingAgent.userId,
+              status: "timeout",
+              httpStatus: null,
+              requestPayload: payload as object,
+              responseBody: null,
+              errorMessage: `Provider did not respond within ${timeoutMs}ms`,
+              executionMs,
+              amountUsdc: "0",
+              platformFeeUsdc: "0",
+              providerPayoutUsdc: "0",
+            });
+          } catch (recordErr) {
+            logger.warn(
+              { callId, error: (recordErr as Error).message },
+              "[a2a] Failed to record timeout call entry",
+            );
+          }
           throw new AppError(504, "PROVIDER_TIMEOUT", `Provider did not respond within ${timeoutMs}ms`);
         }
         throw err;
@@ -823,6 +888,52 @@ router.post(
           executionMs,
         },
       });
+
+      // Persist call history + bump engagement totals (so the engagement card UI updates)
+      try {
+        await db.insert(a2aServiceCallsTable).values({
+          callId,
+          engagementId,
+          serviceId,
+          callerAgentId:    callingAgent.id,
+          providerAgentId:  service.agentId,
+          userId:           callingAgent.userId,
+          status:           "success",
+          httpStatus:       providerHttpStatus,
+          requestPayload:   payload as object,
+          responseBody:     (typeof resultBody === "object" ? resultBody : { raw: resultBody }) as object,
+          executionMs,
+          amountUsdc:       priceUsdc,
+          platformFeeUsdc:  platformFeeUsd.toFixed(6),
+          providerPayoutUsdc: providerUsd.toFixed(6),
+          receiptB64,
+          receiptSignature: receiptSig,
+          txHash:           null,
+        });
+      } catch (recordErr) {
+        logger.warn(
+          { callId, error: (recordErr as Error).message },
+          "[a2a] Failed to record success call entry",
+        );
+      }
+
+      if (engagementId) {
+        try {
+          await db
+            .update(a2aEngagementsTable)
+            .set({
+              callCount:      sql`${a2aEngagementsTable.callCount} + 1`,
+              totalSpentUsdc: sql`${a2aEngagementsTable.totalSpentUsdc} + ${priceUsdc}::numeric`,
+              updatedAt:      new Date(),
+            })
+            .where(eq(a2aEngagementsTable.id, engagementId));
+        } catch (engErr) {
+          logger.warn(
+            { engagementId, callId, error: (engErr as Error).message },
+            "[a2a] Failed to update engagement totals",
+          );
+        }
+      }
 
       res.setHeader("X-A2A-Receipt",     receiptB64);
       res.setHeader("X-A2A-Receipt-Sig", receiptSig);

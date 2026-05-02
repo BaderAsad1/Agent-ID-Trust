@@ -46,6 +46,7 @@ import {
   marketplaceOrderMessagesTable,
   a2aServiceListingsTable,
   a2aEngagementsTable,
+  a2aServiceCallsTable,
   agentsTable,
   payoutLedgerTable,
 } from "@workspace/db/schema";
@@ -898,5 +899,71 @@ router.get("/a2a/engagements/:id", requireAuth, validateUuidParam("id"), async (
     next(err);
   }
 });
+
+router.get(
+  "/a2a/engagements/:id/calls",
+  requireAuth,
+  validateUuidParam("id"),
+  async (req, res, next) => {
+    try {
+      const engagementId = req.params.id as string;
+
+      const [engagement] = await db
+        .select({
+          id: a2aEngagementsTable.id,
+          agentId: a2aEngagementsTable.agentId,
+          serviceId: a2aEngagementsTable.serviceId,
+        })
+        .from(a2aEngagementsTable)
+        .where(
+          and(
+            eq(a2aEngagementsTable.id, engagementId),
+            eq(a2aEngagementsTable.userId, req.userId!),
+          ),
+        )
+        .limit(1);
+
+      if (!engagement) {
+        throw new AppError(404, "NOT_FOUND", "Engagement not found");
+      }
+
+      // Match calls either by direct engagement_id link or by (caller agent + service)
+      // pair (covers calls made before engagement attribution was wired up).
+      const calls = await db
+        .select({
+          id: a2aServiceCallsTable.id,
+          callId: a2aServiceCallsTable.callId,
+          status: a2aServiceCallsTable.status,
+          httpStatus: a2aServiceCallsTable.httpStatus,
+          requestPayload: a2aServiceCallsTable.requestPayload,
+          responseBody: a2aServiceCallsTable.responseBody,
+          errorMessage: a2aServiceCallsTable.errorMessage,
+          executionMs: a2aServiceCallsTable.executionMs,
+          amountUsdc: a2aServiceCallsTable.amountUsdc,
+          platformFeeUsdc: a2aServiceCallsTable.platformFeeUsdc,
+          providerPayoutUsdc: a2aServiceCallsTable.providerPayoutUsdc,
+          currency: a2aServiceCallsTable.currency,
+          receiptB64: a2aServiceCallsTable.receiptB64,
+          receiptSignature: a2aServiceCallsTable.receiptSignature,
+          txHash: a2aServiceCallsTable.txHash,
+          createdAt: a2aServiceCallsTable.createdAt,
+        })
+        .from(a2aServiceCallsTable)
+        .where(
+          and(
+            eq(a2aServiceCallsTable.callerAgentId, engagement.agentId),
+            eq(a2aServiceCallsTable.serviceId, engagement.serviceId),
+            eq(a2aServiceCallsTable.userId, req.userId!),
+          ),
+        )
+        .orderBy(desc(a2aServiceCallsTable.createdAt))
+        .limit(200);
+
+      res.json({ calls });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;
