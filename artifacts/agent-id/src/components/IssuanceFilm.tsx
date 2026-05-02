@@ -2171,17 +2171,19 @@ function RegistryField({ progress }: { progress: number }) {
 
 // Only brands where AI agents actually run and can hold an Agent ID credential.
 // Logos served from Simple Icons CDN — same icon set used by shields.io, readme badges, etc.
+// Brands without a `slug` are not in the Simple Icons set (e.g. OpenAI, AWS, Microsoft Azure
+// were removed from the project for trademark reasons) and render text-only to avoid 404s.
 const SI = 'https://cdn.simpleicons.org';
-const MARQUEE_BRANDS = [
-  { name: 'OpenAI',           slug: 'openai',         note: 'Assistants & Agents API' },
+const MARQUEE_BRANDS: Array<{ name: string; slug?: string; note: string }> = [
+  { name: 'OpenAI',                                   note: 'Assistants & Agents API' },
   { name: 'Anthropic',        slug: 'anthropic',      note: 'Claude agent runtime'     },
   { name: 'Google Gemini',    slug: 'googlegemini',   note: 'Gemini agent API'         },
   { name: 'LangChain',        slug: 'langchain',      note: 'Agent framework'          },
   { name: 'Hugging Face',     slug: 'huggingface',    note: 'Inference & Spaces agents'},
   { name: 'n8n',              slug: 'n8n',            note: 'AI workflow automation'   },
   { name: 'Zapier',           slug: 'zapier',         note: 'AI action automation'     },
-  { name: 'Amazon Bedrock',   slug: 'amazonaws',      note: 'Managed agent runtime'    },
-  { name: 'Microsoft Azure',  slug: 'microsoftazure', note: 'Azure AI agents'          },
+  { name: 'Amazon Bedrock',                           note: 'Managed agent runtime'    },
+  { name: 'Microsoft Azure',                          note: 'Azure AI agents'          },
   { name: 'GitHub',           slug: 'github',         note: 'Copilot Extensions'       },
   { name: 'Replit',           slug: 'replit',         note: 'Replit Agents'            },
   { name: 'Cursor',           slug: 'cursor',         note: 'Cursor AI agents'         },
@@ -2225,14 +2227,16 @@ function BrandMarqueeSection() {
             paddingRight: 52,
             flexShrink: 0,
           }}>
-            <img
-              src={`${SI}/${brand.slug}/808898`}
-              width={16} height={16}
-              alt={brand.name}
-              loading="lazy"
-              style={{ flexShrink: 0, opacity: 0.65, display: 'block' }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
+            {brand.slug && (
+              <img
+                src={`${SI}/${brand.slug}/808898`}
+                width={16} height={16}
+                alt={brand.name}
+                loading="lazy"
+                style={{ flexShrink: 0, opacity: 0.65, display: 'block' }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
             <span style={{
               fontFamily: "'Inter', sans-serif",
               fontSize: 13, fontWeight: 500,
@@ -2484,14 +2488,16 @@ export default function IssuanceFilm({ onNavigate }: { onNavigate?: (path: strin
             <div className="animate-marquee" style={{ gap: 0, animationDuration: '45s' }}>
               {[...MARQUEE_BRANDS, ...MARQUEE_BRANDS].map((brand, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 48, flexShrink: 0 }}>
-                  <img
-                    src={`${SI}/${brand.slug}/707888`}
-                    width={14} height={14}
-                    alt={brand.name}
-                    loading="lazy"
-                    style={{ flexShrink: 0, display: 'block' }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
+                  {brand.slug && (
+                    <img
+                      src={`${SI}/${brand.slug}/707888`}
+                      width={14} height={14}
+                      alt={brand.name}
+                      loading="lazy"
+                      style={{ flexShrink: 0, display: 'block' }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  )}
                   <span style={{
                     fontFamily: "'Inter', sans-serif",
                     fontSize: 12, fontWeight: 500,
