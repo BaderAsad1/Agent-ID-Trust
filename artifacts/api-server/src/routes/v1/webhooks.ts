@@ -359,11 +359,18 @@ router.post(
             }
             break;
           }
-          case "transfer.failed": {
-            await handleTransferFailed(event.data.object as Stripe.Transfer);
-            break;
-          }
           default:
+            // `transfer.failed` is no longer in the Stripe SDK event-type union
+            // for the bound API version, but Stripe may still emit it for
+            // historical accounts. Handle it via a string-narrowed branch so
+            // the existing handler keeps running without an `as any` cast.
+            if ((event.type as string) === "transfer.failed") {
+              const transferEvent = event as unknown as {
+                data: { object: Stripe.Transfer };
+              };
+              await handleTransferFailed(transferEvent.data.object);
+              break;
+            }
             await finalizeWebhookEvent("stripe", event.id, "skipped");
             res.json({ received: true, status: "skipped" });
             return;

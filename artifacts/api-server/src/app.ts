@@ -135,10 +135,12 @@ app.get("/metrics", (req, res) => {
   // DB pool stats (optional — pool exposes these when available)
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { pool } = require("@workspace/db") as { pool: import("pg").Pool };
-    const total = (pool as unknown as { totalCount?: number }).totalCount ?? 0;
-    const idle = (pool as unknown as { idleCount?: number }).idleCount ?? 0;
-    const waiting = (pool as unknown as { waitingCount?: number }).waitingCount ?? 0;
+    const { pool } = require("@workspace/db") as {
+      pool: { totalCount?: number; idleCount?: number; waitingCount?: number };
+    };
+    const total = pool.totalCount ?? 0;
+    const idle = pool.idleCount ?? 0;
+    const waiting = pool.waitingCount ?? 0;
     lines.push("# HELP db_pool_total Total connections in the DB pool");
     lines.push("# TYPE db_pool_total gauge");
     lines.push(`db_pool_total ${total}`);

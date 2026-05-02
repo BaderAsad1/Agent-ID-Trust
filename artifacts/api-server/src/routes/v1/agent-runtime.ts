@@ -286,7 +286,19 @@ function buildPromptBlockStructured(
   appUrl?: string,
   planName?: string,
   apiKeyPrefix?: string,
-): Record<string, unknown> {
+): {
+  meta: {
+    schemaVersion: string;
+    version: string;
+    checksum: string;
+    updatedAt: string;
+    documents: Record<string, { version: string; checksum: string }>;
+  };
+  identity: Record<string, unknown>;
+  policy: Record<string, unknown>;
+  behavior: string;
+  marketplace: Record<string, unknown>;
+} {
   const APP_URL = appUrl || process.env.APP_URL || "https://getagent.id";
   const hasHandle = !!(agent.handlePaid && agent.handle);
   const scopes = (agent.scopes as string[]) || [];
@@ -461,9 +473,9 @@ router.get("/:agentId/prompt-block", requireAgentAuth, async (req, res, next) =>
       const block = buildPromptBlockStructured(
         agent, trust, inbox, capabilities, limits, APP_URL, userPlan, apiKeyPrefix,
       );
-      res.setHeader("X-AgentID-Block-Version", block.meta.version as string);
-      res.setHeader("X-AgentID-Block-Checksum", block.meta.checksum as string);
-      res.setHeader("X-AgentID-Block-UpdatedAt", block.meta.updatedAt as string);
+      res.setHeader("X-AgentID-Block-Version", block.meta.version);
+      res.setHeader("X-AgentID-Block-Checksum", block.meta.checksum);
+      res.setHeader("X-AgentID-Block-UpdatedAt", block.meta.updatedAt);
       res.json(block);
     } else if (format === "json") {
       const block = buildPromptBlockJson(agent, trust, inbox, capabilities);
