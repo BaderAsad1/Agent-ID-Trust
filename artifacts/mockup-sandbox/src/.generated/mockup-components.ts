@@ -18,11 +18,11 @@ export const modules: ModuleMap = {
   "./components/mockups/get-started/SplitScreen.tsx": () => import("../components/mockups/get-started/SplitScreen.tsx"),
   "./components/mockups/pricing/PricingAtlas.tsx": () => import("../components/mockups/pricing/PricingAtlas.tsx"),
   "./components/mockups/pricing/PricingGravity.tsx": () => import("../components/mockups/pricing/PricingGravity.tsx"),
+  "./components/mockups/signin/Redesign.tsx": () => import("../components/mockups/signin/Redesign.tsx"),
   "./components/mockups/onboarding/Step1_Welcome.tsx": () => import("../components/mockups/onboarding/Step1_Welcome.tsx"),
   "./components/mockups/onboarding/Step2_SignIn.tsx": () => import("../components/mockups/onboarding/Step2_SignIn.tsx"),
   "./components/mockups/onboarding/Step3_Identity.tsx": () => import("../components/mockups/onboarding/Step3_Identity.tsx"),
   "./components/mockups/onboarding/Step4_Verify.tsx": () => import("../components/mockups/onboarding/Step4_Verify.tsx"),
   "./components/mockups/onboarding/Step5_Capabilities.tsx": () => import("../components/mockups/onboarding/Step5_Capabilities.tsx"),
-  "./components/mockups/onboarding/Step6_Complete.tsx": () => import("../components/mockups/onboarding/Step6_Complete.tsx"),
-  "./components/mockups/signin/Redesign.tsx": () => import("../components/mockups/signin/Redesign.tsx")
+  "./components/mockups/onboarding/Step6_Complete.tsx": () => import("../components/mockups/onboarding/Step6_Complete.tsx")
 };
