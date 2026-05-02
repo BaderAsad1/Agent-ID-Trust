@@ -8,8 +8,208 @@ import {
   Star, Trash2
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
-import { api, type Agent, type MailThread, type MailMessage, type MailLabel, type MailEvent, type InboxStats, type MailInbox, type RoutingRule, type MailAttachment } from '@/lib/api';
+import { api, type Agent, type MailThread, type MailMessage, type MailLabel, type MailEvent, type InboxStats, type MailInbox, type RoutingRule, type MailAttachment, type MailAttachmentLimits } from '@/lib/api';
 import { Identicon, GlassCard, PrimaryButton, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
+
+const DEFAULT_ATTACHMENT_LIMITS: MailAttachmentLimits = {
+  maxFileSizeBytes: 100 * 1024 * 1024,
+  maxFilesPerMessage: 10,
+  allowedMimeTypes: [],
+};
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function validateAttachmentFiles(
+  newFiles: File[],
+  existing: File[],
+  limits: MailAttachmentLimits,
+): { accepted: File[]; errors: string[] } {
+  const errors: string[] = [];
+  const accepted: File[] = [];
+  const existingCount = existing.length;
+  const allowed = new Set(limits.allowedMimeTypes);
+
+  for (const f of newFiles) {
+    if (existingCount + accepted.length >= limits.maxFilesPerMessage) {
+      errors.push(`Maximum ${limits.maxFilesPerMessage} attachments per message`);
+      break;
+    }
+    if (f.size > limits.maxFileSizeBytes) {
+      errors.push(`${f.name}: exceeds ${formatBytes(limits.maxFileSizeBytes)} limit`);
+      continue;
+    }
+    if (limits.allowedMimeTypes.length > 0 && f.type && !allowed.has(f.type)) {
+      errors.push(`${f.name}: file type "${f.type}" is not allowed`);
+      continue;
+    }
+    accepted.push(f);
+  }
+  return { accepted, errors };
+}
+
+type AttachmentUploadState = 'idle' | 'uploading' | 'done' | 'error';
+interface PendingAttachment {
+  id: string;
+  file: File;
+  state: AttachmentUploadState;
+  error?: string;
+  serverId?: string;
+}
+
+function AttachmentDropzone({
+  pending,
+  onAdd,
+  onRemove,
+  limits,
+  errors,
+  onClearErrors,
+  disabled,
+  compact,
+}: {
+  pending: PendingAttachment[];
+  onAdd: (files: File[]) => void;
+  onRemove: (id: string) => void;
+  limits: MailAttachmentLimits;
+  errors: string[];
+  onClearErrors: () => void;
+  disabled?: boolean;
+  compact?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (disabled) return;
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length > 0) onAdd(files);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (disabled) return;
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
+
+  const accept = limits.allowedMimeTypes.length > 0 ? limits.allowedMimeTypes.join(',') : undefined;
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept={accept}
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files || []);
+          if (files.length > 0) onAdd(files);
+          e.target.value = '';
+        }}
+      />
+
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onClick={() => !disabled && inputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        className={`flex items-center justify-center gap-2 rounded-lg cursor-pointer transition-colors ${compact ? 'px-3 py-2 text-xs' : 'px-3 py-3 text-xs'}`}
+        style={{
+          background: dragActive ? 'rgba(59,130,246,0.12)' : 'rgba(0,0,0,0.08)',
+          border: `1px dashed ${dragActive ? 'var(--accent)' : 'var(--border-color)'}`,
+          color: dragActive ? 'var(--accent)' : 'var(--text-dim)',
+          opacity: disabled ? 0.5 : 1,
+        }}
+      >
+        <Paperclip className="w-3.5 h-3.5" />
+        <span>{dragActive ? 'Drop files to attach' : `Drop files or click to attach · max ${formatBytes(limits.maxFileSizeBytes)}, ${limits.maxFilesPerMessage} files`}</span>
+      </div>
+
+      {errors.length > 0 && (
+        <div className="mt-2 px-2.5 py-1.5 rounded-lg text-xs flex items-start gap-2" style={{ background: 'rgba(239,68,68,0.08)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.2)' }}>
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            {errors.map((e, i) => <div key={i}>{e}</div>)}
+          </div>
+          <button onClick={onClearErrors} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: 0 }}>
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
+      {pending.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {pending.map((p) => {
+            const colors = {
+              idle: { bg: 'rgba(0,0,0,0.15)', fg: 'var(--text-muted)' },
+              uploading: { bg: 'rgba(59,130,246,0.1)', fg: 'var(--accent)' },
+              done: { bg: 'rgba(34,197,94,0.1)', fg: 'var(--success)' },
+              error: { bg: 'rgba(239,68,68,0.1)', fg: 'var(--danger)' },
+            }[p.state];
+            return (
+              <span
+                key={p.id}
+                className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg"
+                style={{ background: colors.bg, border: '1px solid var(--border-color)', color: colors.fg }}
+                title={p.error || p.file.name}
+              >
+                {p.state === 'uploading' && <Loader2 className="w-3 h-3 animate-spin" />}
+                {p.state === 'done' && <CheckCircle className="w-3 h-3" />}
+                {p.state === 'error' && <AlertCircle className="w-3 h-3" />}
+                {p.state === 'idle' && <Paperclip className="w-3 h-3" />}
+                <span className="truncate max-w-[160px]">{p.file.name}</span>
+                <span style={{ color: 'var(--text-dim)' }}>({formatBytes(p.file.size)})</span>
+                {p.state === 'error' && p.error && (
+                  <span className="truncate max-w-[160px]" style={{ color: 'var(--danger)' }}>· {p.error}</span>
+                )}
+                <button
+                  onClick={() => onRemove(p.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 0, lineHeight: 1 }}
+                  aria-label="Remove attachment"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function useAttachmentLimits(): MailAttachmentLimits {
+  const [limits, setLimits] = useState<MailAttachmentLimits>(DEFAULT_ATTACHMENT_LIMITS);
+  useEffect(() => {
+    let mounted = true;
+    api.mail.attachmentLimits().then(l => { if (mounted) setLimits(l); }).catch(() => { /* keep defaults */ });
+    return () => { mounted = false; };
+  }, []);
+  return limits;
+}
 
 const DOMPURIFY_CONFIG: DOMPurifyConfig = {
   ALLOWED_TAGS: [
@@ -579,15 +779,16 @@ function ProvenanceTimeline({ chain }: { chain: Array<{ actor: string; action: s
   );
 }
 
-function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAttachments, onBack, onRefresh, onDelete }: { message: MailMessage; agentId: string; labels?: MailLabel[]; attachments?: MailAttachment[]; onBack: () => void; onRefresh: () => void; onDelete?: () => void }) {
+function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAttachments, attachmentLimits, onBack, onRefresh, onDelete }: { message: MailMessage; agentId: string; labels?: MailLabel[]; attachments?: MailAttachment[]; attachmentLimits: MailAttachmentLimits; onBack: () => void; onRefresh: () => void; onDelete?: () => void }) {
   const [events, setEvents] = useState<MailEvent[]>([]);
   const [showEvents, setShowEvents] = useState(false);
   const [replyBody, setReplyBody] = useState('');
   const [sending, setSending] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const [replyAttachments, setReplyAttachments] = useState<PendingAttachment[]>([]);
+  const [replyAttachmentErrors, setReplyAttachmentErrors] = useState<string[]>([]);
+  const [replyError, setReplyError] = useState<string | null>(null);
   const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({});
-  const replyFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadEvents = useCallback(async () => {
     try {
@@ -600,24 +801,54 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
 
   useEffect(() => { if (showEvents) loadEvents(); }, [showEvents, loadEvents]);
 
+  const addReplyFiles = (files: File[]) => {
+    const { accepted, errors } = validateAttachmentFiles(files, replyAttachments.map(p => p.file), attachmentLimits);
+    if (errors.length > 0) setReplyAttachmentErrors(errors);
+    if (accepted.length > 0) {
+      setReplyAttachments(prev => [
+        ...prev,
+        ...accepted.map(file => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, file, state: 'idle' as AttachmentUploadState })),
+      ]);
+    }
+  };
+
+  const removeReplyAttachment = (id: string) => {
+    setReplyAttachments(prev => prev.filter(p => p.id !== id));
+  };
+
   const handleReply = async () => {
     if (!replyBody.trim() || sending) return;
     setSending(true);
+    setReplyError(null);
     try {
       const res = await api.mail.replyToThread(agentId, message.threadId, replyBody.trim());
       const messageId = res.message.id;
-      for (const file of replyFiles) {
+
+      // Upload each attachment, tracking state
+      let allOk = true;
+      for (const pending of replyAttachments) {
+        if (pending.state === 'done') continue;
+        setReplyAttachments(prev => prev.map(p => p.id === pending.id ? { ...p, state: 'uploading', error: undefined } : p));
         try {
-          await api.mail.uploadAttachment(agentId, messageId, file);
+          const uploaded = await api.mail.uploadAttachment(agentId, messageId, pending.file);
+          setReplyAttachments(prev => prev.map(p => p.id === pending.id ? { ...p, state: 'done', serverId: uploaded.id } : p));
         } catch (uploadErr) {
-          console.error('[mail] Attachment upload failed:', uploadErr);
+          allOk = false;
+          const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload failed';
+          setReplyAttachments(prev => prev.map(p => p.id === pending.id ? { ...p, state: 'error', error: msg } : p));
         }
       }
+
+      if (!allOk) {
+        setReplyError('Some attachments failed to upload. The reply was sent without them.');
+      }
+
       setReplyBody('');
-      setReplyFiles([]);
+      setReplyAttachments([]);
+      setReplyAttachmentErrors([]);
       onRefresh();
     } catch (err) {
-      console.error('[mail] Reply failed:', err);
+      setReplyError(err instanceof Error ? err.message : 'Reply failed');
     } finally {
       setSending(false);
     }
@@ -818,38 +1049,28 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
             className="w-full rounded-lg p-3 text-sm resize-none"
             style={{ background: 'rgba(0,0,0,0.1)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none', fontFamily: 'var(--font-body)' }}
           />
-          {replyFiles.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {replyFiles.map((f, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                  <Paperclip className="w-3 h-3" />
-                  {f.name}
-                  <span style={{ color: 'var(--text-dim)' }}>({(f.size / 1024).toFixed(1)}KB)</span>
-                  <button onClick={() => setReplyFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 0, lineHeight: 1 }}><X className="w-3 h-3" /></button>
-                </span>
-              ))}
+          <div className="mt-2">
+            <AttachmentDropzone
+              pending={replyAttachments}
+              onAdd={addReplyFiles}
+              onRemove={removeReplyAttachment}
+              limits={attachmentLimits}
+              errors={replyAttachmentErrors}
+              onClearErrors={() => setReplyAttachmentErrors([])}
+              disabled={sending}
+              compact
+            />
+          </div>
+          {replyError && (
+            <div className="mt-2 px-2.5 py-1.5 rounded-lg text-xs flex items-start gap-2" style={{ background: 'rgba(239,68,68,0.08)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">{replyError}</div>
+              <button onClick={() => setReplyError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: 0 }}>
+                <X className="w-3 h-3" />
+              </button>
             </div>
           )}
-          <input
-            ref={replyFileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={e => {
-              const files = Array.from(e.target.files || []);
-              setReplyFiles(prev => [...prev, ...files].slice(0, 10));
-              e.target.value = '';
-            }}
-          />
-          <div className="flex items-center justify-between mt-2">
-            <button
-              onClick={() => replyFileInputRef.current?.click()}
-              className="flex items-center gap-1.5 text-xs cursor-pointer"
-              style={{ color: 'var(--text-dim)', background: 'none', border: 'none', fontFamily: 'var(--font-body)' }}
-            >
-              <Paperclip className="w-3.5 h-3.5" />
-              Attach files
-            </button>
+          <div className="flex items-center justify-end mt-2">
             <PrimaryButton onClick={handleReply} disabled={!replyBody.trim() || sending}>
               {sending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Send className="w-4 h-4 mr-1.5" />}
               Send Reply
@@ -861,17 +1082,32 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
   );
 }
 
-function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; agents: Agent[]; onClose: () => void; onSent: () => void }) {
+function ComposeModal({ agentId, agents, attachmentLimits, onClose, onSent }: { agentId: string; agents: Agent[]; attachmentLimits: MailAttachmentLimits; onClose: () => void; onSent: () => void }) {
   const [recipientAddress, setRecipientAddress] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [attachmentErrors, setAttachmentErrors] = useState<string[]>([]);
 
   const otherAgents = agents.filter(a => a.id !== agentId);
+
+  const addFiles = (files: File[]) => {
+    const { accepted, errors } = validateAttachmentFiles(files, pendingAttachments.map(p => p.file), attachmentLimits);
+    if (errors.length > 0) setAttachmentErrors(errors);
+    if (accepted.length > 0) {
+      setPendingAttachments(prev => [
+        ...prev,
+        ...accepted.map(file => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, file, state: 'idle' as AttachmentUploadState })),
+      ]);
+    }
+  };
+
+  const removeAttachment = (id: string) => {
+    setPendingAttachments(prev => prev.filter(p => p.id !== id));
+  };
 
   const handleSend = async () => {
     if (!body.trim() || sending) return;
@@ -887,13 +1123,27 @@ function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; a
         senderType: 'user',
       });
       const messageId = res.message.id;
-      for (const file of pendingFiles) {
+
+      let allOk = true;
+      for (const pending of pendingAttachments) {
+        if (pending.state === 'done') continue;
+        setPendingAttachments(prev => prev.map(p => p.id === pending.id ? { ...p, state: 'uploading', error: undefined } : p));
         try {
-          await api.mail.uploadAttachment(agentId, messageId, file);
+          const uploaded = await api.mail.uploadAttachment(agentId, messageId, pending.file);
+          setPendingAttachments(prev => prev.map(p => p.id === pending.id ? { ...p, state: 'done', serverId: uploaded.id } : p));
         } catch (uploadErr) {
-          console.error('[mail] Attachment upload failed:', uploadErr);
+          allOk = false;
+          const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload failed';
+          setPendingAttachments(prev => prev.map(p => p.id === pending.id ? { ...p, state: 'error', error: msg } : p));
         }
       }
+
+      if (!allOk) {
+        setError('Message sent but some attachments failed to upload.');
+        setSending(false);
+        return;
+      }
+
       onSent();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send');
@@ -979,52 +1229,27 @@ function ComposeModal({ agentId, agents, onClose, onSent }: { agentId: string; a
               style={{ background: 'rgba(0,0,0,0.1)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', outline: 'none' }}
             />
           </div>
-          {pendingFiles.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {pendingFiles.map((f, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                  <Paperclip className="w-3 h-3" />
-                  {f.name}
-                  <span style={{ color: 'var(--text-dim)' }}>({(f.size / 1024).toFixed(1)}KB)</span>
-                  <button onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 0, lineHeight: 1 }}><X className="w-3 h-3" /></button>
-                </span>
-              ))}
-            </div>
-          )}
+          <AttachmentDropzone
+            pending={pendingAttachments}
+            onAdd={addFiles}
+            onRemove={removeAttachment}
+            limits={attachmentLimits}
+            errors={attachmentErrors}
+            onClearErrors={() => setAttachmentErrors([])}
+            disabled={sending}
+          />
         </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={e => {
-            const files = Array.from(e.target.files || []);
-            setPendingFiles(prev => [...prev, ...files].slice(0, 10));
-            e.target.value = '';
-          }}
-        />
-
-        <div className="flex items-center justify-between mt-4">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 text-xs cursor-pointer"
-            style={{ color: 'var(--text-dim)', background: 'none', border: 'none', fontFamily: 'var(--font-body)' }}
-          >
-            <Paperclip className="w-3.5 h-3.5" />
-            Attach files
-          </button>
-          <div className="flex gap-2">
-            <PrimaryButton variant="ghost" onClick={onClose}>Cancel</PrimaryButton>
-            <PrimaryButton variant="ghost" onClick={handleSaveDraft} disabled={!body.trim() || savingDraft || sending}>
-              {savingDraft ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <FileText className="w-4 h-4 mr-1.5" />}
-              Save Draft
-            </PrimaryButton>
-            <PrimaryButton onClick={handleSend} disabled={!body.trim() || sending || savingDraft}>
-              {sending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Send className="w-4 h-4 mr-1.5" />}
-              Send
-            </PrimaryButton>
-          </div>
+        <div className="flex items-center justify-end gap-2 mt-4">
+          <PrimaryButton variant="ghost" onClick={onClose}>Cancel</PrimaryButton>
+          <PrimaryButton variant="ghost" onClick={handleSaveDraft} disabled={!body.trim() || savingDraft || sending}>
+            {savingDraft ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <FileText className="w-4 h-4 mr-1.5" />}
+            Save Draft
+          </PrimaryButton>
+          <PrimaryButton onClick={handleSend} disabled={!body.trim() || sending || savingDraft}>
+            {sending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Send className="w-4 h-4 mr-1.5" />}
+            Send
+          </PrimaryButton>
         </div>
       </div>
     </div>
@@ -1059,6 +1284,7 @@ export function Mail() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedThreadIds, setSelectedThreadIds] = useState<Set<string>>(new Set());
+  const attachmentLimits = useAttachmentLimits();
 
   useEffect(() => {
     if (agents.length > 0 && !selectedAgent) {
@@ -1359,6 +1585,7 @@ export function Mail() {
           agentId={selectedAgent}
           labels={messageLabels}
           attachments={messageAttachments}
+          attachmentLimits={attachmentLimits}
           onBack={() => { setSelectedMessage(null); setView(selectedThread ? 'thread-detail' : 'threads'); }}
           onRefresh={async () => {
             const res = await api.mail.message(selectedAgent, selectedMessage.id);
@@ -1487,6 +1714,7 @@ export function Mail() {
         <ComposeModal
           agentId={selectedAgent}
           agents={agents}
+          attachmentLimits={attachmentLimits}
           onClose={() => setShowCompose(false)}
           onSent={() => { setShowCompose(false); loadInbox(); }}
         />

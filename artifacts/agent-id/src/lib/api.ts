@@ -591,6 +591,9 @@ export const api = {
 
     deleteAttachment: (agentId: string, messageId: string, attachmentId: string) =>
       request<void>(`/mail/agents/${agentId}/messages/${messageId}/attachments/${attachmentId}`, { method: "DELETE" }),
+
+    attachmentLimits: () =>
+      request<MailAttachmentLimits>(`/mail/attachment-limits`),
   },
 
   meta: {
@@ -1126,6 +1129,12 @@ export interface MailAttachment {
   checksum?: string;
   backend?: string;
   createdAt: string;
+}
+
+export interface MailAttachmentLimits {
+  maxFileSizeBytes: number;
+  maxFilesPerMessage: number;
+  allowedMimeTypes: string[];
 }
 
 export interface MailWebhook {

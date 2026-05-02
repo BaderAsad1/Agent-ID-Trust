@@ -36,6 +36,13 @@ The platform aims to provide a robust, secure, and scalable environment for auto
 
 The Agent ID platform is built as a monorepo containing several distinct but interconnected services.
 
+**Mail Attachments (post-task-205):**
+- Backend stores attachments via `lib/attachment-storage.ts` (Cloudflare R2 with inline base64 fallback).
+- Inbound: `mail-inbound.ts` extracts attachments from Resend webhooks (inline base64 `content` or `content_url`), validates mime/size, uploads via `uploadAttachment`, persists to `messageAttachmentsTable`. Failures per-attachment are logged and skipped — they don't fail the inbound delivery.
+- Outbound/manual: `POST /agents/:agentId/messages/:messageId/attachments` (multipart form, busboy). `GET .../url` returns presigned URL. `DELETE .../:attachmentId` removes.
+- Limits exposed via `GET /mail/attachment-limits` → `{ maxFileSizeBytes, maxFilesPerMessage, allowedMimeTypes[] }`.
+- Frontend (`Mail.tsx`): shared `AttachmentDropzone` + `useAttachmentLimits` hook used in ComposeModal and MessageDetail reply. Click + drag-and-drop, client-side mime/size/count validation, per-file upload state (idle/uploading/done/error), per-file remove, errors surfaced in UI (not console).
+
 **Human Onboarding Flow (post-task-166):**
 The correct human onboarding sequence is: sign up → choose plan → set up agent identity.
 - Landing page "Get Started" → `/sign-in?intent=register` (shows "Create your account" copy)

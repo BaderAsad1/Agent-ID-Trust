@@ -987,6 +987,19 @@ router.post("/ingest", requireHumanOrAgentAuth, async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// Attachment limits
+// GET /mail/attachment-limits
+// Public to authenticated callers; allows the UI to validate before upload.
+// ---------------------------------------------------------------------------
+router.get("/attachment-limits", requireHumanOrAgentAuth, (_req, res) => {
+  res.json({
+    maxFileSizeBytes: ATTACHMENT_LIMITS.maxFileSizeBytes,
+    maxFilesPerMessage: ATTACHMENT_LIMITS.maxFilesPerMessage,
+    allowedMimeTypes: Array.from(ATTACHMENT_LIMITS.allowedMimeTypes),
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Attachment upload
 // POST /agents/:agentId/messages/:messageId/attachments
 // Accepts multipart/form-data with a single field named "file".
