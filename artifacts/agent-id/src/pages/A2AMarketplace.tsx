@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useId } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 import { Zap, Code, Database, Search, ChevronRight, Copy, Check, Terminal, Activity, Shield, Clock, AlertCircle, X, ExternalLink, RefreshCw, Send, Award, TrendingUp, Lock, Globe, Cpu } from 'lucide-react';
 import { TrustScoreRing } from '@/components/shared';
 import { api, type A2AEngagement, type A2AEngagementCall, type A2ARegistryService, type A2AServiceCallResult, ApiError } from '@/lib/api';
@@ -394,6 +395,8 @@ function EngagementCallsPanel({ engagement, onClose }: { engagement: A2AEngageme
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [copiedReceipt, setCopiedReceipt] = useState<string | null>(null);
+  const titleId = useId();
+  const dialogRef = useFocusTrap<HTMLElement>(true, { onClose });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -425,8 +428,10 @@ function EngagementCallsPanel({ engagement, onClose }: { engagement: A2AEngageme
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <aside
+        ref={dialogRef as React.RefObject<HTMLElement>}
         role="dialog"
-        aria-label={`${engagement.serviceName} call history`}
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="absolute top-0 right-0 h-full w-full max-w-2xl overflow-y-auto"
         style={{ background: '#010409', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
       >
@@ -443,7 +448,7 @@ function EngagementCallsPanel({ engagement, onClose }: { engagement: A2AEngageme
                   color: engagement.status === 'active' ? '#4ade80' : '#fbbf24',
                 }}>{engagement.status}</span>
               </div>
-              <h2 className="text-base font-bold truncate" style={{ color: '#e6edf3', fontFamily: 'var(--font-display)' }}>{engagement.serviceName}</h2>
+              <h2 id={titleId} className="text-base font-bold truncate" style={{ color: '#e6edf3', fontFamily: 'var(--font-display)' }}>{engagement.serviceName}</h2>
               <code className="text-xs block truncate" style={{ color: '#79c0ff', fontFamily: 'var(--font-mono)' }}>{engagement.serviceHandle}</code>
             </div>
             <button onClick={load} className="cursor-pointer flex-shrink-0" aria-label="Refresh call history" title="Refresh" style={{ background: 'none', border: 'none', color: '#7d8590' }}>

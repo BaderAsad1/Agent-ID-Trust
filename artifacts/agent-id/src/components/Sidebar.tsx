@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Bot, Inbox, Mail, Activity, ShoppingBag, Globe, Network, Settings, ArrowUpRight, ArrowRightLeft, ShieldCheck, Wallet, Lock, X, AtSign, PackageOpen, Code } from 'lucide-react';
 import { Identicon } from '@/components/shared';
 import { useAuth } from '@/lib/AuthContext';
 import { api } from '@/lib/api';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 
 function useUserPlan(): string {
   const [plan, setPlan] = useState<string>('none');
@@ -176,11 +177,21 @@ export function Sidebar() {
 }
 
 export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const labelId = useId();
+  const dialogRef = useFocusTrap<HTMLDivElement>(open, { onClose });
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-60 flex flex-col border-r" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', zIndex: 51 }}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelId}
+        className="relative w-60 flex flex-col border-r"
+        style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', zIndex: 51 }}
+      >
+        <span id={labelId} className="sr-only">Dashboard navigation menu</span>
         <div className="absolute top-3 right-3">
           <button
             onClick={onClose}

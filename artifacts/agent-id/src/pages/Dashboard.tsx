@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useId } from 'react';
 import { useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield, Key, MessageSquare, Send, Trash2, Edit, Code, Eye, EyeOff, Upload, ImageIcon } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
@@ -65,6 +66,8 @@ function VerifyAgentModal({ agent, onClose, onVerified }: { agent: Agent; onClos
   const [signature, setSignature] = useState('');
   const [kid, setKid] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const titleId = useId();
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, { onClose });
 
   const handleInitiate = async () => {
     setStep('initiated');
@@ -93,12 +96,20 @@ function VerifyAgentModal({ agent, onClose, onVerified }: { agent: Agent; onClos
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-      <div className="w-full max-w-md rounded-2xl p-6 relative" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl p-6 relative"
+        style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}
+      >
         <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }} aria-label="Close"><X className="w-5 h-5" /></button>
         <div className="flex items-center gap-3 mb-4">
           <ShieldCheck className="w-6 h-6" style={{ color: 'var(--accent)' }} />
-          <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Verify {agent.displayName}</h3>
+          <h3 id={titleId} className="text-lg font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Verify {agent.displayName}</h3>
         </div>
 
         {step === 'idle' && (
@@ -1375,6 +1386,8 @@ function A2ASettingsModal({ agent, onClose, onSaved }: { agent: Agent; onClose: 
   const [authMethods, setAuthMethods] = useState<string[]>(agent.authMethods && agent.authMethods.length > 0 ? agent.authMethods : ['x402']);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const titleId = useId();
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, { onClose });
 
   const handleSave = async () => {
     if (protocols.length === 0) { setError('Select at least one supported protocol'); return; }
@@ -1400,10 +1413,18 @@ function A2ASettingsModal({ agent, onClose, onSaved }: { agent: Agent; onClose: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-      <div className="w-full max-w-md rounded-2xl p-6 relative" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl p-6 relative"
+        style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}
+      >
         <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }} aria-label="Close"><X className="w-5 h-5" /></button>
-        <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>A2A Service Settings</h3>
+        <h3 id={titleId} className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>A2A Service Settings</h3>
         <p className="text-xs mb-4" style={{ color: 'var(--text-dim)' }}>For <span style={{ color: 'var(--text-muted)' }}>{agent.displayName}</span>{agent.handle ? ` · @${agent.handle}` : ''}</p>
         {error && (
           <div role="alert" className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
@@ -2201,6 +2222,8 @@ function HandleTransferModal({ agent, onClose, onTransferred }: { agent: Agent; 
   const [transferring, setTransferring] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const titleId = useId();
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, { onClose });
 
   const handleTransfer = async () => {
     if (!targetUserId.trim()) return;
@@ -2218,12 +2241,20 @@ function HandleTransferModal({ agent, onClose, onTransferred }: { agent: Agent; 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-      <div className="w-full max-w-md rounded-2xl p-6 relative" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl p-6 relative"
+        style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}
+      >
         <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }} aria-label="Close"><X className="w-5 h-5" /></button>
         <div className="flex items-center gap-3 mb-4">
           <ArrowRightLeft className="w-6 h-6" style={{ color: 'var(--accent)' }} />
-          <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer @{agent.handle}</h3>
+          <h3 id={titleId} className="text-lg font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Transfer @{agent.handle}</h3>
         </div>
 
         {success ? (

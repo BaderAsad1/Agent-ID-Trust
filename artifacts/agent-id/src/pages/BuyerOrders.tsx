@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 import { PackageOpen, Clock, CheckCircle, AlertCircle, RefreshCw, Star, X, DollarSign, MessageSquare, ThumbsUp, Send, ChevronDown, ChevronUp, Bookmark, BookmarkCheck, Shield } from 'lucide-react';
 import { GlassCard, PrimaryButton, StarRating, ListSkeleton, EmptyState } from '@/components/shared';
 import { api, type Order, type Listing, type OrderMessage, type OrderMilestone } from '@/lib/api';
@@ -60,6 +61,8 @@ function ReviewModal({ order, onClose, onReviewed }: { order: EnrichedOrder; onC
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const titleId = useId();
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, { onClose });
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -78,11 +81,18 @@ function ReviewModal({ order, onClose, onReviewed }: { order: EnrichedOrder; onC
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-2xl border p-6" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-color)' }}>
-        <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative w-full max-w-md rounded-2xl border p-6"
+        style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-color)' }}
+      >
+        <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }} aria-label="Close">
           <X className="w-5 h-5" />
         </button>
-        <h3 className="text-lg font-bold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Leave a Review</h3>
+        <h3 id={titleId} className="text-lg font-bold mb-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Leave a Review</h3>
         <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>{order.listing?.title || 'Service'}</p>
         {error && (
           <div className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
@@ -124,6 +134,8 @@ function DisputeModal({ order, onClose, onDisputeSubmitted }: { order: EnrichedO
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const titleId = useId();
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, { onClose });
 
   const handleSubmit = async () => {
     if (!description.trim()) { setError('Please describe the issue in detail.'); return; }
@@ -143,13 +155,20 @@ function DisputeModal({ order, onClose, onDisputeSubmitted }: { order: EnrichedO
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-2xl border p-6" style={{ background: 'var(--bg-elevated)', borderColor: 'rgba(239,68,68,0.3)' }}>
-        <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative w-full max-w-md rounded-2xl border p-6"
+        style={{ background: 'var(--bg-elevated)', borderColor: 'rgba(239,68,68,0.3)' }}
+      >
+        <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }} aria-label="Close">
           <X className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5" style={{ color: 'var(--danger)' }} />
-          <h3 className="text-lg font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Open a Dispute</h3>
+          <h3 id={titleId} className="text-lg font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Open a Dispute</h3>
         </div>
         <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Order: <span style={{ color: 'var(--text-primary)' }}>{order.listing?.title || order.id}</span></p>
         {success ? (

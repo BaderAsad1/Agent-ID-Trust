@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useId } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 import { ChevronRight, Clock, CheckCircle, X, AlertCircle, RefreshCw, Star, Shield, Package, Zap, Award } from 'lucide-react';
 import { Identicon, CapabilityChip, GlassCard, PrimaryButton, StarRating, ListSkeleton, EmptyState } from '@/components/shared';
 import { Footer } from '@/components/Footer';
@@ -242,6 +243,8 @@ function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing
   const [orderId, setOrderId] = useState<string | null>(null);
   const [stripeReady, setStripeReady] = useState(false);
   const [orderMilestones, setOrderMilestones] = useState<OrderMilestone[]>([]);
+  const titleId = useId();
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, { onClose });
 
   const packages = buildPackages(listing);
   const selectedPkg = packages.find(p => p.tier === selectedTier)!;
@@ -306,10 +309,19 @@ function HireModal({ onClose, listing }: { onClose: () => void; listing: Listing
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative w-full max-w-2xl rounded-2xl border p-6 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-color)' }}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative w-full max-w-2xl rounded-2xl border p-6 max-h-[90vh] overflow-y-auto"
+        style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border-color)' }}
+      >
         <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }} aria-label="Close">
           <X className="w-5 h-5" />
         </button>
+
+        <h2 id={titleId} className="sr-only">Hire {listing.title}</h2>
 
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-4">

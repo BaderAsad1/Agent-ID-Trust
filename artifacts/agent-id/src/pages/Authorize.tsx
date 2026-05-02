@@ -446,9 +446,18 @@ export function Authorize() {
             )}
 
             {/* Remember consent */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14, cursor: 'pointer', userSelect: 'none' }}>
-              <div
-                onClick={() => setRememberConsent(v => !v)}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14, cursor: 'pointer', userSelect: 'none', position: 'relative' }}>
+              <input
+                type="checkbox"
+                checked={rememberConsent}
+                onChange={e => setRememberConsent(e.target.checked)}
+                style={{
+                  position: 'absolute', opacity: 0, width: 16, height: 16,
+                  margin: 0, cursor: 'pointer',
+                }}
+              />
+              <span
+                aria-hidden="true"
                 style={{
                   width: 16, height: 16, borderRadius: 4, flexShrink: 0,
                   background: rememberConsent ? 'rgba(79,125,243,0.9)' : 'rgba(255,255,255,0.06)',
@@ -462,7 +471,7 @@ export function Authorize() {
                     <path d="M1 3.5l2.5 2.5 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 )}
-              </div>
+              </span>
               <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
                 Remember for 30 days — skip this screen for{' '}
                 <span style={{ color: 'rgba(255,255,255,0.6)' }}>{clientName}</span>
