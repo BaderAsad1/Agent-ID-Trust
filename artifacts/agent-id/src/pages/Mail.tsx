@@ -492,9 +492,14 @@ function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void })
   return (
     <div>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-dim)' }} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-dim)' }} aria-hidden="true" />
+        <label htmlFor="mail-search" className="sr-only">Search mail</label>
         <input
-          type="text"
+          id="mail-search"
+          name="q"
+          type="search"
+          inputMode="search"
+          autoComplete="off"
           placeholder="Search by subject, body, or sender..."
           value={query}
           onChange={e => setQuery(e.target.value)}
@@ -515,20 +520,20 @@ function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void })
       </div>
       {showAdvanced && (
         <div className="flex flex-wrap gap-2 mt-2 p-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.1)', border: '1px solid var(--border-color)' }}>
-          <select value={direction} onChange={e => setDirection(e.target.value)} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+          <select aria-label="Filter by direction" value={direction} onChange={e => setDirection(e.target.value)} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
             <option value="">Any direction</option>
             <option value="inbound">Inbound</option>
             <option value="outbound">Outbound</option>
             <option value="internal">Internal</option>
           </select>
-          <select value={senderType} onChange={e => setSenderType(e.target.value)} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+          <select aria-label="Filter by sender type" value={senderType} onChange={e => setSenderType(e.target.value)} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
             <option value="">Any sender</option>
             <option value="agent">Agent</option>
             <option value="user">User</option>
             <option value="system">System</option>
             <option value="external">External</option>
           </select>
-          <select value={priority} onChange={e => setPriority(e.target.value)} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+          <select aria-label="Filter by priority" value={priority} onChange={e => setPriority(e.target.value)} className="text-xs px-2 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>
             <option value="">Any priority</option>
             <option value="low">Low</option>
             <option value="normal">Normal</option>
@@ -540,16 +545,16 @@ function SearchBar({ onSearch }: { onSearch: (filters: SearchFilters) => void })
             Verified only
           </label>
           <div className="flex items-center gap-1">
-            <label className="text-xs" style={{ color: 'var(--text-dim)' }}>After:</label>
-            <input type="date" value={afterDate} onChange={e => setAfterDate(e.target.value)} className="text-xs px-1.5 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+            <label htmlFor="mail-filter-after" className="text-xs" style={{ color: 'var(--text-dim)' }}>After:</label>
+            <input id="mail-filter-after" name="after" type="date" autoComplete="off" value={afterDate} onChange={e => setAfterDate(e.target.value)} className="text-xs px-1.5 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
           </div>
           <div className="flex items-center gap-1">
-            <label className="text-xs" style={{ color: 'var(--text-dim)' }}>Before:</label>
-            <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} className="text-xs px-1.5 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+            <label htmlFor="mail-filter-before" className="text-xs" style={{ color: 'var(--text-dim)' }}>Before:</label>
+            <input id="mail-filter-before" name="before" type="date" autoComplete="off" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} className="text-xs px-1.5 py-1 rounded" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
           </div>
           <div className="flex items-center gap-1">
-            <label className="text-xs" style={{ color: 'var(--text-dim)' }}>Min trust:</label>
-            <input type="number" min="0" max="100" value={minTrustScore} onChange={e => setMinTrustScore(e.target.value)} className="text-xs px-1.5 py-1 rounded w-16" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} placeholder="0-100" />
+            <label htmlFor="mail-filter-trust" className="text-xs" style={{ color: 'var(--text-dim)' }}>Min trust:</label>
+            <input id="mail-filter-trust" name="min-trust" type="number" min="0" max="100" autoComplete="off" inputMode="numeric" value={minTrustScore} onChange={e => setMinTrustScore(e.target.value)} className="text-xs px-1.5 py-1 rounded w-16" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} placeholder="0-100" />
           </div>
           <button onClick={doSearch} className="text-xs px-3 py-1 rounded cursor-pointer" style={{ background: 'var(--accent)', color: '#fff', border: 'none' }}>Apply</button>
         </div>
@@ -1261,7 +1266,11 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
 
         <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border-color)' }}>
           <h4 className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-display)' }}>Reply</h4>
+          <label htmlFor="mail-reply-body" className="sr-only">Reply body</label>
           <textarea
+            id="mail-reply-body"
+            name="reply-body"
+            autoComplete="off"
             value={replyBody}
             onChange={e => setReplyBody(e.target.value)}
             placeholder="Type your reply..."
@@ -1418,8 +1427,16 @@ function ComposeModal({ agentId, agents, attachmentLimits, onClose, onSent }: { 
                 >@{a.handle}</button>
               ))}
             </div>
+            <label htmlFor="mail-compose-to" className="sr-only">Recipient address</label>
             <input
-              type="text"
+              id="mail-compose-to"
+              name="to"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               placeholder="or enter address..."
               value={recipientAddress}
               onChange={e => setRecipientAddress(e.target.value)}
@@ -1428,9 +1445,12 @@ function ComposeModal({ agentId, agents, attachmentLimits, onClose, onSent }: { 
             />
           </div>
           <div>
-            <label className="text-xs mb-1 block" style={{ color: 'var(--text-dim)' }}>Subject</label>
+            <label htmlFor="mail-compose-subject" className="text-xs mb-1 block" style={{ color: 'var(--text-dim)' }}>Subject</label>
             <input
+              id="mail-compose-subject"
+              name="subject"
               type="text"
+              autoComplete="off"
               placeholder="Subject..."
               value={subject}
               onChange={e => setSubject(e.target.value)}
@@ -1439,8 +1459,11 @@ function ComposeModal({ agentId, agents, attachmentLimits, onClose, onSent }: { 
             />
           </div>
           <div>
-            <label className="text-xs mb-1 block" style={{ color: 'var(--text-dim)' }}>Message</label>
+            <label htmlFor="mail-compose-body" className="text-xs mb-1 block" style={{ color: 'var(--text-dim)' }}>Message</label>
             <textarea
+              id="mail-compose-body"
+              name="body"
+              autoComplete="off"
               value={body}
               onChange={e => setBody(e.target.value)}
               placeholder="Type your message..."

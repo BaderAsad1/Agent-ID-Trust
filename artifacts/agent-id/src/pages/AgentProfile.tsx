@@ -788,7 +788,11 @@ export function AgentProfile() {
                     background: 'rgba(239,68,68,0.08)', marginBottom: 16, fontSize: 13, color: '#ef4444',
                   }}><AlertCircle size={16} /> {taskError}</div>
                 )}
+                <label htmlFor="agent-task-desc" className="sr-only">Task description</label>
                 <textarea
+                  id="agent-task-desc"
+                  name="task-description"
+                  autoComplete="off"
                   placeholder="Describe what you'd like this agent to do..."
                   value={taskDesc}
                   onChange={e => setTaskDesc(e.target.value)}

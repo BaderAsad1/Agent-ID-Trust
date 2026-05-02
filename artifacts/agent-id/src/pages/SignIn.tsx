@@ -371,18 +371,23 @@ export function SignIn() {
           {/* Email form */}
           <form onSubmit={handleMagicLink}>
             <div style={{ marginBottom: 10 }}>
+              <label htmlFor="signin-email" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+                Email address
+              </label>
               <div style={{ position: 'relative' }}>
                 <input
+                  id="signin-email"
+                  name="email"
                   type="email"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
                   onFocus={() => setFocused(true)}
                   onBlur={() => setFocused(false)}
-                  aria-label="Email address"
                   aria-invalid={!!emailError}
                   aria-describedby={emailError ? 'email-error' : undefined}
                   autoComplete="email"
+                  inputMode="email"
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '12px 44px 12px 14px',

@@ -138,12 +138,12 @@ const sig = crypto.sign(null, Buffer.from("${challenge}"), privateKey);
 console.log(sig.toString("base64"));`}</pre>
             </div>
             <div>
-              <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Key ID (kid)</label>
-              <input value={kid} onChange={e => setKid(e.target.value)} placeholder="Your registered key ID" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+              <label htmlFor="verify-kid" className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Key ID (kid)</label>
+              <input id="verify-kid" name="kid" value={kid} onChange={e => setKid(e.target.value)} placeholder="Your registered key ID" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
             </div>
             <div>
-              <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Signature</label>
-              <textarea value={signature} onChange={e => setSignature(e.target.value)} placeholder="Paste your signed challenge here" rows={3} className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }} />
+              <label htmlFor="verify-signature" className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Signature</label>
+              <textarea id="verify-signature" name="signature" value={signature} onChange={e => setSignature(e.target.value)} placeholder="Paste your signed challenge here" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} rows={3} className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }} />
             </div>
             <PrimaryButton onClick={handleComplete} disabled={!signature.trim() || !kid.trim()}>Complete Verification</PrimaryButton>
           </div>
@@ -466,10 +466,17 @@ function NftStatusSection({ agent, onTransferred }: { agent: Agent; onTransferre
       )}
       {showTransferInput && (
         <div className="mt-2 flex flex-col gap-2">
+          <label htmlFor="nft-transfer-dest" className="sr-only">Destination EVM address</label>
           <input
+            id="nft-transfer-dest"
+            name="dest-address"
             value={destAddress}
             onChange={e => { setDestAddress(e.target.value); setError(null); }}
             placeholder="0x... destination EVM address"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             className="w-full rounded-lg border px-3 py-1.5 text-xs outline-none"
             style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}
           />
@@ -859,16 +866,16 @@ function Overview() {
             <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Edit Agent</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Display name</label>
-                <input value={editDisplayName} onChange={e => setEditDisplayName(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+                <label htmlFor="edit-agent-name" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Display name</label>
+                <input id="edit-agent-name" name="display-name" value={editDisplayName} onChange={e => setEditDisplayName(e.target.value)} autoComplete="off" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
               </div>
               <div>
-                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Endpoint URL</label>
-                <input value={editEndpointUrl} onChange={e => setEditEndpointUrl(e.target.value)} placeholder="https://your-agent.example.com" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+                <label htmlFor="edit-agent-endpoint" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Endpoint URL</label>
+                <input id="edit-agent-endpoint" name="endpoint-url" type="url" inputMode="url" value={editEndpointUrl} onChange={e => setEditEndpointUrl(e.target.value)} placeholder="https://your-agent.example.com" autoComplete="url" autoCorrect="off" autoCapitalize="off" spellCheck={false} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
               </div>
               <div>
-                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Description</label>
-                <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={3} className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+                <label htmlFor="edit-agent-description" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Description</label>
+                <textarea id="edit-agent-description" name="description" value={editDescription} onChange={e => setEditDescription(e.target.value)} autoComplete="off" rows={3} className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
               </div>
               <div className="flex gap-3">
                 <PrimaryButton onClick={handleEditSave} disabled={savingEdit || !editDisplayName.trim()}>
@@ -889,11 +896,14 @@ function Overview() {
             <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
               This permanently deletes <strong style={{ color: 'var(--text-primary)' }}>{deletingAgent.displayName}</strong> and all associated data. This cannot be undone.
             </p>
-            <p className="text-xs mb-2" style={{ color: 'var(--text-dim)' }}>Type the agent name to confirm:</p>
+            <label htmlFor="delete-agent-confirm" className="text-xs mb-2 block" style={{ color: 'var(--text-dim)' }}>Type the agent name to confirm:</label>
             <input
+              id="delete-agent-confirm"
+              name="delete-agent-confirm"
               value={deletingConfirm}
               onChange={e => setDeletingConfirm(e.target.value)}
               placeholder={deletingAgent.displayName}
+              autoComplete="off"
               className="w-full rounded-lg border px-3 py-2 text-sm outline-none mb-4"
               style={{ background: 'var(--bg-base)', borderColor: 'rgba(239,68,68,0.3)', color: 'var(--text-primary)' }}
             />
@@ -1279,33 +1289,33 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
       {error && <div role="alert" className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}><AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" /> {error}</div>}
       <div className="space-y-4">
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Agent</label>
-          <select value={agentId} onChange={e => setAgentId(e.target.value)} aria-label="Select agent" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+          <label htmlFor="listing-agent" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Agent</label>
+          <select id="listing-agent" name="agent" value={agentId} onChange={e => setAgentId(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
             {agents.map(a => <option key={a.id} value={a.id}>{a.displayName} (@{a.handle})</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Title *</label>
-          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Research Assistant" aria-label="Listing title" aria-required="true" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          <label htmlFor="listing-title" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Title *</label>
+          <input id="listing-title" name="title" autoComplete="off" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Research Assistant" aria-required="true" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
         </div>
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Description</label>
-          <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Describe what your agent can do..." aria-label="Listing description" className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          <label htmlFor="listing-description" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Description</label>
+          <textarea id="listing-description" name="description" autoComplete="off" value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Describe what your agent can do..." className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
         </div>
         <div>
-          <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Capability Tags</label>
-          <input value={tags} onChange={e => setTags(e.target.value)} placeholder="research, web-search, coding (comma-separated)" aria-label="Capability tags" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+          <label htmlFor="listing-tags" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Capability Tags</label>
+          <input id="listing-tags" name="tags" autoComplete="off" value={tags} onChange={e => setTags(e.target.value)} placeholder="research, web-search, coding (comma-separated)" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Category</label>
-            <select value={category} onChange={e => setCategory(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+            <label htmlFor="listing-category" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Category</label>
+            <select id="listing-category" name="category" value={category} onChange={e => setCategory(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
               {['Research', 'Code', 'Data', 'Support', 'Content', 'Custom'].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Pricing Model</label>
-            <select value={priceType} onChange={e => setPriceType(e.target.value as 'fixed' | 'per_task' | 'hourly')} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+            <label htmlFor="listing-price-type" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Pricing Model</label>
+            <select id="listing-price-type" name="price-type" value={priceType} onChange={e => setPriceType(e.target.value as 'fixed' | 'per_task' | 'hourly')} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
               <option value="per_task">Per Task</option>
               <option value="hourly">Hourly</option>
               <option value="fixed">Fixed Price</option>
@@ -1314,8 +1324,8 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Price ($) *</label>
-            <input type="number" value={priceAmount} onChange={e => setPriceAmount(e.target.value)} placeholder="0.00" aria-label="Price in dollars" aria-required="true" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+            <label htmlFor="listing-price" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Price ($) *</label>
+            <input id="listing-price" name="price" type="number" inputMode="decimal" autoComplete="off" value={priceAmount} onChange={e => setPriceAmount(e.target.value)} placeholder="0.00" aria-required="true" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
           </div>
           <div className="flex items-end pb-1">
             <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -1887,7 +1897,11 @@ function MarketplaceDashboard() {
                                 )}
                                 {!alreadyResponded && isBuyerDispute && dispute.status !== 'resolved' && (
                                   <div>
+                                    <label htmlFor={`dispute-response-${order.id}`} className="sr-only">Dispute response</label>
                                     <textarea
+                                      id={`dispute-response-${order.id}`}
+                                      name="dispute-response"
+                                      autoComplete="off"
                                       value={disputeResponseDraft[order.id] || ''}
                                       onChange={e => setDisputeResponseDraft(p => ({ ...p, [order.id]: e.target.value }))}
                                       placeholder="Explain your side. An operator will review and resolve."
@@ -1963,7 +1977,11 @@ function MarketplaceDashboard() {
                             ))}
                           </div>
                           <div className="flex gap-2">
+                            <label htmlFor={`order-msg-${order.id}`} className="sr-only">Message to buyer</label>
                             <input
+                              id={`order-msg-${order.id}`}
+                              name="order-message"
+                              autoComplete="off"
                               value={orderMsgDraft[order.id] || ''}
                               onChange={e => setOrderMsgDraft(p => ({ ...p, [order.id]: e.target.value }))}
                               onKeyDown={e => e.key === 'Enter' && sendProviderMessage(order.id)}
@@ -2273,8 +2291,14 @@ function HandleTransferModal({ agent, onClose, onTransferred }: { agent: Agent; 
               </div>
             )}
             <div>
-              <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>New Owner User ID</label>
+              <label htmlFor="transfer-target-user" className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>New Owner User ID</label>
               <input
+                id="transfer-target-user"
+                name="target-user-id"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
                 value={targetUserId}
                 onChange={e => setTargetUserId(e.target.value)}
                 placeholder="Enter the target user ID"
@@ -2378,22 +2402,22 @@ function FleetManagement() {
           )}
           <div className="space-y-4">
             <div>
-              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Root Handle</label>
-              <select value={selectedRoot} onChange={e => setSelectedRoot(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+              <label htmlFor="sub-handle-root" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Root Handle</label>
+              <select id="sub-handle-root" name="root-handle" value={selectedRoot} onChange={e => setSelectedRoot(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
                 <option value="">Select a root handle</option>
                 {rootHandles.map(a => <option key={a.id} value={a.handle}>@{a.handle}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Sub-Handle Name</label>
+              <label htmlFor="sub-handle-name" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Sub-Handle Name</label>
               <div className="flex items-center gap-2">
-                <input value={subName} onChange={e => setSubName(e.target.value)} placeholder="research" className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+                <input id="sub-handle-name" name="sub-name" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} value={subName} onChange={e => setSubName(e.target.value)} placeholder="research" className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
                 {selectedRoot && <span className="text-sm" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>.{selectedRoot}</span>}
               </div>
             </div>
             <div>
-              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Display Name</label>
-              <input value={subDisplayName} onChange={e => setSubDisplayName(e.target.value)} placeholder="Research Division" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+              <label htmlFor="sub-handle-display" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Display Name</label>
+              <input id="sub-handle-display" name="sub-display-name" autoComplete="nickname" value={subDisplayName} onChange={e => setSubDisplayName(e.target.value)} placeholder="Research Division" className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
             </div>
             <div className="flex gap-3">
               <PrimaryButton onClick={handleCreate} disabled={creating || !selectedRoot || !subName.trim() || !subDisplayName.trim()}>
@@ -2696,8 +2720,11 @@ function SettingsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs mb-1" style={labelStyle}>Display name</label>
+                <label htmlFor="profile-display-name" className="block text-xs mb-1" style={labelStyle}>Display name</label>
                 <input
+                  id="profile-display-name"
+                  name="display-name"
+                  autoComplete="name"
                   value={displayNameDraft}
                   onChange={e => setDisplayNameDraft(e.target.value)}
                   placeholder="Your name"
@@ -2706,8 +2733,12 @@ function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs mb-1" style={labelStyle}>Email</label>
+                <label htmlFor="profile-email" className="block text-xs mb-1" style={labelStyle}>Email</label>
                 <input
+                  id="profile-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
                   value={profile?.email ?? ''}
                   readOnly
                   className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
@@ -2797,7 +2828,11 @@ function SettingsPage() {
             User-scoped keys authenticate as you across all your agents. Use these in server-side integrations.
           </p>
           <div className="flex gap-2 mb-4">
+            <label htmlFor="new-api-key-label" className="sr-only">New API key label</label>
             <input
+              id="new-api-key-label"
+              name="api-key-label"
+              autoComplete="off"
               value={newKeyLabel}
               onChange={e => setNewKeyLabel(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreateKey()}
@@ -2958,7 +2993,11 @@ function SettingsPage() {
                 <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
                   Type <strong style={{ color: 'var(--text-primary)' }}>delete my account</strong> to confirm.
                 </p>
+                <label htmlFor="delete-account-confirm" className="sr-only">Type delete my account to confirm</label>
                 <input
+                  id="delete-account-confirm"
+                  name="delete-account-confirm"
+                  autoComplete="off"
                   value={deleteConfirmText}
                   onChange={e => setDeleteConfirmText(e.target.value)}
                   placeholder="delete my account"
@@ -3053,6 +3092,7 @@ function CredentialDashboard() {
         <h2 className="text-xl font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Agent Credential <span title="W3C Verifiable Credential encoded as a JSON Web Token (JWT). Interoperable with any VC-compatible verifier." style={{ fontSize: 11, fontWeight: 600, color: 'rgba(52,211,153,0.7)', background: 'rgba(52,211,153,0.08)', padding: '2px 8px', borderRadius: 5, verticalAlign: 'middle', marginLeft: 6, cursor: 'help' }}>W3C VC (JWT)</span></h2>
         {agents.length > 1 && (
           <select
+            aria-label="Select agent"
             value={selectedAgentId}
             onChange={e => setSelectedAgentId(e.target.value)}
             className="rounded-lg px-3 py-2 text-sm border"
@@ -3311,8 +3351,10 @@ function WalletDashboard() {
 
       {agents.length > 1 && (
         <div className="mb-6">
-          <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Select Agent</label>
+          <label htmlFor="select-agent" className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Select Agent</label>
           <select
+            id="select-agent"
+            name="agent"
             value={selectedAgent}
             onChange={e => setSelectedAgent(e.target.value)}
             className="w-full sm:max-w-xs rounded-lg border px-3 py-2 text-sm outline-none"
@@ -3453,9 +3495,13 @@ function WalletDashboard() {
             {editingRules && rulesDraft ? (
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Max per transaction ($)</label>
+                  <label htmlFor="rule-max-per-tx" className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Max per transaction ($)</label>
                   <input
+                    id="rule-max-per-tx"
+                    name="max-per-transaction"
                     type="number"
+                    inputMode="decimal"
+                    autoComplete="off"
                     value={rulesDraft.maxPerTransactionCents / 100}
                     onChange={e => setRulesDraft({ ...rulesDraft, maxPerTransactionCents: Math.round(Number(e.target.value) * 100) })}
                     className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
@@ -3463,9 +3509,13 @@ function WalletDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Daily cap ($)</label>
+                  <label htmlFor="rule-daily-cap" className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Daily cap ($)</label>
                   <input
+                    id="rule-daily-cap"
+                    name="daily-cap"
                     type="number"
+                    inputMode="decimal"
+                    autoComplete="off"
                     value={rulesDraft.dailyCapCents / 100}
                     onChange={e => setRulesDraft({ ...rulesDraft, dailyCapCents: Math.round(Number(e.target.value) * 100) })}
                     className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
@@ -3473,9 +3523,13 @@ function WalletDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Monthly cap ($)</label>
+                  <label htmlFor="rule-monthly-cap" className="text-xs block mb-1" style={{ color: 'var(--text-dim)' }}>Monthly cap ($)</label>
                   <input
+                    id="rule-monthly-cap"
+                    name="monthly-cap"
                     type="number"
+                    inputMode="decimal"
+                    autoComplete="off"
                     value={rulesDraft.monthlyCapCents / 100}
                     onChange={e => setRulesDraft({ ...rulesDraft, monthlyCapCents: Math.round(Number(e.target.value) * 100) })}
                     className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
@@ -3605,8 +3659,16 @@ function IconField({
           <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Preview</span>
         </div>
         <div className="flex-1 min-w-0 space-y-2">
+          <label htmlFor="icon-url" className="sr-only">Icon URL</label>
           <input
+            id="icon-url"
+            name="icon-url"
             type="url"
+            inputMode="url"
+            autoComplete="url"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             value={value}
             onChange={e => onChange(e.target.value)}
             placeholder="https://example.com/icon.png"
@@ -3881,13 +3943,13 @@ function DeveloperPage() {
               </div>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>App Name *</label>
-                  <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="My App"
+                  <label htmlFor="oauth-app-name" className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>App Name *</label>
+                  <input id="oauth-app-name" name="app-name" autoComplete="off" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="My App"
                     className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>Description</label>
-                  <input value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="Optional"
+                  <label htmlFor="oauth-app-desc" className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>Description</label>
+                  <input id="oauth-app-desc" name="app-description" autoComplete="off" value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="Optional"
                     className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
                 </div>
                 <div>
@@ -3902,8 +3964,8 @@ function DeveloperPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>Redirect URIs <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(one per line)</span></label>
-                  <textarea value={createRedirects} onChange={e => setCreateRedirects(e.target.value)} rows={3}
+                  <label htmlFor="oauth-app-redirects" className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>Redirect URIs <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(one per line)</span></label>
+                  <textarea id="oauth-app-redirects" name="redirect-uris" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} value={createRedirects} onChange={e => setCreateRedirects(e.target.value)} rows={3}
                     placeholder="https://yourapp.com/callback"
                     className="w-full px-3 py-2 rounded-lg text-sm resize-none" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }} />
                 </div>
@@ -4075,7 +4137,7 @@ function DeveloperPage() {
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>Third-party apps authorized to act on behalf of your agents. Revoke access at any time.</p>
             </div>
             {agents.length > 1 && (
-              <select value={selectedAgentId} onChange={e => setSelectedAgentId(e.target.value)}
+              <select aria-label="Filter by agent" value={selectedAgentId} onChange={e => setSelectedAgentId(e.target.value)}
                 className="px-3 py-1.5 rounded-lg text-sm sm:max-w-xs"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
                 {agents.map(a => <option key={a.id} value={a.id}>@{a.handle}</option>)}

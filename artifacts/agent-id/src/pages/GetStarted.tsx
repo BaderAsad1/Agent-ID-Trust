@@ -229,11 +229,15 @@ function CapabilitiesStep({ selectedCaps, setSelectedCaps, error, onBack, onNext
         )}
 
         <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+          <label htmlFor="custom-skill-input" className="sr-only">Add a custom skill</label>
           <input
+            id="custom-skill-input"
+            name="custom-skill"
             value={customInput}
             onChange={e => setCustomInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomSkill(); } }}
             placeholder="Add a custom skill…"
+            autoComplete="off"
             style={{
               flex: 1, padding: '10px 14px', borderRadius: 10,
               background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
@@ -857,6 +861,7 @@ export function GetStarted() {
 
           {/* Handle hero input */}
           <div style={{ marginBottom: 24 }}>
+            <label htmlFor="agent-handle" className="sr-only">Agent handle</label>
             <div style={{
               display: 'flex', alignItems: 'stretch',
               background: 'rgba(255,255,255,0.04)',
@@ -874,10 +879,17 @@ export function GetStarted() {
               transition: 'all 0.2s',
             }}>
               <input
+                id="agent-handle"
+                name="handle"
                 value={handle}
                 onChange={e => { setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')); setError(null); }}
                 placeholder="my-agent"
                 autoFocus
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                aria-describedby="agent-handle-status"
                 style={{
                   flex: 1, padding: '18px 20px',
                   fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 600, color: '#e8e8f0',
@@ -897,7 +909,7 @@ export function GetStarted() {
               </div>
             </div>
 
-            <div style={{ marginTop: 10, height: 20, display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 4 }}>
+            <div id="agent-handle-status" style={{ marginTop: 10, height: 20, display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 4 }}>
               {handle.length >= 1 && handle.length < 3 && (
                 <span style={{ fontSize: 12, color: 'rgba(232,232,240,0.3)' }}>Minimum 3 characters</span>
               )}
@@ -918,11 +930,14 @@ export function GetStarted() {
 
           {/* Display name (optional) */}
           <div style={{ marginBottom: 16 }}>
-            <div style={labelStyle}>Display name (optional)</div>
+            <label htmlFor="agent-display-name" style={labelStyle as React.CSSProperties}>Display name (optional)</label>
             <input
+              id="agent-display-name"
+              name="display-name"
               value={agentName}
               onChange={e => setAgentName(e.target.value)}
               placeholder={handle ? handle.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'My Research Agent'}
+              autoComplete="nickname"
               style={{
                 width: '100%', padding: '12px 16px', borderRadius: 10,
                 background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',

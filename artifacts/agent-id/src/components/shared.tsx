@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
 
 export function AgentHandle({ handle, showPrefix = true, size = 'md' }: { handle: string; showPrefix?: boolean; size?: 'sm' | 'md' | 'lg' }) {
@@ -163,21 +163,35 @@ export function PrimaryButton({ children, onClick, large = false, variant = 'blu
   );
 }
 
-export function InputField({ label, placeholder, type = 'text', value, onChange, prefix, suffix, mono = false, maxLength, charCount }: {
+export function InputField({ label, placeholder, type = 'text', value, onChange, prefix, suffix, mono = false, maxLength, charCount, id, name, autoComplete, inputMode }: {
   label?: string; placeholder?: string; type?: string; value?: string; onChange?: (v: string) => void; prefix?: string; suffix?: React.ReactNode; mono?: boolean; maxLength?: number; charCount?: boolean;
+  id?: string; name?: string; autoComplete?: string; inputMode?: 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search';
 }) {
+  const reactId = React.useId();
+  const inputId = id || `inputfield-${reactId}`;
+  const inferredAutoComplete = autoComplete ?? (
+    type === 'email' ? 'email' :
+    type === 'password' ? 'current-password' :
+    type === 'url' ? 'url' :
+    type === 'tel' ? 'tel' :
+    'off'
+  );
   return (
     <div className="space-y-1.5">
-      {label && <label className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>{label}</label>}
+      {label && <label htmlFor={inputId} className="text-sm font-medium block" style={{ color: 'var(--text-muted)' }}>{label}</label>}
       <div className="relative flex items-center">
         {prefix && <span className="absolute left-3 text-sm" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>{prefix}</span>}
         <input
+          id={inputId}
+          name={name || inputId}
           type={type}
           placeholder={placeholder}
           value={value}
           onChange={e => onChange?.(e.target.value)}
           maxLength={maxLength}
-          aria-label={label || placeholder}
+          autoComplete={inferredAutoComplete}
+          inputMode={inputMode}
+          aria-label={label ? undefined : placeholder}
           className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition-colors focus:border-[var(--border-focus)]"
           style={{
             fontFamily: mono ? 'var(--font-mono)' : 'var(--font-body)',

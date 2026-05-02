@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
@@ -127,21 +127,33 @@ function MachineReadableZone() {
   );
 }
 
-function FieldGroup({ label, value, onChange, placeholder, suffix, isTextarea, normalizeHandle, children }: {
+function FieldGroup({ label, value, onChange, placeholder, suffix, isTextarea, normalizeHandle, autoComplete, name, children }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string;
-  suffix?: string; isTextarea?: boolean; normalizeHandle?: boolean; children?: React.ReactNode;
+  suffix?: string; isTextarea?: boolean; normalizeHandle?: boolean;
+  autoComplete?: string; name?: string; children?: React.ReactNode;
 }) {
+  const reactId = React.useId();
+  const inputId = `field-${reactId}`;
+  const inputName = name || label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const ac = autoComplete ?? (normalizeHandle ? 'username' : 'off');
   return (
     <div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', color: 'rgba(232,232,240,0.3)', marginBottom: 8, textTransform: 'uppercase' }}>{label}</div>
+      <label htmlFor={inputId} style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', color: 'rgba(232,232,240,0.3)', marginBottom: 8, textTransform: 'uppercase' }}>{label}</label>
       {isTextarea ? (
         <textarea
+          id={inputId} name={inputName}
+          autoComplete={ac}
           value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
           style={{ width: '100%', minHeight: 72, padding: '12px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, fontFamily: 'var(--font-body)', fontSize: 15, color: '#e8e8f0', lineHeight: 1.5, boxSizing: 'border-box', resize: 'vertical', outline: 'none' }}
         />
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden' }}>
           <input
+            id={inputId} name={inputName}
+            autoComplete={ac}
+            autoCorrect={normalizeHandle ? 'off' : undefined}
+            autoCapitalize={normalizeHandle ? 'none' : undefined}
+            spellCheck={normalizeHandle ? false : undefined}
             value={value}
             onChange={e => onChange(normalizeHandle ? e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') : e.target.value)}
             placeholder={placeholder}
@@ -745,10 +757,18 @@ export function Start() {
             </div>
 
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', color: 'rgba(232,232,240,0.3)', marginBottom: 10, textTransform: 'uppercase' }}>Task Endpoint (optional)</div>
+              <label htmlFor="agent-endpoint" style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', color: 'rgba(232,232,240,0.3)', marginBottom: 10, textTransform: 'uppercase' }}>Task Endpoint (optional)</label>
               <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden' }}>
                 <div style={{ padding: '11px 12px', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(232,232,240,0.25)', borderRight: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>https://</div>
                 <input
+                  id="agent-endpoint"
+                  name="endpoint"
+                  type="url"
+                  inputMode="url"
+                  autoComplete="url"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
                   value={endpoint.replace(/^https?:\/\//, '')}
                   onChange={e => setEndpoint(e.target.value ? `https://${e.target.value.replace(/^https?:\/\//, '')}` : '')}
                   placeholder={`api.${handle || 'your-agent'}.dev/tasks`}

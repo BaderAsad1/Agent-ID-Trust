@@ -88,11 +88,15 @@ export function AdminDisputes() {
         <form onSubmit={submitAuth} style={{ width: '100%', maxWidth: 380, background: 'var(--bg-elevated, #18181b)', border: '1px solid var(--border-color, #2a2a2a)', borderRadius: 12, padding: 24 }}>
           <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Admin · Disputes</h1>
           <p style={{ fontSize: 13, color: 'var(--text-dim, #888)', marginBottom: 12 }}>Enter the admin key to continue.</p>
+          <label htmlFor="admin-key" style={{ display: 'block', fontSize: 12, color: 'var(--text-dim, #888)', marginBottom: 6 }}>Admin key</label>
           <input
+            id="admin-key"
+            name="admin-key"
             type="password"
             value={adminKey}
             onChange={e => setAdminKey(e.target.value)}
             placeholder="X-Admin-Key"
+            autoComplete="current-password"
             data-testid="input-admin-key"
             style={{ width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border-color)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 13 }}
           />
@@ -182,10 +186,14 @@ export function AdminDisputes() {
                         );
                       })}
                     </div>
+                    <label htmlFor={`admin-note-${dispute.id}`} className="sr-only">Admin note</label>
                     <textarea
+                      id={`admin-note-${dispute.id}`}
+                      name={`admin-note-${dispute.id}`}
                       value={draft.adminNote}
                       onChange={e => setDraft(order.id, { adminNote: e.target.value })}
                       placeholder="Optional admin note (sent to both parties)"
+                      autoComplete="off"
                       data-testid={`input-admin-note-${dispute.id}`}
                       rows={2}
                       style={{ background: 'var(--bg-base)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 8, padding: 8, fontSize: 12, resize: 'vertical' }}
