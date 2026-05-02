@@ -26,6 +26,10 @@ vi.mock("@workspace/db", () => ({
 vi.mock("../lib/redis", () => ({
   isRedisConfigured: vi.fn(),
   getSharedRedis: vi.fn(),
+  getRedis: vi.fn().mockReturnValue(null),
+  createBullMQConnection: vi.fn().mockReturnValue({ connection: {} }),
+  logRedisConnectionPlan: vi.fn(),
+  closeRedis: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../workers/worker-failure", () => ({

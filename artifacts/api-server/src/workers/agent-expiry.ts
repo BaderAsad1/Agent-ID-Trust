@@ -2,7 +2,7 @@ import { Queue, Worker, type Job } from "bullmq";
 import { and, eq, lte, sql, inArray, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, apiKeysTable, agentKeysTable, agentVerificationChallengesTable, agentClaimTokensTable } from "@workspace/db/schema";
-import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
+import { createBullMQConnection, isRedisConfigured } from "../lib/redis";
 import { recordWorkerFailure, recordWorkerSuccess } from "./worker-failure";
 import { logger } from "../middlewares/request-logger";
 
@@ -172,7 +172,7 @@ export function startAgentExpiryWorker(): void {
   if (worker) return;
 
   queue = new Queue(QUEUE_NAME, {
-    ...getBullMQConnection(),
+    ...createBullMQConnection("agent-expiry:queue"),
     defaultJobOptions: {
       removeOnComplete: { count: 10 },
       removeOnFail: { count: 50 },
@@ -197,7 +197,7 @@ export function startAgentExpiryWorker(): void {
       return await runExpiryTasks();
     },
     {
-      ...getBullMQConnection(),
+      ...createBullMQConnection("agent-expiry:worker"),
       concurrency: 1,
     },
   );

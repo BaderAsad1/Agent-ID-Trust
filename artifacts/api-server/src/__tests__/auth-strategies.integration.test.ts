@@ -25,7 +25,11 @@ vi.mock("../services/email.js", () => ({
 }));
 vi.mock("../lib/redis", () => ({
   getRedis: vi.fn().mockReturnValue(null),
+  getSharedRedis: vi.fn().mockReturnValue(null),
   isRedisConfigured: vi.fn().mockReturnValue(false),
+  createBullMQConnection: vi.fn().mockReturnValue({ connection: {} }),
+  logRedisConnectionPlan: vi.fn(),
+  closeRedis: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../services/billing", () => ({
   getUserPlan: vi.fn().mockResolvedValue("free"),

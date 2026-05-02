@@ -5,7 +5,7 @@ import { outboundMessageDeliveriesTable, agentsTable, agentMessagesTable } from 
 import { env } from "../lib/env";
 import { logger } from "../middlewares/request-logger";
 import { Queue } from "bullmq";
-import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
+import { createBullMQConnection, isRedisConfigured } from "../lib/redis";
 
 export interface TransportEnvelope {
   messageId: string;
@@ -198,7 +198,7 @@ function getOutboundQueue(): Queue | null {
   if (!isRedisConfigured()) return null;
 
   try {
-    outboundQueue = new Queue("outbound-mail", { ...getBullMQConnection() });
+    outboundQueue = new Queue("outbound-mail", { ...createBullMQConnection("outbound-mail:queue") });
     outboundQueue.on("error", (err) => {
       logger.warn({ err: err.message }, "[mail-transport] Outbound queue connection error");
     });

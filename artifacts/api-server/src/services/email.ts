@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { isRedisConfigured, getBullMQConnection } from "../lib/redis.js";
+import { isRedisConfigured, createBullMQConnection } from "../lib/redis.js";
 import {
   renderTemplate,
   type EmailTemplate,
@@ -21,7 +21,7 @@ function getQueue(): Queue | null {
   if (emailQueue) return emailQueue;
   if (!isRedisConfigured()) return null;
   try {
-    emailQueue = new Queue(QUEUE_NAME, { ...getBullMQConnection() });
+    emailQueue = new Queue(QUEUE_NAME, { ...createBullMQConnection("email-notifications:queue") });
     return emailQueue;
   } catch {
     return null;

@@ -78,7 +78,11 @@ export function mockRedis() {
       expire: vi.fn().mockResolvedValue(1),
       del: vi.fn().mockResolvedValue(1),
     }),
+    getSharedRedis: vi.fn().mockReturnValue(null),
     isRedisConfigured: vi.fn().mockReturnValue(false),
+    createBullMQConnection: vi.fn().mockReturnValue({ connection: {} }),
+    logRedisConnectionPlan: vi.fn(),
+    closeRedis: vi.fn().mockResolvedValue(undefined),
   }));
 }
 

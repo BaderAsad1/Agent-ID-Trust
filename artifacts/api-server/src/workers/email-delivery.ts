@@ -1,5 +1,5 @@
 import { Worker, type Job } from "bullmq";
-import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
+import { createBullMQConnection, isRedisConfigured } from "../lib/redis";
 import { logger } from "../middlewares/request-logger";
 import {
   deliverOutbound,
@@ -53,7 +53,7 @@ export function initEmailDeliveryWorker(): void {
     QUEUE_NAME,
     processEmailJob,
     {
-      ...getBullMQConnection(),
+      ...createBullMQConnection("email-delivery:worker"),
       concurrency: 3,
     },
   );

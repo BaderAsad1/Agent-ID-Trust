@@ -50,6 +50,10 @@ vi.mock("../middlewares/request-logger", () => ({
 vi.mock("../lib/redis", () => ({
   isRedisConfigured: () => false,
   getSharedRedis: vi.fn(),
+  getRedis: vi.fn().mockReturnValue(null),
+  createBullMQConnection: vi.fn().mockReturnValue({ connection: {} }),
+  logRedisConnectionPlan: vi.fn(),
+  closeRedis: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../middlewares/rate-limit", () => ({

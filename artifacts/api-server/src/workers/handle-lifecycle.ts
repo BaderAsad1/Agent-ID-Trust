@@ -2,7 +2,7 @@ import { Queue, Worker, type Job } from "bullmq";
 import { and, eq, lte, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentsTable, handleAuctionsTable } from "@workspace/db/schema";
-import { getBullMQConnection, isRedisConfigured } from "../lib/redis";
+import { createBullMQConnection, isRedisConfigured } from "../lib/redis";
 import { logger } from "../middlewares/request-logger";
 import { getHandlePricing } from "../services/handle-pricing";
 import { processSuspendedHandles } from "../services/handle";
@@ -268,7 +268,7 @@ export function startHandleLifecycleWorker(): void {
   if (worker) return;
 
   queue = new Queue(QUEUE_NAME, {
-    ...getBullMQConnection(),
+    ...createBullMQConnection("handle-lifecycle:queue"),
     defaultJobOptions: {
       removeOnComplete: { count: 10 },
       removeOnFail: { count: 50 },
@@ -293,7 +293,7 @@ export function startHandleLifecycleWorker(): void {
       return await runLifecycleTasks();
     },
     {
-      ...getBullMQConnection(),
+      ...createBullMQConnection("handle-lifecycle:worker"),
       concurrency: 1,
     },
   );

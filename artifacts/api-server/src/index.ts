@@ -11,7 +11,7 @@ import { initUndeliverableCleanupWorker, stopUndeliverableCleanupWorker } from "
 import { initOutboundMailWorker, closeOutboundMailWorker } from "./workers/outbound-mail";
 import { startAgentExpiryWorker, stopAgentExpiryWorker } from "./workers/agent-expiry";
 import { closeOutboundQueue } from "./services/mail-transport";
-import { closeRedis, verifyRedisEvictionPolicy } from "./lib/redis";
+import { closeRedis, verifyRedisEvictionPolicy, logRedisConnectionPlan } from "./lib/redis";
 import { pool } from "@workspace/db";
 import { expireJobs } from "./services/jobs";
 import { logger } from "./middlewares/request-logger";
@@ -90,6 +90,12 @@ if (config.REDIS_URL) {
   startNftMintWorker();
   startNftTransferDetector();
   startReputationJob();
+  // Steady-state Redis connection accounting (audit #07 §1.2). The
+  // projection is derived entirely from the live `_bullMQConnections` Set
+  // inside `logRedisConnectionPlan` (workers vs queues are classified by
+  // `connectionName` suffix), so this stays accurate even as Workers or
+  // Queues are added or removed.
+  logRedisConnectionPlan();
 } else {
   logger.warn("[startup] Redis not configured — all background workers are disabled. Queued operations (webhooks, email, domain provisioning, NFT minting) will not run.");
 }
