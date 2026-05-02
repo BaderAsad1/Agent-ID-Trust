@@ -5,7 +5,7 @@ import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, Capabil
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
-import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus, type OrderMessage, type OrderMilestone, type OAuthClient, type OAuthConnection } from '@/lib/api';
+import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus, type OrderMessage, type OrderMilestone, type OAuthClient, type OAuthConnection, type Dispute } from '@/lib/api';
 import { formatPrice, formatJobBudget } from '@/lib/pricing';
 import { useSEO } from '@/lib/useSEO';
 import { Mail } from '@/pages/Mail';
@@ -1134,6 +1134,10 @@ function MarketplaceDashboard() {
   const [deletingListingId, setDeletingListingId] = useState<string | null>(null);
   const [orderMilestones, setOrderMilestones] = useState<Record<string, OrderMilestone[]>>({});
   const [releasingMilestone, setReleasingMilestone] = useState<string | null>(null);
+  const [orderDisputes, setOrderDisputes] = useState<Record<string, Dispute | null>>({});
+  const [disputeResponseDraft, setDisputeResponseDraft] = useState<Record<string, string>>({});
+  const [submittingDispute, setSubmittingDispute] = useState<string | null>(null);
+  const [disputeError, setDisputeError] = useState<Record<string, string>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1161,12 +1165,46 @@ function MarketplaceDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  useEffect(() => {
+    sellerOrders
+      .filter(o => o.status === 'disputed' && !(o.id in orderDisputes))
+      .forEach(o => { void loadDispute(o.id); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sellerOrders]);
+
   const loadOrderMilestones = async (orderId: string) => {
     if (orderMilestones[orderId]) return;
     try {
       const res = await api.marketplace.orders.milestones(orderId);
       setOrderMilestones(p => ({ ...p, [orderId]: res.milestones || [] }));
     } catch { setOrderMilestones(p => ({ ...p, [orderId]: [] })); }
+  };
+
+  const loadDispute = async (orderId: string) => {
+    if (orderId in orderDisputes) return;
+    try {
+      const res = await api.marketplace.orders.getDispute(orderId);
+      setOrderDisputes(p => ({ ...p, [orderId]: res.dispute }));
+    } catch { setOrderDisputes(p => ({ ...p, [orderId]: null })); }
+  };
+
+  const submitDisputeResponse = async (orderId: string) => {
+    const text = (disputeResponseDraft[orderId] || '').trim();
+    if (!text) {
+      setDisputeError(p => ({ ...p, [orderId]: 'Response is required' }));
+      return;
+    }
+    setSubmittingDispute(orderId);
+    setDisputeError(p => ({ ...p, [orderId]: '' }));
+    try {
+      const res = await api.marketplace.orders.respondDispute(orderId, text);
+      setOrderDisputes(p => ({ ...p, [orderId]: res.dispute }));
+      setDisputeResponseDraft(p => ({ ...p, [orderId]: '' }));
+    } catch (e: unknown) {
+      setDisputeError(p => ({ ...p, [orderId]: e instanceof Error ? e.message : 'Failed to submit response' }));
+    } finally {
+      setSubmittingDispute(null);
+    }
   };
 
   const completeMilestone = async (orderId: string, milestoneId: string) => {
@@ -1218,7 +1256,7 @@ function MarketplaceDashboard() {
   };
 
   const totalEarned = ledger.filter(e => e.direction === 'inbound').reduce((s, e) => s + Number(e.amount), 0);
-  const activeOrders = sellerOrders.filter(o => o.status === 'confirmed' || o.status === 'pending_payment');
+  const activeOrders = sellerOrders.filter(o => o.status === 'confirmed' || o.status === 'pending_payment' || o.status === 'disputed');
 
   const [revenuePeriod, setRevenuePeriod] = useState<'30d' | '90d' | 'all'>('all');
 
@@ -1362,9 +1400,15 @@ function MarketplaceDashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Order #{order.id.slice(0, 8)}</h3>
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.1)', color: 'var(--accent)' }}>
-                          {order.status === 'confirmed' ? 'In Progress' : 'Awaiting Payment'}
-                        </span>
+                        {order.status === 'disputed' ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.12)', color: 'var(--error, #ef4444)' }} data-testid={`badge-disputed-${order.id}`}>
+                            Disputed
+                          </span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.1)', color: 'var(--accent)' }}>
+                            {order.status === 'confirmed' ? 'In Progress' : 'Awaiting Payment'}
+                          </span>
+                        )}
                       </div>
                       {order.taskDescription && (
                         <p className="text-xs mb-2 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{order.taskDescription}</p>
@@ -1414,6 +1458,79 @@ function MarketplaceDashboard() {
                           <div className="h-full rounded-full" style={{ width: order.status === 'confirmed' ? '50%' : '10%', background: 'var(--marketplace)' }} />
                         </div>
                       </div>
+
+                      {order.status === 'disputed' && (() => {
+                        const dispute = orderDisputes[order.id];
+                        const isBuyerDispute = dispute && dispute.raisedByUserId === order.buyerUserId;
+                        const alreadyResponded = !!(dispute && dispute.sellerResponse);
+                        return (
+                          <div
+                            className="mt-4 rounded-lg p-3"
+                            style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)' }}
+                            data-testid={`dispute-panel-${order.id}`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertCircle className="w-4 h-4" style={{ color: 'var(--error, #ef4444)' }} />
+                              <span className="text-xs font-semibold" style={{ color: 'var(--error, #ef4444)' }}>
+                                {dispute?.status === 'resolved' ? 'Dispute resolved' : 'Buyer opened a dispute'}
+                              </span>
+                            </div>
+                            {dispute === undefined && (
+                              <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Loading dispute details…</p>
+                            )}
+                            {dispute && (
+                              <>
+                                <div className="text-xs space-y-1 mb-3" style={{ color: 'var(--text-muted)' }}>
+                                  <div><span style={{ color: 'var(--text-dim)' }}>Reason: </span>{dispute.reason}</div>
+                                  {dispute.description && (
+                                    <div><span style={{ color: 'var(--text-dim)' }}>Details: </span>{dispute.description}</div>
+                                  )}
+                                  {dispute.evidence && (
+                                    <div><span style={{ color: 'var(--text-dim)' }}>Evidence: </span>{dispute.evidence}</div>
+                                  )}
+                                </div>
+                                {dispute.status === 'resolved' && dispute.resolution && (
+                                  <div className="text-xs mb-2 px-2 py-1 rounded" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+                                    Resolution: <strong>{dispute.resolution.replace(/_/g, ' ')}</strong>
+                                    {dispute.adminNote && <span> — {dispute.adminNote}</span>}
+                                  </div>
+                                )}
+                                {alreadyResponded && (
+                                  <div className="text-xs mb-2">
+                                    <div style={{ color: 'var(--text-dim)' }}>Your response:</div>
+                                    <p style={{ color: 'var(--text-primary)' }}>{dispute.sellerResponse}</p>
+                                  </div>
+                                )}
+                                {!alreadyResponded && isBuyerDispute && dispute.status !== 'resolved' && (
+                                  <div>
+                                    <textarea
+                                      value={disputeResponseDraft[order.id] || ''}
+                                      onChange={e => setDisputeResponseDraft(p => ({ ...p, [order.id]: e.target.value }))}
+                                      placeholder="Explain your side. An operator will review and resolve."
+                                      className="w-full rounded-lg border px-3 py-2 text-xs outline-none mb-2"
+                                      rows={3}
+                                      style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                                      data-testid={`textarea-dispute-response-${order.id}`}
+                                    />
+                                    {disputeError[order.id] && (
+                                      <p className="text-xs mb-2" style={{ color: 'var(--error, #ef4444)' }}>{disputeError[order.id]}</p>
+                                    )}
+                                    <button
+                                      onClick={() => submitDisputeResponse(order.id)}
+                                      disabled={submittingDispute === order.id}
+                                      className="text-xs px-3 py-1.5 rounded cursor-pointer"
+                                      style={{ background: 'var(--marketplace)', color: '#fff', border: 'none' }}
+                                      data-testid={`button-submit-dispute-response-${order.id}`}
+                                    >
+                                      {submittingDispute === order.id ? 'Submitting…' : 'Submit response'}
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {isExpanded && (() => {
                         const milestones = (orderMilestones[order.id] || []).sort((a, b) => a.order - b.order);
@@ -1484,6 +1601,7 @@ function MarketplaceDashboard() {
                         if (!isExpanded) {
                           loadOrderMessages(order.id);
                           loadOrderMilestones(order.id);
+                          if (order.status === 'disputed') loadDispute(order.id);
                         }
                         setExpandedOrderId(isExpanded ? null : order.id);
                       }}

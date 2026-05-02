@@ -31,8 +31,12 @@ import {
   getMilestonesByOrder,
   markMilestoneComplete,
   releaseMilestoneEscrow,
-  raiseMilestoneDispute,
 } from "../../services/marketplace-milestones";
+import {
+  openDispute,
+  respondToDispute,
+  getDisputeForOrder,
+} from "../../services/disputes";
 import { trackAnalyticsEvent, getListingAnalytics } from "../../services/marketplace-analytics";
 import { env } from "../../lib/env";
 import { db } from "@workspace/db";
@@ -612,24 +616,85 @@ router.post(
 const disputeSchema = z.object({
   reason: z.string().min(1).max(255),
   description: z.string().optional(),
+  evidence: z.string().optional(),
 });
 
 router.post("/orders/:orderId/dispute", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
   try {
     const orderId = req.params.orderId as string;
     const parsed = disputeSchema.parse(req.body);
-    const result = await raiseMilestoneDispute(orderId, req.userId!, parsed.reason, parsed.description);
+    const result = await openDispute({
+      orderId,
+      userId: req.userId!,
+      reason: parsed.reason,
+      description: parsed.description,
+      evidence: parsed.evidence,
+    });
     if (!result.success) {
       const code = result.error === "ORDER_NOT_FOUND" ? 404
         : result.error === "FORBIDDEN" ? 403
         : 409;
       throw new AppError(code, result.error!, result.error!);
     }
-    res.json({ success: true, orderId, status: "disputed" });
+    res.json({
+      success: true,
+      orderId,
+      status: "disputed",
+      disputeId: result.dispute?.id,
+    });
   } catch (err) {
     next(err);
   }
 });
+
+router.get("/orders/:orderId/dispute", requireAuth, validateUuidParam("orderId"), async (req, res, next) => {
+  try {
+    const orderId = req.params.orderId as string;
+    // Auth: must be a participant on the order
+    await getParticipantOrderOrThrow(orderId, req.userId!);
+    const dispute = await getDisputeForOrder(orderId);
+    if (!dispute) {
+      res.json({ dispute: null });
+      return;
+    }
+    res.json({ dispute });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const disputeRespondSchema = z.object({
+  response: z.string().min(1).max(2000),
+});
+
+router.post(
+  "/orders/:orderId/dispute/respond",
+  requireAuth,
+  validateUuidParam("orderId"),
+  async (req, res, next) => {
+    try {
+      const orderId = req.params.orderId as string;
+      const parsed = disputeRespondSchema.parse(req.body);
+      const result = await respondToDispute({
+        orderId,
+        userId: req.userId!,
+        response: parsed.response,
+      });
+      if (!result.success) {
+        const code =
+          result.error === "ORDER_NOT_FOUND" ? 404
+          : result.error === "DISPUTE_NOT_FOUND" ? 404
+          : result.error === "FORBIDDEN" ? 403
+          : result.error === "CANNOT_RESPOND_TO_OWN_DISPUTE" ? 403
+          : 409;
+        throw new AppError(code, result.error!, result.error!);
+      }
+      res.json({ success: true, dispute: result.dispute });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 const createReviewSchema = z.object({
   orderId: z.string().uuid(),

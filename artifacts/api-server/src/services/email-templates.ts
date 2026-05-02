@@ -203,6 +203,97 @@ This usually means your Stripe Connect account needs additional information. Ple
   };
 }
 
+export interface DisputeOpenedData {
+  listingTitle: string;
+  orderId: string;
+  reason: string;
+  description?: string;
+  raisedBy: "buyer" | "seller";
+}
+
+export function disputeOpenedTemplate(data: DisputeOpenedData): { subject: string; html: string } {
+  const desc = data.description
+    ? `<p style="margin:0 0 16px;font-size:14px;color:#cccccc;line-height:1.6;background:#1a1a1a;padding:12px;border-radius:6px;border-left:3px solid #ef4444;">${data.description}</p>`
+    : "";
+  return {
+    subject: `Dispute opened on order: ${data.listingTitle}`,
+    html: layout(`
+<h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#ffffff;">A dispute has been opened</h2>
+<p style="margin:0 0 12px;font-size:15px;color:#cccccc;line-height:1.6;">
+The ${data.raisedBy} opened a dispute on the order for <strong style="color:#ffffff;">${data.listingTitle}</strong>.
+</p>
+<p style="margin:0 0 8px;font-size:14px;color:#999999;">Reason: <strong style="color:#ffffff;">${data.reason}</strong></p>
+${desc}
+<p style="margin:0 0 24px;font-size:14px;color:#cccccc;line-height:1.6;">
+You can respond from your dashboard. Funds for this order are on hold until the dispute is resolved by the platform team.
+</p>
+<a href="${APP_URL}/dashboard/marketplace" style="display:inline-block;padding:10px 20px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;">Open Dashboard</a>
+`),
+  };
+}
+
+export interface DisputeRespondedData {
+  listingTitle: string;
+  orderId: string;
+  responderRole: "buyer" | "seller";
+  responseSnippet: string;
+}
+
+export function disputeRespondedTemplate(data: DisputeRespondedData): { subject: string; html: string } {
+  return {
+    subject: `Response posted on dispute: ${data.listingTitle}`,
+    html: layout(`
+<h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#ffffff;">Dispute response received</h2>
+<p style="margin:0 0 12px;font-size:15px;color:#cccccc;line-height:1.6;">
+The ${data.responderRole} responded to the dispute on <strong style="color:#ffffff;">${data.listingTitle}</strong>.
+</p>
+<p style="margin:0 0 16px;font-size:14px;color:#cccccc;line-height:1.6;background:#1a1a1a;padding:12px;border-radius:6px;border-left:3px solid #3b82f6;">${data.responseSnippet}</p>
+<p style="margin:0 0 24px;font-size:14px;color:#cccccc;line-height:1.6;">
+Our team will review and resolve the dispute shortly.
+</p>
+<a href="${APP_URL}/dashboard/marketplace" style="display:inline-block;padding:10px 20px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;">View Dispute</a>
+`),
+  };
+}
+
+export interface DisputeResolvedData {
+  listingTitle: string;
+  orderId: string;
+  resolution: "refund_buyer" | "release_seller" | "split";
+  recipientRole: "buyer" | "seller";
+  adminNote?: string;
+}
+
+export function disputeResolvedTemplate(data: DisputeResolvedData): { subject: string; html: string } {
+  const outcome = (() => {
+    if (data.resolution === "refund_buyer") {
+      return data.recipientRole === "buyer"
+        ? "The dispute was resolved in your favor. A full refund has been issued and should appear in 5–10 business days."
+        : "The dispute was resolved in favor of the buyer. The order has been refunded.";
+    }
+    if (data.resolution === "release_seller") {
+      return data.recipientRole === "seller"
+        ? "The dispute was resolved in your favor. Funds have been released and your payout will be processed shortly."
+        : "The dispute was resolved in favor of the seller. Funds have been released to them.";
+    }
+    return "The dispute was resolved with a partial split. Both parties will receive a portion of the order amount.";
+  })();
+  const noteBlock = data.adminNote
+    ? `<p style="margin:0 0 16px;font-size:14px;color:#cccccc;line-height:1.6;background:#1a1a1a;padding:12px;border-radius:6px;border-left:3px solid #10b981;">Operator note: ${data.adminNote}</p>`
+    : "";
+  return {
+    subject: `Dispute resolved: ${data.listingTitle}`,
+    html: layout(`
+<h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#ffffff;">Dispute resolved</h2>
+<p style="margin:0 0 16px;font-size:15px;color:#cccccc;line-height:1.6;">
+${outcome}
+</p>
+${noteBlock}
+<a href="${APP_URL}/dashboard/marketplace" style="display:inline-block;padding:10px 20px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;">View Order</a>
+`),
+  };
+}
+
 export interface MagicLinkData {
   magicUrl: string;
 }
@@ -257,7 +348,10 @@ export type EmailTemplate =
   | { type: "new_proposal"; data: NewProposalData }
   | { type: "payout_failed"; data: PayoutFailedData }
   | { type: "magic_link"; data: MagicLinkData }
-  | { type: "handle_race_refund"; data: HandleRaceRefundData };
+  | { type: "handle_race_refund"; data: HandleRaceRefundData }
+  | { type: "dispute_opened"; data: DisputeOpenedData }
+  | { type: "dispute_responded"; data: DisputeRespondedData }
+  | { type: "dispute_resolved"; data: DisputeResolvedData };
 
 export function renderTemplate(template: EmailTemplate): { subject: string; html: string } {
   switch (template.type) {
@@ -281,5 +375,11 @@ export function renderTemplate(template: EmailTemplate): { subject: string; html
       return magicLinkTemplate(template.data);
     case "handle_race_refund":
       return handleRaceRefundTemplate(template.data);
+    case "dispute_opened":
+      return disputeOpenedTemplate(template.data);
+    case "dispute_responded":
+      return disputeRespondedTemplate(template.data);
+    case "dispute_resolved":
+      return disputeResolvedTemplate(template.data);
   }
 }

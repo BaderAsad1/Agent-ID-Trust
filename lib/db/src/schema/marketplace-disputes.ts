@@ -23,9 +23,14 @@ export const marketplaceDisputesTable = pgTable(
       .references(() => usersTable.id),
     reason: varchar("reason", { length: 255 }).notNull(),
     description: text("description"),
+    evidence: text("evidence"),
     status: varchar("status", { length: 50 }).notNull().default("open"),
+    sellerResponse: text("seller_response"),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    resolution: varchar("resolution", { length: 32 }),
     adminNote: text("admin_note"),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedByUserId: uuid("resolved_by_user_id").references(() => usersTable.id),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -566,11 +566,14 @@ router.post("/reconcile-handle", async (req: Request, res: Response, next: NextF
 // task activity. It decays out of the 90-day penalty window.
 
 const resolveDisputeSchema = z.object({
-  outcome: z.enum(["buyer", "seller"]),
+  // New canonical resolutions, plus legacy outcome for backwards compatibility.
+  resolution: z.enum(["refund_buyer", "release_seller", "split"]).optional(),
+  outcome: z.enum(["buyer", "seller"]).optional(),
+  adminNote: z.string().max(2000).optional(),
   reason: z.string().max(500).optional(),
 });
 
-router.post("/orders/:orderId/dispute/resolve", async (req: Request, res: Response, next: NextFunction) => {
+const handleResolveDispute = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orderId = req.params.orderId as string;
     if (!orderId || !/^[0-9a-f-]{36}$/i.test(orderId)) {
@@ -578,9 +581,20 @@ router.post("/orders/:orderId/dispute/resolve", async (req: Request, res: Respon
     }
 
     const parsed = resolveDisputeSchema.safeParse(req.body);
-    if (!parsed.success) throw new AppError(400, "VALIDATION_ERROR", "outcome must be 'buyer' or 'seller'", parsed.error.issues);
+    if (!parsed.success) {
+      throw new AppError(400, "VALIDATION_ERROR", "resolution must be 'refund_buyer', 'release_seller', or 'split'", parsed.error.issues);
+    }
 
-    const { outcome, reason } = parsed.data;
+    // Map the legacy `outcome` field if provided.
+    let resolution = parsed.data.resolution;
+    if (!resolution && parsed.data.outcome) {
+      resolution = parsed.data.outcome === "buyer" ? "refund_buyer" : "release_seller";
+    }
+    if (!resolution) {
+      throw new AppError(400, "VALIDATION_ERROR", "resolution or outcome is required");
+    }
+
+    const adminNote = parsed.data.adminNote ?? parsed.data.reason;
 
     // Fetch order to find the agents on each side
     const order = await db.query.marketplaceOrdersTable.findFirst({
@@ -589,22 +603,38 @@ router.post("/orders/:orderId/dispute/resolve", async (req: Request, res: Respon
     });
 
     if (!order) throw new AppError(404, "ORDER_NOT_FOUND", "Order not found");
-    if (order.status !== "disputed") throw new AppError(409, "ORDER_NOT_DISPUTED", `Order is in status '${order.status}', not 'disputed'`);
+    if (order.status !== "disputed") {
+      throw new AppError(409, "ORDER_NOT_DISPUTED", `Order is in status '${order.status}', not 'disputed'`);
+    }
 
-    // The seller's agent is the listing agent (order.agentId)
-    // For buyer side: find any agent owned by buyer — use seller's agent for the event on buyer loss
-    // We fire the event on the SELLER'S AGENT when buyer wins (seller failed to deliver)
+    // 1) Run the dispute resolution: triggers Stripe refund/capture, updates
+    //    order + dispute rows, sends notification emails to both parties.
+    const { resolveDispute } = await import("../../services/disputes");
+    const result = await resolveDispute({
+      orderId,
+      resolution,
+      adminNote,
+    });
+
+    if (!result.success) {
+      const code = result.error?.startsWith("REFUND_FAILED") || result.error?.startsWith("CAPTURE_FAILED") ? 502
+        : result.error === "ORDER_NOT_FOUND" || result.error === "DISPUTE_NOT_FOUND" ? 404
+        : 409;
+      throw new AppError(code, result.error ?? "RESOLVE_FAILED", result.error ?? "RESOLVE_FAILED");
+    }
+
+    // 2) Trust-score side-effects: penalise the losing party's agent. We
+    //    deliberately keep the legacy weight=8 / 90-day decay behaviour. A
+    //    `split` resolution applies no penalty (neither party fully won).
     const { addNegativeTrustEvent, recomputeAndStore } = await import("../../services/trust-score");
 
     let penalisedAgentId: string | null = null;
-    let penalisedRole: "seller" | "buyer" = "seller";
+    let penalisedRole: "seller" | "buyer" | null = null;
 
-    if (outcome === "buyer") {
-      // Buyer wins: seller failed to deliver — penalise seller's agent
+    if (resolution === "refund_buyer") {
       penalisedAgentId = order.agentId;
       penalisedRole = "seller";
-    } else {
-      // Seller wins: buyer raised abusive/fraudulent dispute — penalise buyer's agent if they have one
+    } else if (resolution === "release_seller") {
       const buyerAgent = await db.query.agentsTable.findFirst({
         where: eq(agentsTable.userId, order.buyerUserId),
         columns: { id: true },
@@ -617,36 +647,51 @@ router.post("/orders/:orderId/dispute/resolve", async (req: Request, res: Respon
     }
 
     if (penalisedAgentId) {
-      // weight: 8 — meaningful but not catastrophic; decays in 90 days
       await addNegativeTrustEvent(
         penalisedAgentId,
-        outcome === "buyer" ? "dispute_lost" : "dispute_abusive",
-        { weight: 8, reason: reason ?? `dispute_resolved:${outcome}`, metadata: { orderId, outcome } },
+        resolution === "refund_buyer" ? "dispute_lost" : "dispute_abusive",
+        { weight: 8, reason: adminNote ?? `dispute_resolved:${resolution}`, metadata: { orderId, resolution } },
       );
       await recomputeAndStore(penalisedAgentId);
     }
 
-    // Mark order status to completed or refunded depending on outcome
-    await db
-      .update(marketplaceOrdersTable)
-      .set({ status: outcome === "buyer" ? "cancelled" : "completed", updatedAt: new Date() })
-      .where(eq(marketplaceOrdersTable.id, orderId));
-
     await writeAuditEvent(
       "admin", "system", "admin.dispute.resolved", "order", orderId,
-      adminAuditMeta(req, { outcome, penalisedAgentId, penalisedRole, reason }),
+      adminAuditMeta(req, { resolution, paymentAction: result.paymentAction, penalisedAgentId, penalisedRole, adminNote }),
       getRequestorIp(req),
     );
 
-    logger.info({ orderId, outcome, penalisedAgentId }, "[admin] Dispute resolved");
+    logger.info({ orderId, resolution, paymentAction: result.paymentAction, penalisedAgentId }, "[admin] Dispute resolved");
 
     res.json({
       success: true,
       orderId,
-      outcome,
+      resolution,
+      paymentAction: result.paymentAction,
       penalisedAgentId,
-      penalisedRole: penalisedAgentId ? penalisedRole : null,
+      penalisedRole,
+      dispute: result.dispute,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+router.post("/orders/:orderId/dispute/resolve", handleResolveDispute);
+router.patch("/orders/:orderId/dispute/resolve", handleResolveDispute);
+
+// List disputes awaiting operator action.
+router.get("/disputes", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const status = (req.query.status as string | undefined) ?? "open,responded";
+    const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
+    const limit = Math.min(parseInt(String(req.query.limit ?? "50"), 10) || 50, 200);
+    const offset = parseInt(String(req.query.offset ?? "0"), 10) || 0;
+
+    const { listDisputesForAdmin } = await import("../../services/disputes");
+    const rows = await listDisputesForAdmin({ statuses, limit, offset });
+
+    res.json({ disputes: rows });
   } catch (err) {
     next(err);
   }

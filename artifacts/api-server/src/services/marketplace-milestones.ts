@@ -3,7 +3,6 @@ import { db } from "@workspace/db";
 import {
   marketplaceMilestonesTable,
   marketplaceOrdersTable,
-  marketplaceDisputesTable,
   agentsTable,
   payoutLedgerTable,
   type MarketplaceMilestone,
@@ -327,39 +326,6 @@ export async function releaseMilestoneEscrow(
   return { success: true, milestone: updated, capturedAmount };
 }
 
-export async function raiseMilestoneDispute(
-  orderId: string,
-  userId: string,
-  reason: string,
-  description?: string,
-): Promise<{ success: boolean; error?: string }> {
-  const order = await db.query.marketplaceOrdersTable.findFirst({
-    where: eq(marketplaceOrdersTable.id, orderId),
-    columns: { buyerUserId: true, sellerUserId: true, status: true },
-  });
-
-  if (!order) return { success: false, error: "ORDER_NOT_FOUND" };
-  if (order.buyerUserId !== userId && order.sellerUserId !== userId) {
-    return { success: false, error: "FORBIDDEN" };
-  }
-  if (order.status === "disputed") {
-    return { success: false, error: "ALREADY_DISPUTED" };
-  }
-
-  await db.transaction(async (tx) => {
-    await tx
-      .update(marketplaceOrdersTable)
-      .set({ status: "disputed", updatedAt: new Date() })
-      .where(eq(marketplaceOrdersTable.id, orderId));
-
-    await tx.insert(marketplaceDisputesTable).values({
-      orderId,
-      raisedByUserId: userId,
-      reason,
-      description,
-      status: "open",
-    });
-  });
-
-  return { success: true };
-}
+// Dispute flow lives in services/disputes.ts. This file historically exported
+// a `raiseMilestoneDispute` helper; the dispute service now owns that logic so
+// it can also send notifications and resolve via Stripe.

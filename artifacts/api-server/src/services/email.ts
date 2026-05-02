@@ -219,6 +219,39 @@ export async function sendPayoutFailedEmail(
   );
 }
 
+export async function sendDisputeOpenedEmail(
+  recipientEmail: string,
+  data: { listingTitle: string; orderId: string; reason: string; description?: string; raisedBy: "buyer" | "seller" },
+): Promise<void> {
+  await sendEmail(
+    { type: "dispute_opened", data },
+    recipientEmail,
+    `dispute-opened-${data.orderId}-${data.raisedBy}`,
+  );
+}
+
+export async function sendDisputeRespondedEmail(
+  recipientEmail: string,
+  data: { listingTitle: string; orderId: string; responderRole: "buyer" | "seller"; responseSnippet: string },
+): Promise<void> {
+  await sendEmail(
+    { type: "dispute_responded", data },
+    recipientEmail,
+    `dispute-responded-${data.orderId}-${data.responderRole}`,
+  );
+}
+
+export async function sendDisputeResolvedEmail(
+  recipientEmail: string,
+  data: { listingTitle: string; orderId: string; resolution: "refund_buyer" | "release_seller" | "split"; recipientRole: "buyer" | "seller"; adminNote?: string },
+): Promise<void> {
+  await sendEmail(
+    { type: "dispute_resolved", data },
+    recipientEmail,
+    `dispute-resolved-${data.orderId}-${data.recipientRole}`,
+  );
+}
+
 export async function sendMagicLinkEmail(
   recipientEmail: string,
   magicUrl: string,

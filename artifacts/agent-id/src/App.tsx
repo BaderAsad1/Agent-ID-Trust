@@ -31,6 +31,7 @@ import { VSCodeIntegration } from '@/pages/integrations/VSCode';
 import IssuanceFilm from '@/components/IssuanceFilm';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AgentUUIDProfile } from '@/pages/AgentUUIDProfile';
+import { AdminDisputes } from '@/pages/AdminDisputes';
 import { HandlePurchase } from '@/pages/HandlePurchase';
 import { OnboardingPlan } from '@/pages/OnboardingPlan';
 import { MagicLinkPage } from '@/pages/MagicLink';
@@ -157,6 +158,7 @@ function AppContent() {
         <Route path="/mail" element={<ProtectedRoute><Mail /></ProtectedRoute>} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/marketplace/:id" element={<MarketplaceListing />} />
+        <Route path="/admin/disputes" element={<AdminDisputes />} />
         <Route path="/a2a" element={<A2AMarketplace />} />
         <Route path="/jobs" element={<JobBoard />} />
         <Route path="/jobs/:id" element={<JobDetail />} />

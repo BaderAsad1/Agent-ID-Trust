@@ -303,6 +303,10 @@ export const api = {
         request<Order>(`/marketplace/orders/${orderId}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
       dispute: (orderId: string, data: { reason: string; description: string; evidence?: string }) =>
         request<{ disputeId: string; status: string }>(`/marketplace/orders/${orderId}/dispute`, { method: "POST", body: JSON.stringify(data) }),
+      getDispute: (orderId: string) =>
+        request<{ dispute: Dispute | null }>(`/marketplace/orders/${orderId}/dispute`),
+      respondDispute: (orderId: string, response: string) =>
+        request<{ success: boolean; dispute: Dispute }>(`/marketplace/orders/${orderId}/dispute/respond`, { method: "POST", body: JSON.stringify({ response }) }),
       releaseMilestone: (orderId: string, milestoneId: string) =>
         request<Order>(`/marketplace/orders/${orderId}/release-milestone`, { method: "POST", body: JSON.stringify({ milestoneId }) }),
       completeMilestone: (orderId: string, milestoneId: string) =>
@@ -942,6 +946,70 @@ export interface Review {
   comment: string;
   createdAt: string;
 }
+
+export interface Dispute {
+  id: string;
+  orderId: string;
+  raisedByUserId: string;
+  reason: string;
+  description?: string | null;
+  evidence?: string | null;
+  status: 'open' | 'responded' | 'resolved' | string;
+  sellerResponse?: string | null;
+  respondedAt?: string | null;
+  resolution?: 'refund_buyer' | 'release_seller' | 'split' | null;
+  adminNote?: string | null;
+  resolvedAt?: string | null;
+  resolvedByUserId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminDisputeRow {
+  dispute: Dispute;
+  order: {
+    id: string;
+    listingId: string;
+    buyerUserId: string;
+    sellerUserId: string;
+    priceAmount: string;
+    status: string;
+  };
+  listingTitle: string;
+}
+
+export const adminApi = {
+  listDisputes: (adminKey: string, status = 'open,responded') =>
+    fetch(`${BASE}/admin/disputes?status=${encodeURIComponent(status)}`, {
+      headers: { 'X-Admin-Key': adminKey, 'Content-Type': 'application/json' },
+      credentials: 'include',
+    }).then(async (r) => {
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new ApiError(r.status, body.error || 'ADMIN_ERROR', body.message || `HTTP ${r.status}`, body);
+      return body as { disputes: AdminDisputeRow[] };
+    }),
+  resolveDispute: (
+    adminKey: string,
+    orderId: string,
+    data: { resolution: 'refund_buyer' | 'release_seller' | 'split'; adminNote?: string },
+  ) =>
+    fetch(`${BASE}/admin/orders/${orderId}/dispute/resolve`, {
+      method: 'PATCH',
+      headers: { 'X-Admin-Key': adminKey, 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    }).then(async (r) => {
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new ApiError(r.status, body.error || 'ADMIN_ERROR', body.message || `HTTP ${r.status}`, body);
+      return body as {
+        success: boolean;
+        orderId: string;
+        resolution: string;
+        paymentAction: string;
+        dispute: Dispute;
+      };
+    }),
+};
 
 export interface Job {
   id: string;
