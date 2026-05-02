@@ -18,8 +18,12 @@ export interface PaymentProvider {
   supported: boolean;
   createIntent(params: CreateIntentParams): Promise<ProviderIntentResult>;
   authorizePayment(params: AuthorizeParams): Promise<ProviderAuthResult>;
-  capturePayment(intentId: string): Promise<ProviderCaptureResult>;
-  refundPayment(intentId: string, amountInCents?: number): Promise<ProviderRefundResult>;
+  capturePayment(intentId: string, options?: ProviderRequestOptions): Promise<ProviderCaptureResult>;
+  refundPayment(intentId: string, amountInCents?: number, options?: ProviderRequestOptions): Promise<ProviderRefundResult>;
+}
+
+export interface ProviderRequestOptions {
+  idempotencyKey?: string;
 }
 
 export interface CreateIntentParams {
@@ -129,10 +133,16 @@ class StripeProvider implements PaymentProvider {
     }
   }
 
-  async capturePayment(providerReference: string): Promise<ProviderCaptureResult> {
+  async capturePayment(
+    providerReference: string,
+    options?: ProviderRequestOptions,
+  ): Promise<ProviderCaptureResult> {
     try {
       const stripe = getStripe();
-      await stripe.paymentIntents.capture(providerReference);
+      const requestOptions = options?.idempotencyKey
+        ? { idempotencyKey: options.idempotencyKey }
+        : undefined;
+      await stripe.paymentIntents.capture(providerReference, undefined, requestOptions);
       return { success: true };
     } catch (err) {
       logger.error({ err }, "[StripeProvider] capturePayment error");
@@ -143,7 +153,11 @@ class StripeProvider implements PaymentProvider {
     }
   }
 
-  async refundPayment(providerReference: string, amountInCents?: number): Promise<ProviderRefundResult> {
+  async refundPayment(
+    providerReference: string,
+    amountInCents?: number,
+    options?: ProviderRequestOptions,
+  ): Promise<ProviderRefundResult> {
     try {
       const stripe = getStripe();
       const params: { payment_intent: string; amount?: number } = {
@@ -152,7 +166,10 @@ class StripeProvider implements PaymentProvider {
       if (amountInCents !== undefined) {
         params.amount = amountInCents;
       }
-      const refund = await stripe.refunds.create(params);
+      const requestOptions = options?.idempotencyKey
+        ? { idempotencyKey: options.idempotencyKey }
+        : undefined;
+      const refund = await stripe.refunds.create(params, requestOptions);
       return { success: true, refundId: refund.id };
     } catch (err) {
       logger.error({ err }, "[StripeProvider] refundPayment error");
@@ -187,11 +204,11 @@ class CoinbaseAgenticProvider implements PaymentProvider {
     return this.unavailable();
   }
 
-  async capturePayment(_intentId: string): Promise<ProviderCaptureResult> {
+  async capturePayment(_intentId: string, _options?: ProviderRequestOptions): Promise<ProviderCaptureResult> {
     return this.unavailable();
   }
 
-  async refundPayment(_intentId: string): Promise<ProviderRefundResult> {
+  async refundPayment(_intentId: string, _amountInCents?: number, _options?: ProviderRequestOptions): Promise<ProviderRefundResult> {
     return this.unavailable();
   }
 }
@@ -219,11 +236,11 @@ class VisaAgenticProvider implements PaymentProvider {
     return this.unavailable();
   }
 
-  async capturePayment(_intentId: string): Promise<ProviderCaptureResult> {
+  async capturePayment(_intentId: string, _options?: ProviderRequestOptions): Promise<ProviderCaptureResult> {
     return this.unavailable();
   }
 
-  async refundPayment(_intentId: string): Promise<ProviderRefundResult> {
+  async refundPayment(_intentId: string, _amountInCents?: number, _options?: ProviderRequestOptions): Promise<ProviderRefundResult> {
     return this.unavailable();
   }
 }
@@ -283,20 +300,22 @@ export async function createPaymentIntent(
 export async function captureProviderPayment(
   providerName: string,
   providerReference: string,
+  options?: ProviderRequestOptions,
 ): Promise<ProviderCaptureResult> {
   const provider = getProvider(providerName);
   if (!provider) return { success: false, error: "PROVIDER_NOT_FOUND" };
-  return provider.capturePayment(providerReference);
+  return provider.capturePayment(providerReference, options);
 }
 
 export async function refundProviderPayment(
   providerName: string,
   providerReference: string,
   amountInCents?: number,
+  options?: ProviderRequestOptions,
 ): Promise<ProviderRefundResult> {
   const provider = getProvider(providerName);
   if (!provider) return { success: false, error: "PROVIDER_NOT_FOUND" };
-  return provider.refundPayment(providerReference, amountInCents);
+  return provider.refundPayment(providerReference, amountInCents, options);
 }
 
 export async function authorizePaymentIntent(

@@ -237,26 +237,51 @@ export async function confirmOrder(
   });
   const hasMilestones = milestones.length > 0;
 
+  // Atomic claim FIRST: only one concurrent caller flips pending → confirmed.
+  // The loser of the race aborts before any Stripe-side capture happens.
+  // (See audit M6: previous implementation had no status guard on the UPDATE.)
+  const [claimed] = await db
+    .update(marketplaceOrdersTable)
+    .set({ status: "confirmed", updatedAt: new Date() })
+    .where(and(
+      eq(marketplaceOrdersTable.id, orderId),
+      eq(marketplaceOrdersTable.sellerUserId, sellerUserId),
+      eq(marketplaceOrdersTable.status, "pending"),
+    ))
+    .returning();
+
+  if (!claimed) {
+    return { success: false, error: "ORDER_ALREADY_CONFIRMED" };
+  }
+
   if (order.providerPaymentReference && !hasMilestones) {
+    // Stable idempotency key: a retry by the same caller (or a recovery sweep)
+    // hits the same Stripe call and Stripe returns the prior result instead of
+    // double-capturing. The atomic claim above guarantees only one caller will
+    // ever reach this point for the pending → confirmed transition.
     const captureResult = await captureProviderPayment(
       order.paymentProvider ?? "stripe",
       order.providerPaymentReference,
+      { idempotencyKey: `order_capture_${orderId}` },
     );
     if (!captureResult.success) {
-      logger.error({ err: captureResult.error, orderId }, "[orders] Failed to capture payment");;
+      logger.error({ err: captureResult.error, orderId }, "[orders] Failed to capture payment — rolling back confirm");
+      // Roll back the claim so the seller can retry. Use a guarded UPDATE so we
+      // do not clobber a downstream status transition.
+      await db
+        .update(marketplaceOrdersTable)
+        .set({ status: "pending", updatedAt: new Date() })
+        .where(and(
+          eq(marketplaceOrdersTable.id, orderId),
+          eq(marketplaceOrdersTable.status, "confirmed"),
+        ));
       return { success: false, error: `PAYMENT_CAPTURE_FAILED:${captureResult.error}` };
     }
   } else if (hasMilestones) {
     logger.info({ orderId }, "[confirmOrder] Order has milestones — funds remain in escrow until milestone release");
   }
 
-  const [updated] = await db
-    .update(marketplaceOrdersTable)
-    .set({ status: "confirmed", updatedAt: new Date() })
-    .where(eq(marketplaceOrdersTable.id, orderId))
-    .returning();
-
-  return { success: true, order: updated };
+  return { success: true, order: claimed };
 }
 
 export async function completeOrder(
@@ -277,9 +302,18 @@ export async function completeOrder(
   });
 
   if (!order) return { success: false, error: "ORDER_NOT_FOUND" };
-  if (order.status !== "confirmed" && order.status !== "in_progress") {
+  if (
+    order.status !== "confirmed" &&
+    order.status !== "in_progress" &&
+    order.status !== "completed"
+  ) {
     return { success: false, error: `INVALID_STATUS:${order.status}` };
   }
+  // Note: status === "completed" is intentionally allowed through so that the
+  // saga's intent-or-recover transaction below can detect a pending
+  // payout_ledger row left by a prior crashed attempt and replay Stripe
+  // (idempotently) + finalize. Without this, recovery would require operator
+  // intervention. (Code-review feedback on task #279.)
 
   const allMilestones = await db.query.marketplaceMilestonesTable.findMany({
     where: eq(marketplaceMilestonesTable.orderId, orderId),
@@ -301,33 +335,6 @@ export async function completeOrder(
     };
   }
 
-  // Atomic claim: only the first concurrent caller succeeds; others get ORDER_ALREADY_COMPLETED.
-  const [updated] = await db
-    .update(marketplaceOrdersTable)
-    .set({
-      status: "completed",
-      completedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(and(
-      eq(marketplaceOrdersTable.id, orderId),
-      eq(marketplaceOrdersTable.sellerUserId, sellerUserId),
-      inArray(marketplaceOrdersTable.status, ["confirmed", "in_progress"]),
-    ))
-    .returning();
-
-  if (!updated) {
-    return { success: false, error: "ORDER_ALREADY_COMPLETED" };
-  }
-
-  await db
-    .update(marketplaceListingsTable)
-    .set({
-      totalHires: sql`${marketplaceListingsTable.totalHires} + 1`,
-      updatedAt: new Date(),
-    })
-    .where(eq(marketplaceListingsTable.id, order.listingId));
-
   const paymentRef = order.providerPaymentReference ?? undefined;
 
   const sellerAgent = await db.query.agentsTable.findFirst({
@@ -335,6 +342,177 @@ export async function completeOrder(
     columns: { stripeConnectAccountId: true, stripeConnectStatus: true },
   });
 
+  const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
+  const captureIdempotencyKey = `order_capture_${orderId}`;
+  const transferIdempotencyKey = `order_transfer_${orderId}`;
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // STEP 1 (intent): Atomic claim + persist pending ledger rows in one tx.
+  //
+  // The claim UPDATE only succeeds for the first concurrent caller; the loser
+  // sees zero rows returned. We perform a recovery branch when the order is
+  // already `completed` but the payout_ledger row is still `pending` — that
+  // means a previous attempt crashed between the intent commit and the Stripe
+  // call. In that case we replay Stripe (idempotent via the keys above) and
+  // finalize the ledger row.
+  //
+  // Wrapping the order UPDATE + ledger inserts in a single transaction means
+  // we cannot crash with money moved at Stripe but no audit trail in the
+  // ledger (audit H8 — completeOrder ledger drift on crash).
+  // ──────────────────────────────────────────────────────────────────────────
+  type ClaimOutcome =
+    | { kind: "fresh"; updated: MarketplaceOrder; payoutLedgerId: string }
+    | { kind: "recover"; updated: MarketplaceOrder; payoutLedgerId: string }
+    | { kind: "already" };
+
+  const claim: ClaimOutcome = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(marketplaceOrdersTable)
+      .set({
+        status: "completed",
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(marketplaceOrdersTable.id, orderId),
+        eq(marketplaceOrdersTable.sellerUserId, sellerUserId),
+        inArray(marketplaceOrdersTable.status, ["confirmed", "in_progress"]),
+      ))
+      .returning();
+
+    if (!updated) {
+      // Recovery: order is already in a terminal state. If a prior attempt
+      // committed the intent ledger row but never finalized it, replay.
+      const current = await tx.query.marketplaceOrdersTable.findFirst({
+        where: eq(marketplaceOrdersTable.id, orderId),
+      });
+      if (current?.status === "completed") {
+        const pendingPayout = await tx.query.payoutLedgerTable.findFirst({
+          where: and(
+            eq(payoutLedgerTable.relatedOrderId, orderId),
+            eq(payoutLedgerTable.status, "pending"),
+          ),
+        });
+        if (pendingPayout) {
+          return { kind: "recover", updated: current, payoutLedgerId: pendingPayout.id };
+        }
+      }
+      return { kind: "already" };
+    }
+
+    await tx
+      .update(marketplaceListingsTable)
+      .set({
+        totalHires: sql`${marketplaceListingsTable.totalHires} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(marketplaceListingsTable.id, order.listingId));
+
+    // Persist the payout intent BEFORE moving any money. If we crash between
+    // here and the Stripe transfer, on retry the recovery branch above
+    // detects the pending row and replays Stripe (idempotent keys make that
+    // safe).
+    const [pendingPayout] = await tx
+      .insert(payoutLedgerTable)
+      .values({
+        relatedOrderId: orderId,
+        sellerUserId: order.sellerUserId,
+        provider: order.paymentProvider ?? "stripe",
+        amount: order.sellerPayout,
+        currency: "USD",
+        status: "pending",
+        metadata: {
+          orderId,
+          listingId: order.listingId,
+          totalPrice: order.priceAmount,
+          platformFee: order.platformFee,
+          stripePaymentIntentId: paymentRef,
+          stripeConnectAccountId: sellerAgent?.stripeConnectAccountId ?? null,
+          captureIdempotencyKey,
+          transferIdempotencyKey,
+          isMilestoneOrder,
+          intentStage: "pending_stripe_payout",
+        },
+      })
+      .returning({ id: payoutLedgerTable.id });
+
+    await tx.insert(paymentLedgerTable).values([
+      {
+        relatedOrderId: orderId,
+        provider: order.paymentProvider ?? "stripe",
+        direction: "outbound",
+        accountType: "user",
+        accountId: order.buyerUserId,
+        amount: order.priceAmount,
+        currency: "USD",
+        entryType: "order_payment",
+        metadata: {
+          orderId,
+          listingId: order.listingId,
+          stripePaymentIntentId: paymentRef,
+        },
+      },
+      {
+        relatedOrderId: orderId,
+        provider: order.paymentProvider ?? "stripe",
+        direction: "inbound",
+        accountType: "platform",
+        accountId: PLATFORM_ACCOUNT_ID,
+        amount: order.platformFee,
+        currency: "USD",
+        entryType: "platform_fee",
+        metadata: {
+          orderId,
+          buyerUserId: order.buyerUserId,
+          stripePaymentIntentId: paymentRef,
+        },
+      },
+      {
+        relatedOrderId: orderId,
+        provider: order.paymentProvider ?? "stripe",
+        direction: "inbound",
+        accountType: "user",
+        accountId: order.sellerUserId,
+        amount: order.sellerPayout,
+        currency: "USD",
+        entryType: "seller_payout",
+        metadata: {
+          orderId,
+          listingId: order.listingId,
+          stripePaymentIntentId: paymentRef,
+          payoutStatus: "pending",
+          isMilestoneOrder,
+          payoutLedgerId: pendingPayout.id,
+        },
+      },
+    ]);
+
+    return { kind: "fresh", updated, payoutLedgerId: pendingPayout.id };
+  });
+
+  if (claim.kind === "already") {
+    // Order is already completed and the payout_ledger has been finalized
+    // (no pending row found). This is a duplicate completion call from a
+    // legitimate retry — return idempotent success rather than an error so
+    // operator-facing retries don't surface as failures.
+    const current = await db.query.marketplaceOrdersTable.findFirst({
+      where: eq(marketplaceOrdersTable.id, orderId),
+    });
+    return {
+      success: true,
+      order: current,
+      payoutStatus: "completed",
+      payoutNote: "Order was already completed; no further action taken.",
+    };
+  }
+
+  const updated = claim.updated;
+  const payoutLedgerId = claim.payoutLedgerId;
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // STEP 2 (Stripe): move money. All Stripe calls use stable idempotency keys
+  // so retries cannot double-capture or double-transfer.
+  // ──────────────────────────────────────────────────────────────────────────
   let payoutStatus: "pending_manual_payout" | "processing" | "completed" = "pending_manual_payout";
   let stripeTransferId: string | undefined;
 
@@ -351,7 +529,7 @@ export async function completeOrder(
         await stripe.paymentIntents.capture(
           paymentRef,
           {},
-          { idempotencyKey: `order_capture_${orderId}` },
+          { idempotencyKey: captureIdempotencyKey },
         );
 
         const transfer = await stripe.transfers.create(
@@ -361,7 +539,7 @@ export async function completeOrder(
             destination: sellerAgent.stripeConnectAccountId!,
             metadata: { orderId, listingId: order.listingId },
           },
-          { idempotencyKey: `order_transfer_${orderId}` },
+          { idempotencyKey: transferIdempotencyKey },
         );
         stripeTransferId = transfer.id;
         payoutStatus = "completed";
@@ -374,7 +552,7 @@ export async function completeOrder(
             destination: sellerAgent.stripeConnectAccountId!,
             metadata: { orderId, listingId: order.listingId },
           },
-          { idempotencyKey: `order_transfer_${orderId}` },
+          { idempotencyKey: transferIdempotencyKey },
         );
         stripeTransferId = transfer.id;
         payoutStatus = "completed";
@@ -391,79 +569,40 @@ export async function completeOrder(
     logger.info({ orderId }, "[completeOrder] Milestone-based order — no order-level PI capture; milestones manage their own Stripe escrow");
   }
 
-  await db.insert(payoutLedgerTable).values({
-    relatedOrderId: orderId,
-    sellerUserId: order.sellerUserId,
-    provider: order.paymentProvider ?? "stripe",
-    amount: order.sellerPayout,
-    currency: "USD",
-    status: payoutStatus,
-    metadata: {
-      orderId,
-      listingId: order.listingId,
-      totalPrice: order.priceAmount,
-      platformFee: order.platformFee,
-      stripePaymentIntentId: paymentRef,
-      stripeTransferId: stripeTransferId ?? null,
-      stripeConnectAccountId: sellerAgent?.stripeConnectAccountId ?? null,
-      ...(payoutStatus === "pending_manual_payout" && {
-        note: "Stripe Connect seller payout — requires manual processing (agent has no active Connect account)",
-      }),
-    },
-  });
-
-  const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
-
-  await db.insert(paymentLedgerTable).values([
-    {
-      relatedOrderId: orderId,
-      provider: order.paymentProvider ?? "stripe",
-      direction: "outbound",
-      accountType: "user",
-      accountId: order.buyerUserId,
-      amount: order.priceAmount,
-      currency: "USD",
-      entryType: "order_payment",
-      metadata: {
-        orderId,
-        listingId: order.listingId,
-        stripePaymentIntentId: paymentRef,
-      },
-    },
-    {
-      relatedOrderId: orderId,
-      provider: order.paymentProvider ?? "stripe",
-      direction: "inbound",
-      accountType: "platform",
-      accountId: PLATFORM_ACCOUNT_ID,
-      amount: order.platformFee,
-      currency: "USD",
-      entryType: "platform_fee",
-      metadata: {
-        orderId,
-        buyerUserId: order.buyerUserId,
-        stripePaymentIntentId: paymentRef,
-      },
-    },
-    {
-      relatedOrderId: orderId,
-      provider: order.paymentProvider ?? "stripe",
-      direction: "inbound",
-      accountType: "user",
-      accountId: order.sellerUserId,
-      amount: order.sellerPayout,
-      currency: "USD",
-      entryType: "seller_payout",
-      metadata: {
-        orderId,
-        listingId: order.listingId,
-        stripePaymentIntentId: paymentRef,
+  // ──────────────────────────────────────────────────────────────────────────
+  // STEP 3 (finalize): record the actual Stripe IDs onto the pending ledger
+  // row. If we crash before this, the row remains `pending` and the next
+  // retry will replay Stripe (idempotently) and finalize.
+  // ──────────────────────────────────────────────────────────────────────────
+  await db
+    .update(payoutLedgerTable)
+    .set({
+      status: payoutStatus,
+      metadata: sql`COALESCE(${payoutLedgerTable.metadata}, '{}'::jsonb) || ${JSON.stringify({
         stripeTransferId: stripeTransferId ?? null,
         payoutStatus,
-        isMilestoneOrder,
-      },
-    },
-  ]);
+        intentStage: "finalized",
+        ...(payoutStatus === "pending_manual_payout" && {
+          note: "Stripe Connect seller payout — requires manual processing (agent has no active Connect account or transfer failed)",
+        }),
+      })}::jsonb`,
+      updatedAt: new Date(),
+    })
+    .where(eq(payoutLedgerTable.id, payoutLedgerId));
+
+  await db
+    .update(paymentLedgerTable)
+    .set({
+      metadata: sql`COALESCE(${paymentLedgerTable.metadata}, '{}'::jsonb) || ${JSON.stringify({
+        stripeTransferId: stripeTransferId ?? null,
+        payoutStatus,
+      })}::jsonb`,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(paymentLedgerTable.relatedOrderId, orderId),
+      eq(paymentLedgerTable.entryType, "seller_payout"),
+    ));
 
   await logActivity({
     agentId: order.agentId,
@@ -527,47 +666,175 @@ export async function cancelOrder(
   if (order.buyerUserId !== userId && order.sellerUserId !== userId) {
     return { success: false, error: "ORDER_NOT_FOUND" };
   }
-  if (order.status === "completed" || order.status === "cancelled") {
+  if (order.status === "completed") {
+    // Completed orders cannot be cancelled here — they require a separate
+    // refund flow that reverses the seller payout. (Disputes handle that.)
     return { success: false, error: `INVALID_STATUS:${order.status}` };
   }
+  // Note: status === "cancelled" is intentionally allowed through. The
+  // captured-payment saga below contains a recovery branch that detects a
+  // pending refund payment_ledger row left by a prior crashed attempt and
+  // replays Stripe (idempotently) to finalize. Without this, recovery would
+  // require operator intervention. (Code-review feedback on task #279.)
 
   const capturedStatuses = ["confirmed", "in_progress"];
   const isCaptured = capturedStatuses.includes(order.status);
 
-  if (order.providerPaymentReference) {
-    if (isCaptured) {
-      const refundResult = await refundProviderPayment(
-        order.paymentProvider ?? "stripe",
-        order.providerPaymentReference,
-      );
-      if (!refundResult.success) {
-        logger.error({ err: refundResult.error, orderId }, "[orders] Failed to refund payment");;
-        return { success: false, error: `REFUND_FAILED:${refundResult.error}` };
-      }
+  // For an already-cancelled order, decide whether to route into the
+  // captured-payment saga's recovery branch or return idempotent success.
+  //
+  // We CANNOT use `isCaptured` here — it is computed from order.status, which
+  // is now "cancelled" for both fully-finalized cancellations AND for prior
+  // attempts that crashed AFTER flipping the status but BEFORE refunding.
+  // The durable signal is the payment_ledger: if a refund row tagged with
+  // intentStage='pending_stripe_refund' exists, a prior attempt committed
+  // intent rows but never reached Stripe — replay through the saga.
+  let isCapturedCancelRecovery = false;
+  if (order.status === "cancelled") {
+    if (!order.providerPaymentReference) {
+      // No captured payment to refund — idempotent success.
+      return { success: true, order };
+    }
+    const pendingRefund = await db.query.paymentLedgerTable.findFirst({
+      where: and(
+        eq(paymentLedgerTable.relatedOrderId, orderId),
+        eq(paymentLedgerTable.entryType, "refund"),
+      ),
+    });
+    const stage = (pendingRefund?.metadata as Record<string, unknown> | undefined)
+      ?.intentStage;
+    if (!pendingRefund || stage !== "pending_stripe_refund") {
+      // Either no refund intent was ever committed (uncaptured PI flow) or
+      // the prior attempt fully finalized. Idempotent success.
+      return { success: true, order };
+    }
+    // Pending refund intent exists — route DIRECTLY to the captured-payment
+    // saga below (skipping the uncaptured/no-ref branches that would
+    // otherwise reject because order.status is already 'cancelled'). The
+    // saga's in-tx claim block will land in its "recover" branch and replay
+    // Stripe with stable idempotency keys, then finalize the ledger rows.
+    isCapturedCancelRecovery = true;
+  }
 
-      const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
-      // Reverse any Stripe Connect transfer to seller before recording ledger entries
-      try {
-        const existingPayout = await db.query.payoutLedgerTable.findFirst({
-          where: and(
-            eq(payoutLedgerTable.relatedOrderId, orderId),
-            eq(payoutLedgerTable.status, "completed"),
-          ),
-        });
-        const transferId = (existingPayout?.metadata as Record<string, unknown>)?.stripeTransferId as string | undefined;
-        if (transferId) {
-          const stripe = getStripe();
-          await stripe.transfers.createReversal(transferId, {}, { idempotencyKey: `order_reversal_${orderId}` });
-          logger.info({ orderId, transferId }, "[cancelOrder] Stripe Connect transfer reversed");
+  const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
+  const refundIdempotencyKey = `order_refund_${orderId}`;
+  const reversalIdempotencyKey = `order_reversal_${orderId}`;
+
+  // Uncaptured payment-intent path: just cancel the PI atomically. No money has
+  // moved yet, so the saga pattern below is unnecessary.
+  // (Skipped when isCapturedCancelRecovery is set — that means the order is
+  // already 'cancelled' with a pending captured-payment refund, and must go
+  // straight to the captured-payment saga's recovery branch below.)
+  if (!isCapturedCancelRecovery && order.providerPaymentReference && !isCaptured) {
+    const [updated] = await db
+      .update(marketplaceOrdersTable)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(and(
+        eq(marketplaceOrdersTable.id, orderId),
+        sql`${marketplaceOrdersTable.status} NOT IN ('completed', 'cancelled')`,
+      ))
+      .returning();
+
+    if (!updated) {
+      return { success: false, error: "ORDER_ALREADY_COMPLETED_OR_CANCELLED" };
+    }
+
+    try {
+      const stripe = getStripe();
+      await stripe.paymentIntents.cancel(order.providerPaymentReference);
+    } catch (err) {
+      logger.error({ err, orderId }, "[orders] Failed to cancel Stripe PaymentIntent");
+    }
+
+    return { success: true, order: updated };
+  }
+
+  // No payment reference at all — just flip the status atomically.
+  if (!order.providerPaymentReference) {
+    const [updated] = await db
+      .update(marketplaceOrdersTable)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(and(
+        eq(marketplaceOrdersTable.id, orderId),
+        sql`${marketplaceOrdersTable.status} NOT IN ('completed', 'cancelled')`,
+      ))
+      .returning();
+
+    if (!updated) {
+      return { success: false, error: "ORDER_ALREADY_COMPLETED_OR_CANCELLED" };
+    }
+    return { success: true, order: updated };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Captured-payment cancellation — saga pattern (audit C2):
+  //
+  //   STEP 1 (intent): atomic claim flips status confirmed/in_progress →
+  //     cancelled and inserts pending refund ledger rows in ONE transaction.
+  //     Concurrent callers contend on this UPDATE; only one wins, so Stripe
+  //     can never be hit twice.
+  //   STEP 2 (Stripe): refund + connect transfer reversal, both keyed by
+  //     stable idempotency strings, so any retry returns the prior result.
+  //   STEP 3 (finalize): write the actual Stripe IDs onto the pending ledger
+  //     rows.
+  //
+  // Recovery: if a previous attempt committed the intent but crashed before
+  // Stripe, the order is already cancelled and the pending refund row exists.
+  // We detect that, replay Stripe (idempotent), and finalize.
+  // ──────────────────────────────────────────────────────────────────────────
+  type CancelClaim =
+    | {
+      kind: "fresh" | "recover";
+      updated: MarketplaceOrder;
+      refundLedgerId: string;
+      feeReversalLedgerId: string;
+    }
+    | { kind: "already" };
+
+  const claim: CancelClaim = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(marketplaceOrdersTable)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(and(
+        eq(marketplaceOrdersTable.id, orderId),
+        sql`${marketplaceOrdersTable.status} NOT IN ('completed', 'cancelled')`,
+      ))
+      .returning();
+
+    if (!updated) {
+      // Recovery path: order already cancelled. If a pending refund ledger
+      // row exists, replay Stripe and finalize it.
+      const current = await tx.query.marketplaceOrdersTable.findFirst({
+        where: eq(marketplaceOrdersTable.id, orderId),
+      });
+      if (current?.status === "cancelled") {
+        const pendingRows = await tx
+          .select()
+          .from(paymentLedgerTable)
+          .where(and(
+            eq(paymentLedgerTable.relatedOrderId, orderId),
+            eq(paymentLedgerTable.entryType, "refund"),
+            sql`(${paymentLedgerTable.metadata}->>'intentStage') = 'pending_stripe_refund'`,
+          ));
+        const refundRow = pendingRows.find((r) =>
+          (r.metadata as Record<string, unknown>)?.reason === "order_cancelled");
+        const feeRow = pendingRows.find((r) =>
+          (r.metadata as Record<string, unknown>)?.reason === "order_cancelled_fee_reversal");
+        if (refundRow && feeRow) {
+          return {
+            kind: "recover",
+            updated: current,
+            refundLedgerId: refundRow.id,
+            feeReversalLedgerId: feeRow.id,
+          };
         }
-      } catch (reversalErr) {
-        logger.error(
-          { orderId, error: reversalErr instanceof Error ? reversalErr.message : String(reversalErr) },
-          "[cancelOrder] Failed to reverse Stripe Connect transfer — manual reversal needed",
-        );
       }
+      return { kind: "already" };
+    }
 
-      await db.insert(paymentLedgerTable).values([
+    const inserted = await tx
+      .insert(paymentLedgerTable)
+      .values([
         {
           relatedOrderId: orderId,
           provider: order.paymentProvider ?? "stripe",
@@ -581,8 +848,11 @@ export async function cancelOrder(
             orderId,
             listingId: order.listingId,
             stripePaymentIntentId: order.providerPaymentReference,
-            stripeRefundId: refundResult.refundId ?? null,
+            stripeRefundId: null,
             reason: "order_cancelled",
+            refundIdempotencyKey,
+            reversalIdempotencyKey,
+            intentStage: "pending_stripe_refund",
           },
         },
         {
@@ -597,33 +867,92 @@ export async function cancelOrder(
           metadata: {
             orderId,
             stripePaymentIntentId: order.providerPaymentReference,
-            stripeRefundId: refundResult.refundId ?? null,
+            stripeRefundId: null,
             reason: "order_cancelled_fee_reversal",
+            refundIdempotencyKey,
+            intentStage: "pending_stripe_refund",
           },
         },
-      ]);
-    } else {
-      try {
-        const stripe = getStripe();
-        await stripe.paymentIntents.cancel(order.providerPaymentReference);
-      } catch (err) {
-        logger.error({ err, orderId }, "[orders] Failed to cancel Stripe PaymentIntent");;
-      }
+      ])
+      .returning({ id: paymentLedgerTable.id, metadata: paymentLedgerTable.metadata });
+
+    const refundRow = inserted.find((r) =>
+      (r.metadata as Record<string, unknown>)?.reason === "order_cancelled")!;
+    const feeRow = inserted.find((r) =>
+      (r.metadata as Record<string, unknown>)?.reason === "order_cancelled_fee_reversal")!;
+
+    return {
+      kind: "fresh",
+      updated,
+      refundLedgerId: refundRow.id,
+      feeReversalLedgerId: feeRow.id,
+    };
+  });
+
+  if (claim.kind === "already") {
+    // Order is already cancelled and the refund payment_ledger rows have been
+    // finalized (no pending row found). This is a duplicate cancel call from
+    // a legitimate retry — return idempotent success rather than an error.
+    const current = await db.query.marketplaceOrdersTable.findFirst({
+      where: eq(marketplaceOrdersTable.id, orderId),
+    });
+    if (current?.status === "cancelled") {
+      return { success: true, order: current };
     }
-  }
-
-  const [updated] = await db
-    .update(marketplaceOrdersTable)
-    .set({ status: "cancelled", updatedAt: new Date() })
-    .where(and(
-      eq(marketplaceOrdersTable.id, orderId),
-      sql`${marketplaceOrdersTable.status} NOT IN ('completed', 'cancelled')`,
-    ))
-    .returning();
-
-  if (!updated) {
     return { success: false, error: "ORDER_ALREADY_COMPLETED_OR_CANCELLED" };
   }
+
+  const updated = claim.updated;
+
+  // Step 2a: Stripe refund (idempotent).
+  const refundResult = await refundProviderPayment(
+    order.paymentProvider ?? "stripe",
+    order.providerPaymentReference,
+    undefined,
+    { idempotencyKey: refundIdempotencyKey },
+  );
+  if (!refundResult.success) {
+    logger.error({ err: refundResult.error, orderId }, "[orders] Failed to refund payment — order remains cancelled with pending refund ledger row for retry");
+    return { success: false, error: `REFUND_FAILED:${refundResult.error}` };
+  }
+
+  // Step 2b: reverse any Stripe Connect transfer that completeOrder may have
+  // pushed to the seller. Idempotent via reversalIdempotencyKey.
+  let reversedTransferId: string | undefined;
+  try {
+    const existingPayout = await db.query.payoutLedgerTable.findFirst({
+      where: and(
+        eq(payoutLedgerTable.relatedOrderId, orderId),
+        eq(payoutLedgerTable.status, "completed"),
+      ),
+    });
+    const transferId = (existingPayout?.metadata as Record<string, unknown>)?.stripeTransferId as string | undefined;
+    if (transferId) {
+      const stripe = getStripe();
+      await stripe.transfers.createReversal(transferId, {}, { idempotencyKey: reversalIdempotencyKey });
+      reversedTransferId = transferId;
+      logger.info({ orderId, transferId }, "[cancelOrder] Stripe Connect transfer reversed");
+    }
+  } catch (reversalErr) {
+    logger.error(
+      { orderId, error: reversalErr instanceof Error ? reversalErr.message : String(reversalErr) },
+      "[cancelOrder] Failed to reverse Stripe Connect transfer — manual reversal needed",
+    );
+  }
+
+  // Step 3: finalize the pending refund ledger rows with actual Stripe IDs.
+  const finalizeMetadata = JSON.stringify({
+    stripeRefundId: refundResult.refundId ?? null,
+    reversedTransferId: reversedTransferId ?? null,
+    intentStage: "finalized",
+  });
+  await db
+    .update(paymentLedgerTable)
+    .set({
+      metadata: sql`COALESCE(${paymentLedgerTable.metadata}, '{}'::jsonb) || ${finalizeMetadata}::jsonb`,
+      updatedAt: new Date(),
+    })
+    .where(inArray(paymentLedgerTable.id, [claim.refundLedgerId, claim.feeReversalLedgerId]));
 
   return { success: true, order: updated };
 }

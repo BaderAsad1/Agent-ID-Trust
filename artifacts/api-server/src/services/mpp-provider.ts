@@ -12,6 +12,7 @@ import type {
   ProviderAuthResult,
   ProviderCaptureResult,
   ProviderRefundResult,
+  ProviderRequestOptions,
 } from "./payment-providers";
 
 export class StripeMppProvider implements PaymentProvider {
@@ -100,10 +101,16 @@ export class StripeMppProvider implements PaymentProvider {
     }
   }
 
-  async capturePayment(providerReference: string): Promise<ProviderCaptureResult> {
+  async capturePayment(
+    providerReference: string,
+    options?: ProviderRequestOptions,
+  ): Promise<ProviderCaptureResult> {
     try {
       const stripe = getStripe();
-      await stripe.paymentIntents.capture(providerReference);
+      const requestOptions = options?.idempotencyKey
+        ? { idempotencyKey: options.idempotencyKey }
+        : undefined;
+      await stripe.paymentIntents.capture(providerReference, undefined, requestOptions);
       return { success: true };
     } catch (err) {
       logger.error({ error: err instanceof Error ? err.message : String(err) }, "[StripeMppProvider] capturePayment error");
@@ -114,7 +121,11 @@ export class StripeMppProvider implements PaymentProvider {
     }
   }
 
-  async refundPayment(providerReference: string, amountInCents?: number): Promise<ProviderRefundResult> {
+  async refundPayment(
+    providerReference: string,
+    amountInCents?: number,
+    options?: ProviderRequestOptions,
+  ): Promise<ProviderRefundResult> {
     try {
       const stripe = getStripe();
       const params: { payment_intent: string; amount?: number } = {
@@ -123,8 +134,11 @@ export class StripeMppProvider implements PaymentProvider {
       if (amountInCents !== undefined) {
         params.amount = amountInCents;
       }
-      await stripe.refunds.create(params);
-      return { success: true };
+      const requestOptions = options?.idempotencyKey
+        ? { idempotencyKey: options.idempotencyKey }
+        : undefined;
+      const refund = await stripe.refunds.create(params, requestOptions);
+      return { success: true, refundId: refund.id };
     } catch (err) {
       logger.error({ error: err instanceof Error ? err.message : String(err) }, "[StripeMppProvider] refundPayment error");
       return {

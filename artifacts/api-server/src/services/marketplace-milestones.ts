@@ -180,7 +180,6 @@ export async function releaseMilestoneEscrow(
   if (order.buyerUserId !== buyerUserId) return { success: false, error: "FORBIDDEN" };
 
   const milestoneAmountCents = Math.round(parseFloat(milestone.amount) * 100);
-  let capturedAmountCents = milestoneAmountCents;
 
   if (!milestone.stripePaymentIntentId) {
     return {
@@ -189,6 +188,92 @@ export async function releaseMilestoneEscrow(
     };
   }
 
+  const captureIdempotencyKey = `milestone_capture_${milestoneId}`;
+  const transferIdempotencyKey = `milestone_transfer_${milestoneId}`;
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // STEP 1 (intent): SELECT FOR UPDATE the milestone row, then insert (or
+  //   recover) a `pending` payout_ledger row that records the chosen
+  //   idempotency keys. This commits BEFORE any Stripe call so that a
+  //   crash at any later point leaves a durable trace and the next retry
+  //   can replay Stripe (idempotently) and finalize. (audit H9.)
+  // ──────────────────────────────────────────────────────────────────────────
+  type IntentOutcome =
+    | { kind: "fresh" | "recover"; payoutLedgerId: string }
+    | { kind: "already_released" }
+    | { kind: "invalid"; status: string };
+
+  const intent: IntentOutcome = await db.transaction(async (tx) => {
+    const lockedRows = await tx.execute(
+      sql`SELECT id, status FROM marketplace_milestones WHERE id = ${milestoneId} FOR UPDATE`,
+    );
+    const locked = (lockedRows.rows ?? lockedRows)[0] as { id: string; status: string } | undefined;
+    if (!locked) {
+      return { kind: "invalid", status: "missing" };
+    }
+    if (locked.status === "released") {
+      return { kind: "already_released" };
+    }
+    if (locked.status !== "completed") {
+      return { kind: "invalid", status: locked.status };
+    }
+
+    // If there's already a pending payout for this milestone, this is a
+    // recovery scenario — reuse the row instead of creating a duplicate.
+    const existing = await tx.query.payoutLedgerTable.findFirst({
+      where: and(
+        eq(payoutLedgerTable.relatedOrderId, order.id),
+        eq(payoutLedgerTable.status, "pending"),
+        sql`(${payoutLedgerTable.metadata}->>'milestoneId') = ${milestoneId}`,
+      ),
+    });
+    if (existing) {
+      return { kind: "recover", payoutLedgerId: existing.id };
+    }
+
+    const [created] = await tx
+      .insert(payoutLedgerTable)
+      .values({
+        relatedOrderId: order.id,
+        sellerUserId: order.sellerUserId,
+        provider: order.paymentProvider ?? "stripe",
+        amount: milestone.amount,
+        currency: "USD",
+        status: "pending",
+        metadata: {
+          milestoneId,
+          milestoneAmount: milestone.amount,
+          stripePaymentIntentId: milestone.stripePaymentIntentId,
+          captureIdempotencyKey,
+          transferIdempotencyKey,
+          payoutType: "milestone_release",
+          intentStage: "pending_stripe_payout",
+        },
+      })
+      .returning({ id: payoutLedgerTable.id });
+
+    return { kind: "fresh", payoutLedgerId: created.id };
+  });
+
+  if (intent.kind === "already_released") {
+    return { success: false, error: "MILESTONE_ALREADY_RELEASED" };
+  }
+  if (intent.kind === "invalid") {
+    return {
+      success: false,
+      error: `MILESTONE_NOT_COMPLETED: current status is '${intent.status}'. Milestone must be marked completed by seller before buyer can release escrow.`,
+    };
+  }
+
+  const payoutLedgerId = intent.payoutLedgerId;
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // STEP 2 (Stripe): capture the per-milestone PI, then push the seller's
+  // share via Connect transfer. Both use stable idempotency keys so retries
+  // (whether due to crash or operator-initiated replay) cannot double-charge
+  // or double-payout.
+  // ──────────────────────────────────────────────────────────────────────────
+  let capturedAmountCents = milestoneAmountCents;
   try {
     const stripe = getStripe();
     const pi = await stripe.paymentIntents.retrieve(milestone.stripePaymentIntentId);
@@ -197,7 +282,7 @@ export async function releaseMilestoneEscrow(
       await stripe.paymentIntents.capture(
         milestone.stripePaymentIntentId,
         {},
-        { idempotencyKey: `milestone_capture_${milestoneId}` },
+        { idempotencyKey: captureIdempotencyKey },
       );
       logger.info(
         { milestoneId, piId: milestone.stripePaymentIntentId, amountCents: milestoneAmountCents },
@@ -217,7 +302,7 @@ export async function releaseMilestoneEscrow(
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ milestoneId, orderId: order.id, error: msg }, "[milestone] Stripe capture failed");
+    logger.error({ milestoneId, orderId: order.id, error: msg }, "[milestone] Stripe capture failed — pending payout_ledger row remains for retry");
     return { success: false, error: `STRIPE_CAPTURE_FAILED: ${msg}` };
   }
 
@@ -248,7 +333,7 @@ export async function releaseMilestoneEscrow(
               milestoneAmount: capturedAmount,
             },
           },
-          { idempotencyKey: `milestone_transfer_${milestoneId}` },
+          { idempotencyKey: transferIdempotencyKey },
         );
         stripeTransferId = transfer.id;
         milestonePayoutStatus = "completed";
@@ -265,31 +350,39 @@ export async function releaseMilestoneEscrow(
     }
   }
 
-  // Atomic claim inside the transaction: only the first concurrent caller succeeds.
-  // The milestone update uses WHERE status = 'completed' as the gate; if another call
-  // already flipped it to 'released', zero rows are returned and we abort.
-  let updated: MarketplaceMilestone;
-  try {
-    updated = await db.transaction(async (tx) => {
-      const rows = await tx
-        .update(marketplaceMilestonesTable)
-        .set({
-          status: "released",
-          capturedAmount,
-          approvedAt: new Date(),
-          releasedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(and(
-          eq(marketplaceMilestonesTable.id, milestoneId),
-          eq(marketplaceMilestonesTable.status, "completed"),
-        ))
-        .returning();
+  // ──────────────────────────────────────────────────────────────────────────
+  // STEP 3 (finalize): atomic milestone release + order increment + payout
+  // ledger finalization in a single transaction. The milestone UPDATE uses
+  // WHERE status = 'completed' so a concurrent finalizer can't double-credit
+  // the order. If the milestone has already advanced (e.g. another caller
+  // beat us), still finalize the ledger row so its `pending` row doesn't
+  // linger.
+  // ──────────────────────────────────────────────────────────────────────────
+  const finalizeMetadata = JSON.stringify({
+    capturedAmount,
+    capturedAmountCents,
+    stripeTransferId,
+    payoutStatus: milestonePayoutStatus,
+    intentStage: "finalized",
+  });
 
-      if (rows.length === 0) {
-        throw new Error("MILESTONE_ALREADY_RELEASED");
-      }
+  const finalized = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(marketplaceMilestonesTable)
+      .set({
+        status: "released",
+        capturedAmount,
+        approvedAt: new Date(),
+        releasedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(marketplaceMilestonesTable.id, milestoneId),
+        eq(marketplaceMilestonesTable.status, "completed"),
+      ))
+      .returning();
 
+    if (rows.length > 0) {
       await tx
         .update(marketplaceOrdersTable)
         .set({
@@ -297,33 +390,34 @@ export async function releaseMilestoneEscrow(
           updatedAt: new Date(),
         })
         .where(eq(marketplaceOrdersTable.id, order.id));
-
-      await tx.insert(payoutLedgerTable).values({
-        relatedOrderId: order.id,
-        sellerUserId: order.sellerUserId,
-        provider: order.paymentProvider ?? "stripe",
-        amount: capturedAmount,
-        currency: "USD",
-        status: milestonePayoutStatus,
-        metadata: {
-          milestoneId,
-          milestoneAmount: capturedAmount,
-          stripePaymentIntentId: milestone.stripePaymentIntentId,
-          stripeTransferId,
-          payoutType: "milestone_release",
-        },
-      });
-
-      return rows[0];
-    });
-  } catch (err) {
-    if (err instanceof Error && err.message === "MILESTONE_ALREADY_RELEASED") {
-      return { success: false, error: "MILESTONE_ALREADY_RELEASED" };
     }
-    throw err;
+
+    await tx
+      .update(payoutLedgerTable)
+      .set({
+        status: milestonePayoutStatus,
+        metadata: sql`COALESCE(${payoutLedgerTable.metadata}, '{}'::jsonb) || ${finalizeMetadata}::jsonb`,
+        updatedAt: new Date(),
+      })
+      .where(eq(payoutLedgerTable.id, payoutLedgerId));
+
+    return rows[0];
+  });
+
+  if (!finalized) {
+    // Another concurrent caller (or a recovered prior attempt) already
+    // released this milestone. The payout_ledger row is still finalized
+    // above so no money sits in limbo. Return the already-released row.
+    const current = await db.query.marketplaceMilestonesTable.findFirst({
+      where: eq(marketplaceMilestonesTable.id, milestoneId),
+    });
+    if (current?.status === "released") {
+      return { success: true, milestone: current, capturedAmount: current.capturedAmount ?? capturedAmount };
+    }
+    return { success: false, error: "MILESTONE_ALREADY_RELEASED" };
   }
 
-  return { success: true, milestone: updated, capturedAmount };
+  return { success: true, milestone: finalized, capturedAmount };
 }
 
 // Dispute flow lives in services/disputes.ts. This file historically exported

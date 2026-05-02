@@ -1,4 +1,4 @@
-import { eq, and, desc, isNull, inArray } from "drizzle-orm";
+import { eq, and, desc, isNull, inArray, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   marketplaceDisputesTable,
@@ -233,79 +233,177 @@ export async function resolveDispute(params: {
     return { success: false, error: "DISPUTE_ALREADY_RESOLVED" };
   }
 
+  const provider = order.paymentProvider ?? "stripe";
+  const disputeId = dispute.id;
+  // Stable per-dispute idempotency keys. Stripe will return the same refund or
+  // capture object on retry instead of double-acting. Each resolution shape
+  // gets its own key so a sequence of resolution attempts doesn't reuse a key
+  // from a different operation.
+  const refundIdempotencyKey = `dispute_refund_${disputeId}`;
+  const splitRefundIdempotencyKey = `dispute_split_refund_${disputeId}`;
+  const captureIdempotencyKey = `dispute_capture_${disputeId}`;
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // STEP 1 (intent): atomically claim the dispute by flipping status from
+  // open/responded → resolving in a single UPDATE. The first concurrent
+  // operator wins; the loser sees zero rows and aborts before any Stripe
+  // call. Inside the same transaction we insert the pending payment_ledger
+  // row(s) for the chosen resolution shape so a crash before Stripe still
+  // leaves a durable trace tied to the chosen idempotency key. (audit C1.)
+  //
+  // dispute.status is varchar(50) (no enum) so an intermediate "resolving"
+  // value is safe without a schema migration.
+  // ──────────────────────────────────────────────────────────────────────────
+  type ResolveClaim =
+    | { kind: "fresh"; refundLedgerId?: string }
+    | { kind: "recover"; refundLedgerId?: string }
+    | { kind: "lost" };
+
+  const claim: ResolveClaim = await db.transaction(async (tx) => {
+    const [claimed] = await tx
+      .update(marketplaceDisputesTable)
+      .set({
+        status: "resolving",
+        resolution: params.resolution,
+        adminNote: params.adminNote,
+        resolvedByUserId: params.resolvedByUserId,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(marketplaceDisputesTable.id, disputeId),
+        inArray(marketplaceDisputesTable.status, ["open", "responded"]),
+      ))
+      .returning();
+
+    if (!claimed) {
+      // Recovery scenario: another caller (or a prior crashed attempt) is
+      // already resolving this dispute. If the prior attempt got as far as
+      // creating a pending refund ledger row for the SAME resolution shape,
+      // we resume from there.
+      const current = await tx.query.marketplaceDisputesTable.findFirst({
+        where: eq(marketplaceDisputesTable.id, disputeId),
+      });
+      if (current?.status === "resolving" && current.resolution === params.resolution) {
+        const pending = await tx.query.paymentLedgerTable.findFirst({
+          where: and(
+            eq(paymentLedgerTable.relatedOrderId, order.id),
+            eq(paymentLedgerTable.entryType, "refund"),
+            sql`(${paymentLedgerTable.metadata}->>'disputeId') = ${disputeId}`,
+            sql`(${paymentLedgerTable.metadata}->>'intentStage') = 'pending_stripe_refund'`,
+          ),
+        });
+        return { kind: "recover", refundLedgerId: pending?.id };
+      }
+      return { kind: "lost" };
+    }
+
+    // Fresh resolution — persist a pending refund ledger row when the
+    // resolution involves money flowing back to the buyer. release_seller
+    // does a capture only and produces no refund row, so we skip the insert.
+    if (
+      order.providerPaymentReference &&
+      (params.resolution === "refund_buyer" || params.resolution === "split")
+    ) {
+      const isFull = params.resolution === "refund_buyer";
+      const amountStr = isFull
+        ? order.priceAmount
+        : (Math.floor(Math.round(parseFloat(order.priceAmount) * 100) / 2) / 100).toFixed(2);
+      const idemKey = isFull ? refundIdempotencyKey : splitRefundIdempotencyKey;
+      const reason = isFull ? "dispute_resolved_buyer_wins" : "dispute_resolved_split";
+
+      const [refundRow] = await tx
+        .insert(paymentLedgerTable)
+        .values({
+          relatedOrderId: order.id,
+          provider,
+          direction: "inbound",
+          accountType: "user",
+          accountId: order.buyerUserId,
+          amount: amountStr,
+          currency: "USD",
+          entryType: "refund",
+          metadata: {
+            orderId: order.id,
+            disputeId,
+            listingId: order.listingId,
+            stripePaymentIntentId: order.providerPaymentReference,
+            stripeRefundId: null,
+            reason,
+            refundIdempotencyKey: idemKey,
+            intentStage: "pending_stripe_refund",
+          },
+        })
+        .returning({ id: paymentLedgerTable.id });
+      return { kind: "fresh", refundLedgerId: refundRow.id };
+    }
+
+    return { kind: "fresh" };
+  });
+
+  if (claim.kind === "lost") {
+    return { success: false, error: "DISPUTE_ALREADY_RESOLVING" };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // STEP 2 (Stripe): execute the chosen resolution with stable idempotency
+  // keys so retries cannot double-refund or double-capture.
+  // ──────────────────────────────────────────────────────────────────────────
   let paymentAction: "refunded" | "captured" | "split" | "skipped" = "skipped";
+  let stripeRefundId: string | null = null;
 
-  // Trigger Stripe action when there's a payment intent on the order.
   if (order.providerPaymentReference) {
-    const provider = order.paymentProvider ?? "stripe";
-
     if (params.resolution === "refund_buyer") {
-      const refund = await refundProviderPayment(provider, order.providerPaymentReference);
+      const refund = await refundProviderPayment(
+        provider,
+        order.providerPaymentReference,
+        undefined,
+        { idempotencyKey: refundIdempotencyKey },
+      );
       if (!refund.success) {
-        logger.error({ orderId: order.id, err: refund.error }, "[disputes] refund failed");
+        logger.error({ orderId: order.id, disputeId, err: refund.error }, "[disputes] refund failed — dispute remains 'resolving' for retry");
         return { success: false, error: `REFUND_FAILED:${refund.error}` };
       }
       paymentAction = "refunded";
-      await db.insert(paymentLedgerTable).values({
-        relatedOrderId: order.id,
-        provider,
-        direction: "inbound",
-        accountType: "user",
-        accountId: order.buyerUserId,
-        amount: order.priceAmount,
-        currency: "USD",
-        entryType: "refund",
-        metadata: {
-          orderId: order.id,
-          listingId: order.listingId,
-          stripePaymentIntentId: order.providerPaymentReference,
-          stripeRefundId: refund.refundId ?? null,
-          reason: "dispute_resolved_buyer_wins",
-        },
-      });
+      stripeRefundId = refund.refundId ?? null;
     } else if (params.resolution === "release_seller") {
-      // If payment is in `requires_capture` state, capture it. If already
-      // captured (e.g. instant-capture flow), this is a no-op error from Stripe
-      // — treat as success.
-      const capture = await captureProviderPayment(provider, order.providerPaymentReference);
+      // Capture is naturally idempotent on the same PaymentIntent, but pass a
+      // stable key anyway so any infrastructure retry consults Stripe's idem
+      // cache instead of issuing a fresh capture API call.
+      const capture = await captureProviderPayment(
+        provider,
+        order.providerPaymentReference,
+        { idempotencyKey: captureIdempotencyKey },
+      );
       if (!capture.success && capture.error && !/already.captured/i.test(capture.error)) {
-        logger.error({ orderId: order.id, err: capture.error }, "[disputes] capture failed");
+        logger.error({ orderId: order.id, disputeId, err: capture.error }, "[disputes] capture failed — dispute remains 'resolving' for retry");
         return { success: false, error: `CAPTURE_FAILED:${capture.error}` };
       }
       paymentAction = "captured";
     } else if (params.resolution === "split") {
-      // Split: refund 50% to buyer, leave the rest to be captured/released to
-      // seller. Operators can use adminNote to describe a different split.
       const fullCents = Math.round(parseFloat(order.priceAmount) * 100);
       const refundCents = Math.floor(fullCents / 2);
-      const refund = await refundProviderPayment(provider, order.providerPaymentReference, refundCents);
+      const refund = await refundProviderPayment(
+        provider,
+        order.providerPaymentReference,
+        refundCents,
+        { idempotencyKey: splitRefundIdempotencyKey },
+      );
       if (!refund.success) {
-        logger.error({ orderId: order.id, err: refund.error }, "[disputes] split refund failed");
+        logger.error({ orderId: order.id, disputeId, err: refund.error }, "[disputes] split refund failed — dispute remains 'resolving' for retry");
         return { success: false, error: `REFUND_FAILED:${refund.error}` };
       }
       paymentAction = "split";
-      await db.insert(paymentLedgerTable).values({
-        relatedOrderId: order.id,
-        provider,
-        direction: "inbound",
-        accountType: "user",
-        accountId: order.buyerUserId,
-        amount: (refundCents / 100).toFixed(2),
-        currency: "USD",
-        entryType: "refund",
-        metadata: {
-          orderId: order.id,
-          listingId: order.listingId,
-          stripePaymentIntentId: order.providerPaymentReference,
-          stripeRefundId: refund.refundId ?? null,
-          reason: "dispute_resolved_split",
-        },
-      });
+      stripeRefundId = refund.refundId ?? null;
     }
   } else {
-    logger.warn({ orderId: order.id }, "[disputes] no provider payment reference — payment action skipped");
+    logger.warn({ orderId: order.id, disputeId }, "[disputes] no provider payment reference — payment action skipped");
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // STEP 3 (finalize): flip dispute to resolved, flip order to its terminal
+  // status, and stamp the Stripe refund id onto the pending ledger row, all
+  // in one transaction.
+  // ──────────────────────────────────────────────────────────────────────────
   const newOrderStatus =
     params.resolution === "refund_buyer" ? "cancelled" : "completed";
 
@@ -321,7 +419,7 @@ export async function resolveDispute(params: {
         resolvedByUserId: params.resolvedByUserId,
         updatedAt: new Date(),
       })
-      .where(eq(marketplaceDisputesTable.id, dispute.id))
+      .where(eq(marketplaceDisputesTable.id, disputeId))
       .returning();
     updatedDispute = row;
 
@@ -329,6 +427,19 @@ export async function resolveDispute(params: {
       .update(marketplaceOrdersTable)
       .set({ status: newOrderStatus, updatedAt: new Date() })
       .where(eq(marketplaceOrdersTable.id, order.id));
+
+    if (claim.refundLedgerId) {
+      await tx
+        .update(paymentLedgerTable)
+        .set({
+          metadata: sql`COALESCE(${paymentLedgerTable.metadata}, '{}'::jsonb) || ${JSON.stringify({
+            stripeRefundId,
+            intentStage: "finalized",
+          })}::jsonb`,
+          updatedAt: new Date(),
+        })
+        .where(eq(paymentLedgerTable.id, claim.refundLedgerId));
+    }
   });
 
   // Notify both parties (best-effort)
