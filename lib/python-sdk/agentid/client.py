@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
-from typing import Any, Dict, List, Optional, Union
+import secrets
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 try:
     import httpx
@@ -36,6 +39,42 @@ class AgentIDError(Exception):
         self.message = message
         self.details = details
         super().__init__(f"[{error_code}] {message} (HTTP {status_code})")
+
+
+def generate_pkce_pair(verifier_length: int = 64) -> Tuple[str, str]:
+    """
+    Generate a PKCE ``code_verifier`` / ``code_challenge`` pair (RFC 7636).
+
+    The ``code_verifier`` is a cryptographically random, URL-safe string
+    (43-128 characters). The ``code_challenge`` is the URL-safe base64
+    encoding of the SHA-256 hash of the verifier, with trailing ``=``
+    padding stripped (S256 method).
+
+    Args:
+        verifier_length: Length of the verifier in bytes before base64 encoding
+            (default 64 → ~86 chars). Per RFC 7636 the resulting string must be
+            between 43 and 128 characters; values 32-96 are recommended.
+
+    Returns:
+        A ``(code_verifier, code_challenge)`` tuple. Use ``code_challenge`` in
+        the authorization URL (with ``code_challenge_method=S256``) and keep
+        ``code_verifier`` private — it must be sent in the token exchange.
+
+    Example::
+
+        from agentid.client import generate_pkce_pair
+
+        verifier, challenge = generate_pkce_pair()
+        # Build the authorization URL with `code_challenge=challenge`
+        # and `code_challenge_method=S256`. After the user is redirected
+        # back with `code=...`, exchange it by sending `code_verifier=verifier`.
+    """
+    if not 32 <= verifier_length <= 96:
+        raise ValueError("verifier_length must be between 32 and 96 bytes")
+    code_verifier = secrets.token_urlsafe(verifier_length)
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    return code_verifier, code_challenge
 
 
 class AgentID:
@@ -2030,6 +2069,7 @@ class AgentID:
         authorization_url: str,
         *,
         exchange_code: bool = True,
+        code_verifier: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Complete a full OAuth flow autonomously from an authorization URL.
@@ -2039,7 +2079,8 @@ class AgentID:
         this method:
 
         1. Parses the URL parameters.
-        2. Generates a fresh PKCE ``code_verifier`` / ``code_challenge`` pair.
+        2. Generates a fresh PKCE ``code_verifier`` / ``code_challenge`` pair
+           (or uses the one provided via ``code_verifier``).
         3. Calls :meth:`authorize_oauth_client` to approve the consent.
         4. If ``exchange_code=True`` (default), exchanges the code for an
            access + refresh token pair.
@@ -2050,6 +2091,12 @@ class AgentID:
             exchange_code:     If ``True``, exchanges the code for tokens and
                                returns the token response. If ``False``, returns
                                the raw authorize response ``{code, redirect_url}``.
+            code_verifier:     Optional caller-supplied PKCE verifier. Required
+                               when ``authorization_url`` already contains a
+                               ``code_challenge`` (so the SDK cannot derive the
+                               matching verifier itself) and you still want
+                               ``exchange_code=True``. Must match the
+                               ``code_challenge`` embedded in the URL.
 
         Returns:
             When ``exchange_code=True``::
@@ -2072,7 +2119,9 @@ class AgentID:
             ValueError: If the authorization URL is missing required parameters.
             AgentIDError: On API errors.
 
-        Example — agent handling a third-party OAuth redirect autonomously::
+        Example — agent handling a third-party OAuth redirect autonomously.
+        The SDK generates a fresh PKCE pair if the URL doesn't include one,
+        and uses the matching ``code_verifier`` during the token exchange::
 
             tokens = client.complete_oauth_flow(
                 agent_id=agent_id,
@@ -2083,14 +2132,17 @@ class AgentID:
                     "&response_type=code"
                     "&scope=read+agents%3Aread"
                     "&state=abc123"
-                    "&code_challenge=XXXX"
-                    "&code_challenge_method=S256"
                 ),
             )
             # tokens["access_token"] — ready to use
+
+        If you need to drive PKCE yourself (e.g. the authorization URL was
+        constructed by a third party that holds the verifier), generate the
+        pair with :func:`agentid.client.generate_pkce_pair`, embed
+        ``code_challenge`` in the URL, pass ``exchange_code=False``, and call
+        the token endpoint yourself with the verifier.
         """
-        import hashlib, secrets, base64
-        from urllib.parse import urlparse, parse_qs, urlencode
+        from urllib.parse import urlparse, parse_qs
 
         parsed = urlparse(authorization_url)
         qs = parse_qs(parsed.query, keep_blank_values=False)
@@ -2112,16 +2164,34 @@ class AgentID:
         existing_challenge = _one("code_challenge", required=False)
         existing_method    = _one("code_challenge_method", required=False) or "S256"
 
+        # Track whether we generated this verifier (so we know to clean it up
+        # from the per-client cache after consumption).
+        sdk_generated_verifier = False
+
         if existing_challenge:
             code_challenge        = existing_challenge
             code_challenge_method = existing_method
-            code_verifier         = None  # can't exchange without the verifier
+            # Caller may have supplied the matching verifier explicitly.
+            if code_verifier is None:
+                # Fall back to a previously cached verifier for this challenge.
+                code_verifier = getattr(self, "_pkce_verifiers", {}).get(existing_challenge)
         else:
-            raw_verifier          = secrets.token_urlsafe(32)
-            code_verifier         = raw_verifier
-            digest                = hashlib.sha256(raw_verifier.encode()).digest()
-            code_challenge        = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+            if code_verifier is not None:
+                # Derive challenge from the supplied verifier (S256).
+                digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+                code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+            else:
+                code_verifier, code_challenge = generate_pkce_pair()
+                sdk_generated_verifier = True
             code_challenge_method = "S256"
+            # Stage the verifier internally between the authorize call and the
+            # token exchange below. This is an implementation detail, not a
+            # public recovery API — the entry is removed after a successful
+            # exchange. Callers who need verifier access should generate the
+            # pair themselves with ``generate_pkce_pair()``.
+            if not hasattr(self, "_pkce_verifiers"):
+                self._pkce_verifiers: Dict[str, str] = {}
+            self._pkce_verifiers[code_challenge] = code_verifier
 
         auth_result = self.authorize_oauth_client(
             agent_id=agent_id,
@@ -2137,11 +2207,11 @@ class AgentID:
             return auth_result
 
         if code_verifier is None:
-            # Caller supplied their own challenge; can't exchange without verifier
+            # Caller supplied their own challenge but no verifier; can't exchange.
             raise ValueError(
                 "Cannot exchange code when code_challenge was embedded in the authorization_url "
-                "without the corresponding code_verifier. Pass exchange_code=False or use "
-                "authorize_oauth_client() directly with your own PKCE pair."
+                "without the corresponding code_verifier. Pass code_verifier=... or "
+                "exchange_code=False, or use authorize_oauth_client() directly."
             )
 
         root = self._oauth_root()
@@ -2164,6 +2234,11 @@ class AgentID:
                 )
             except (ValueError, KeyError):
                 raise AgentIDError(token_resp.status_code, "token_error", token_resp.text)
+
+        # Verifier has been consumed — drop it from the cache to keep the dict
+        # bounded for long-lived clients.
+        if sdk_generated_verifier:
+            getattr(self, "_pkce_verifiers", {}).pop(code_challenge, None)
 
         return {**auth_result, **token_resp.json()}
 

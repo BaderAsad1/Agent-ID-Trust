@@ -1,6 +1,6 @@
 """Agent ID Python SDK."""
 
-from .client import AgentID
+from .client import AgentID, generate_pkce_pair
 from .async_client import AsyncAgentID
 from .types import (
     Agent,
@@ -28,6 +28,7 @@ __all__ = [
     "HeartbeatResult",
     "TrustData",
     "TrustSignal",
+    "generate_pkce_pair",
 ]
 
 __version__ = "0.3.0"

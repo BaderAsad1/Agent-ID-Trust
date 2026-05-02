@@ -121,6 +121,92 @@ signature = sign_challenge(challenge_string, private_key_b64)
 is_valid = verify_signature(message, signature, public_key_b64)
 ```
 
+## OAuth 2.0 with PKCE
+
+The SDK can drive a full OAuth Authorization Code + PKCE (S256) flow on
+behalf of an agent. Use it when an agent autonomously signs in to a
+third-party app that supports "Sign in with Agent ID".
+
+### One-shot autonomous flow
+
+If you have the third party's authorization URL, `complete_oauth_flow()`
+generates a fresh PKCE pair, approves the consent on behalf of the agent,
+exchanges the returned code for tokens, and returns the access token.
+
+```python
+from agentid import AgentID
+
+client = AgentID.init(agent_key="agk_your_agent_key")
+
+tokens = client.complete_oauth_flow(
+    agent_id="YOUR_AGENT_UUID",
+    authorization_url=(
+        "https://getagent.id/oauth/authorize"
+        "?client_id=agclient_thirdparty"
+        "&redirect_uri=https%3A%2F%2Fthirdparty.com%2Fcallback"
+        "&response_type=code"
+        "&scope=read+agents%3Aread"
+        "&state=abc123"
+    ),
+)
+
+access_token = tokens["access_token"]
+refresh_token = tokens["refresh_token"]
+```
+
+### Manual flow (custom callback handling)
+
+If you need to control the redirect / callback yourself, generate the
+PKCE pair, build the authorization URL, and exchange the verifier in the
+token request manually.
+
+```python
+from urllib.parse import urlencode
+from agentid import AgentID, generate_pkce_pair
+
+client = AgentID.init(agent_key="agk_your_agent_key")
+
+# 1. Generate a PKCE pair (RFC 7636, S256). Keep the verifier private.
+code_verifier, code_challenge = generate_pkce_pair()
+
+# 2. Build the authorization URL with the challenge.
+auth_url = "https://getagent.id/oauth/authorize?" + urlencode({
+    "client_id":             "agclient_thirdparty",
+    "redirect_uri":          "https://thirdparty.com/callback",
+    "response_type":         "code",
+    "scope":                 "read agents:read",
+    "state":                 "abc123",
+    "code_challenge":        code_challenge,
+    "code_challenge_method": "S256",
+})
+
+# 3. Approve the consent on behalf of the agent.
+result = client.authorize_oauth_client(
+    agent_id="YOUR_AGENT_UUID",
+    client_id="agclient_thirdparty",
+    redirect_uri="https://thirdparty.com/callback",
+    scopes=["read", "agents:read"],
+    state="abc123",
+    code_challenge=code_challenge,
+    code_challenge_method="S256",
+)
+auth_code = result["code"]
+
+# 4. Exchange the code for tokens, sending the verifier.
+import httpx
+token_resp = httpx.post(
+    "https://getagent.id/oauth/token",
+    data={
+        "grant_type":    "authorization_code",
+        "code":          auth_code,
+        "client_id":     "agclient_thirdparty",
+        "redirect_uri":  "https://thirdparty.com/callback",
+        "code_verifier": code_verifier,
+    },
+)
+tokens = token_resp.json()
+```
+
 ## API Reference
 
 ### `AgentID.init(**kwargs) -> AgentID`
@@ -222,10 +308,9 @@ Full native async support is planned for a future release. If your project requi
 
 ### Feature parity
 
-The Python SDK covers the most common operations (register, resolve, message, task, heartbeat, trust). Advanced features available in the TypeScript SDK but not yet in the Python SDK include:
+The Python SDK covers the most common operations (register, resolve, message, task, heartbeat, trust, OAuth 2.0 with PKCE). Advanced features available in the TypeScript SDK but not yet in the Python SDK include:
 
 - Machine Payments Protocol (MPP) — `agent.mpp.*`
-- OAuth 2.0 client operations
 - PoP-JWT token generation
 - Bootstrap bundle streaming
 
