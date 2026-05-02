@@ -399,16 +399,24 @@ router.get("/agents/:agentId/messages/:messageId", requireHumanOrAgentAuth, asyn
       mailService.getMessageAttachments(messageId),
     ]);
 
-    const attachments = rawAttachments.map(a => ({
-      id: a.id,
-      messageId: a.messageId,
-      filename: a.fileName,
-      contentType: a.mimeType,
-      size: a.sizeBytes,
-      url: getStableAttachmentUrl(a.storageKey, a.storageUrl),
-      checksum: a.checksum,
-      createdAt: a.createdAt,
-    }));
+    const attachments = rawAttachments.map(a => {
+      const isBlocked = a.scanStatus === "blocked";
+      return {
+        id: a.id,
+        messageId: a.messageId,
+        filename: a.fileName,
+        contentType: a.mimeType,
+        size: a.sizeBytes,
+        // Blocked attachments have had their bytes purged from storage — never
+        // hand the client a URL that would 404 (or worse).
+        url: isBlocked ? null : getStableAttachmentUrl(a.storageKey, a.storageUrl),
+        checksum: a.checksum,
+        scanStatus: a.scanStatus,
+        scanResult: isBlocked ? a.scanResult : null,
+        scannedAt: a.scannedAt,
+        createdAt: a.createdAt,
+      };
+    });
 
     res.json({ message, labels, attachments });
   } catch (err) {
@@ -1100,6 +1108,8 @@ router.post(
         checksum: attachment.checksum,
         backend: stored.backend,
         url: stored.backend === "inline" ? stored.storageUrl : undefined,
+        scanStatus: attachment.scanStatus,
+        scannedAt: attachment.scannedAt,
         createdAt: attachment.createdAt,
       });
     } catch (err) {
@@ -1139,6 +1149,16 @@ router.get(
       const attachment = row?.attachment;
       if (!attachment) throw new AppError(404, "NOT_FOUND", "Attachment not found");
 
+      // The malware scanner already purged blocked files from object storage;
+      // refuse the URL request so we don't surface a broken or dangerous link.
+      if (attachment.scanStatus === "blocked") {
+        throw new AppError(
+          410,
+          "ATTACHMENT_BLOCKED",
+          "Attachment was removed by the malware scanner",
+        );
+      }
+
       const url = await presignAttachmentUrl(
         attachment.storageKey ?? "",
         attachment.storageUrl ?? "",
@@ -1150,6 +1170,8 @@ router.get(
         contentType: attachment.mimeType,
         size: attachment.sizeBytes,
         url,
+        scanStatus: attachment.scanStatus,
+        scannedAt: attachment.scannedAt,
         expiresIn: 3600,
       });
     } catch (err) {

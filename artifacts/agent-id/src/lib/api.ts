@@ -1210,15 +1210,20 @@ export interface MailLabel {
   createdAt: string;
 }
 
+export type MailAttachmentScanStatus = 'unscanned' | 'pending' | 'clean' | 'blocked';
+
 export interface MailAttachment {
   id: string;
   messageId: string;
   filename: string;
   contentType: string;
   size: number;
-  url?: string;
+  url?: string | null;
   checksum?: string;
   backend?: string;
+  scanStatus?: MailAttachmentScanStatus;
+  scanResult?: string | null;
+  scannedAt?: string | null;
   createdAt: string;
 }
 

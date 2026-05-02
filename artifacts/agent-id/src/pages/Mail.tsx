@@ -798,8 +798,13 @@ function AttachmentPreview({
   cachedUrl?: string;
   onResolve: (id: string) => Promise<string | null>;
 }) {
-  const isImage = isImageMime(attachment.contentType);
-  const isPdf = isPdfMime(attachment.contentType);
+  // Inbound malware-scanned attachments that came back infected are deleted
+  // from R2 server-side. We render a "removed" chip and skip every URL fetch
+  // path (the presign endpoint also returns 410 ATTACHMENT_BLOCKED). Hooks
+  // are still called above any early return so the rules of hooks hold.
+  const isBlocked = attachment.scanStatus === 'blocked';
+  const isImage = !isBlocked && isImageMime(attachment.contentType);
+  const isPdf = !isBlocked && isPdfMime(attachment.contentType);
   const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(cachedUrl || attachment.url);
   const [urlLoading, setUrlLoading] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -911,6 +916,15 @@ function AttachmentPreview({
           <ImageIcon className="w-3 h-3 flex-shrink-0" />
           <span className="truncate flex-1" title={attachment.filename}>{attachment.filename}</span>
           {sizeLabel && <span style={{ color: 'var(--text-dim)' }}>{sizeLabel}</span>}
+          {attachment.scanStatus === 'clean' && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full"
+              style={{ background: 'rgba(34,197,94,0.12)', color: 'var(--success)' }}
+              title={attachment.scannedAt ? `Scanned clean at ${new Date(attachment.scannedAt).toLocaleString()}` : 'Scanned clean'}
+            >
+              <ShieldCheck className="w-3 h-3" />
+            </span>
+          )}
         </div>
       </div>
     );
@@ -925,6 +939,24 @@ function AttachmentPreview({
     const url = await fetchUrl();
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
   };
+
+  if (isBlocked) {
+    return (
+      <div
+        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg"
+        style={{
+          background: 'rgba(239,68,68,0.08)',
+          border: '1px solid rgba(239,68,68,0.25)',
+          color: 'var(--danger)',
+        }}
+        title={attachment.scanResult ? `Threat: ${attachment.scanResult}` : 'Removed by malware scanner'}
+      >
+        <ShieldAlert className="w-3 h-3" />
+        <span style={{ textDecoration: 'line-through' }}>{attachment.filename}</span>
+        <span style={{ color: 'var(--danger)' }}>· Attachment removed by malware scan</span>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -956,6 +988,16 @@ function AttachmentPreview({
         {attachment.filename}
       </a>
       {sizeLabel && <span style={{ color: 'var(--text-dim)' }}>({sizeLabel})</span>}
+      {attachment.scanStatus === 'clean' && (
+        <span
+          className="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full"
+          style={{ background: 'rgba(34,197,94,0.12)', color: 'var(--success)' }}
+          title={attachment.scannedAt ? `Scanned clean at ${new Date(attachment.scannedAt).toLocaleString()}` : 'Scanned clean'}
+        >
+          <ShieldCheck className="w-3 h-3" />
+          Verified
+        </span>
+      )}
       {urlError && <span style={{ color: '#ef4444' }}>· {urlError}</span>}
     </div>
   );

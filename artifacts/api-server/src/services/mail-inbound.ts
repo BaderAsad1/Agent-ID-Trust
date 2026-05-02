@@ -16,7 +16,8 @@ import { logger } from "../middlewares/request-logger";
 import * as mailService from "./mail";
 import { queueMessageNotification } from "./mail-templates";
 import { deliverOutbound } from "./mail-transport";
-import { uploadAttachment, ATTACHMENT_LIMITS } from "../lib/attachment-storage";
+import { uploadAttachment, deleteAttachment, ATTACHMENT_LIMITS } from "../lib/attachment-storage";
+import { scanAttachment } from "../lib/attachment-scanner";
 import { resolveAndValidateHostname } from "../lib/ssrf-guard";
 
 export interface ResendInboundPayload {
@@ -278,6 +279,52 @@ export async function persistInboundAttachments(
         buffer,
       });
 
+      // Scan the file *after* upload so the scanner failure path still leaves
+      // us with a normal stored attachment (just flagged unscanned).
+      const scan = await scanAttachment(buffer, {
+        agentId,
+        messageId,
+        filename: safeFilename,
+      });
+
+      if (scan.status === "infected") {
+        // Purge the bytes from object storage immediately. We still persist a
+        // row so the UI can render an "Attachment removed by malware scan"
+        // tombstone in place of the download chip.
+        if (stored.storageKey) {
+          try {
+            await deleteAttachment(stored.storageKey);
+          } catch (delErr) {
+            logger.warn(
+              {
+                agentId,
+                messageId,
+                filename: safeFilename,
+                err: delErr instanceof Error ? delErr.message : String(delErr),
+              },
+              "[mail-inbound] Failed to delete infected attachment from storage",
+            );
+          }
+        }
+
+        await db.insert(messageAttachmentsTable).values({
+          messageId,
+          fileName: safeFilename,
+          mimeType: safeMime,
+          sizeBytes: buffer.length,
+          storageKey: null,
+          storageUrl: null,
+          storageBackend: stored.backend,
+          checksum: stored.checksum,
+          scanStatus: "blocked",
+          scanResult: scan.detail ?? null,
+          scannedAt: scan.scannedAt,
+        });
+
+        result.skipped++;
+        continue;
+      }
+
       await db.insert(messageAttachmentsTable).values({
         messageId,
         fileName: safeFilename,
@@ -287,6 +334,9 @@ export async function persistInboundAttachments(
         storageUrl: stored.storageUrl,
         storageBackend: stored.backend,
         checksum: stored.checksum,
+        scanStatus: scan.status === "clean" ? "clean" : "unscanned",
+        scanResult: scan.detail ?? null,
+        scannedAt: scan.status === "clean" ? scan.scannedAt : null,
       });
 
       result.stored++;

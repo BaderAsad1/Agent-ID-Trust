@@ -132,6 +132,13 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET_NAME: z.string().optional(),
   R2_PUBLIC_URL: z.string().optional(),
+
+  // Inbound attachment malware scanning (ClamAV daemon over TCP).
+  // If CLAMAV_HOST is unset, scanning is disabled and inbound attachments
+  // are persisted with scan_status="unscanned" (still downloadable).
+  CLAMAV_HOST: z.string().optional(),
+  CLAMAV_PORT: z.string().optional(),
+  CLAMAV_TIMEOUT_MS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

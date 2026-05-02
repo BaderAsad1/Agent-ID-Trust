@@ -246,6 +246,13 @@
       "when": 1746230400000,
       "tag": "0034_marketplace_dispute_resolution",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1778544000000,
+      "tag": "0035_attachment_scan_status",
+      "breakpoints": true
     }
   ]
 }

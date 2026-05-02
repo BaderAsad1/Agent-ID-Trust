@@ -249,12 +249,21 @@ export const messageAttachmentsTable = pgTable(
     storageUrl: text("storage_url"),
     storageBackend: varchar("storage_backend", { length: 16 }).default("inline"),
     checksum: varchar("checksum", { length: 128 }),
+    // Malware scan state for inbound attachments.
+    //   "unscanned" — no scanner configured or scanner failed (still downloadable)
+    //   "clean"     — scanner gave us an all-clear; scannedAt is set
+    //   "blocked"   — scanner flagged this; storage object has been deleted
+    //   "pending"   — scan in progress / queued (reserved for future async use)
+    scanStatus: varchar("scan_status", { length: 20 }).default("unscanned").notNull(),
+    scanResult: text("scan_result"),
+    scannedAt: timestamp("scanned_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
   (table) => [
     index("message_attachments_message_id_idx").on(table.messageId),
+    index("message_attachments_scan_status_idx").on(table.scanStatus),
   ],
 );
 
