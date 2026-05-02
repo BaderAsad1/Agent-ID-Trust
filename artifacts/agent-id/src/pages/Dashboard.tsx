@@ -1101,7 +1101,40 @@ function ActivityLogPage() {
   );
 }
 
-function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id: string; handle: string; displayName: string }>; onCreated: () => void; onCancel: () => void }) {
+const A2A_PROTOCOL_OPTIONS = ['REST', 'MCP', 'gRPC', 'A2A', 'Websocket'] as const;
+const A2A_AUTH_METHOD_OPTIONS = ['bearer', 'x402', 'api-key', 'oauth', 'mtls', 'none'] as const;
+
+function MultiSelectChips({ options, value, onChange, ariaLabel }: { options: readonly string[]; value: string[]; onChange: (next: string[]) => void; ariaLabel?: string }) {
+  const toggle = (opt: string) => {
+    if (value.includes(opt)) onChange(value.filter(v => v !== opt));
+    else onChange([...value, opt]);
+  };
+  return (
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label={ariaLabel}>
+      {options.map(opt => {
+        const selected = value.includes(opt);
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => toggle(opt)}
+            aria-pressed={selected}
+            className="text-xs px-2.5 py-1 rounded-lg cursor-pointer transition-all"
+            style={{
+              background: selected ? 'rgba(139,92,246,0.15)' : 'var(--bg-base)',
+              color: selected ? 'var(--marketplace)' : 'var(--text-muted)',
+              border: `1px solid ${selected ? 'rgba(139,92,246,0.4)' : 'var(--border-color)'}`,
+            }}
+          >
+            {opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id: string; handle: string; displayName: string; endpointUrl?: string; protocols?: string[]; authMethods?: string[] }>; onCreated: () => void; onCancel: () => void }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Code');
@@ -1146,16 +1179,54 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
     }
   };
 
+  const selectedAgent = agents.find(a => a.id === agentId);
+  const [endpointUrl, setEndpointUrl] = useState(selectedAgent?.endpointUrl || '');
+  const [protocols, setProtocols] = useState<string[]>(selectedAgent?.protocols || ['REST']);
+  const [authMethods, setAuthMethods] = useState<string[]>(selectedAgent?.authMethods || ['x402']);
+
+  // When the user picks a different agent, repopulate from that agent's saved values.
+  useEffect(() => {
+    const a = agents.find(x => x.id === agentId);
+    if (!a) return;
+    setEndpointUrl(a.endpointUrl || '');
+    setProtocols(a.protocols && a.protocols.length > 0 ? a.protocols : ['REST']);
+    setAuthMethods(a.authMethods && a.authMethods.length > 0 ? a.authMethods : ['x402']);
+  }, [agentId, agents]);
+
   const handleSubmit = async () => {
     if (!title.trim() || !priceAmount || !agentId) { setError('Fill in all required fields'); return; }
     if (isAvailable && !connectActive) {
       setError('Stripe Connect must be active before publishing. Save as draft, or finish payment setup first.');
       return;
     }
+    if (protocols.length === 0) { setError('Select at least one supported protocol'); return; }
+    if (authMethods.length === 0) { setError('Select at least one accepted auth method'); return; }
+    const trimmedEndpoint = endpointUrl.trim();
+    if (trimmedEndpoint && !/^https:\/\//i.test(trimmedEndpoint)) {
+      setError('Endpoint URL must start with https://');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
       const capabilities = tags.split(',').map(t => t.trim()).filter(Boolean);
+
+      // Persist A2A metadata (endpoint, protocols, auth) onto the agent record so
+      // it surfaces on the A2A Marketplace card and detail panel.
+      try {
+        const agentUpdates: Record<string, unknown> = {
+          protocols,
+          authMethods,
+        };
+        if (trimmedEndpoint) agentUpdates.endpointUrl = trimmedEndpoint;
+        await api.agents.update(agentId, agentUpdates);
+      } catch (agentErr) {
+        const msg = agentErr instanceof Error ? agentErr.message : 'Failed to save A2A metadata on agent';
+        setError(msg);
+        setSubmitting(false);
+        return;
+      }
+
       const listing = await api.marketplace.listings.create({
         agentId,
         title: title.trim(),
@@ -1256,6 +1327,39 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
             </div>
           </div>
         )}
+
+        <div className="border-t pt-4 mt-2" style={{ borderColor: 'var(--border-color)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>A2A Service Settings</h4>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>Shown on your A2A Marketplace card so callers know how to reach you.</p>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="a2a-endpoint-url" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Endpoint URL</label>
+              <input
+                id="a2a-endpoint-url"
+                value={endpointUrl}
+                onChange={e => setEndpointUrl(e.target.value)}
+                placeholder="https://your-agent.example.com/a2a"
+                aria-label="A2A endpoint URL"
+                className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>Public HTTPS endpoint other agents will call. Optional — leave blank if you don't want to publish one.</p>
+            </div>
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Supported Protocols *</label>
+              <MultiSelectChips options={A2A_PROTOCOL_OPTIONS} value={protocols} onChange={setProtocols} ariaLabel="Supported protocols" />
+            </div>
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Accepted Auth Methods *</label>
+              <MultiSelectChips options={A2A_AUTH_METHOD_OPTIONS} value={authMethods} onChange={setAuthMethods} ariaLabel="Accepted auth methods" />
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-3 pt-2">
           <PrimaryButton variant="purple" onClick={handleSubmit} disabled={submitting}>{submitting ? 'Creating...' : 'Create Listing'}</PrimaryButton>
           <PrimaryButton variant="ghost" onClick={onCancel}>Cancel</PrimaryButton>
@@ -1265,9 +1369,80 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
   );
 }
 
+function A2ASettingsModal({ agent, onClose, onSaved }: { agent: Agent; onClose: () => void; onSaved: () => void }) {
+  const [endpointUrl, setEndpointUrl] = useState(agent.endpointUrl || '');
+  const [protocols, setProtocols] = useState<string[]>(agent.protocols && agent.protocols.length > 0 ? agent.protocols : ['REST']);
+  const [authMethods, setAuthMethods] = useState<string[]>(agent.authMethods && agent.authMethods.length > 0 ? agent.authMethods : ['x402']);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (protocols.length === 0) { setError('Select at least one supported protocol'); return; }
+    if (authMethods.length === 0) { setError('Select at least one accepted auth method'); return; }
+    const trimmedEndpoint = endpointUrl.trim();
+    if (trimmedEndpoint && !/^https:\/\//i.test(trimmedEndpoint)) {
+      setError('Endpoint URL must start with https://');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const updates: Record<string, unknown> = { protocols, authMethods };
+      updates.endpointUrl = trimmedEndpoint || null;
+      await api.agents.update(agent.id, updates);
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save A2A settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+      <div className="w-full max-w-md rounded-2xl p-6 relative" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-color)' }}>
+        <button onClick={onClose} className="absolute top-4 right-4 cursor-pointer" style={{ background: 'none', border: 'none', color: 'var(--text-dim)' }} aria-label="Close"><X className="w-5 h-5" /></button>
+        <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>A2A Service Settings</h3>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-dim)' }}>For <span style={{ color: 'var(--text-muted)' }}>{agent.displayName}</span>{agent.handle ? ` · @${agent.handle}` : ''}</p>
+        {error && (
+          <div role="alert" className="flex items-center gap-2 p-3 rounded-lg text-sm mb-4" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
+            <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+          </div>
+        )}
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="a2a-edit-endpoint" className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Endpoint URL</label>
+            <input
+              id="a2a-edit-endpoint"
+              value={endpointUrl}
+              onChange={e => setEndpointUrl(e.target.value)}
+              placeholder="https://your-agent.example.com/a2a"
+              className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+              style={{ background: 'var(--bg-base)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Supported Protocols *</label>
+            <MultiSelectChips options={A2A_PROTOCOL_OPTIONS} value={protocols} onChange={setProtocols} ariaLabel="Supported protocols" />
+          </div>
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-dim)' }}>Accepted Auth Methods *</label>
+            <MultiSelectChips options={A2A_AUTH_METHOD_OPTIONS} value={authMethods} onChange={setAuthMethods} ariaLabel="Accepted auth methods" />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <PrimaryButton variant="purple" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save Settings'}</PrimaryButton>
+            <PrimaryButton variant="ghost" onClick={onClose}>Cancel</PrimaryButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MarketplaceDashboard() {
   const navigate = useNavigate();
-  const { agents } = useAuth();
+  const { agents, refreshAgents } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [myListings, setMyListings] = useState<Listing[]>([]);
@@ -1287,6 +1462,7 @@ function MarketplaceDashboard() {
   const [disputeResponseDraft, setDisputeResponseDraft] = useState<Record<string, string>>({});
   const [submittingDispute, setSubmittingDispute] = useState<string | null>(null);
   const [disputeError, setDisputeError] = useState<Record<string, string>>({});
+  const [a2aSettingsAgent, setA2aSettingsAgent] = useState<Agent | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1491,47 +1667,85 @@ function MarketplaceDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {myListings.map(l => (
-                    <tr key={l.id} className="border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
-                      <td className="py-3 px-3">
-                        <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{l.title}</div>
-                        <div className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>{l.reviewCount || 0} orders</div>
-                      </td>
-                      <td className="py-3 px-3" style={{ color: 'var(--text-primary)' }}>{formatPrice(l.priceAmount, l.priceType)}</td>
-                      <td className="py-3 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>{l.category || '-'}</span></td>
-                      <td className="py-3 px-3"><StarRating rating={Number(l.avgRating || 0)} count={l.reviewCount || 0} /></td>
-                      <td className="py-3 px-3">
-                        <button
-                          onClick={() => toggleListingStatus(l)}
-                          className="text-xs px-2 py-0.5 rounded-full cursor-pointer"
-                          style={{ background: l.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: l.status === 'active' ? 'var(--success)' : 'var(--warning)', border: 'none' }}
-                        >{l.status}</button>
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => navigate(`/marketplace/${l.id}`)} className="text-xs cursor-pointer" style={{ color: 'var(--accent)', background: 'none', border: 'none' }}>View</button>
+                  {myListings.map(l => {
+                    const listingAgent = agents.find(a => a.id === l.agentId);
+                    const protocolBadges = (listingAgent?.protocols && listingAgent.protocols.length > 0)
+                      ? listingAgent.protocols
+                      : [];
+                    const hasEndpoint = !!listingAgent?.endpointUrl;
+                    return (
+                      <tr key={l.id} className="border-b last:border-0" style={{ borderColor: 'rgba(30,41,59,0.5)' }}>
+                        <td className="py-3 px-3">
+                          <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{l.title}</div>
+                          <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap" style={{ color: 'var(--text-dim)' }}>
+                            <span>{l.reviewCount || 0} orders</span>
+                            {protocolBadges.length > 0 && (
+                              <>
+                                <span>·</span>
+                                {protocolBadges.slice(0, 3).map(p => (
+                                  <span key={p} className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.08)', color: 'var(--marketplace)', fontFamily: 'var(--font-mono)' }}>{p}</span>
+                                ))}
+                              </>
+                            )}
+                            {!hasEndpoint && (
+                              <>
+                                <span>·</span>
+                                <span style={{ color: 'var(--warning, #f59e0b)' }}>No endpoint set</span>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3" style={{ color: 'var(--text-primary)' }}>{formatPrice(l.priceAmount, l.priceType)}</td>
+                        <td className="py-3 px-3"><span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--marketplace)' }}>{l.category || '-'}</span></td>
+                        <td className="py-3 px-3"><StarRating rating={Number(l.avgRating || 0)} count={l.reviewCount || 0} /></td>
+                        <td className="py-3 px-3">
                           <button
-                            onClick={() => navigate(`/marketplace/${l.id}`)}
-                            className="cursor-pointer"
-                            title="Edit listing"
-                            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}
-                          ><Edit className="w-3.5 h-3.5" /></button>
-                          <button
-                            onClick={() => deleteListing(l.id)}
-                            disabled={deletingListingId === l.id}
-                            className="cursor-pointer"
-                            title="Delete listing"
-                            style={{ background: 'none', border: 'none', color: deletingListingId === l.id ? 'var(--text-dim)' : 'var(--error, #ef4444)', display: 'flex', alignItems: 'center' }}
-                          ><Trash2 className="w-3.5 h-3.5" /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            onClick={() => toggleListingStatus(l)}
+                            className="text-xs px-2 py-0.5 rounded-full cursor-pointer"
+                            style={{ background: l.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: l.status === 'active' ? 'var(--success)' : 'var(--warning)', border: 'none' }}
+                          >{l.status}</button>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => navigate(`/marketplace/${l.id}`)} className="text-xs cursor-pointer" style={{ color: 'var(--accent)', background: 'none', border: 'none' }}>View</button>
+                            <button
+                              onClick={() => navigate(`/marketplace/${l.id}`)}
+                              className="cursor-pointer"
+                              title="Edit listing"
+                              style={{ background: 'none', border: 'none', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}
+                            ><Edit className="w-3.5 h-3.5" /></button>
+                            <button
+                              onClick={() => listingAgent && setA2aSettingsAgent(listingAgent)}
+                              disabled={!listingAgent}
+                              className="cursor-pointer"
+                              title="A2A settings (endpoint, protocols, auth)"
+                              style={{ background: 'none', border: 'none', color: listingAgent ? 'var(--marketplace)' : 'var(--text-dim)', display: 'flex', alignItems: 'center' }}
+                            ><Network className="w-3.5 h-3.5" /></button>
+                            <button
+                              onClick={() => deleteListing(l.id)}
+                              disabled={deletingListingId === l.id}
+                              className="cursor-pointer"
+                              title="Delete listing"
+                              style={{ background: 'none', border: 'none', color: deletingListingId === l.id ? 'var(--text-dim)' : 'var(--error, #ef4444)', display: 'flex', alignItems: 'center' }}
+                            ><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </GlassCard>
         )
+      )}
+
+      {a2aSettingsAgent && (
+        <A2ASettingsModal
+          agent={a2aSettingsAgent}
+          onClose={() => setA2aSettingsAgent(null)}
+          onSaved={() => { refreshAgents(); fetchData(); }}
+        />
       )}
 
       {activeTab === 'orders' && (

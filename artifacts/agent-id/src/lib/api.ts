@@ -640,6 +640,8 @@ export interface Agent {
   description?: string;
   capabilities: string[];
   endpointUrl?: string;
+  protocols?: string[];
+  authMethods?: string[];
   status: string;
   trustScore: number;
   verificationStatus: VerificationStatus;
