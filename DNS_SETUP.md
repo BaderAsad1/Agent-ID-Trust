@@ -54,8 +54,17 @@ This enables `handle.getagent.id` web domains for all registered agents.
 5. **Add DMARC record**: Add the DMARC TXT record with the policy above.
 6. **Add wildcard A record**: Point `*.getagent.id` to your server IP with Cloudflare proxy enabled.
 7. **Verify in Resend**: Click "Verify DNS" in Resend dashboard. All records should turn green.
-8. **Configure inbound webhook**: In Resend, set inbound webhook URL to `https://getagent.id/api/v1/webhooks/resend/inbound`.
-9. **Set environment variables**: Add `RESEND_API_KEY` and `RESEND_WEBHOOK_SECRET` to production environment.
+8. **Configure inbound webhook**: In Resend, set inbound webhook URL to `https://getagent.id/api/v1/webhooks/resend/inbound`. Resend will accept mail at the MX records, then POST the parsed email (including base64-encoded `content` or `content_url` for each attachment) to this webhook.
+9. **Set environment variables**: Add `RESEND_API_KEY` and `RESEND_WEBHOOK_SECRET` to production environment. For attachment storage at scale, also set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME` (otherwise inbound attachments larger than 500 KB are dropped).
+
+## Inbound Mail Behaviour
+
+Once the records above are live, the API does the following for every inbound email:
+
+1. **Signature check** — The webhook is rejected unless the Svix signature matches `RESEND_WEBHOOK_SECRET`.
+2. **Recipient routing** — Each `To:` address is matched first against the agent inbox table and then against the agent handle table (catch-all by handle). Unknown handles, agents on a non-mail plan, and inactive inboxes are recorded in `undeliverable_messages` and an NDR is sent back to the original sender via Resend (skipped for senders on `getagent.id` to avoid loops).
+3. **Body + attachment ingest** — The plaintext / sanitized HTML body is stored on the `agent_messages` row. Each attachment is decoded from base64 (or fetched from `content_url` with SSRF protection), uploaded via the configured backend (R2 if available, inline ≤ 500 KB otherwise), and written to `message_attachments`. Per-message limits from `ATTACHMENT_LIMITS` are enforced (10 files, 100 MB on R2 / 500 KB inline).
+4. **Notifications + webhooks** — A `mail.received` webhook event is fired and an owner notification is queued.
 
 ## Cloudflare Settings
 
