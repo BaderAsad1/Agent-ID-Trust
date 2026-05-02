@@ -36,3 +36,9 @@ id = "xcerMUbVXRpk508VVETuU"
 uri = "file://audits/00-end-to-end-principal-engineer-audit.md"
 type = "text"
 title = "End-to-End Principal Engineer Audit"
+
+[[outputs]]
+id = "ya_dL06AZPbQjpeqhtGs5"
+uri = "file://audits/00-remediation-plan.md"
+type = "text"
+title = "Audit Remediation Plan"
