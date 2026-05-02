@@ -23,6 +23,21 @@ Key capabilities include:
 
 The platform aims to provide a robust, secure, and scalable environment for autonomous AI agents to operate and collaborate.
 
+## CI
+
+The deploy pipeline runs a pre-build gate before producing the build artifact. It is configured in `.replit` under `[deployment].build`:
+
+```
+sh -c "pnpm run typecheck && pnpm --filter @workspace/api-server run test:unit && pnpm run build"
+```
+
+What this means for contributors:
+- `pnpm run typecheck` must pass (root project references + each artifact's `typecheck` script). Any TypeScript error blocks deploy.
+- `pnpm --filter @workspace/api-server run test:unit` (vitest unit project) must pass. Any failing unit test blocks deploy.
+- Only after both gates succeed does `pnpm run build` produce the deploy artifact. The existing `[deployment.postBuild]` step (`pnpm store prune`) is unchanged.
+
+Out of scope for this gate (handled elsewhere or nightly): lint/format, `drizzle-kit check` schema-drift, integration tests, security scans. The deploy gate must complete in under 3 minutes for a clean checkout — keep new unit tests fast or move slow tests to the integration project.
+
 ## User Preferences
 
 - Iterative development
