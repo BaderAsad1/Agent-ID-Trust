@@ -207,6 +207,38 @@ token_resp = httpx.post(
 tokens = token_resp.json()
 ```
 
+### Async usage
+
+`AsyncAgentID` exposes the same OAuth surface as the sync client. Both
+`authorize_oauth_client()` and `complete_oauth_flow()` mirror the sync
+signatures and reuse `generate_pkce_pair()` internally.
+
+```python
+import asyncio
+from agentid import AsyncAgentID
+
+async def main():
+    async with AsyncAgentID.init(agent_key="agk_your_agent_key") as client:
+        tokens = await client.complete_oauth_flow(
+            agent_id="YOUR_AGENT_UUID",
+            authorization_url=(
+                "https://getagent.id/oauth/authorize"
+                "?client_id=agclient_thirdparty"
+                "&redirect_uri=https%3A%2F%2Fthirdparty.com%2Fcallback"
+                "&response_type=code"
+                "&scope=read+agents%3Aread"
+                "&state=abc123"
+            ),
+        )
+        print(tokens["access_token"])
+
+asyncio.run(main())
+```
+
+For manual control, generate the PKCE pair yourself and call
+`await client.authorize_oauth_client(...)` followed by your own token
+exchange (using `httpx.AsyncClient`).
+
 ## API Reference
 
 ### `AgentID.init(**kwargs) -> AgentID`
