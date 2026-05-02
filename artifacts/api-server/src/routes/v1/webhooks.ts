@@ -1,7 +1,13 @@
 import { Router, raw } from "express";
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { marketplaceOrdersTable, agentsTable, tasksTable } from "@workspace/db/schema";
+import {
+  marketplaceOrdersTable,
+  agentsTable,
+  tasksTable,
+  payoutLedgerTable,
+  usersTable,
+} from "@workspace/db/schema";
 import { logger } from "../../middlewares/request-logger";
 import {
   verifyStripeWebhook,
@@ -129,6 +135,50 @@ async function handlePaymentIntentCapturableUpdated(pi: Stripe.PaymentIntent) {
 function handleChargeRefunded(charge: Stripe.Charge) {
   const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
   logger.info({ chargeId: charge.id, paymentIntent: piId ?? "N/A", amountRefunded: charge.amount_refunded }, "[webhook] charge.refunded");
+}
+
+async function handleTransferFailed(transfer: Stripe.Transfer) {
+  const orderId = transfer.metadata?.orderId;
+  const milestoneId = transfer.metadata?.milestoneId;
+  logger.warn(
+    { transferId: transfer.id, orderId, milestoneId, destination: transfer.destination },
+    "[webhook] transfer.failed: marking payout as failed",
+  );
+
+  const updatedRows = await db
+    .update(payoutLedgerTable)
+    .set({
+      status: "failed",
+      metadata: sql`COALESCE(${payoutLedgerTable.metadata}, '{}'::jsonb) || ${JSON.stringify({
+        transferFailedAt: new Date().toISOString(),
+        transferFailureReason: transfer.description ?? "stripe_transfer_failed",
+      })}::jsonb`,
+      updatedAt: new Date(),
+    })
+    .where(sql`${payoutLedgerTable.metadata}->>'stripeTransferId' = ${transfer.id}`)
+    .returning({ id: payoutLedgerTable.id, sellerUserId: payoutLedgerTable.sellerUserId });
+
+  if (updatedRows.length === 0) {
+    logger.warn({ transferId: transfer.id }, "[webhook] transfer.failed: no payout ledger row found");
+    return;
+  }
+
+  const sellerUserId = updatedRows[0].sellerUserId;
+  try {
+    const seller = await db.query.usersTable.findFirst({
+      where: eq(usersTable.id, sellerUserId),
+      columns: { email: true },
+    });
+    if (seller?.email) {
+      const { sendPayoutFailedEmail } = await import("../../services/email");
+      await sendPayoutFailedEmail(seller.email, transfer.id, orderId ?? milestoneId ?? "unknown");
+    }
+  } catch (notifyErr) {
+    logger.error(
+      { error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr) },
+      "[webhook] transfer.failed: failed to send seller notification",
+    );
+  }
 }
 
 router.post(
@@ -307,6 +357,10 @@ router.post(
             if (acct.id) {
               await handleConnectAccountUpdated(acct.id);
             }
+            break;
+          }
+          case "transfer.failed": {
+            await handleTransferFailed(event.data.object as Stripe.Transfer);
             break;
           }
           default:

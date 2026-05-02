@@ -842,6 +842,10 @@ export interface Order {
   status: string;
   paymentProvider: string;
   createdAt: string;
+  payoutStatus?: string;
+  payoutNote?: string;
+  stripeTransferId?: string | null;
+  stripeConnectAccountId?: string | null;
 }
 
 export interface A2ARegistryService {

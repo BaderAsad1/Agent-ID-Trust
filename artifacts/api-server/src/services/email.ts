@@ -208,6 +208,17 @@ export async function sendOrderCompletedEmail(
   );
 }
 
+export async function sendPayoutFailedEmail(
+  userEmail: string,
+  transferId: string,
+  orderRef: string,
+): Promise<void> {
+  await sendEmail(
+    { type: "payout_failed", data: { transferId, orderRef } },
+    userEmail,
+  );
+}
+
 export async function sendMagicLinkEmail(
   recipientEmail: string,
   magicUrl: string,

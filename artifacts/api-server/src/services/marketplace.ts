@@ -73,6 +73,7 @@ export function calculatePlatformFee(amount: number): {
 async function checkListingEligibility(
   agentId: string,
   userId: string,
+  options: { requireConnect?: boolean } = {},
 ): Promise<{ eligible: boolean; reason?: string }> {
   const agent = await db.query.agentsTable.findFirst({
     where: agentOwnerWhere(agentId, userId),
@@ -85,6 +86,12 @@ async function checkListingEligibility(
   const planCheck = await requirePlanFeature(userId, "canListOnMarketplace");
   if (!planCheck.allowed) {
     return { eligible: false, reason: `PLAN_UPGRADE_REQUIRED:${planCheck.requiredPlan}` };
+  }
+
+  if (options.requireConnect) {
+    if (!agent.stripeConnectAccountId || agent.stripeConnectStatus !== "active") {
+      return { eligible: false, reason: "STRIPE_CONNECT_REQUIRED" };
+    }
   }
 
   return { eligible: true };
@@ -141,7 +148,7 @@ export async function updateListing(
   if (!existing) return { success: false, error: "LISTING_NOT_FOUND" };
 
   if (updates.status === "active" && existing.status !== "active") {
-    const eligibility = await checkListingEligibility(existing.agentId, userId);
+    const eligibility = await checkListingEligibility(existing.agentId, userId, { requireConnect: true });
     if (!eligibility.eligible) {
       return { success: false, error: eligibility.reason };
     }

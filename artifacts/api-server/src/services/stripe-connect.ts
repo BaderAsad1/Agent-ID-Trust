@@ -1,15 +1,16 @@
 /**
- * Stripe Connect service — agent onboarding and task payment escrow.
+ * Stripe Connect service — agent onboarding, marketplace payouts, and task escrow.
  *
- * PAYOUT LIMITATIONS (marketplace orders):
- * Marketplace order seller payouts (createOrder / completeOrder flow) do NOT use
- * Stripe Connect automated transfers. They are recorded as `pending_manual_payout`
- * in the payout ledger and require manual disbursement by the platform operator.
- * Stripe Connect automated payouts for marketplace orders are not yet implemented.
+ * Marketplace order payouts (completeOrder + milestone release):
+ * When the seller agent has an active Connect account, payouts are sent via
+ * Stripe Connect transfers (idempotent, recorded in payout_ledger). When Connect
+ * is missing or inactive at completion time, payouts fall back to
+ * `pending_manual_payout` — but listing publish is now gated on active Connect,
+ * so this fallback should be rare (legacy listings only).
  *
  * Task-payment flow (createTaskPaymentIntent / captureTaskPayment):
- * This flow DOES support automated Stripe Connect transfer to the seller's connected
- * account on capture, but only when the recipient has an active Connect account.
+ * Supports automated Stripe Connect transfer to the seller's connected account
+ * on capture, only when the recipient has an active Connect account.
  */
 import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
@@ -79,7 +80,22 @@ export async function getConnectAccountStatus(agentId: string) {
   }
 
   const stripe = getStripe();
-  const account = await stripe.accounts.retrieve(agent.stripeConnectAccountId);
+  let account: Stripe.Account;
+  try {
+    account = await stripe.accounts.retrieve(agent.stripeConnectAccountId);
+  } catch (err) {
+    // Stripe rejected the cached account id (deleted, restricted, or invalid).
+    // Fall back to the cached status so UI gating still works instead of 500'ing.
+    const cachedStatus = agent.stripeConnectStatus ?? "pending";
+    return {
+      status: cachedStatus,
+      chargesEnabled: cachedStatus === "active",
+      payoutsEnabled: cachedStatus === "active",
+      accountId: agent.stripeConnectAccountId,
+      stale: true,
+      error: err instanceof Error ? err.message : "stripe_account_unavailable",
+    };
+  }
 
   const status = account.charges_enabled && account.payouts_enabled
     ? "active"

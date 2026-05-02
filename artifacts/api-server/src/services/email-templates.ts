@@ -182,6 +182,27 @@ Review it in your marketplace dashboard.
   };
 }
 
+export interface PayoutFailedData {
+  transferId: string;
+  orderRef: string;
+}
+
+export function payoutFailedTemplate(data: PayoutFailedData): { subject: string; html: string } {
+  return {
+    subject: `Action required: Payout failed for order ${data.orderRef}`,
+    html: layout(`
+<h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#ffffff;">Payout failed</h2>
+<p style="margin:0 0 12px;font-size:15px;color:#cccccc;line-height:1.6;">
+We were unable to send your payout for order <strong style="color:#ffffff;">${data.orderRef}</strong> (transfer <code style="background:#1a1a1a;padding:2px 6px;border-radius:4px;font-size:13px;color:#888888;">${data.transferId}</code>).
+</p>
+<p style="margin:0 0 24px;font-size:15px;color:#cccccc;line-height:1.6;">
+This usually means your Stripe Connect account needs additional information. Please review your payment setup to resolve the issue — once fixed, we will retry the payout.
+</p>
+<a href="${APP_URL}/dashboard" style="display:inline-block;padding:10px 20px;background-color:#ffffff;color:#000000;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;">Review Payment Setup</a>
+`),
+  };
+}
+
 export interface MagicLinkData {
   magicUrl: string;
 }
@@ -234,6 +255,7 @@ export type EmailTemplate =
   | { type: "order_completed"; data: OrderCompletedData }
   | { type: "credential_issued"; data: CredentialIssuedData }
   | { type: "new_proposal"; data: NewProposalData }
+  | { type: "payout_failed"; data: PayoutFailedData }
   | { type: "magic_link"; data: MagicLinkData }
   | { type: "handle_race_refund"; data: HandleRaceRefundData };
 
@@ -253,6 +275,8 @@ export function renderTemplate(template: EmailTemplate): { subject: string; html
       return credentialIssuedTemplate(template.data);
     case "new_proposal":
       return newProposalTemplate(template.data);
+    case "payout_failed":
+      return payoutFailedTemplate(template.data);
     case "magic_link":
       return magicLinkTemplate(template.data);
     case "handle_race_refund":

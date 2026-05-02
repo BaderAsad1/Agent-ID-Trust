@@ -36,25 +36,84 @@ import {
 import { trackAnalyticsEvent, getListingAnalytics } from "../../services/marketplace-analytics";
 import { env } from "../../lib/env";
 import { db } from "@workspace/db";
-import { and, asc, eq, desc } from "drizzle-orm";
+import { and, asc, eq, desc, inArray } from "drizzle-orm";
 import {
   marketplaceMilestonesTable,
   marketplaceOrderMessagesTable,
   a2aServiceListingsTable,
   a2aEngagementsTable,
   agentsTable,
+  payoutLedgerTable,
 } from "@workspace/db/schema";
 
 const router = Router();
 
-const PAYOUT_NOTE = "Seller payout requires manual settlement. Stripe Connect automated payouts are not yet implemented. Funds are held and will be disbursed manually by the platform operator.";
+type PayoutDisclosure = {
+  payoutStatus: string;
+  payoutNote: string;
+  stripeTransferId: string | null;
+  stripeConnectAccountId: string | null;
+};
 
-function withPayoutDisclosure<T extends object>(order: T): T & { payoutStatus: string; payoutNote: string } {
-  return {
-    ...order,
-    payoutStatus: "pending_manual",
-    payoutNote: PAYOUT_NOTE,
-  };
+function buildPayoutNote(status: string, stripeTransferId: string | null): string {
+  switch (status) {
+    case "completed":
+      return stripeTransferId
+        ? `Stripe Connect transfer ${stripeTransferId} sent to seller's connected account.`
+        : "Seller payout completed.";
+    case "failed":
+      return "Stripe Connect transfer failed — funds held on the platform balance pending operator resolution.";
+    case "processing":
+      return "Stripe Connect transfer in progress.";
+    case "pending_manual_payout":
+      return "Seller has not completed Stripe Connect onboarding — funds held for manual settlement by the platform operator.";
+    case "pending":
+    default:
+      return "Awaiting order completion before payout is initiated.";
+  }
+}
+
+async function decoratePayoutInfo<T extends { id: string }>(orders: T[]): Promise<(T & PayoutDisclosure)[]> {
+  if (orders.length === 0) return [];
+  const orderIds = orders.map((o) => o.id);
+  const payouts = await db.query.payoutLedgerTable.findMany({
+    where: inArray(payoutLedgerTable.relatedOrderId, orderIds),
+  });
+  const latestByOrder = new Map<string, (typeof payouts)[number]>();
+  for (const p of payouts) {
+    if (!p.relatedOrderId) continue;
+    const existing = latestByOrder.get(p.relatedOrderId);
+    if (!existing || p.createdAt > existing.createdAt) {
+      latestByOrder.set(p.relatedOrderId, p);
+    }
+  }
+  return orders.map((o) => {
+    const payout = latestByOrder.get(o.id);
+    if (!payout) {
+      return {
+        ...o,
+        payoutStatus: "pending",
+        payoutNote: buildPayoutNote("pending", null),
+        stripeTransferId: null,
+        stripeConnectAccountId: null,
+      };
+    }
+    const meta = (payout.metadata ?? {}) as Record<string, unknown>;
+    const stripeTransferId = (meta.stripeTransferId as string | null | undefined) ?? null;
+    const stripeConnectAccountId = (meta.stripeConnectAccountId as string | null | undefined) ?? null;
+    return {
+      ...o,
+      payoutStatus: payout.status,
+      payoutNote: buildPayoutNote(payout.status, stripeTransferId),
+      stripeTransferId,
+      stripeConnectAccountId,
+    };
+  });
+}
+
+async function withPayoutDisclosure<T extends { id: string }>(order: T): Promise<T & PayoutDisclosure> {
+  const [decorated] = await decoratePayoutInfo([order]);
+  return decorated;
 }
 
 async function getParticipantOrderOrThrow(orderId: string, userId: string) {
@@ -180,6 +239,7 @@ router.post("/listings", requireAuth, userRateLimit, async (req, res, next) => {
     if (!result.success) {
       const code = result.error === "AGENT_NOT_FOUND" ? 404
         : result.error === "AGENT_NOT_ACTIVE" || result.error === "AGENT_NOT_VERIFIED" ? 403
+        : result.error === "STRIPE_CONNECT_REQUIRED" ? 409
         : result.error?.startsWith("PLAN_UPGRADE_REQUIRED") ? 402 : 400;
       throw new AppError(code, result.error!, result.error!);
     }
@@ -195,7 +255,8 @@ router.put("/listings/:listingId", requireAuth, validateUuidParam("listingId"), 
     const parsed = createListingSchema.omit({ agentId: true }).parse(req.body);
     const result = await updateListing(listingId, req.userId!, parsed);
     if (!result.success) {
-      const code = result.error === "LISTING_NOT_FOUND" ? 404 : 400;
+      const code = result.error === "LISTING_NOT_FOUND" ? 404
+        : result.error === "STRIPE_CONNECT_REQUIRED" ? 409 : 400;
       throw new AppError(code, result.error!, result.error!);
     }
     res.json(result.listing);
@@ -210,7 +271,8 @@ router.patch("/listings/:listingId", requireAuth, validateUuidParam("listingId")
     const parsed = updateListingSchema.parse(req.body);
     const result = await updateListing(listingId, req.userId!, parsed);
     if (!result.success) {
-      const code = result.error === "LISTING_NOT_FOUND" ? 404 : 400;
+      const code = result.error === "LISTING_NOT_FOUND" ? 404
+        : result.error === "STRIPE_CONNECT_REQUIRED" ? 409 : 400;
       throw new AppError(code, result.error!, result.error!);
     }
     res.json(result.listing);
@@ -290,7 +352,7 @@ router.post("/orders", requireAuth, userRateLimit, async (req, res, next) => {
       const status = statusMap[result.error ?? ""] ?? 400;
       throw new AppError(status, result.error ?? "ORDER_FAILED", result.error ?? "Failed to create order");
     }
-    res.status(201).json({ ...withPayoutDisclosure(result.order!), clientSecret: result.clientSecret });
+    res.status(201).json({ ...(await withPayoutDisclosure(result.order!)), clientSecret: result.clientSecret });
   } catch (err) {
     next(err);
   }
@@ -303,7 +365,7 @@ router.get("/orders", requireAuth, async (req, res, next) => {
     const offset = req.query.offset ? Number(req.query.offset) : 0;
     const result = await listOrders(req.userId!, role, limit, offset);
     res.json({
-      orders: result.orders.map(withPayoutDisclosure),
+      orders: await decoratePayoutInfo(result.orders),
       total: result.total,
     });
   } catch (err) {
@@ -316,7 +378,7 @@ router.get("/orders/:orderId", requireAuth, validateUuidParam("orderId"), async 
     const orderId = req.params.orderId as string;
     const order = await getOrderById(orderId, req.userId!);
     if (!order) throw new AppError(404, "NOT_FOUND", "Order not found");
-    res.json(withPayoutDisclosure(order));
+    res.json(await withPayoutDisclosure(order));
   } catch (err) {
     next(err);
   }
@@ -373,7 +435,7 @@ router.post("/orders/:orderId/confirm-payment", requireAuth, validateUuidParam("
       const code = result.error === "ORDER_NOT_FOUND" ? 404 : 409;
       throw new AppError(code, result.error!, result.error!);
     }
-    res.json(withPayoutDisclosure(result.order!));
+    res.json(await withPayoutDisclosure(result.order!));
   } catch (err) {
     next(err);
   }
@@ -387,7 +449,7 @@ router.post("/orders/:orderId/confirm", requireAuth, validateUuidParam("orderId"
       const code = result.error === "ORDER_NOT_FOUND" ? 404 : 409;
       throw new AppError(code, result.error!, result.error!);
     }
-    res.json(withPayoutDisclosure(result.order!));
+    res.json(await withPayoutDisclosure(result.order!));
   } catch (err) {
     next(err);
   }
@@ -433,7 +495,7 @@ router.post("/orders/:orderId/cancel", requireAuth, validateUuidParam("orderId")
       listingId: order.listingId,
       userId: req.userId!,
     });
-    res.json(withPayoutDisclosure(order));
+    res.json(await withPayoutDisclosure(order));
   } catch (err) {
     next(err);
   }

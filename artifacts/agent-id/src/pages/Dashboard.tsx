@@ -963,9 +963,46 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
   const [agentId, setAgentId] = useState(agents[0]?.id || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectStatus, setConnectStatus] = useState<string | null>(null);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
+
+  useEffect(() => {
+    if (!agentId) { setConnectStatus(null); return; }
+    let cancelled = false;
+    setConnectLoading(true);
+    api.agentPayment.status(agentId)
+      .then(r => { if (!cancelled) setConnectStatus(r.status ?? 'none'); })
+      .catch(() => { if (!cancelled) setConnectStatus('none'); })
+      .finally(() => { if (!cancelled) setConnectLoading(false); });
+    return () => { cancelled = true; };
+  }, [agentId]);
+
+  const connectActive = connectStatus === 'active';
+
+  const handleStartOnboarding = async () => {
+    if (!agentId) return;
+    setOnboardingLoading(true);
+    try {
+      const result = await api.agentPayment.onboard(agentId);
+      if (result.onboardingUrl) {
+        window.location.href = result.onboardingUrl;
+      } else {
+        setError('Could not start payment onboarding. Please try again.');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to start onboarding');
+    } finally {
+      setOnboardingLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!title.trim() || !priceAmount || !agentId) { setError('Fill in all required fields'); return; }
+    if (isAvailable && !connectActive) {
+      setError('Stripe Connect must be active before publishing. Save as draft, or finish payment setup first.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -983,13 +1020,23 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
         try {
           await api.marketplace.listings.update(listing.id, { status: 'active' });
         } catch (pubErr) {
-          console.warn('[listing] Created as draft but failed to publish:', pubErr instanceof Error ? pubErr.message : pubErr);
-          setError('Listing created as draft. Publishing failed  -  activate it from the listings table.');
+          const msg = pubErr instanceof Error ? pubErr.message : String(pubErr);
+          console.warn('[listing] Created as draft but failed to publish:', msg);
+          if (msg.includes('STRIPE_CONNECT_REQUIRED')) {
+            setError('Listing saved as draft. Finish payment setup to publish it.');
+          } else {
+            setError('Listing created as draft. Publishing failed  -  activate it from the listings table.');
+          }
         }
       }
       onCreated();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to create listing');
+      const msg = e instanceof Error ? e.message : 'Failed to create listing';
+      if (msg.includes('STRIPE_CONNECT_REQUIRED')) {
+        setError('Stripe Connect setup is required before publishing. Save as draft, or finish payment setup first.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -1041,11 +1088,25 @@ function CreateListingForm({ agents, onCreated, onCancel }: { agents: Array<{ id
           </div>
           <div className="flex items-end pb-1">
             <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: 'var(--text-muted)' }}>
-              <input type="checkbox" checked={isAvailable} onChange={e => setIsAvailable(e.target.checked)} className="w-4 h-4 rounded" />
+              <input type="checkbox" checked={isAvailable} onChange={e => setIsAvailable(e.target.checked)} disabled={!connectActive} className="w-4 h-4 rounded" />
               Publish immediately
             </label>
           </div>
         </div>
+        {agentId && !connectLoading && !connectActive && (
+          <div className="flex items-start gap-3 p-3 rounded-lg" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+            <CreditCard className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--warning, #f59e0b)' }} />
+            <div className="flex-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              Payment setup is {connectStatus === 'pending_verification' ? 'pending verification' : 'required'} before this listing can be published. You can save it as a draft now and publish once payouts are active.
+              <div className="mt-2">
+                <PrimaryButton variant="ghost" onClick={handleStartOnboarding} disabled={onboardingLoading}>
+                  <CreditCard className="w-3.5 h-3.5 mr-1" />
+                  {onboardingLoading ? 'Loading…' : connectStatus === 'pending_verification' ? 'Continue Payment Setup' : 'Set Up Payouts'}
+                </PrimaryButton>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex gap-3 pt-2">
           <PrimaryButton variant="purple" onClick={handleSubmit} disabled={submitting}>{submitting ? 'Creating...' : 'Create Listing'}</PrimaryButton>
           <PrimaryButton variant="ghost" onClick={onCancel}>Cancel</PrimaryButton>
@@ -1061,7 +1122,7 @@ function MarketplaceDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [myListings, setMyListings] = useState<Listing[]>([]);
-  const [sellerOrders, setSellerOrders] = useState<Array<{ id: string; listingId: string; buyerUserId: string; taskDescription: string; priceAmount: string; platformFee: string; sellerPayout: string; status: string; createdAt: string }>>([]);
+  const [sellerOrders, setSellerOrders] = useState<Array<{ id: string; listingId: string; buyerUserId: string; taskDescription: string; priceAmount: string; platformFee: string; sellerPayout: string; status: string; createdAt: string; payoutStatus?: string; payoutNote?: string; stripeTransferId?: string | null }>>([]);
   const [matchingJobs, setMatchingJobs] = useState<Job[]>([]);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -1308,9 +1369,41 @@ function MarketplaceDashboard() {
                       {order.taskDescription && (
                         <p className="text-xs mb-2 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{order.taskDescription}</p>
                       )}
-                      <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-dim)' }}>
+                      <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: 'var(--text-dim)' }}>
                         <span>Payout: <span style={{ color: 'var(--success)' }}>${Number(order.sellerPayout || 0).toFixed(2)}</span></span>
                         <span>{new Date(order.createdAt).toLocaleDateString()}</span>
+                        {order.payoutStatus && (() => {
+                          const s = order.payoutStatus;
+                          const palette = s === 'completed'
+                            ? { bg: 'rgba(16,185,129,0.12)', fg: 'var(--success)', label: 'Payout sent' }
+                            : s === 'failed'
+                            ? { bg: 'rgba(239,68,68,0.12)', fg: 'var(--danger)', label: 'Payout failed' }
+                            : s === 'pending_manual_payout'
+                            ? { bg: 'rgba(245,158,11,0.12)', fg: 'var(--warning, #f59e0b)', label: 'Manual payout' }
+                            : s === 'processing'
+                            ? { bg: 'rgba(59,130,246,0.12)', fg: 'var(--accent)', label: 'Payout processing' }
+                            : { bg: 'rgba(148,163,184,0.12)', fg: 'var(--text-muted)', label: 'Payout pending' };
+                          return (
+                            <span
+                              title={order.payoutNote || ''}
+                              className="text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1"
+                              style={{ background: palette.bg, color: palette.fg }}
+                            >
+                              <CreditCard className="w-3 h-3" />
+                              {palette.label}
+                              {order.stripeTransferId && (
+                                <a
+                                  href={`https://dashboard.stripe.com/test/connect/transfers/${order.stripeTransferId}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="underline ml-1"
+                                  style={{ color: palette.fg }}
+                                  onClick={e => e.stopPropagation()}
+                                >view</a>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <div className="mt-2">
                         <div className="flex items-center justify-between text-xs mb-1" style={{ color: 'var(--text-dim)' }}>
