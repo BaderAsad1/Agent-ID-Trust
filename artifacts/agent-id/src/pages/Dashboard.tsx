@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
-import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield, Key, MessageSquare, Send, Trash2, Edit, Code, Eye, EyeOff } from 'lucide-react';
+import { Menu, Clock, DollarSign, CheckCircle, BarChart3, Inbox, Activity, Search, AlertCircle, RefreshCw, ShieldCheck, X, ArrowRightLeft, Network, Globe, CreditCard, Copy, Check, ExternalLink, RotateCw, Plus, Link, Zap, Wallet, ChevronDown, ChevronUp, Shield, Key, MessageSquare, Send, Trash2, Edit, Code, Eye, EyeOff, Upload, ImageIcon } from 'lucide-react';
 import { Identicon, AgentHandle, DomainBadge, TrustScoreRing, StatusDot, CapabilityChip, GlassCard, PrimaryButton, EventTypeIcon, StarRating, CardSkeleton, ListSkeleton, EmptyState } from '@/components/shared';
 import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -3521,6 +3521,105 @@ function WalletDashboard() {
 const SCOPES = ['read', 'write', 'agents:read', 'agents:write', 'tasks:read', 'tasks:write', 'mail:read', 'mail:write'];
 const GRANT_TYPES = ['authorization_code', 'urn:agentid:grant-type:signed-assertion'];
 
+function fallbackHueFor(name: string, fallback = '?'): number {
+  const src = name || fallback;
+  let hash = 0;
+  for (let i = 0; i < src.length; i++) hash = src.charCodeAt(i) + ((hash << 5) - hash);
+  return Math.abs(hash) % 360;
+}
+
+function ClientIconBadge({ name, iconUrl, size = 36 }: { name: string; iconUrl?: string | null; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [iconUrl]);
+  const hue = fallbackHueFor(name, '?');
+  const showImg = Boolean(iconUrl) && !failed;
+  const radius = Math.round(size * 0.27);
+  if (showImg) {
+    return (
+      <div className="flex-shrink-0" style={{ width: size, height: size, borderRadius: radius, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <img src={iconUrl!} alt={`${name} icon`} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setFailed(true)} />
+      </div>
+    );
+  }
+  return (
+    <div className="flex-shrink-0" aria-label={`${name} icon`} style={{
+      width: size, height: size, borderRadius: radius,
+      background: `linear-gradient(135deg, hsl(${hue}, 65%, 28%), hsl(${(hue + 40) % 360}, 65%, 18%))`,
+      border: `1px solid hsla(${hue}, 65%, 55%, 0.35)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: Math.round(size * 0.42), fontWeight: 700, color: `hsl(${hue}, 80%, 85%)`,
+      fontFamily: 'var(--font-display)', letterSpacing: '-0.02em',
+    }}>
+      {(name || '?')[0]?.toUpperCase()}
+    </div>
+  );
+}
+
+function IconField({
+  value, onChange, onUpload, uploading, error, fallbackName,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onUpload: (file: File) => void;
+  uploading: boolean;
+  error: string;
+  fallbackName: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-start gap-3 flex-wrap">
+        {/* Live preview — matches the consent screen 52x52 framed icon */}
+        <div className="flex flex-col items-center gap-1.5">
+          <ClientIconBadge name={fallbackName} iconUrl={value} size={52} />
+          <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Preview</span>
+        </div>
+        <div className="flex-1 min-w-0 space-y-2">
+          <input
+            type="url"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            placeholder="https://example.com/icon.png"
+            className="w-full px-3 py-2 rounded-lg text-sm"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <label
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs cursor-pointer"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-dim)' }}
+            >
+              <Upload className="w-3 h-3" />
+              {uploading ? 'Uploading…' : 'Upload image'}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+                style={{ display: 'none' }}
+                disabled={uploading}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (file) onUpload(file);
+                }}
+              />
+            </label>
+            {value && (
+              <button
+                type="button"
+                onClick={() => onChange('')}
+                className="text-xs"
+                style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 0 }}
+              >
+                Remove
+              </button>
+            )}
+            <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>PNG, JPG, GIF, WebP, or SVG · max 1 MB</span>
+          </div>
+          {error && <p className="text-xs" style={{ color: 'var(--danger)' }}>{error}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DeveloperPage() {
   const { agents } = useAuth();
   const [tab, setTab] = useState<'apps' | 'connected'>('apps');
@@ -3531,6 +3630,9 @@ function DeveloperPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createDesc, setCreateDesc] = useState('');
+  const [createIconUrl, setCreateIconUrl] = useState('');
+  const [createIconUploading, setCreateIconUploading] = useState(false);
+  const [createIconError, setCreateIconError] = useState('');
   const [createRedirects, setCreateRedirects] = useState('');
   const [createScopes, setCreateScopes] = useState<string[]>(['read']);
   const [createGrants, setCreateGrants] = useState<string[]>(['authorization_code']);
@@ -3541,6 +3643,13 @@ function DeveloperPage() {
   const [deletingClient, setDeletingClient] = useState<string | null>(null);
   const [rotatingSecret, setRotatingSecret] = useState<string | null>(null);
   const [rotatedSecret, setRotatedSecret] = useState<{ clientId: string; secret: string } | null>(null);
+
+  // Per-client icon edit state
+  const [editingIconClientId, setEditingIconClientId] = useState<string | null>(null);
+  const [editIconDraft, setEditIconDraft] = useState('');
+  const [editIconUploading, setEditIconUploading] = useState(false);
+  const [editIconError, setEditIconError] = useState('');
+  const [editIconSaving, setEditIconSaving] = useState(false);
 
   // Connected Apps state
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
@@ -3573,9 +3682,11 @@ function DeveloperPage() {
     setCreating(true);
     try {
       const uris = createRedirects.split('\n').map(s => s.trim()).filter(Boolean);
+      const trimmedIcon = createIconUrl.trim();
       const result = await api.oauth.clients.create({
         name: createName.trim(),
         description: createDesc.trim() || undefined,
+        iconUrl: trimmedIcon || undefined,
         redirectUris: uris,
         allowedScopes: createScopes,
         grantTypes: createGrants,
@@ -3588,8 +3699,62 @@ function DeveloperPage() {
       }
       setShowCreate(false);
       setCreateName(''); setCreateDesc(''); setCreateRedirects('');
+      setCreateIconUrl(''); setCreateIconError('');
       setCreateScopes(['read']); setCreateGrants(['authorization_code']); setCreateType('public');
     } catch { /* handled */ } finally { setCreating(false); }
+  }
+
+  async function handleCreateIconUpload(file: File) {
+    setCreateIconError('');
+    setCreateIconUploading(true);
+    try {
+      const { iconUrl } = await api.oauth.clients.uploadIcon(file);
+      setCreateIconUrl(iconUrl);
+    } catch (err) {
+      setCreateIconError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setCreateIconUploading(false);
+    }
+  }
+
+  function startEditIcon(client: OAuthClient) {
+    setEditingIconClientId(client.clientId);
+    setEditIconDraft(client.iconUrl || '');
+    setEditIconError('');
+  }
+
+  function cancelEditIcon() {
+    setEditingIconClientId(null);
+    setEditIconDraft('');
+    setEditIconError('');
+  }
+
+  async function handleEditIconUpload(file: File) {
+    setEditIconError('');
+    setEditIconUploading(true);
+    try {
+      const { iconUrl } = await api.oauth.clients.uploadIcon(file);
+      setEditIconDraft(iconUrl);
+    } catch (err) {
+      setEditIconError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setEditIconUploading(false);
+    }
+  }
+
+  async function handleSaveIcon(clientId: string) {
+    setEditIconSaving(true);
+    setEditIconError('');
+    try {
+      const trimmed = editIconDraft.trim();
+      const updated = await api.oauth.clients.update(clientId, { iconUrl: trimmed ? trimmed : null });
+      setClients(prev => prev.map(c => c.clientId === clientId ? { ...c, iconUrl: updated.iconUrl ?? null } : c));
+      cancelEditIcon();
+    } catch (err) {
+      setEditIconError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setEditIconSaving(false);
+    }
   }
 
   async function handleDeleteClient(clientId: string) {
@@ -3695,6 +3860,17 @@ function DeveloperPage() {
                     className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
                 </div>
                 <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>App icon <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional, shown on the consent screen)</span></label>
+                  <IconField
+                    value={createIconUrl}
+                    onChange={setCreateIconUrl}
+                    onUpload={handleCreateIconUpload}
+                    uploading={createIconUploading}
+                    error={createIconError}
+                    fallbackName={createName || 'My App'}
+                  />
+                </div>
+                <div>
                   <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-dim)' }}>Redirect URIs <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(one per line)</span></label>
                   <textarea value={createRedirects} onChange={e => setCreateRedirects(e.target.value)} rows={3}
                     placeholder="https://yourapp.com/callback"
@@ -3756,9 +3932,7 @@ function DeveloperPage() {
               {clients.map(client => (
                 <GlassCard key={client.clientId}>
                   <div className="flex items-start gap-3 flex-wrap">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(79,125,243,0.1)', border: '1px solid rgba(79,125,243,0.2)' }}>
-                      <Code className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                    </div>
+                    <ClientIconBadge name={client.name} iconUrl={client.iconUrl} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{client.name}</span>
@@ -3783,6 +3957,10 @@ function DeveloperPage() {
                     {!client.revokedAt && (
                       <div className="flex gap-2 flex-shrink-0 flex-wrap">
                         <PrimaryButton variant="ghost" className="!py-1 !px-2.5 !text-xs"
+                          onClick={() => editingIconClientId === client.clientId ? cancelEditIcon() : startEditIcon(client)}>
+                          <ImageIcon className="w-3 h-3 mr-1" />{editingIconClientId === client.clientId ? 'Close' : (client.iconUrl ? 'Edit Icon' : 'Add Icon')}
+                        </PrimaryButton>
+                        <PrimaryButton variant="ghost" className="!py-1 !px-2.5 !text-xs"
                           onClick={() => handleRotateSecret(client.clientId)}
                           disabled={rotatingSecret === client.clientId}>
                           <RotateCw className="w-3 h-3 mr-1" />{rotatingSecret === client.clientId ? 'Rotating…' : 'Rotate Secret'}
@@ -3795,6 +3973,38 @@ function DeveloperPage() {
                       </div>
                     )}
                   </div>
+                  {editingIconClientId === client.clientId && !client.revokedAt && (
+                    <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                      <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-dim)' }}>App icon</p>
+                      <IconField
+                        value={editIconDraft}
+                        onChange={setEditIconDraft}
+                        onUpload={handleEditIconUpload}
+                        uploading={editIconUploading}
+                        error={editIconError}
+                        fallbackName={client.name}
+                      />
+                      <div className="flex gap-2 mt-3">
+                        <PrimaryButton className="!py-1 !px-2.5 !text-xs"
+                          onClick={() => handleSaveIcon(client.clientId)}
+                          disabled={editIconSaving || editIconUploading}>
+                          {editIconSaving ? 'Saving…' : 'Save Icon'}
+                        </PrimaryButton>
+                        {client.iconUrl && (
+                          <PrimaryButton variant="ghost" className="!py-1 !px-2.5 !text-xs"
+                            onClick={() => setEditIconDraft('')}
+                            disabled={editIconSaving || editIconUploading}>
+                            Clear
+                          </PrimaryButton>
+                        )}
+                        <PrimaryButton variant="ghost" className="!py-1 !px-2.5 !text-xs"
+                          onClick={cancelEditIcon}
+                          disabled={editIconSaving || editIconUploading}>
+                          Cancel
+                        </PrimaryButton>
+                      </div>
+                    </div>
+                  )}
                   {((client.redirectUris as string[] | null) ?? []).length > 0 && (
                     <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
                       <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-dim)' }}>Redirect URIs</p>

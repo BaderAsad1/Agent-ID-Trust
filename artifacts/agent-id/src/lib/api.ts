@@ -451,6 +451,7 @@ export const api = {
       create: (data: {
         name: string;
         description?: string;
+        iconUrl?: string;
         redirectUris?: string[];
         allowedScopes?: string[];
         grantTypes?: string[];
@@ -459,12 +460,26 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
-      update: (clientId: string, data: { name?: string; description?: string; redirectUris?: string[]; allowedScopes?: string[] }) =>
+      update: (clientId: string, data: { name?: string; description?: string; iconUrl?: string | null; redirectUris?: string[]; allowedScopes?: string[] }) =>
         request<OAuthClient>(`/clients/${clientId}`, { method: "PATCH", body: JSON.stringify(data) }),
       delete: (clientId: string) =>
         request<{ success: boolean; revokedAt: string }>(`/clients/${clientId}`, { method: "DELETE" }),
       rotateSecret: (clientId: string) =>
         request<{ clientId: string; clientSecret: string; warning: string }>(`/clients/${clientId}/rotate-secret`, { method: "POST" }),
+      uploadIcon: async (file: File): Promise<{ iconUrl: string }> => {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch(`${BASE}/clients/icon-upload`, {
+          method: "POST",
+          credentials: "include",
+          body: fd,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.message || data?.error || `Upload failed (${res.status})`);
+        }
+        return data;
+      },
     },
     tokens: {
       list: (agentId: string) =>
@@ -1312,6 +1327,7 @@ export interface OAuthClient {
   clientId: string;
   name: string;
   description?: string | null;
+  iconUrl?: string | null;
   redirectUris: string[];
   allowedScopes: string[];
   grantTypes: string[];

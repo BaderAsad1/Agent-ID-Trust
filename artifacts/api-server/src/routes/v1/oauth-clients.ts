@@ -9,9 +9,12 @@
  * POST   /v1/clients/:id/rotate-secret — Rotate client secret
  */
 import { Router } from "express";
+import busboy from "busboy";
+import type { Readable } from "stream";
 import { z } from "zod/v4";
 import { randomBytes, createHash } from "crypto";
 import { eq, and, isNull } from "drizzle-orm";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { db } from "@workspace/db";
 import { oauthClientsTable } from "@workspace/db/schema";
 import { requireAuth } from "../../middlewares/replit-auth";
@@ -21,6 +24,110 @@ import { writeAuditEvent } from "../../services/auth-session";
 const router = Router();
 
 router.use(requireAuth);
+
+// ---------------------------------------------------------------------------
+// Icon upload endpoint
+// POST /v1/clients/icon-upload  (multipart/form-data, field "file")
+// Returns { iconUrl: string }
+// ---------------------------------------------------------------------------
+const ICON_MAX_BYTES = 1 * 1024 * 1024; // 1 MB
+const ICON_ALLOWED_MIME = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+]);
+const ICON_EXT_FOR_MIME: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/svg+xml": "svg",
+};
+
+function getR2Client(): S3Client | null {
+  const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY } = process.env;
+  if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) return null;
+  return new S3Client({
+    region: "auto",
+    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_ACCESS_KEY,
+    },
+  });
+}
+
+router.post("/icon-upload", async (req, res, next) => {
+  try {
+    const userId = req.user!.id;
+    const contentType = req.headers["content-type"] || "";
+    if (!contentType.includes("multipart/form-data")) {
+      throw new AppError(400, "BAD_CONTENT_TYPE", "Use multipart/form-data with a 'file' field");
+    }
+
+    const r2 = getR2Client();
+    const bucket = process.env.R2_BUCKET_NAME;
+    const publicUrl = process.env.R2_PUBLIC_URL;
+    if (!r2 || !bucket || !publicUrl) {
+      throw new AppError(
+        503,
+        "STORAGE_NOT_CONFIGURED",
+        "Icon upload is not available — object storage is not configured. Paste a hosted image URL instead.",
+      );
+    }
+
+    const result = await new Promise<{ buffer: Buffer; mimeType: string }>((resolve, reject) => {
+      const bb = busboy({ headers: req.headers, limits: { files: 1, fileSize: ICON_MAX_BYTES } });
+      let resolved = false;
+
+      bb.on("file", (_field: string, stream: Readable & { truncated?: boolean }, info: busboy.FileInfo) => {
+        const { mimeType } = info;
+        const chunks: Buffer[] = [];
+        stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+        stream.on("limit", () => {
+          stream.destroy();
+          reject(new AppError(413, "FILE_TOO_LARGE", `Icon exceeds ${ICON_MAX_BYTES / 1024} KB limit`));
+        });
+        stream.on("end", () => {
+          if (resolved) return;
+          resolved = true;
+          const safeMime = (mimeType || "application/octet-stream").toLowerCase();
+          if (!ICON_ALLOWED_MIME.has(safeMime)) {
+            return reject(new AppError(415, "UNSUPPORTED_MEDIA_TYPE", `Icon type '${safeMime}' is not allowed. Use PNG, JPG, GIF, WebP, or SVG.`));
+          }
+          resolve({ buffer: Buffer.concat(chunks), mimeType: safeMime });
+        });
+        stream.on("error", reject);
+      });
+      bb.on("error", reject);
+      bb.on("finish", () => { if (!resolved) reject(new AppError(400, "NO_FILE", "No file found in request")); });
+      req.pipe(bb);
+    });
+
+    const checksum = createHash("sha256").update(result.buffer).digest("hex");
+    const ext = ICON_EXT_FOR_MIME[result.mimeType] || "bin";
+    const key = `oauth-client-icons/${userId}/${checksum.slice(0, 16)}.${ext}`;
+
+    await r2.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: result.buffer,
+      ContentType: result.mimeType,
+      ContentLength: result.buffer.length,
+      Metadata: {
+        "owner-user-id": userId,
+        "purpose": "oauth-client-icon",
+      },
+    }));
+
+    const iconUrl = `${publicUrl.replace(/\/$/, "")}/${key}`;
+    res.status(201).json({ iconUrl });
+  } catch (err) {
+    next(err);
+  }
+});
 
 const createClientSchema = z.object({
   name: z.string().min(1).max(255),
