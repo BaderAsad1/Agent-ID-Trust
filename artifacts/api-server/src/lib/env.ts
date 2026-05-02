@@ -274,6 +274,14 @@ export function validateEnv(): Env {
     envLogger.fatal("[env] ADMIN_SECRET_KEY is required in production. All admin routes will deny all requests without it.");
     process.exit(1);
   }
+  if (isProd && !env.CREDENTIAL_SIGNING_SECRET) {
+    envLogger.fatal("[env] CREDENTIAL_SIGNING_SECRET is required in production. Without it, an ephemeral secret is used and every previously-issued attestation is silently invalidated on each restart.");
+    process.exit(1);
+  }
+  if (isProd && !env.OAUTH_INTROSPECTION_SECRET) {
+    envLogger.fatal("[env] OAUTH_INTROSPECTION_SECRET is required in production for server-to-server token introspection.");
+    process.exit(1);
+  }
 
   if (!env.REDIS_URL) {
     envLogger.warn("[env] REDIS_URL not set — rate limiting will use in-memory store, BullMQ workers disabled.");

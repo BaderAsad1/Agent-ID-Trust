@@ -17,14 +17,17 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 
 | Variable | Description |
 |---|---|
-| `PORT` | Port the API server listens on |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `WEBHOOK_SECRET_KEY` | 32-byte hex key for AES-256-GCM encryption of webhook secrets at rest |
 | `ACTIVITY_HMAC_SECRET` | HMAC key for signing activity log entries |
 | `CLAIM_TOKEN_SECRET` | Secret for HMAC-signed programmatic claim tokens |
-| `JWT_SECRET` | Secret for JWT signing |
+| `JWT_SECRET` | Secret for JWT signing (min 32 chars) |
 | `OAUTH_INTROSPECTION_SECRET` | Shared secret for server-to-server token introspection |
 | `CREDENTIAL_SIGNING_SECRET` | Secret for verifiable credential signatures |
+| `VC_SIGNING_KEY` | Ed25519 private key (JWK JSON) for W3C VC issuance |
+| `VC_PUBLIC_KEY` | Ed25519 public key (JWK JSON) for W3C VC verification |
+| `ADMIN_SECRET_KEY` | High-entropy admin secret (≥32 chars) used by `/api/v1/admin/*` routes |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (`whsec_...`); without it, forged webhook events would be accepted |
 
 ### Authentication Providers
 
