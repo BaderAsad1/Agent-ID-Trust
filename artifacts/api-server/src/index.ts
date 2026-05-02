@@ -11,7 +11,7 @@ import { initUndeliverableCleanupWorker, stopUndeliverableCleanupWorker } from "
 import { initOutboundMailWorker, closeOutboundMailWorker } from "./workers/outbound-mail";
 import { startAgentExpiryWorker, stopAgentExpiryWorker } from "./workers/agent-expiry";
 import { closeOutboundQueue } from "./services/mail-transport";
-import { closeRedis } from "./lib/redis";
+import { closeRedis, verifyRedisEvictionPolicy } from "./lib/redis";
 import { pool } from "@workspace/db";
 import { expireJobs } from "./services/jobs";
 import { logger } from "./middlewares/request-logger";
@@ -77,6 +77,7 @@ import { startNftTransferDetector, stopNftTransferDetector } from "./workers/nft
 import { startReputationJob, stopReputationJob } from "./services/reputation";
 
 if (config.REDIS_URL) {
+  await verifyRedisEvictionPolicy();
   startDomainWorker();
   initWebhookDeliveryWorker();
   initEmailDeliveryWorker();
