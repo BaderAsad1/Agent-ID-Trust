@@ -28,9 +28,9 @@ These are findings the per-domain audits could not surface because they are *bet
 **File:** `.replit` (top of file, `[userenv.shared]` block)
 
 ```
-R2_ACCESS_KEY_ID    = "bf60d895670c848c87e379da230ace21"
-R2_SECRET_ACCESS_KEY= "a20a2b2ed88dd42ab5491857e8c004195495ec15a545d47f8c3cbfd32a07c033"
-R2_ACCOUNT_ID       = "b39d91a7613af2dca2955f41cfc0e48c"
+R2_ACCESS_KEY_ID    = "<REDACTED — see INCIDENTS.md #0001>"
+R2_SECRET_ACCESS_KEY= "<REDACTED — see INCIDENTS.md #0001>"
+R2_ACCOUNT_ID       = "<REDACTED — see INCIDENTS.md #0001>"
 ```
 
 These are **not** Replit secrets — they are version-controlled environment values shipped to every clone of the repo. Anybody who reads `git log` on the repo (or the public GitHub mirror, if one exists) gets full read/write/delete on the `agentid-attachments` R2 bucket forever. This bucket holds inbound mail attachments and OAuth icons — including, by design, attachments uploaded *by users* to send through Agent Mail. Compromise = arbitrary file insertion into customer mailboxes plus full historical exfiltration.
