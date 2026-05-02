@@ -5,6 +5,7 @@ import http from "http";
 import path from "path";
 import fs from "fs";
 import router from "./routes";
+import healthRouter from "./routes/health";
 import wellKnownRouter from "./routes/well-known";
 import authOidcRouter from "./routes/auth-oidc";
 import oauthRouter from "./routes/oauth";
@@ -68,53 +69,19 @@ app.use(requestIdMiddleware);
 app.use(securityHeaders);
 app.use(sandboxMiddleware);
 
-// ── Health check ──────────────────────────────────────────────────────────────
-// Must be registered before auth/rate-limit middleware so load-balancers and
-// Docker HEALTHCHECK can reach it without credentials.
-app.get("/healthz", async (_req, res) => {
-  const checks: Record<string, "ok" | "error" | "skip"> = {};
-  let httpStatus = 200;
-
-  // DB check
-  try {
-    const { pool } = await import("@workspace/db");
-    await (pool as import("pg").Pool).query("SELECT 1");
-    checks.db = "ok";
-  } catch {
-    checks.db = "error";
-    httpStatus = 503;
-  }
-
-  // Redis check (optional — warn but don't fail hard since in-memory fallback exists)
-  if (process.env.REDIS_URL) {
-    try {
-      const redis = await import("../lib/redis" as string);
-      const client = (redis as { getRedisClient?: () => unknown }).getRedisClient?.();
-      if (client && typeof (client as { ping?: () => Promise<unknown> }).ping === "function") {
-        await (client as { ping: () => Promise<unknown> }).ping();
-        checks.redis = "ok";
-      } else {
-        checks.redis = "skip";
-      }
-    } catch {
-      checks.redis = "error";
-    }
-  } else {
-    checks.redis = "skip";
-  }
-
-  // Worker failure state
-  const { getWorkersInFailureState } = await import("./workers/worker-failure");
-  const failingWorkers = getWorkersInFailureState();
-  const workerStatus = Object.keys(failingWorkers).length === 0 ? "ok" : "degraded";
-
-  res.status(httpStatus).json({
-    status: httpStatus === 200 ? "ok" : "degraded",
-    checks,
-    workers: { status: workerStatus, failing: failingWorkers },
-    ts: new Date().toISOString(),
-  });
-});
+// ── Health checks ─────────────────────────────────────────────────────────────
+// Mount /healthz, /livez, /readyz at the top level (in front of auth and rate-
+// limit middleware) so load-balancers and Docker HEALTHCHECK can reach them
+// without credentials. The same router is also mounted under /api below.
+//
+// IMPORTANT: this used to be an inline implementation that imported the wrong
+// path ("../lib/redis" from app.ts) and called a non-existent symbol
+// (`getRedisClient` — the real export is `getRedis` / `getSharedRedis`). Both
+// failures were silently swallowed by optional chaining + a try/catch, so the
+// Redis check always returned "skip" and /healthz reported 200/ok even when
+// Redis was completely unreachable. We now reuse routes/health.ts so there is
+// a single, correct implementation.
+app.use(healthRouter);
 // ── Metrics ───────────────────────────────────────────────────────────────────
 // Lightweight Prometheus-compatible text endpoint. No external library required.
 // Exposed only in non-production or when METRICS_TOKEN is set + matched.
