@@ -30,3 +30,9 @@ id = "DB-LR8WhO9AdS_AFUFL-c"
 uri = "file://.local/tasks/agent-id-system-architecture.md"
 type = "text"
 title = "Agent ID — Full System Architecture Analysis"
+
+[[outputs]]
+id = "xcerMUbVXRpk508VVETuU"
+uri = "file://audits/00-end-to-end-principal-engineer-audit.md"
+type = "text"
+title = "End-to-End Principal Engineer Audit"
