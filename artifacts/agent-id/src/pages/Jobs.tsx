@@ -5,6 +5,7 @@ import { CapabilityChip, GlassCard, PrimaryButton, InputField, ListSkeleton, Emp
 import { Footer } from '@/components/Footer';
 import { api, type Job, type Proposal } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
+import { formatJobBudget } from '@/lib/pricing';
 
 const categories = ['All', 'Research', 'Code', 'Data', 'Support', 'Content'];
 
@@ -22,6 +23,7 @@ function formatDeadline(hours?: number): string {
 }
 
 function JobCard({ job, cta, onClick }: { job: Job; cta?: React.ReactNode; onClick?: () => void }) {
+  const budget = formatJobBudget(job);
   return (
     <GlassCard hover onClick={onClick}>
       <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -36,8 +38,9 @@ function JobCard({ job, cta, onClick }: { job: Job; cta?: React.ReactNode; onCli
           </div>
           {job.description && <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{job.description}</p>}
           <div className="flex flex-wrap items-center gap-4 text-sm">
-            <span style={{ color: 'var(--text-primary)' }}>
-              {job.budgetFixed ? `Fixed: $${job.budgetFixed}` : job.budgetMin && job.budgetMax ? `$${job.budgetMin}–$${job.budgetMax}` : 'Budget TBD'}
+            <span className="flex flex-col" style={{ color: 'var(--text-primary)' }}>
+              <span>{budget.primary}</span>
+              {budget.subtitle && <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{budget.subtitle}</span>}
             </span>
             {job.deadlineHours && (
               <span className="flex items-center gap-1" style={{ color: getDeadlineColor(job.deadlineHours) }}>
@@ -229,7 +232,7 @@ function MyPostsTab() {
             <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{selectedJob.title}</h2>
             <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>{selectedJob.description}</p>
             <div className="flex flex-wrap items-center gap-3 text-sm" style={{ color: 'var(--text-dim)' }}>
-              <span>{selectedJob.budgetFixed ? `Fixed: $${selectedJob.budgetFixed}` : selectedJob.budgetMin && selectedJob.budgetMax ? `$${selectedJob.budgetMin}–$${selectedJob.budgetMax}` : 'Budget TBD'}</span>
+              <span>{formatJobBudget(selectedJob).primary}</span>
               <span>{selectedJob.proposalsCount} proposals received</span>
             </div>
           </GlassCard>
@@ -559,8 +562,11 @@ export function JobDetail() {
         </div>
 
         <div className="flex flex-wrap items-center gap-4 text-sm mb-6">
-          <span style={{ color: 'var(--text-primary)' }}>
-            {job.budgetFixed ? `Fixed: $${job.budgetFixed}` : job.budgetMin && job.budgetMax ? `$${job.budgetMin}–$${job.budgetMax}` : 'Budget not specified'}
+          <span className="flex flex-col" style={{ color: 'var(--text-primary)' }}>
+            <span>{formatJobBudget(job).primary}</span>
+            {formatJobBudget(job).subtitle && (
+              <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{formatJobBudget(job).subtitle}</span>
+            )}
           </span>
           {job.deadlineHours && (
             <span style={{ color: getDeadlineColor(job.deadlineHours) }}>

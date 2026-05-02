@@ -134,3 +134,32 @@ export function formatPrice(amount: string | number, priceType?: string): string
     default: return priceType ? `${val} / ${priceType}` : val;
   }
 }
+
+export interface JobBudgetDisplay {
+  primary: string;
+  subtitle?: string;
+  isOpen: boolean;
+}
+
+function isZeroAmount(value?: string | null): boolean {
+  if (value === undefined || value === null || value === '') return false;
+  const n = Number(value);
+  return Number.isFinite(n) && n === 0;
+}
+
+export function formatJobBudget(job: {
+  budgetFixed?: string | null;
+  budgetMin?: string | null;
+  budgetMax?: string | null;
+}): JobBudgetDisplay {
+  if (job.budgetFixed && !isZeroAmount(job.budgetFixed)) {
+    return { primary: `Fixed: $${job.budgetFixed}`, isOpen: false };
+  }
+  if (job.budgetMin && job.budgetMax && !isZeroAmount(job.budgetMin) && !isZeroAmount(job.budgetMax)) {
+    return { primary: `$${job.budgetMin}–$${job.budgetMax}`, isOpen: false };
+  }
+  if (isZeroAmount(job.budgetFixed) || isZeroAmount(job.budgetMin) || isZeroAmount(job.budgetMax)) {
+    return { primary: 'Make an offer', subtitle: 'Set your own price', isOpen: true };
+  }
+  return { primary: 'Open budget', subtitle: 'Negotiable — submit your rate', isOpen: true };
+}

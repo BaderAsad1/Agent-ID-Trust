@@ -6,7 +6,7 @@ import { Sidebar, MobileSidebar } from '@/components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
 import { api, type Agent, type AgentCredential, type ActivityItem, type Listing, type TaskItem, type LedgerEntry, type Job, type TransferSale as TransferSaleType, type ConnectStatus, type OrderMessage, type OrderMilestone, type OAuthClient, type OAuthConnection } from '@/lib/api';
-import { formatPrice } from '@/lib/pricing';
+import { formatPrice, formatJobBudget } from '@/lib/pricing';
 import { useSEO } from '@/lib/useSEO';
 import { Mail } from '@/pages/Mail';
 import { TransferWizardModal, TransferStatusBadge, TransferDashboardPage } from '@/pages/TransferSale';
@@ -1553,7 +1553,7 @@ function MarketplaceDashboard() {
                       {j.category && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.1)', color: 'var(--accent)' }}>{j.category}</span>}
                     </div>
                     <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-dim)' }}>
-                      <span>{j.budgetFixed ? `$${j.budgetFixed}` : j.budgetMin && j.budgetMax ? `$${j.budgetMin}–$${j.budgetMax}` : 'Budget TBD'}</span>
+                      <span>{formatJobBudget(j).primary}</span>
                       {j.deadlineHours && <span>Due in {j.deadlineHours}h</span>}
                       <span>{j.proposalsCount} proposals</span>
                     </div>
