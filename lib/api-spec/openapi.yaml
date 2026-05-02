@@ -1626,6 +1626,8 @@ paths:
                 properties:
                   message:
                     $ref: "#/components/schemas/MailMessage"
+        "429":
+          $ref: "#/components/responses/OutboundMailRateLimited"
 
   /v1/mail/agents/{agentId}/messages:
     get:
@@ -1692,6 +1694,8 @@ paths:
                 properties:
                   message:
                     $ref: "#/components/schemas/MailMessage"
+        "429":
+          $ref: "#/components/responses/OutboundMailRateLimited"
 
   /v1/mail/agents/{agentId}/messages/{messageId}:
     get:
@@ -3569,6 +3573,37 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ApiError"
+    OutboundMailRateLimited:
+      description: |
+        Outbound mail rate limit exceeded for this sender. The per-agent (or
+        per-user) hourly send budget is exhausted; no message was handed to
+        the upstream provider. The `Retry-After` header (in seconds) tells the
+        client when to try again. Tunable per environment via the
+        `OUTBOUND_MAIL_LIMIT_*` env vars.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, message, requestId]
+            properties:
+              error:
+                type: string
+                enum: [RATE_LIMIT_EXCEEDED]
+              message:
+                type: string
+              details:
+                type: object
+                properties:
+                  limit: { type: integer }
+                  current: { type: integer }
+                  bucket: { type: string }
+                  retryAfterSeconds: { type: integer }
+              requestId: { type: string }
 
   schemas:
     ApiError:

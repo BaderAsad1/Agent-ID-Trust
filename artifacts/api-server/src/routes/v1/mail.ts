@@ -9,7 +9,7 @@ import { assertSandboxIsolation, isAgentSandbox } from "../../middlewares/sandbo
 import * as mailService from "../../services/mail";
 import { getAgentById } from "../../services/agents";
 import { getAgentPlan, getPlanLimits } from "../../services/billing";
-import { checkOutboundRateLimit } from "../../services/mail-transport";
+import { assertOutboundRateLimit } from "../../services/mail-rate-limit";
 import { logActivity } from "../../services/activity-logger";
 import {
   uploadAttachment,
@@ -494,10 +494,8 @@ router.post("/agents/:agentId/messages", requireHumanOrAgentAuth, async (req, re
     }
 
     if (body.direction === "outbound") {
-      const rateCheck = await checkOutboundRateLimit(agentId, plan);
-      if (!rateCheck.allowed) {
-        throw new AppError(429, "RATE_LIMIT_EXCEEDED", `Outbound rate limit exceeded. ${rateCheck.current}/${rateCheck.limit} emails sent this hour.`);
-      }
+      // Throws RateLimitError on hit — error-handler maps it to 429 + Retry-After + audit.
+      await assertOutboundRateLimit({ agentId, userId: req.userId, plan, reason: "agent_quota" });
     }
 
     const message = await mailService.sendMessage({
@@ -784,10 +782,7 @@ router.post("/agents/:agentId/threads/:threadId/reply", requireHumanOrAgentAuth,
       throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /pricing to unlock inbox and messaging.");
     }
 
-    const rateCheck = await checkOutboundRateLimit(agentId, replyPlan);
-    if (!rateCheck.allowed) {
-      throw new AppError(429, "RATE_LIMIT_EXCEEDED", `Outbound rate limit exceeded. ${rateCheck.current}/${rateCheck.limit} emails sent this hour.`);
-    }
+    await assertOutboundRateLimit({ agentId, userId: req.userId, plan: replyPlan, reason: "agent_quota" });
 
     const schema = z.object({
       body: z.string().min(1),

@@ -1,11 +1,18 @@
 import { createHmac } from "crypto";
-import { eq, sql, and, gte } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { outboundMessageDeliveriesTable, agentsTable, agentMessagesTable } from "@workspace/db/schema";
+import { outboundMessageDeliveriesTable, agentsTable } from "@workspace/db/schema";
 import { env } from "../lib/env";
 import { logger } from "../middlewares/request-logger";
 import { Queue } from "bullmq";
 import { createBullMQConnection, isRedisConfigured } from "../lib/redis";
+import {
+  assertOutboundRateLimit,
+  checkOutboundRateLimit as checkOutboundRateLimitImpl,
+  RateLimitError,
+} from "./mail-rate-limit";
+
+export { RateLimitError } from "./mail-rate-limit";
 
 export interface TransportEnvelope {
   messageId: string;
@@ -164,31 +171,17 @@ function isExternalAddress(address: string): boolean {
   return !address.endsWith(`@${config.MAIL_BASE_DOMAIN}`);
 }
 
-const RATE_LIMITS: Record<string, number> = {
-  none: 0,
-  starter: 100,
-  pro: 1000,
-  enterprise: -1,
-};
-
-export async function checkOutboundRateLimit(agentId: string, plan: string): Promise<{ allowed: boolean; limit: number; current: number }> {
-  const limit = RATE_LIMITS[plan] ?? RATE_LIMITS.none;
-  if (limit === -1) return { allowed: true, limit: -1, current: 0 };
-
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const [result] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(agentMessagesTable)
-    .where(
-      and(
-        eq(agentMessagesTable.agentId, agentId),
-        eq(agentMessagesTable.direction, "outbound"),
-        gte(agentMessagesTable.createdAt, oneHourAgo),
-      ),
-    );
-
-  const current = result?.count ?? 0;
-  return { allowed: current < limit, limit, current };
+/**
+ * Backwards-compatible wrapper around the canonical rate-limit module.
+ * Pre-existing call sites in `routes/v1/mail.ts` continue to work; the real
+ * gate lives inside `deliverOutbound` so EVERY send path is protected.
+ */
+export async function checkOutboundRateLimit(
+  agentId: string,
+  plan: string,
+): Promise<{ allowed: boolean; limit: number; current: number }> {
+  const decision = await checkOutboundRateLimitImpl({ agentId, plan });
+  return { allowed: decision.allowed, limit: decision.limit, current: decision.current };
 }
 
 let outboundQueue: Queue | null = null;
@@ -225,6 +218,55 @@ export async function deliverOutbound(envelope: TransportEnvelope): Promise<Tran
 
   if (envelope.agentId) {
     await enrichEnvelopeWithAgentInfo(envelope);
+  }
+
+  // Audit #09 — gate EVERY outbound send on the per-sender rate limit BEFORE
+  // touching the provider or enqueueing. Calling Resend first and checking
+  // afterwards defeats the purpose: the message would already be sent and the
+  // monthly quota already consumed.
+  //
+  // Internal getagent.id ↔ getagent.id mail does not consume the Resend quota
+  // and is gated separately at the route layer, so skip the limit there.
+  if (provider.name !== "internal") {
+    try {
+      const userIdForLimit = envelope.metadata && typeof envelope.metadata === "object"
+        ? (envelope.metadata as { senderUserId?: string }).senderUserId
+        : undefined;
+      const planForLimit = envelope.metadata && typeof envelope.metadata === "object"
+        ? (envelope.metadata as { plan?: string }).plan
+        : undefined;
+      // System notifications without an agent context (NDR bounces, magic-link
+      // emails, governance appeal mails) bucket under the recipient address so
+      // a runaway loop can be contained without starving real customers.
+      const systemKey = envelope.isSystemNotification && !envelope.agentId
+        ? envelope.to
+        : undefined;
+      await assertOutboundRateLimit({
+        agentId: envelope.agentId,
+        userId: !envelope.agentId ? userIdForLimit : undefined,
+        systemKey,
+        plan: planForLimit,
+        reason: envelope.agentId
+          ? "agent_quota"
+          : envelope.isSystemNotification
+            ? "system_quota"
+            : "user_quota",
+        // Some upstream callers (services/mail.ts sendMessage) persist the
+        // outbound row BEFORE calling deliverOutbound. Excluding the
+        // in-flight message id from the count prevents an off-by-one where
+        // a route-admitted send is rejected here at transport time.
+        excludeMessageId: envelope.messageId,
+      });
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        return {
+          success: false,
+          providerName: provider.name,
+          error: err.message,
+        };
+      }
+      throw err;
+    }
   }
 
   const queue = getOutboundQueue();

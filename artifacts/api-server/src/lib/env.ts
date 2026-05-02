@@ -31,6 +31,15 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   FROM_EMAIL: z.string().default("notifications@getagent.id"),
 
+  // Audit #09 — outbound mail rate limits, per hour, per sender. Tunable
+  // without redeploy. -1 means unlimited. 0 means no outbound mail allowed.
+  OUTBOUND_MAIL_LIMIT_NONE: z.string().optional(),
+  OUTBOUND_MAIL_LIMIT_STARTER: z.string().optional(),
+  OUTBOUND_MAIL_LIMIT_PRO: z.string().optional(),
+  OUTBOUND_MAIL_LIMIT_ENTERPRISE: z.string().optional(),
+  OUTBOUND_MAIL_LIMIT_USER: z.string().optional(),
+  OUTBOUND_MAIL_LIMIT_SYSTEM: z.string().optional(),
+
   CLOUDFLARE_API_TOKEN: z.string().optional(),
   CLOUDFLARE_ZONE_ID: z.string().optional(),
 

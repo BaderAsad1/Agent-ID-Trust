@@ -160,6 +160,25 @@ app.get("/metrics", (req, res) => {
     }
   } catch { /* workers not yet started */ }
 
+  // Outbound mail rate limit counters (audit #09).
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getRateLimitMetrics } = require("./services/mail-rate-limit") as {
+      getRateLimitMetrics: () => { rateLimited: Map<string, number>; allowed: Map<string, number> };
+    };
+    const { rateLimited, allowed } = getRateLimitMetrics();
+    lines.push("# HELP agentid_mail_outbound_rate_limited_total Outbound mail blocked by per-sender rate limit");
+    lines.push("# TYPE agentid_mail_outbound_rate_limited_total counter");
+    for (const [reason, count] of rateLimited) {
+      lines.push(`agentid_mail_outbound_rate_limited_total{reason="${reason}"} ${count}`);
+    }
+    lines.push("# HELP agentid_mail_outbound_allowed_total Outbound mail that passed the per-sender rate limit");
+    lines.push("# TYPE agentid_mail_outbound_allowed_total counter");
+    for (const [reason, count] of allowed) {
+      lines.push(`agentid_mail_outbound_allowed_total{reason="${reason}"} ${count}`);
+    }
+  } catch { /* mail-rate-limit not loaded yet */ }
+
   lines.push(`# EOF`);
   res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
   res.status(200).end(lines.join("\n") + "\n");
