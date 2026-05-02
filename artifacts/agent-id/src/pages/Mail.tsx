@@ -5,7 +5,7 @@ import {
   ShieldCheck, ShieldAlert, Bot, User, Clock, Paperclip, ChevronRight,
   Archive, RotateCcw, AlertCircle, RefreshCw, Inbox as InboxIcon,
   FileText, Filter, X, Loader2, CheckSquare, Eye, EyeOff, Code, ChevronDown, Settings,
-  Star, Trash2
+  Star, Trash2, Image as ImageIcon, File as FileIcon
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { api, type Agent, type MailThread, type MailMessage, type MailLabel, type MailEvent, type InboxStats, type MailInbox, type RoutingRule, type MailAttachment, type MailAttachmentLimits } from '@/lib/api';
@@ -50,6 +50,16 @@ function validateAttachmentFiles(
     accepted.push(f);
   }
   return { accepted, errors };
+}
+
+function isImageMime(contentType: string): boolean {
+  if (!contentType) return false;
+  const ct = contentType.toLowerCase();
+  return ct === 'image/jpeg' || ct === 'image/jpg' || ct === 'image/png' || ct === 'image/gif' || ct === 'image/webp';
+}
+
+function isPdfMime(contentType: string): boolean {
+  return !!contentType && contentType.toLowerCase() === 'application/pdf';
 }
 
 type AttachmentUploadState = 'idle' | 'uploading' | 'done' | 'error';
@@ -779,6 +789,178 @@ function ProvenanceTimeline({ chain }: { chain: Array<{ actor: string; action: s
   );
 }
 
+function AttachmentPreview({
+  attachment,
+  cachedUrl,
+  onResolve,
+}: {
+  attachment: MailAttachment;
+  cachedUrl?: string;
+  onResolve: (id: string) => Promise<string | null>;
+}) {
+  const isImage = isImageMime(attachment.contentType);
+  const isPdf = isPdfMime(attachment.contentType);
+  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(cachedUrl || attachment.url);
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const autoFetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (cachedUrl && cachedUrl !== resolvedUrl) setResolvedUrl(cachedUrl);
+  }, [cachedUrl, resolvedUrl]);
+
+  const fetchUrl = useCallback(async (): Promise<string | null> => {
+    setUrlLoading(true);
+    setUrlError(null);
+    try {
+      const url = await onResolve(attachment.id);
+      if (url) {
+        setResolvedUrl(url);
+        return url;
+      }
+      setUrlError('Failed to load');
+      return null;
+    } catch {
+      setUrlError('Failed to load');
+      return null;
+    } finally {
+      setUrlLoading(false);
+    }
+  }, [attachment.id, onResolve]);
+
+  // Auto-fetch URL for image previews so the thumbnail can render inline
+  useEffect(() => {
+    if (!isImage) return;
+    if (resolvedUrl) return;
+    if (autoFetchedRef.current) return;
+    autoFetchedRef.current = true;
+    void fetchUrl();
+  }, [isImage, resolvedUrl, fetchUrl]);
+
+  const sizeLabel = attachment.size > 0 ? formatBytes(attachment.size) : null;
+
+  // Image preview: inline thumbnail with loading skeleton
+  if (isImage) {
+    const showSkeleton = !resolvedUrl || (!imgLoaded && !imgError);
+    return (
+      <div
+        className="rounded-lg overflow-hidden flex flex-col"
+        style={{
+          background: 'rgba(0,0,0,0.15)',
+          border: '1px solid var(--border-color)',
+          width: 160,
+        }}
+      >
+        <a
+          href={resolvedUrl || '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            if (!resolvedUrl) {
+              e.preventDefault();
+              void fetchUrl().then(url => {
+                if (url) window.open(url, '_blank', 'noopener,noreferrer');
+              });
+            }
+          }}
+          style={{
+            display: 'block',
+            position: 'relative',
+            width: '100%',
+            height: 110,
+            background: 'rgba(0,0,0,0.25)',
+          }}
+          aria-label={`Open ${attachment.filename}`}
+        >
+          {resolvedUrl && !imgError && (
+            <img
+              src={resolvedUrl}
+              alt={attachment.filename}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: imgLoaded ? 'block' : 'none',
+              }}
+            />
+          )}
+          {showSkeleton && (
+            <div
+              className="absolute inset-0 flex items-center justify-center"
+              style={{ color: 'var(--text-dim)' }}
+            >
+              {urlError || imgError ? (
+                <div className="flex flex-col items-center gap-1 text-xs">
+                  <ImageIcon className="w-5 h-5" />
+                  <span>Preview unavailable</span>
+                </div>
+              ) : (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              )}
+            </div>
+          )}
+        </a>
+        <div
+          className="flex items-center gap-1.5 px-2 py-1.5 text-xs"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <ImageIcon className="w-3 h-3 flex-shrink-0" />
+          <span className="truncate flex-1" title={attachment.filename}>{attachment.filename}</span>
+          {sizeLabel && <span style={{ color: 'var(--text-dim)' }}>{sizeLabel}</span>}
+        </div>
+      </div>
+    );
+  }
+
+  // PDF / generic file: chip with icon, click resolves URL and opens in new tab
+  const Icon = isPdf ? FileText : FileIcon;
+  const handleClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (resolvedUrl) return; // let the anchor navigate
+    e.preventDefault();
+    if (urlLoading) return;
+    const url = await fetchUrl();
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <div
+      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg"
+      style={{
+        background: 'rgba(0,0,0,0.15)',
+        border: '1px solid var(--border-color)',
+        color: 'var(--text-muted)',
+      }}
+    >
+      {urlLoading ? (
+        <Loader2 className="w-3 h-3 animate-spin" />
+      ) : (
+        <Icon className="w-3 h-3" style={{ color: isPdf ? '#ef4444' : undefined }} />
+      )}
+      <a
+        href={resolvedUrl || '#'}
+        target="_blank"
+        rel="noopener noreferrer"
+        download={isPdf ? undefined : attachment.filename}
+        onClick={handleClick}
+        style={{
+          color: 'var(--accent)',
+          textDecoration: 'underline',
+          cursor: urlLoading ? 'wait' : 'pointer',
+        }}
+        aria-busy={urlLoading}
+      >
+        {attachment.filename}
+      </a>
+      {sizeLabel && <span style={{ color: 'var(--text-dim)' }}>({sizeLabel})</span>}
+      {urlError && <span style={{ color: '#ef4444' }}>· {urlError}</span>}
+    </div>
+  );
+}
+
 function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAttachments, attachmentLimits, onBack, onRefresh, onDelete }: { message: MailMessage; agentId: string; labels?: MailLabel[]; attachments?: MailAttachment[]; attachmentLimits: MailAttachmentLimits; onBack: () => void; onRefresh: () => void; onDelete?: () => void }) {
   const [events, setEvents] = useState<MailEvent[]>([]);
   const [showEvents, setShowEvents] = useState(false);
@@ -854,12 +1036,14 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
     }
   };
 
-  const fetchAttachmentUrl = useCallback(async (attachmentId: string) => {
+  const fetchAttachmentUrl = useCallback(async (attachmentId: string): Promise<string | null> => {
     try {
       const res = await api.mail.getAttachmentUrl(agentId, message.id, attachmentId);
       setAttachmentUrls(prev => ({ ...prev, [attachmentId]: res.url }));
+      return res.url;
     } catch (err) {
       console.error('[mail] Failed to get attachment URL:', err);
+      return null;
     }
   }, [agentId, message.id]);
 
@@ -947,21 +1131,15 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
         {msgAttachments && msgAttachments.length > 0 && (
           <div className="mb-4">
             <h4 className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Attachments</h4>
-            <div className="flex flex-wrap gap-2">
-              {msgAttachments.map(a => {
-                const url = attachmentUrls[a.id] || a.url;
-                return (
-                  <div key={a.id} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                    <Paperclip className="w-3 h-3" />
-                    {url ? (
-                      <a href={url} download={a.filename} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>{a.filename}</a>
-                    ) : (
-                      <button onClick={() => fetchAttachmentUrl(a.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', padding: 0, fontFamily: 'var(--font-body)', fontSize: 'inherit', textDecoration: 'underline' }}>{a.filename}</button>
-                    )}
-                    {a.size > 0 && <span style={{ color: 'var(--text-dim)' }}>({(a.size / 1024).toFixed(1)}KB)</span>}
-                  </div>
-                );
-              })}
+            <div className="flex flex-wrap gap-2 items-start">
+              {msgAttachments.map(a => (
+                <AttachmentPreview
+                  key={a.id}
+                  attachment={a}
+                  cachedUrl={attachmentUrls[a.id] || a.url}
+                  onResolve={fetchAttachmentUrl}
+                />
+              ))}
             </div>
           </div>
         )}
