@@ -97,6 +97,7 @@ Set `ONCHAIN_MINTING_ENABLED=true` to enable on-chain handle registration.
 | Variable | Description |
 |---|---|
 | `REDIS_URL` | Redis connection string (optional; used for rate-limiting and caching) |
+| `DISABLED_BULLMQ_WORKERS` | Comma-separated list of BullMQ workers to disable at startup when the Redis provider's max-clients cap is too low. Each disabled worker frees ~3 sockets. Valid names: `domain-provisioning`, `webhook-delivery`, `email-delivery`, `outbound-mail`, `agent-expiry`, `handle-lifecycle`. Disabled workers' queued jobs will not run. |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare API token for DNS automation |
 | `CLOUDFLARE_ZONE_ID` | Cloudflare zone ID for `getagent.id` |
 | `TRUST_PROXY` | Express trust-proxy setting. Set `"1"` behind a single reverse proxy, `"false"` for bare deployments |

@@ -12,6 +12,14 @@ const envSchema = z.object({
 
   REDIS_URL: z.string().optional(),
 
+  // Comma-separated list of BullMQ worker names to disable at startup so the
+  // process fits under the Redis provider's max-clients cap. Each entry must
+  // match one of the names in WORKER_NAMES (see lib/redis.ts: isWorkerDisabled).
+  // Each disabled worker frees ~3 sockets (worker + bclient + subscriber);
+  // disabling a worker that also owns an eager queue frees an additional 1.
+  // Use only when raising the Redis client cap is not an option.
+  DISABLED_BULLMQ_WORKERS: z.string().optional(),
+
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),

@@ -11,7 +11,7 @@ import { initUndeliverableCleanupWorker, stopUndeliverableCleanupWorker } from "
 import { initOutboundMailWorker, closeOutboundMailWorker } from "./workers/outbound-mail";
 import { startAgentExpiryWorker, stopAgentExpiryWorker } from "./workers/agent-expiry";
 import { closeOutboundQueue } from "./services/mail-transport";
-import { closeRedis, verifyRedisEvictionPolicy, logRedisConnectionPlan } from "./lib/redis";
+import { closeRedis, verifyRedisEvictionPolicy, logRedisConnectionPlan, isWorkerDisabled } from "./lib/redis";
 import { pool } from "@workspace/db";
 import { expireJobs } from "./services/jobs";
 import { logger } from "./middlewares/request-logger";
@@ -87,15 +87,22 @@ if (config.REDIS_URL) {
       logger.error({ err }, "[startup] verifyRedisEvictionPolicy failed");
     }
   })();
-  startDomainWorker();
-  initWebhookDeliveryWorker();
-  initEmailDeliveryWorker();
+  // Each BullMQ-backed worker can be individually disabled via the
+  // DISABLED_BULLMQ_WORKERS env var to shed Redis sockets when the provider's
+  // max-clients cap is too low for the full set. Each disabled worker frees
+  // ~3 sockets. Timer-based workers below (trust, webhook-retry, nft-mint,
+  // nft-transfer-detector, reputation, undeliverable-cleanup) hold no Redis
+  // connection of their own and are not gated.
+  if (!isWorkerDisabled("domain-provisioning")) startDomainWorker();
+  if (!isWorkerDisabled("webhook-delivery")) initWebhookDeliveryWorker();
+  if (!isWorkerDisabled("email-delivery")) initEmailDeliveryWorker();
+  if (!isWorkerDisabled("outbound-mail")) initOutboundMailWorker();
+  if (!isWorkerDisabled("agent-expiry")) startAgentExpiryWorker();
+  if (!isWorkerDisabled("handle-lifecycle")) startHandleLifecycleWorker();
+
   initUndeliverableCleanupWorker();
-  initOutboundMailWorker();
-  startAgentExpiryWorker();
   startTrustWorker();
   startWebhookRetryWorker();
-  startHandleLifecycleWorker();
   startNftMintWorker();
   startNftTransferDetector();
   startReputationJob();

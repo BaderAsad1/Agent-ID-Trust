@@ -225,6 +225,70 @@ export function isRedisConfigured(): boolean {
   return !!env().REDIS_URL;
 }
 
+/**
+ * Names of BullMQ-backed background workers that can be individually disabled
+ * via the DISABLED_BULLMQ_WORKERS env var when the Redis provider's
+ * max-clients cap forces us to shed connections. Each entry maps 1:1 to a
+ * `start*Worker` / `init*Worker` call in src/index.ts. Each disabled worker
+ * frees ~3 Redis sockets (worker socket + BullMQ-internal bclient + subscriber).
+ *
+ * Workers backed only by setInterval (trust-recalculation, webhook-retry,
+ * nft-mint, nft-transfer-detector, reputation, undeliverable-cleanup) are
+ * intentionally not listed here because they hold no Redis connection of
+ * their own.
+ */
+export const BULLMQ_WORKER_NAMES = [
+  "domain-provisioning",
+  "webhook-delivery",
+  "email-delivery",
+  "outbound-mail",
+  "agent-expiry",
+  "handle-lifecycle",
+] as const;
+
+export type BullMQWorkerName = (typeof BULLMQ_WORKER_NAMES)[number];
+
+let _disabledWorkerSet: Set<string> | null = null;
+function disabledWorkerSet(): Set<string> {
+  if (_disabledWorkerSet) return _disabledWorkerSet;
+  const raw = env().DISABLED_BULLMQ_WORKERS ?? "";
+  const entries = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const valid = new Set<string>();
+  const invalid: string[] = [];
+  for (const name of entries) {
+    if ((BULLMQ_WORKER_NAMES as readonly string[]).includes(name)) {
+      valid.add(name);
+    } else {
+      invalid.push(name);
+    }
+  }
+  if (invalid.length > 0) {
+    logger.warn(
+      { invalid, validNames: BULLMQ_WORKER_NAMES },
+      "[redis] DISABLED_BULLMQ_WORKERS contains unknown names; ignoring",
+    );
+  }
+  if (valid.size > 0) {
+    logger.warn(
+      { disabled: [...valid] },
+      `[redis] BullMQ workers disabled by DISABLED_BULLMQ_WORKERS env var: ${[...valid].join(", ")}. Their queued jobs will not run.`,
+    );
+  }
+  _disabledWorkerSet = valid;
+  return valid;
+}
+
+export function isWorkerDisabled(name: BullMQWorkerName): boolean {
+  return disabledWorkerSet().has(name);
+}
+
+/**
+ * Test-only: clear the cached parse of DISABLED_BULLMQ_WORKERS.
+ */
+export function _resetWorkerDisableCacheForTests(): void {
+  _disabledWorkerSet = null;
+}
+
 export async function closeRedis(): Promise<void> {
   const all: Redis[] = [];
   if (_commandClient) all.push(_commandClient);
