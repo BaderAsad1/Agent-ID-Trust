@@ -206,6 +206,7 @@ describe("Cross-System Coherence — Credential Coherence (HMAC + W3C VC + On-ch
 
   let issueCredentialReal: typeof import("../services/credentials").issueCredential;
   let verifyCredentialSignatureReal: typeof import("../services/credentials").verifyCredentialSignature;
+  let getActiveCredentialReal: typeof import("../services/credentials").getActiveCredential;
   let issueVerifiableCredentialReal: typeof import("../services/verifiable-credential").issueVerifiableCredential;
   let clearVcCacheReal: typeof import("../services/verifiable-credential").clearVcCache;
   let getJwksReal: typeof import("../services/verifiable-credential").getJwks;
@@ -219,6 +220,7 @@ describe("Cross-System Coherence — Credential Coherence (HMAC + W3C VC + On-ch
     );
     issueCredentialReal = credentialsActual.issueCredential;
     verifyCredentialSignatureReal = credentialsActual.verifyCredentialSignature;
+    getActiveCredentialReal = credentialsActual.getActiveCredential;
     issueVerifiableCredentialReal = vcActual.issueVerifiableCredential;
     clearVcCacheReal = vcActual.clearVcCache;
     getJwksReal = vcActual.getJwks;
@@ -331,6 +333,39 @@ describe("Cross-System Coherence — Credential Coherence (HMAC + W3C VC + On-ch
 
     const result = verifyCredentialSignatureReal(issued as unknown as Record<string, unknown>);
     expect(result.valid).toBe(true);
+  });
+
+  it("freshly-issued credential still verifies after a DB round-trip (canonical HMAC)", async () => {
+    const issued = (await issueCredentialReal(agentId)) as {
+      proof: { signatureValue: string };
+    };
+
+    const fetched = (await getActiveCredentialReal(agentId)) as Record<string, unknown> & {
+      proof: { signatureValue: string };
+    };
+    expect(fetched).toBeDefined();
+    expect(fetched.proof.signatureValue).toBe(issued.proof.signatureValue);
+
+    const result = verifyCredentialSignatureReal(fetched as unknown as Record<string, unknown>);
+    expect(result.valid).toBe(true);
+
+    // Reordering object keys (as Postgres jsonb effectively does) must not break verification.
+    const subject = fetched.credentialSubject as Record<string, unknown>;
+    const reorderedSubject = Object.fromEntries(
+      Object.keys(subject).reverse().map((k) => [k, subject[k]]),
+    );
+    const proof = fetched.proof as Record<string, unknown>;
+    const reorderedProof = Object.fromEntries(
+      Object.keys(proof).reverse().map((k) => [k, proof[k]]),
+    );
+    const reordered = Object.fromEntries(
+      Object.keys(fetched).reverse().map((k) => [
+        k,
+        k === "credentialSubject" ? reorderedSubject : k === "proof" ? reorderedProof : (fetched as Record<string, unknown>)[k],
+      ]),
+    );
+    const reorderedResult = verifyCredentialSignatureReal(reordered as Record<string, unknown>);
+    expect(reorderedResult.valid).toBe(true);
   });
 
   it("W3C VC JWT verifies against the JWK published at /.well-known/jwks.json", async () => {

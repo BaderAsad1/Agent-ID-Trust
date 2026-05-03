@@ -59,9 +59,27 @@ function generateSerialNumber(): string {
   return `AID-0x${hex}`;
 }
 
+function canonicalStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return "[" + value.map((v) => canonicalStringify(v ?? null)).join(",") + "]";
+  }
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return (
+    "{" +
+    keys
+      .map((k) => JSON.stringify(k) + ":" + canonicalStringify(obj[k] ?? null))
+      .join(",") +
+    "}"
+  );
+}
+
 function signCredential(credentialJson: object): string {
   const secret = getCredentialSigningSecret();
-  const payload = JSON.stringify(credentialJson);
+  const payload = canonicalStringify(credentialJson);
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
 
