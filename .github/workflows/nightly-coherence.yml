@@ -1,0 +1,177 @@
+name: Nightly Credential Coherence (base-sepolia)
+
+# Runs the cross-system credential coherence integration test against
+# base-sepolia with the live on-chain `ownerOf(tokenId)` assertion enabled.
+#
+# CI keeps RUN_ONCHAIN_COHERENCE_TEST off by default (gas-free, no flakes from
+# the public testnet RPC). This nightly job flips it on so we catch drift
+# between what we persist in `chainRegistrations[base]` and what the
+# base-sepolia registrar (0x8004A818BFB912233c491871b3d84c89A494BD9e) actually
+# owns for our seeded handle.
+#
+# Required repository secrets:
+#   COHERENCE_TEST_BASE_TOKEN_ID  — uint256 tokenId of a real handle minted on
+#                                   base-sepolia under the registrar above.
+#   COHERENCE_TEST_BASE_CONTROLLER — the EOA/contract that owns that tokenId
+#                                    (must match ownerOf(tokenId) on-chain).
+#   BASE_RPC_URL                  — base-sepolia RPC endpoint (Alchemy / QuickNode /
+#                                   Infura). Falls back to https://sepolia.base.org
+#                                   if unset, but a private RPC is strongly
+#                                   recommended for stability.
+#   CREDENTIAL_SIGNING_SECRET     — same value the api-server uses; required so
+#                                   the HMAC invariants in the test resolve.
+#   SLACK_WEBHOOK_URL (optional)  — incoming webhook for the failure alert.
+
+on:
+  schedule:
+    # 07:17 UTC nightly (~midnight Pacific). Off-peak for base-sepolia RPCs.
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+    inputs:
+      token_id:
+        description: "Override COHERENCE_TEST_BASE_TOKEN_ID for this run"
+        required: false
+      controller:
+        description: "Override COHERENCE_TEST_BASE_CONTROLLER for this run"
+        required: false
+
+concurrency:
+  group: nightly-coherence
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  coherence:
+    name: cross-system-coherence.integration (base-sepolia, live ownerOf)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agentid_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/agentid_test
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+      RUN_ONCHAIN_COHERENCE_TEST: "true"
+      COHERENCE_TEST_BASE_TOKEN_ID: ${{ github.event.inputs.token_id || secrets.COHERENCE_TEST_BASE_TOKEN_ID }}
+      COHERENCE_TEST_BASE_CONTROLLER: ${{ github.event.inputs.controller || secrets.COHERENCE_TEST_BASE_CONTROLLER }}
+      BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+      CREDENTIAL_SIGNING_SECRET: ${{ secrets.CREDENTIAL_SIGNING_SECRET }}
+
+    steps:
+      - name: Validate required secrets
+        run: |
+          missing=0
+          for v in COHERENCE_TEST_BASE_TOKEN_ID COHERENCE_TEST_BASE_CONTROLLER CREDENTIAL_SIGNING_SECRET; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Required secret $v is not set. The on-chain coherence assertion will be skipped, defeating the purpose of this nightly job."
+              missing=1
+            fi
+          done
+          if [ "$missing" = "1" ]; then exit 1; fi
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database schema
+        run: pnpm --filter @workspace/db run push-force
+
+      - name: Run credential coherence integration test (live ownerOf)
+        run: |
+          pnpm --filter @workspace/api-server exec vitest run \
+            --project integration \
+            src/__tests__/cross-system-coherence.integration.test.ts \
+            --reporter=default --reporter=junit --outputFile=coherence-junit.xml
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coherence-junit
+          path: artifacts/api-server/coherence-junit.xml
+          if-no-files-found: ignore
+
+      - name: Notify Slack on failure
+        if: failure() && env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+            --data "{\"text\":\":rotating_light: Nightly credential coherence check FAILED on base-sepolia.\nRegistrar: 0x8004A818BFB912233c491871b3d84c89A494BD9e (chainId 84532)\nTokenId: ${COHERENCE_TEST_BASE_TOKEN_ID}\nRun: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
+            "$SLACK_WEBHOOK_URL"
+
+      - name: Open / update tracking issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "Nightly credential coherence check failing on base-sepolia";
+            const body = [
+              "The nightly credential coherence integration test against base-sepolia failed.",
+              "",
+              `- Registrar: \`0x8004A818BFB912233c491871b3d84c89A494BD9e\` (chainId 84532)`,
+              `- TokenId: \`${process.env.COHERENCE_TEST_BASE_TOKEN_ID}\``,
+              `- Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              "",
+              "This usually means `chainRegistrations[base].controller` for our seeded handle has drifted from the on-chain `ownerOf(tokenId)`.",
+              "Investigate before the next release: see `artifacts/api-server/src/__tests__/cross-system-coherence.integration.test.ts`.",
+            ].join("\n");
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "nightly-coherence",
+              per_page: 5,
+            });
+            if (existing.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ["nightly-coherence", "bug", "on-chain"],
+              });
+            }
