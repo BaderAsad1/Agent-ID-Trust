@@ -810,7 +810,7 @@ function AttachmentPreview({
   const isBlocked = attachment.scanStatus === 'blocked';
   const isImage = !isBlocked && isImageMime(attachment.contentType);
   const isPdf = !isBlocked && isPdfMime(attachment.contentType);
-  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(cachedUrl || attachment.url);
+  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(cachedUrl || attachment.url || undefined);
   const [urlLoading, setUrlLoading] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -1183,7 +1183,7 @@ function MessageDetail({ message, agentId, labels: msgLabels, attachments: msgAt
                 <AttachmentPreview
                   key={a.id}
                   attachment={a}
-                  cachedUrl={attachmentUrls[a.id] || a.url}
+                  cachedUrl={attachmentUrls[a.id] || a.url || undefined}
                   onResolve={fetchAttachmentUrl}
                 />
               ))}

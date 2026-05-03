@@ -77,7 +77,16 @@ import { startNftTransferDetector, stopNftTransferDetector } from "./workers/nft
 import { startReputationJob, stopReputationJob } from "./services/reputation";
 
 if (config.REDIS_URL) {
-  await verifyRedisEvictionPolicy();
+  // Wrapped in IIFE because the production build target is CJS, which does
+  // not support top-level await. Errors are logged but do not abort startup
+  // since verifyRedisEvictionPolicy already logs detailed warnings on its own.
+  void (async () => {
+    try {
+      await verifyRedisEvictionPolicy();
+    } catch (err) {
+      logger.error({ err }, "[startup] verifyRedisEvictionPolicy failed");
+    }
+  })();
   startDomainWorker();
   initWebhookDeliveryWorker();
   initEmailDeliveryWorker();

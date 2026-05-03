@@ -1574,6 +1574,11 @@ export type UnauthorizedResponse = ApiError;
 export type NotFoundResponse = ApiError;
 
 /**
+ * Bad request
+ */
+export type BadRequestResponse = ApiError;
+
+/**
  * Forbidden
  */
 export type ForbiddenResponse = ApiError;

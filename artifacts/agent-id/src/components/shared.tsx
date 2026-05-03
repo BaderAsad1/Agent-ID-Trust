@@ -130,7 +130,7 @@ export function SectionHeading({ children, sub, left = false }: { children: Reac
   );
 }
 
-export function GlassCard({ children, className = '', hover = false, purple = false, onClick }: { children: React.ReactNode; className?: string; hover?: boolean; purple?: boolean; onClick?: () => void }) {
+export function GlassCard({ children, className = '', hover = false, purple = false, onClick, style }: { children: React.ReactNode; className?: string; hover?: boolean; purple?: boolean; onClick?: () => void; style?: React.CSSProperties }) {
   return (
     <div
       className={`rounded-2xl border p-6 ${hover ? 'transition-all duration-150 hover:-translate-y-0.5 cursor-pointer' : ''} ${className}`}

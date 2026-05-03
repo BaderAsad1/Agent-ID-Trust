@@ -1090,6 +1090,7 @@ export interface TaskItem {
   taskType: string;
   payload: Record<string, unknown>;
   status: string;
+  description?: string | null;
   paymentAmount?: number | null;
   paymentStatus?: string | null;
   createdAt: string;
