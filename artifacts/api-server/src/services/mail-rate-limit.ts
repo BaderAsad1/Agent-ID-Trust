@@ -2,6 +2,7 @@ import { and, eq, gte, ne, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { agentMessagesTable, auditEventsTable } from "@workspace/db/schema";
 import { env } from "../lib/env";
+import { getRedis, isRedisConfigured } from "../lib/redis";
 import { logger } from "../middlewares/request-logger";
 
 /**
@@ -144,9 +145,42 @@ async function countOutbound(where: ReturnType<typeof and>): Promise<number> {
   return row?.count ?? 0;
 }
 
+// ── System / per-recipient bucket storage ────────────────────────────────────
+//
+// The system bucket protects every send path that has neither an agent nor a
+// user attached: NDR auto-replies, governance / appeal mails, magic-link
+// emails, unattributed system notifications. The transport layer also splits
+// it per-recipient (`systemKey = recipient address`) so a runaway loop to one
+// address cannot starve real customers.
+//
+// Originally this lived in an in-process `Map`. That is incorrect once we run
+// more than one API server replica — each replica enforces its own copy of
+// the budget, so the effective platform-wide cap becomes N × the configured
+// value. A single bad sender (or NDR loop) could blow well past the
+// per-window quota by spreading its sends across replicas.
+//
+// We now store the buckets in Redis as a sliding window using a sorted set:
+//
+//   key   = `mail-rl:<systemKey>`
+//   score = unix-ms timestamp of each send
+//   value = `<ts>-<random>` (unique so duplicate ts don't collapse entries)
+//
+// On every check we ZREMRANGEBYSCORE the entries older than (now - WINDOW_MS),
+// then ZCARD to get the current count. PEXPIRE keeps the key from leaking if
+// the bucket falls idle. The reset time is derived from the oldest surviving
+// entry's score.
+//
+// If Redis is not configured (local dev, unit tests) or a Redis call fails,
+// we fall back to the in-process Map so the limiter degrades to "best effort
+// per-process" rather than failing open completely.
+
 const systemBucketCounts = new Map<string, { count: number; resetAt: number }>();
 
-function incrementSystemBucket(key: string): { count: number; resetAt: number } {
+function redisKey(key: string): string {
+  return `mail-rl:${key}`;
+}
+
+function inProcessIncrement(key: string): { count: number; resetAt: number } {
   const now = Date.now();
   const existing = systemBucketCounts.get(key);
   if (!existing || existing.resetAt <= now) {
@@ -158,7 +192,7 @@ function incrementSystemBucket(key: string): { count: number; resetAt: number } 
   return existing;
 }
 
-function peekSystemBucket(key: string): { count: number; resetAt: number } {
+function inProcessPeek(key: string): { count: number; resetAt: number } {
   const now = Date.now();
   const existing = systemBucketCounts.get(key);
   if (!existing || existing.resetAt <= now) {
@@ -167,7 +201,81 @@ function peekSystemBucket(key: string): { count: number; resetAt: number } {
   return existing;
 }
 
-/** @internal — test only. */
+async function redisPeek(key: string): Promise<{ count: number; resetAt: number }> {
+  const redis = getRedis();
+  const now = Date.now();
+  const cutoff = now - WINDOW_MS;
+  const rkey = redisKey(key);
+  const pipeline = redis.multi();
+  pipeline.zremrangebyscore(rkey, 0, cutoff);
+  pipeline.zcard(rkey);
+  pipeline.zrange(rkey, 0, 0, "WITHSCORES");
+  const results = await pipeline.exec();
+  if (!results) throw new Error("redis pipeline returned no results");
+  for (const [err] of results) {
+    if (err) throw err;
+  }
+  const count = Number(results[1]?.[1] ?? 0);
+  const oldest = results[2]?.[1] as string[] | undefined;
+  const oldestScore = oldest && oldest.length >= 2 ? Number(oldest[1]) : NaN;
+  const resetAt = Number.isFinite(oldestScore) ? oldestScore + WINDOW_MS : now + WINDOW_MS;
+  return { count, resetAt };
+}
+
+async function redisIncrement(key: string): Promise<{ count: number; resetAt: number }> {
+  const redis = getRedis();
+  const now = Date.now();
+  const cutoff = now - WINDOW_MS;
+  const rkey = redisKey(key);
+  const member = `${now}-${Math.random().toString(36).slice(2, 10)}`;
+  const pipeline = redis.multi();
+  pipeline.zremrangebyscore(rkey, 0, cutoff);
+  pipeline.zadd(rkey, now, member);
+  pipeline.zcard(rkey);
+  pipeline.zrange(rkey, 0, 0, "WITHSCORES");
+  pipeline.pexpire(rkey, WINDOW_MS);
+  const results = await pipeline.exec();
+  if (!results) throw new Error("redis pipeline returned no results");
+  for (const [err] of results) {
+    if (err) throw err;
+  }
+  const count = Number(results[2]?.[1] ?? 0);
+  const oldest = results[3]?.[1] as string[] | undefined;
+  const oldestScore = oldest && oldest.length >= 2 ? Number(oldest[1]) : now;
+  const resetAt = oldestScore + WINDOW_MS;
+  return { count, resetAt };
+}
+
+async function peekSystemBucket(key: string): Promise<{ count: number; resetAt: number }> {
+  if (isRedisConfigured()) {
+    try {
+      return await redisPeek(key);
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err), key },
+        "[mail-rate-limit] Redis peek failed; falling back to in-process bucket",
+      );
+    }
+  }
+  return inProcessPeek(key);
+}
+
+async function incrementSystemBucket(key: string): Promise<{ count: number; resetAt: number }> {
+  if (isRedisConfigured()) {
+    try {
+      return await redisIncrement(key);
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err), key },
+        "[mail-rate-limit] Redis increment failed; falling back to in-process bucket",
+      );
+    }
+  }
+  return inProcessIncrement(key);
+}
+
+/** @internal — test only. Clears in-process fallback state. Redis state is
+ * left untouched (tests that need to clear Redis should flush it explicitly). */
 export function _resetSystemBuckets(): void {
   systemBucketCounts.clear();
 }
@@ -232,7 +340,7 @@ export async function checkOutboundRateLimit(ctx: RateLimitContext): Promise<Rat
 
   const systemKey = `system:${ctx.systemKey ?? "global"}`;
   const limit = limits.systemPerHour;
-  const peeked = peekSystemBucket(systemKey);
+  const peeked = await peekSystemBucket(systemKey);
   return {
     allowed: limit === -1 || peeked.count < limit,
     limit,
@@ -250,10 +358,11 @@ export async function checkOutboundRateLimit(ctx: RateLimitContext): Promise<Rat
  *   3. Bumps the `agentid_mail_outbound_rate_limited_total{reason}` counter.
  *
  * The DB count is consulted for agent / user buckets (so the limit survives
- * restarts and is consistent across processes). System buckets use an
- * in-process counter, which is incremented eagerly on success — this is fine
- * for the unattributed-system path because it only protects against runaway
- * NDR loops within a single process.
+ * restarts and is consistent across processes). System / per-recipient
+ * buckets are stored in Redis as a sliding-window sorted set so the cap is
+ * enforced consistently across all API server replicas; the bucket is
+ * incremented eagerly on success. If Redis is unavailable the limiter falls
+ * back to a per-process in-memory counter (best effort).
  */
 export async function assertOutboundRateLimit(ctx: RateLimitContext): Promise<RateLimitDecision> {
   const decision = await checkOutboundRateLimit(ctx);
@@ -274,7 +383,7 @@ export async function assertOutboundRateLimit(ctx: RateLimitContext): Promise<Ra
   if (!ctx.agentId && !ctx.userId) {
     // System bucket: increment eagerly — the DB query path can't see these sends
     // because they have no senderUserId / agentId.
-    incrementSystemBucket(`system:${ctx.systemKey ?? "global"}`);
+    await incrementSystemBucket(`system:${ctx.systemKey ?? "global"}`);
   }
   bumpCounter(allowedCounter, reason);
   return decision;
