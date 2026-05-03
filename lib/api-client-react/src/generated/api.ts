@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AddAgentKeyBody,
+  AddOrgMemberBody,
   Agent,
   AgentApiKeyCreated,
   AgentAuthMetadata,
@@ -25,6 +27,7 @@ import type {
   AgentHeartbeatBody,
   AgentIDConfiguration,
   AgentIDCredential,
+  AgentKey,
   AgentRuntimeConfig,
   AgentSubscription,
   AgentTransfer,
@@ -32,11 +35,18 @@ import type {
   ApiKeyCreated,
   ApproveMailMessage200,
   AuthorizePaymentBody,
+  BadRequestResponse,
+  BootstrapActivate200,
+  BootstrapActivateBody,
+  BootstrapClaim200,
+  BootstrapClaimBody,
   CheckHandleParams,
   ConvertMailMessageToTask201,
   CreateAgentApiKeyBody,
   CreateAgentInput,
   CreateApiKeyInput,
+  CreateAuthChallenge200,
+  CreateAuthChallengeBody,
   CreateCheckout200,
   CreateCheckoutInput,
   CreateJobInput,
@@ -46,9 +56,11 @@ import type {
   CreateMailWebhook201,
   CreateMailWebhookInput,
   CreateOrderInput,
+  CreateOrganizationBody,
   CreatePaymentIntentInput,
   CreateProposalInput,
   CreateReviewInput,
+  CreateSpendingRuleBody,
   CreateSubHandleInput,
   CreateTaskInput,
   CredentialVerifyResult,
@@ -59,6 +71,7 @@ import type {
   ForbiddenResponse,
   GetAgentPromptBlock200Two,
   GetAgentPromptBlockParams,
+  GetAgentWallet200,
   GetMailInbox200,
   GetMailMessage200,
   GetMailMessageEvents200,
@@ -66,7 +79,10 @@ import type {
   GetPaymentLedger200,
   GetPaymentLedgerParams,
   GetRegistryStatus200,
+  GetSpendingRules200,
   GetVerificationStatus200,
+  GetWalletTransactions200,
+  GetWalletTransactionsParams,
   GetWellKnownAgentParams,
   HandleCheckResult,
   HealthStatus,
@@ -77,6 +93,7 @@ import type {
   JobPost,
   JobProposal,
   LinkIdentityInput,
+  ListAgentKeys200,
   ListAgents200,
   ListAgentsParams,
   ListApiKeys200,
@@ -95,6 +112,8 @@ import type {
   ListMarketplaceListingsParams,
   ListMarketplaceOrders200,
   ListMarketplaceOrdersParams,
+  ListOrgMembers200,
+  ListOrganizations200,
   ListPaymentProviders200,
   ListProposals200,
   ListSubscriptions200,
@@ -112,6 +131,8 @@ import type {
   MarketplaceOrder,
   MarketplaceReview,
   NotFoundResponse,
+  Organization,
+  OutboundMailRateLimitedResponse,
   PaymentAuthorization,
   PaymentIntent,
   ProgrammaticRegisterInput,
@@ -120,11 +141,13 @@ import type {
   ProgrammaticVerifyResponse,
   PublicAgentIdentity,
   PublicAgentProfile,
+  PublicProfileResponse,
   ReplyToMailThread201,
   ResolutionResponse,
   ResolutionStats,
   ReverseResolveBody,
   ReverseResolveViaResolveBody,
+  RevokeAgentKey200,
   RotateKeyInput,
   RotateKeyResult,
   SearchMailMessages200,
@@ -1867,8 +1890,8 @@ export const getGetPublicProfileUrl = (handle: string) => {
 export const getPublicProfile = async (
   handle: string,
   options?: RequestInit,
-): Promise<PublicAgentProfile> => {
-  return customFetch<PublicAgentProfile>(getGetPublicProfileUrl(handle), {
+): Promise<PublicProfileResponse> => {
+  return customFetch<PublicProfileResponse>(getGetPublicProfileUrl(handle), {
     ...options,
     method: "GET",
   });
@@ -6467,7 +6490,7 @@ export const replyToMailThread = async (
 };
 
 export const getReplyToMailThreadMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<OutboundMailRateLimitedResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -6508,13 +6531,14 @@ export type ReplyToMailThreadMutationResult = NonNullable<
   Awaited<ReturnType<typeof replyToMailThread>>
 >;
 export type ReplyToMailThreadMutationBody = BodyType<MailReplyInput>;
-export type ReplyToMailThreadMutationError = ErrorType<unknown>;
+export type ReplyToMailThreadMutationError =
+  ErrorType<OutboundMailRateLimitedResponse>;
 
 /**
  * @summary Reply to a thread
  */
 export const useReplyToMailThread = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<OutboundMailRateLimitedResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -6674,7 +6698,7 @@ export const sendMailMessage = async (
 };
 
 export const getSendMailMessageMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<OutboundMailRateLimitedResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -6715,13 +6739,14 @@ export type SendMailMessageMutationResult = NonNullable<
   Awaited<ReturnType<typeof sendMailMessage>>
 >;
 export type SendMailMessageMutationBody = BodyType<SendMailMessageInput>;
-export type SendMailMessageMutationError = ErrorType<unknown>;
+export type SendMailMessageMutationError =
+  ErrorType<OutboundMailRateLimitedResponse>;
 
 /**
  * @summary Send a new message
  */
 export const useSendMailMessage = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<OutboundMailRateLimitedResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -11887,3 +11912,1269 @@ export function useGetLlmsTxt<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Step 1 of the programmatic bootstrap flow. Submit a claim token and an
+Ed25519 public key to reserve the agent identity. Returns a challenge
+string that must be signed in the activate step.
+
+ * @summary Claim a pre-issued agent identity token
+ */
+export const getBootstrapClaimUrl = () => {
+  return `/api/v1/bootstrap/claim`;
+};
+
+export const bootstrapClaim = async (
+  bootstrapClaimBody: BootstrapClaimBody,
+  options?: RequestInit,
+): Promise<BootstrapClaim200> => {
+  return customFetch<BootstrapClaim200>(getBootstrapClaimUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bootstrapClaimBody),
+  });
+};
+
+export const getBootstrapClaimMutationOptions = <
+  TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bootstrapClaim>>,
+    TError,
+    { data: BodyType<BootstrapClaimBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bootstrapClaim>>,
+  TError,
+  { data: BodyType<BootstrapClaimBody> },
+  TContext
+> => {
+  const mutationKey = ["bootstrapClaim"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bootstrapClaim>>,
+    { data: BodyType<BootstrapClaimBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bootstrapClaim(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BootstrapClaimMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bootstrapClaim>>
+>;
+export type BootstrapClaimMutationBody = BodyType<BootstrapClaimBody>;
+export type BootstrapClaimMutationError = ErrorType<
+  BadRequestResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Claim a pre-issued agent identity token
+ */
+export const useBootstrapClaim = <
+  TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bootstrapClaim>>,
+    TError,
+    { data: BodyType<BootstrapClaimBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bootstrapClaim>>,
+  TError,
+  { data: BodyType<BootstrapClaimBody> },
+  TContext
+> => {
+  return useMutation(getBootstrapClaimMutationOptions(options));
+};
+
+/**
+ * Step 2 of the programmatic bootstrap flow. Sign the challenge from the
+claim step with the agent's Ed25519 private key and submit the signature.
+Returns the permanent agent API key (shown only once — store immediately).
+
+ * @summary Activate agent identity by signing the challenge
+ */
+export const getBootstrapActivateUrl = () => {
+  return `/api/v1/bootstrap/activate`;
+};
+
+export const bootstrapActivate = async (
+  bootstrapActivateBody: BootstrapActivateBody,
+  options?: RequestInit,
+): Promise<BootstrapActivate200> => {
+  return customFetch<BootstrapActivate200>(getBootstrapActivateUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bootstrapActivateBody),
+  });
+};
+
+export const getBootstrapActivateMutationOptions = <
+  TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bootstrapActivate>>,
+    TError,
+    { data: BodyType<BootstrapActivateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bootstrapActivate>>,
+  TError,
+  { data: BodyType<BootstrapActivateBody> },
+  TContext
+> => {
+  const mutationKey = ["bootstrapActivate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bootstrapActivate>>,
+    { data: BodyType<BootstrapActivateBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bootstrapActivate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BootstrapActivateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bootstrapActivate>>
+>;
+export type BootstrapActivateMutationBody = BodyType<BootstrapActivateBody>;
+export type BootstrapActivateMutationError = ErrorType<
+  BadRequestResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Activate agent identity by signing the challenge
+ */
+export const useBootstrapActivate = <
+  TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bootstrapActivate>>,
+    TError,
+    { data: BodyType<BootstrapActivateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bootstrapActivate>>,
+  TError,
+  { data: BodyType<BootstrapActivateBody> },
+  TContext
+> => {
+  return useMutation(getBootstrapActivateMutationOptions(options));
+};
+
+/**
+ * Issues a single-use nonce for use in a PoP JWT. The nonce must be used
+within 5 minutes and can only be consumed once (replay protection).
+
+ * @summary Request a nonce for Proof-of-Possession JWT authentication
+ */
+export const getCreateAuthChallengeUrl = () => {
+  return `/api/v1/auth/challenge`;
+};
+
+export const createAuthChallenge = async (
+  createAuthChallengeBody: CreateAuthChallengeBody,
+  options?: RequestInit,
+): Promise<CreateAuthChallenge200> => {
+  return customFetch<CreateAuthChallenge200>(getCreateAuthChallengeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAuthChallengeBody),
+  });
+};
+
+export const getCreateAuthChallengeMutationOptions = <
+  TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAuthChallenge>>,
+    TError,
+    { data: BodyType<CreateAuthChallengeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAuthChallenge>>,
+  TError,
+  { data: BodyType<CreateAuthChallengeBody> },
+  TContext
+> => {
+  const mutationKey = ["createAuthChallenge"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAuthChallenge>>,
+    { data: BodyType<CreateAuthChallengeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAuthChallenge(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAuthChallengeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAuthChallenge>>
+>;
+export type CreateAuthChallengeMutationBody = BodyType<CreateAuthChallengeBody>;
+export type CreateAuthChallengeMutationError = ErrorType<
+  BadRequestResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Request a nonce for Proof-of-Possession JWT authentication
+ */
+export const useCreateAuthChallenge = <
+  TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAuthChallenge>>,
+    TError,
+    { data: BodyType<CreateAuthChallengeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAuthChallenge>>,
+  TError,
+  { data: BodyType<CreateAuthChallengeBody> },
+  TContext
+> => {
+  return useMutation(getCreateAuthChallengeMutationOptions(options));
+};
+
+/**
+ * @summary List Ed25519 keys registered for an agent
+ */
+export const getListAgentKeysUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/keys`;
+};
+
+export const listAgentKeys = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<ListAgentKeys200> => {
+  return customFetch<ListAgentKeys200>(getListAgentKeysUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAgentKeysQueryKey = (agentId: string) => {
+  return [`/api/v1/agents/${agentId}/keys`] as const;
+};
+
+export const getListAgentKeysQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAgentKeys>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAgentKeys>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAgentKeysQueryKey(agentId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAgentKeys>>> = ({
+    signal,
+  }) => listAgentKeys(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAgentKeys>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAgentKeysQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAgentKeys>>
+>;
+export type ListAgentKeysQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary List Ed25519 keys registered for an agent
+ */
+
+export function useListAgentKeys<
+  TData = Awaited<ReturnType<typeof listAgentKeys>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAgentKeys>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAgentKeysQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register a new Ed25519 public key for an agent
+ */
+export const getAddAgentKeyUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/keys`;
+};
+
+export const addAgentKey = async (
+  agentId: string,
+  addAgentKeyBody: AddAgentKeyBody,
+  options?: RequestInit,
+): Promise<AgentKey> => {
+  return customFetch<AgentKey>(getAddAgentKeyUrl(agentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addAgentKeyBody),
+  });
+};
+
+export const getAddAgentKeyMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addAgentKey>>,
+    TError,
+    { agentId: string; data: BodyType<AddAgentKeyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addAgentKey>>,
+  TError,
+  { agentId: string; data: BodyType<AddAgentKeyBody> },
+  TContext
+> => {
+  const mutationKey = ["addAgentKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addAgentKey>>,
+    { agentId: string; data: BodyType<AddAgentKeyBody> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return addAgentKey(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddAgentKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addAgentKey>>
+>;
+export type AddAgentKeyMutationBody = BodyType<AddAgentKeyBody>;
+export type AddAgentKeyMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Register a new Ed25519 public key for an agent
+ */
+export const useAddAgentKey = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addAgentKey>>,
+    TError,
+    { agentId: string; data: BodyType<AddAgentKeyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addAgentKey>>,
+  TError,
+  { agentId: string; data: BodyType<AddAgentKeyBody> },
+  TContext
+> => {
+  return useMutation(getAddAgentKeyMutationOptions(options));
+};
+
+/**
+ * Revokes the key and cascades: reissues the internal attestation
+credential, invalidates the W3C VC JWT cache, and evicts the DID
+document resolution cache. Stale VC JWTs referencing revoked keys
+are never served after this call returns.
+
+ * @summary Revoke an Ed25519 key
+ */
+export const getRevokeAgentKeyUrl = (agentId: string, keyId: string) => {
+  return `/api/v1/agents/${agentId}/keys/${keyId}/revoke`;
+};
+
+export const revokeAgentKey = async (
+  agentId: string,
+  keyId: string,
+  options?: RequestInit,
+): Promise<RevokeAgentKey200> => {
+  return customFetch<RevokeAgentKey200>(getRevokeAgentKeyUrl(agentId, keyId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRevokeAgentKeyMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeAgentKey>>,
+    TError,
+    { agentId: string; keyId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeAgentKey>>,
+  TError,
+  { agentId: string; keyId: string },
+  TContext
+> => {
+  const mutationKey = ["revokeAgentKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeAgentKey>>,
+    { agentId: string; keyId: string }
+  > = (props) => {
+    const { agentId, keyId } = props ?? {};
+
+    return revokeAgentKey(agentId, keyId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeAgentKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeAgentKey>>
+>;
+
+export type RevokeAgentKeyMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Revoke an Ed25519 key
+ */
+export const useRevokeAgentKey = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeAgentKey>>,
+    TError,
+    { agentId: string; keyId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokeAgentKey>>,
+  TError,
+  { agentId: string; keyId: string },
+  TContext
+> => {
+  return useMutation(getRevokeAgentKeyMutationOptions(options));
+};
+
+/**
+ * @summary Get agent wallet balance and metadata
+ */
+export const getGetAgentWalletUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/wallet`;
+};
+
+export const getAgentWallet = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<GetAgentWallet200> => {
+  return customFetch<GetAgentWallet200>(getGetAgentWalletUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAgentWalletQueryKey = (agentId: string) => {
+  return [`/api/v1/agents/${agentId}/wallet`] as const;
+};
+
+export const getGetAgentWalletQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentWallet>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentWallet>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAgentWalletQueryKey(agentId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAgentWallet>>> = ({
+    signal,
+  }) => getAgentWallet(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentWallet>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentWalletQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentWallet>>
+>;
+export type GetAgentWalletQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get agent wallet balance and metadata
+ */
+
+export function useGetAgentWallet<
+  TData = Awaited<ReturnType<typeof getAgentWallet>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentWallet>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentWalletQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get wallet transaction history
+ */
+export const getGetWalletTransactionsUrl = (
+  agentId: string,
+  params?: GetWalletTransactionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/agents/${agentId}/wallet/transactions?${stringifiedParams}`
+    : `/api/v1/agents/${agentId}/wallet/transactions`;
+};
+
+export const getWalletTransactions = async (
+  agentId: string,
+  params?: GetWalletTransactionsParams,
+  options?: RequestInit,
+): Promise<GetWalletTransactions200> => {
+  return customFetch<GetWalletTransactions200>(
+    getGetWalletTransactionsUrl(agentId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetWalletTransactionsQueryKey = (
+  agentId: string,
+  params?: GetWalletTransactionsParams,
+) => {
+  return [
+    `/api/v1/agents/${agentId}/wallet/transactions`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetWalletTransactionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWalletTransactions>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  agentId: string,
+  params?: GetWalletTransactionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWalletTransactions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetWalletTransactionsQueryKey(agentId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getWalletTransactions>>
+  > = ({ signal }) =>
+    getWalletTransactions(agentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWalletTransactions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWalletTransactionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWalletTransactions>>
+>;
+export type GetWalletTransactionsQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get wallet transaction history
+ */
+
+export function useGetWalletTransactions<
+  TData = Awaited<ReturnType<typeof getWalletTransactions>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  agentId: string,
+  params?: GetWalletTransactionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWalletTransactions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWalletTransactionsQueryOptions(
+    agentId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List spending rules for an agent
+ */
+export const getGetSpendingRulesUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/wallet/spending-rules`;
+};
+
+export const getSpendingRules = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<GetSpendingRules200> => {
+  return customFetch<GetSpendingRules200>(getGetSpendingRulesUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSpendingRulesQueryKey = (agentId: string) => {
+  return [`/api/v1/agents/${agentId}/wallet/spending-rules`] as const;
+};
+
+export const getGetSpendingRulesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSpendingRules>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSpendingRules>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSpendingRulesQueryKey(agentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSpendingRules>>
+  > = ({ signal }) => getSpendingRules(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSpendingRules>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSpendingRulesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSpendingRules>>
+>;
+export type GetSpendingRulesQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary List spending rules for an agent
+ */
+
+export function useGetSpendingRules<
+  TData = Awaited<ReturnType<typeof getSpendingRules>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSpendingRules>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSpendingRulesQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a spending rule
+ */
+export const getCreateSpendingRuleUrl = (agentId: string) => {
+  return `/api/v1/agents/${agentId}/wallet/spending-rules`;
+};
+
+export const createSpendingRule = async (
+  agentId: string,
+  createSpendingRuleBody: CreateSpendingRuleBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getCreateSpendingRuleUrl(agentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSpendingRuleBody),
+  });
+};
+
+export const getCreateSpendingRuleMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSpendingRule>>,
+    TError,
+    { agentId: string; data: BodyType<CreateSpendingRuleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSpendingRule>>,
+  TError,
+  { agentId: string; data: BodyType<CreateSpendingRuleBody> },
+  TContext
+> => {
+  const mutationKey = ["createSpendingRule"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSpendingRule>>,
+    { agentId: string; data: BodyType<CreateSpendingRuleBody> }
+  > = (props) => {
+    const { agentId, data } = props ?? {};
+
+    return createSpendingRule(agentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSpendingRuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSpendingRule>>
+>;
+export type CreateSpendingRuleMutationBody = BodyType<CreateSpendingRuleBody>;
+export type CreateSpendingRuleMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Create a spending rule
+ */
+export const useCreateSpendingRule = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSpendingRule>>,
+    TError,
+    { agentId: string; data: BodyType<CreateSpendingRuleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSpendingRule>>,
+  TError,
+  { agentId: string; data: BodyType<CreateSpendingRuleBody> },
+  TContext
+> => {
+  return useMutation(getCreateSpendingRuleMutationOptions(options));
+};
+
+/**
+ * @summary List organizations for the authenticated user
+ */
+export const getListOrganizationsUrl = () => {
+  return `/api/v1/orgs`;
+};
+
+export const listOrganizations = async (
+  options?: RequestInit,
+): Promise<ListOrganizations200> => {
+  return customFetch<ListOrganizations200>(getListOrganizationsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListOrganizationsQueryKey = () => {
+  return [`/api/v1/orgs`] as const;
+};
+
+export const getListOrganizationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOrganizations>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listOrganizations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListOrganizationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listOrganizations>>
+  > = ({ signal }) => listOrganizations({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOrganizations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOrganizationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOrganizations>>
+>;
+export type ListOrganizationsQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary List organizations for the authenticated user
+ */
+
+export function useListOrganizations<
+  TData = Awaited<ReturnType<typeof listOrganizations>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listOrganizations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOrganizationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new organization
+ */
+export const getCreateOrganizationUrl = () => {
+  return `/api/v1/orgs`;
+};
+
+export const createOrganization = async (
+  createOrganizationBody: CreateOrganizationBody,
+  options?: RequestInit,
+): Promise<Organization> => {
+  return customFetch<Organization>(getCreateOrganizationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createOrganizationBody),
+  });
+};
+
+export const getCreateOrganizationMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrganization>>,
+    TError,
+    { data: BodyType<CreateOrganizationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOrganization>>,
+  TError,
+  { data: BodyType<CreateOrganizationBody> },
+  TContext
+> => {
+  const mutationKey = ["createOrganization"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOrganization>>,
+    { data: BodyType<CreateOrganizationBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createOrganization(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOrganizationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOrganization>>
+>;
+export type CreateOrganizationMutationBody = BodyType<CreateOrganizationBody>;
+export type CreateOrganizationMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Create a new organization
+ */
+export const useCreateOrganization = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrganization>>,
+    TError,
+    { data: BodyType<CreateOrganizationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOrganization>>,
+  TError,
+  { data: BodyType<CreateOrganizationBody> },
+  TContext
+> => {
+  return useMutation(getCreateOrganizationMutationOptions(options));
+};
+
+/**
+ * @summary List agents in an organization
+ */
+export const getListOrgMembersUrl = (orgId: string) => {
+  return `/api/v1/orgs/${orgId}/members`;
+};
+
+export const listOrgMembers = async (
+  orgId: string,
+  options?: RequestInit,
+): Promise<ListOrgMembers200> => {
+  return customFetch<ListOrgMembers200>(getListOrgMembersUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListOrgMembersQueryKey = (orgId: string) => {
+  return [`/api/v1/orgs/${orgId}/members`] as const;
+};
+
+export const getListOrgMembersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOrgMembers>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  orgId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrgMembers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListOrgMembersQueryKey(orgId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listOrgMembers>>> = ({
+    signal,
+  }) => listOrgMembers(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOrgMembers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOrgMembersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOrgMembers>>
+>;
+export type ListOrgMembersQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary List agents in an organization
+ */
+
+export function useListOrgMembers<
+  TData = Awaited<ReturnType<typeof listOrgMembers>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  orgId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrgMembers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOrgMembersQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add an agent to an organization
+ */
+export const getAddOrgMemberUrl = (orgId: string) => {
+  return `/api/v1/orgs/${orgId}/members`;
+};
+
+export const addOrgMember = async (
+  orgId: string,
+  addOrgMemberBody: AddOrgMemberBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAddOrgMemberUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addOrgMemberBody),
+  });
+};
+
+export const getAddOrgMemberMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addOrgMember>>,
+    TError,
+    { orgId: string; data: BodyType<AddOrgMemberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addOrgMember>>,
+  TError,
+  { orgId: string; data: BodyType<AddOrgMemberBody> },
+  TContext
+> => {
+  const mutationKey = ["addOrgMember"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addOrgMember>>,
+    { orgId: string; data: BodyType<AddOrgMemberBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return addOrgMember(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddOrgMemberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addOrgMember>>
+>;
+export type AddOrgMemberMutationBody = BodyType<AddOrgMemberBody>;
+export type AddOrgMemberMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Add an agent to an organization
+ */
+export const useAddOrgMember = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addOrgMember>>,
+    TError,
+    { orgId: string; data: BodyType<AddOrgMemberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addOrgMember>>,
+  TError,
+  { orgId: string; data: BodyType<AddOrgMemberBody> },
+  TContext
+> => {
+  return useMutation(getAddOrgMemberMutationOptions(options));
+};

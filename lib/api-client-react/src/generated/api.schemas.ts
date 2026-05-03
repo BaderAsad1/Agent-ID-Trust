@@ -155,11 +155,17 @@ export interface ProgrammaticRegisterInput {
 
 export interface ProgrammaticRegisterResponse {
   agentId: string;
-  handle: string;
-  domain?: string;
-  verificationChallenge: string;
-  challengeExpiresAt: string;
-  registrationStatus: string;
+  /** Canonical UUID-rooted DID for this agent. Format: did:web:getagent.id:agents:<uuid> */
+  did: string;
+  handle?: string | null;
+  /** Verification challenge string for agent key proof */
+  challenge: string;
+  /** Challenge expiry timestamp */
+  expiresAt: string;
+  /** Key ID of the agent's registered public key */
+  kid: string;
+  /** Human-readable instructions for next steps */
+  note?: string;
   profileUrl?: string;
 }
 
@@ -173,9 +179,11 @@ export interface ProgrammaticVerifyInput {
 }
 
 export interface ProgrammaticVerifyResponse {
-  status: string;
+  status?: string;
   agentId: string;
-  handle: string;
+  /** Canonical UUID-rooted DID for this agent. Format: did:web:getagent.id:agents:<uuid> */
+  did: string;
+  handle?: string;
   domain?: string;
   profileUrl?: string;
   trustScore: number;
@@ -199,6 +207,61 @@ export interface VerificationCompleteInput {
   challengeId: string;
   signature: string;
   kid?: string;
+}
+
+export type PublicProfileResponseAgent = {
+  id: string;
+  handle: string;
+  displayName: string;
+  description?: string;
+  avatarUrl?: string;
+  status: string;
+  capabilities?: string[];
+  protocols?: string[];
+  trustScore: number;
+  trustTier: string;
+  verificationStatus: string;
+  verificationMethod?: string;
+  verifiedAt?: string;
+  tasksReceived?: number;
+  tasksCompleted?: number;
+  createdAt: string;
+  endpointUrl?: string;
+  /** Canonical UUID-rooted DID. Format: did:web:getagent.id:agents:<uuid> */
+  did: string;
+  /** Protocol address, format: <handle>.agentid */
+  protocolAddress: string;
+  /** URL to the ERC-8004 metadata endpoint */
+  erc8004Uri: string;
+  /** Web-resolvable domain, e.g. <handle>.getagent.id */
+  domainName: string;
+};
+
+export type PublicProfileResponseTrustBreakdown = {
+  verification: number;
+  longevity: number;
+  activity: number;
+  reputation: number;
+};
+
+export type PublicProfileResponseRecentActivityItem = {
+  [key: string]: unknown;
+};
+
+export type PublicProfileResponseListingsItem = { [key: string]: unknown };
+
+/**
+ * Active verifiable credential or null
+ */
+export type PublicProfileResponseCredential = { [key: string]: unknown } | null;
+
+export interface PublicProfileResponse {
+  agent: PublicProfileResponseAgent;
+  trustBreakdown: PublicProfileResponseTrustBreakdown;
+  recentActivity: PublicProfileResponseRecentActivityItem[];
+  listings: PublicProfileResponseListingsItem[];
+  /** Active verifiable credential or null */
+  credential: PublicProfileResponseCredential;
 }
 
 export interface PublicAgentProfile {
@@ -895,6 +958,7 @@ export interface ResolvedAgent {
   handle: string;
   domain: string;
   protocolAddress: string;
+  /** Canonical UUID-rooted DID. Format: did:web:getagent.id:agents:<uuid> */
   did: string;
   resolverUrl?: string;
   displayName: string;
@@ -1462,6 +1526,43 @@ export interface AgentIDConfiguration {
   sdkPackage?: string;
 }
 
+export type AgentKeyStatus =
+  (typeof AgentKeyStatus)[keyof typeof AgentKeyStatus];
+
+export const AgentKeyStatus = {
+  active: "active",
+  revoked: "revoked",
+  expired: "expired",
+} as const;
+
+/**
+ * An Ed25519 public key registered for an agent
+ */
+export interface AgentKey {
+  id: string;
+  agentId: string;
+  /** Key identifier */
+  kid: string;
+  /** Base64-encoded SPKI Ed25519 public key */
+  publicKeySpkiBase64: string;
+  status: AgentKeyStatus;
+  createdAt: string;
+  revokedAt?: string | null;
+  expiresAt?: string | null;
+}
+
+/**
+ * A named group of agents
+ */
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  ownerId: string;
+  memberCount?: number;
+  createdAt: string;
+}
+
 /**
  * Not authenticated
  */
@@ -1476,6 +1577,27 @@ export type NotFoundResponse = ApiError;
  * Forbidden
  */
 export type ForbiddenResponse = ApiError;
+
+export type OutboundMailRateLimitedResponseError =
+  (typeof OutboundMailRateLimitedResponseError)[keyof typeof OutboundMailRateLimitedResponseError];
+
+export const OutboundMailRateLimitedResponseError = {
+  RATE_LIMIT_EXCEEDED: "RATE_LIMIT_EXCEEDED",
+} as const;
+
+export type OutboundMailRateLimitedResponseDetails = {
+  limit?: number;
+  current?: number;
+  bucket?: string;
+  retryAfterSeconds?: number;
+};
+
+export type OutboundMailRateLimitedResponse = {
+  error: OutboundMailRateLimitedResponseError;
+  message: string;
+  details?: OutboundMailRateLimitedResponseDetails;
+  requestId: string;
+};
 
 export type ListApiKeys200 = {
   keys: ApiKeyPublic[];
@@ -1887,4 +2009,192 @@ export type CreateAgentApiKeyBody = {
 
 export type GetWellKnownAgentParams = {
   handle?: string;
+};
+
+export type BootstrapClaimBodyKeyType =
+  (typeof BootstrapClaimBodyKeyType)[keyof typeof BootstrapClaimBodyKeyType];
+
+export const BootstrapClaimBodyKeyType = {
+  ed25519: "ed25519",
+} as const;
+
+export type BootstrapClaimBody = {
+  /** Pre-issued claim token */
+  token: string;
+  /** Base64-encoded SPKI Ed25519 public key */
+  publicKey: string;
+  keyType: BootstrapClaimBodyKeyType;
+};
+
+export type BootstrapClaim200Identity = {
+  agentId?: string;
+  handle?: string;
+  status?: string;
+};
+
+export type BootstrapClaim200 = {
+  identity: BootstrapClaim200Identity;
+  /** Hex string to sign with the agent's Ed25519 private key */
+  challenge: string;
+  kid: string;
+  expiresAt: string;
+  activateEndpoint: string;
+};
+
+export type BootstrapActivateBody = {
+  agentId: string;
+  kid: string;
+  challenge: string;
+  /** Base64 Ed25519 signature over the challenge string */
+  signature: string;
+  claimToken: string;
+};
+
+export type BootstrapActivate200Identity = {
+  agentId?: string;
+  status?: string;
+};
+
+export type BootstrapActivate200Secrets = {
+  /** Agent API key (agk_...). Shown once only — store immediately. */
+  apiKey?: string;
+  storageSafety?: string;
+};
+
+export type BootstrapActivate200Bootstrap = { [key: string]: unknown };
+
+export type BootstrapActivate200NextSteps = { [key: string]: unknown };
+
+export type BootstrapActivate200 = {
+  activated: boolean;
+  identity: BootstrapActivate200Identity;
+  secrets: BootstrapActivate200Secrets;
+  bootstrap?: BootstrapActivate200Bootstrap;
+  nextSteps?: BootstrapActivate200NextSteps;
+};
+
+export type CreateAuthChallengeBody = {
+  agentId: string;
+};
+
+export type CreateAuthChallenge200 = {
+  /** Single-use random hex string */
+  nonce: string;
+  expiresAt: string;
+};
+
+export type ListAgentKeys200 = {
+  keys: AgentKey[];
+};
+
+export type AddAgentKeyBody = {
+  /** Base64-encoded SPKI Ed25519 public key */
+  publicKeySpkiBase64: string;
+  /** Key identifier */
+  kid?: string;
+};
+
+export type RevokeAgentKey200 = {
+  revoked: boolean;
+  keyId: string;
+};
+
+export type GetAgentWallet200 = {
+  balanceCents: number;
+  balanceFormatted: string;
+  currency: string;
+  walletAddress?: string;
+};
+
+export type GetWalletTransactionsParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type GetWalletTransactions200TransactionsItemType =
+  (typeof GetWalletTransactions200TransactionsItemType)[keyof typeof GetWalletTransactions200TransactionsItemType];
+
+export const GetWalletTransactions200TransactionsItemType = {
+  credit: "credit",
+  debit: "debit",
+} as const;
+
+export type GetWalletTransactions200TransactionsItem = {
+  id: string;
+  type: GetWalletTransactions200TransactionsItemType;
+  amountCents: number;
+  description?: string;
+  createdAt: string;
+};
+
+export type GetWalletTransactions200 = {
+  transactions: GetWalletTransactions200TransactionsItem[];
+};
+
+export type GetSpendingRules200RulesItemPeriod =
+  (typeof GetSpendingRules200RulesItemPeriod)[keyof typeof GetSpendingRules200RulesItemPeriod];
+
+export const GetSpendingRules200RulesItemPeriod = {
+  daily: "daily",
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
+export type GetSpendingRules200RulesItem = {
+  id: string;
+  label: string;
+  maxAmountCents: number;
+  period: GetSpendingRules200RulesItemPeriod;
+};
+
+export type GetSpendingRules200 = {
+  rules: GetSpendingRules200RulesItem[];
+};
+
+export type CreateSpendingRuleBodyPeriod =
+  (typeof CreateSpendingRuleBodyPeriod)[keyof typeof CreateSpendingRuleBodyPeriod];
+
+export const CreateSpendingRuleBodyPeriod = {
+  daily: "daily",
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
+export type CreateSpendingRuleBody = {
+  label: string;
+  /** @minimum 1 */
+  maxAmountCents: number;
+  period: CreateSpendingRuleBodyPeriod;
+};
+
+export type ListOrganizations200 = {
+  orgs: Organization[];
+};
+
+export type CreateOrganizationBody = {
+  name: string;
+  slug: string;
+};
+
+export type ListOrgMembers200MembersItem = {
+  agentId: string;
+  handle?: string;
+  role: string;
+};
+
+export type ListOrgMembers200 = {
+  members: ListOrgMembers200MembersItem[];
+};
+
+export type AddOrgMemberBodyRole =
+  (typeof AddOrgMemberBodyRole)[keyof typeof AddOrgMemberBodyRole];
+
+export const AddOrgMemberBodyRole = {
+  member: "member",
+  admin: "admin",
+} as const;
+
+export type AddOrgMemberBody = {
+  agentId: string;
+  role?: AddOrgMemberBodyRole;
 };

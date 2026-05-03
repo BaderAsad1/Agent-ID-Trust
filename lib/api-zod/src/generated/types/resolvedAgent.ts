@@ -14,6 +14,7 @@ export interface ResolvedAgent {
   handle: string;
   domain: string;
   protocolAddress: string;
+  /** Canonical UUID-rooted DID. Format: did:web:getagent.id:agents:<uuid> */
   did: string;
   resolverUrl?: string;
   displayName: string;

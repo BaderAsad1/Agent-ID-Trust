@@ -9,7 +9,7 @@ import { assertSandboxIsolation, isAgentSandbox } from "../../middlewares/sandbo
 import * as mailService from "../../services/mail";
 import { getAgentById } from "../../services/agents";
 import { getAgentPlan, getPlanLimits } from "../../services/billing";
-import { assertOutboundRateLimit } from "../../services/mail-rate-limit";
+import { assertOutboundRateLimit, type RateLimitDecision } from "../../services/mail-rate-limit";
 import { logActivity } from "../../services/activity-logger";
 import {
   uploadAttachment,
@@ -21,6 +21,25 @@ import {
 import { db } from "@workspace/db";
 import { agentMessagesTable, messageAttachmentsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
+
+/**
+ * Apply standard `X-RateLimit-*` headers to a successful outbound-mail response
+ * so clients can proactively back off before they get a 429. Skipped for
+ * unlimited buckets (limit === -1) where the headers would be meaningless.
+ *
+ * `Remaining` reflects post-send state: the just-admitted message has not yet
+ * been counted by the DB query (it's inserted afterwards), so we subtract one.
+ * `Reset` is a Unix epoch (seconds) — when the rolling window will be empty if
+ * no further sends occur.
+ */
+function applyRateLimitHeaders(res: Response, decision: RateLimitDecision): void {
+  if (decision.limit === -1) return;
+  const remaining = Math.max(0, decision.limit - decision.current - 1);
+  const resetEpoch = Math.ceil(Date.now() / 1000) + decision.retryAfterSeconds;
+  res.setHeader("X-RateLimit-Limit", String(decision.limit));
+  res.setHeader("X-RateLimit-Remaining", String(remaining));
+  res.setHeader("X-RateLimit-Reset", String(resetEpoch));
+}
 
 function param(v: string | string[] | undefined): string {
   return Array.isArray(v) ? v[0] : (v ?? "");
@@ -493,15 +512,18 @@ router.post("/agents/:agentId/messages", requireHumanOrAgentAuth, async (req, re
       }
     }
 
+    let rateLimitDecision: RateLimitDecision | null = null;
     if (body.direction === "outbound") {
       // Throws RateLimitError on hit — error-handler maps it to 429 + Retry-After + audit.
-      await assertOutboundRateLimit({ agentId, userId: req.userId, plan, reason: "agent_quota" });
+      rateLimitDecision = await assertOutboundRateLimit({ agentId, userId: req.userId, plan, reason: "agent_quota" });
     }
 
     const message = await mailService.sendMessage({
       agentId,
       ...body,
     });
+
+    if (rateLimitDecision) applyRateLimitHeaders(res, rateLimitDecision);
 
     await logActivity({
       agentId,
@@ -782,7 +804,7 @@ router.post("/agents/:agentId/threads/:threadId/reply", requireHumanOrAgentAuth,
       throw new AppError(402, "PLAN_REQUIRED", "Mail features require a paid plan. Upgrade at /pricing to unlock inbox and messaging.");
     }
 
-    await assertOutboundRateLimit({ agentId, userId: req.userId, plan: replyPlan, reason: "agent_quota" });
+    const replyDecision = await assertOutboundRateLimit({ agentId, userId: req.userId, plan: replyPlan, reason: "agent_quota" });
 
     const schema = z.object({
       body: z.string().min(1),
@@ -801,6 +823,7 @@ router.post("/agents/:agentId/threads/:threadId/reply", requireHumanOrAgentAuth,
     });
     if (!message) throw new AppError(404, "NOT_FOUND", "Thread not found or not owned by this agent");
 
+    applyRateLimitHeaders(res, replyDecision);
     res.status(201).json({ message });
   } catch (err) {
     next(err);

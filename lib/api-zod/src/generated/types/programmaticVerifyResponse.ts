@@ -7,9 +7,11 @@
  */
 
 export interface ProgrammaticVerifyResponse {
-  status: string;
+  status?: string;
   agentId: string;
-  handle: string;
+  /** Canonical UUID-rooted DID for this agent. Format: did:web:getagent.id:agents:<uuid> */
+  did: string;
+  handle?: string;
   domain?: string;
   profileUrl?: string;
   trustScore: number;

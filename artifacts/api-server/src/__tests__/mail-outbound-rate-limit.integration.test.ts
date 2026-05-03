@@ -73,6 +73,7 @@ const mockSendMessage = vi.fn();
 const mockVerifyAgentOwnership = vi.fn();
 const mockGetThreadById = vi.fn();
 const mockGetInboxByAgent = vi.fn();
+const mockReplyToThread = vi.fn();
 
 vi.mock("../services/mail", () => ({
   verifyAgentOwnership: mockVerifyAgentOwnership,
@@ -81,6 +82,7 @@ vi.mock("../services/mail", () => ({
   getInboxByAgent: mockGetInboxByAgent,
   getOrCreateInbox: vi.fn(),
   getInboxStats: vi.fn(),
+  replyToThread: mockReplyToThread,
 }));
 
 const mockGetAgentById = vi.fn();
@@ -197,6 +199,41 @@ describe("POST /agents/:id/messages — outbound rate limit (integration)", () =
     // /metrics counter incremented.
     const { getRateLimitMetrics } = await import("../services/mail-rate-limit");
     expect(getRateLimitMetrics().rateLimited.get("agent_quota")).toBe(1);
+  });
+
+  it("emits X-RateLimit-* headers on successful sends so clients can back off proactively", async () => {
+    // First send — bucket starts at 0/2, so after admit Remaining = 2 - 0 - 1 = 1.
+    const r1 = await send();
+    expect(r1.status).toBe(201);
+    expect(r1.headers["x-ratelimit-limit"]).toBe("2");
+    expect(r1.headers["x-ratelimit-remaining"]).toBe("1");
+    const reset1 = Number(r1.headers["x-ratelimit-reset"]);
+    expect(Number.isFinite(reset1)).toBe(true);
+    // Reset is now + 3600s (the 1h window). Allow generous slack for slow CI.
+    const nowSec = Math.ceil(Date.now() / 1000);
+    expect(reset1).toBeGreaterThanOrEqual(nowSec + 3500);
+    expect(reset1).toBeLessThanOrEqual(nowSec + 3700);
+
+    // Second (last admitted) send — Remaining = 2 - 1 - 1 = 0.
+    const r2 = await send();
+    expect(r2.status).toBe(201);
+    expect(r2.headers["x-ratelimit-remaining"]).toBe("0");
+  });
+
+  it("emits X-RateLimit-* headers on successful thread replies", async () => {
+    mockReplyToThread.mockImplementation(async () => {
+      outboundCount += 1;
+      return { id: `reply-${outboundCount}`, agentId: "agent-rl", direction: "outbound" };
+    });
+
+    const r = await request(app)
+      .post("/agents/agent-rl/threads/00000000-0000-0000-0000-000000000001/reply")
+      .send({ body: "thanks!" });
+
+    expect(r.status).toBe(201);
+    expect(r.headers["x-ratelimit-limit"]).toBe("2");
+    expect(r.headers["x-ratelimit-remaining"]).toBe("1");
+    expect(Number.isFinite(Number(r.headers["x-ratelimit-reset"]))).toBe(true);
   });
 
   it("allows sends again once the simulated window resets (count drops below limit)", async () => {

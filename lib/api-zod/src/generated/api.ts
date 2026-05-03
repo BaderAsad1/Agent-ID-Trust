@@ -337,9 +337,14 @@ export const ProgrammaticVerifyBody = zod.object({
 });
 
 export const ProgrammaticVerifyResponse = zod.object({
-  status: zod.string(),
+  status: zod.string().optional(),
   agentId: zod.string().uuid(),
-  handle: zod.string(),
+  did: zod
+    .string()
+    .describe(
+      "Canonical UUID-rooted DID for this agent. Format: did:web:getagent.id:agents:<uuid>",
+    ),
+  handle: zod.string().optional(),
   domain: zod.string().optional(),
   profileUrl: zod.string().optional(),
   trustScore: zod.number(),
@@ -439,19 +444,50 @@ export const GetPublicProfileParams = zod.object({
 });
 
 export const GetPublicProfileResponse = zod.object({
-  handle: zod.string(),
-  displayName: zod.string(),
-  description: zod.string().optional(),
-  avatarUrl: zod.string().optional(),
-  domain: zod.string().optional(),
-  status: zod.string(),
-  capabilities: zod.array(zod.string()).optional(),
-  protocols: zod.array(zod.string()).optional(),
-  trustScore: zod.number(),
-  trustTier: zod.string(),
-  verificationStatus: zod.string(),
-  tasksCompleted: zod.number().optional(),
-  createdAt: zod.date(),
+  agent: zod.object({
+    id: zod.string().uuid(),
+    handle: zod.string(),
+    displayName: zod.string(),
+    description: zod.string().optional(),
+    avatarUrl: zod.string().optional(),
+    status: zod.string(),
+    capabilities: zod.array(zod.string()).optional(),
+    protocols: zod.array(zod.string()).optional(),
+    trustScore: zod.number(),
+    trustTier: zod.string(),
+    verificationStatus: zod.string(),
+    verificationMethod: zod.string().optional(),
+    verifiedAt: zod.date().optional(),
+    tasksReceived: zod.number().optional(),
+    tasksCompleted: zod.number().optional(),
+    createdAt: zod.date(),
+    endpointUrl: zod.string().optional(),
+    did: zod
+      .string()
+      .describe(
+        "Canonical UUID-rooted DID. Format: did:web:getagent.id:agents:<uuid>",
+      ),
+    protocolAddress: zod
+      .string()
+      .describe("Protocol address, format: <handle>.agentid"),
+    erc8004Uri: zod.string().describe("URL to the ERC-8004 metadata endpoint"),
+    domainName: zod
+      .string()
+      .describe("Web-resolvable domain, e.g. <handle>.getagent.id"),
+  }),
+  trustBreakdown: zod.object({
+    verification: zod.number(),
+    longevity: zod.number(),
+    activity: zod.number(),
+    reputation: zod.number(),
+  }),
+  recentActivity: zod.array(zod.object({}).passthrough()),
+  listings: zod.array(zod.object({}).passthrough()),
+  credential: zod
+    .object({})
+    .passthrough()
+    .nullable()
+    .describe("Active verifiable credential or null"),
 });
 
 /**
@@ -2427,7 +2463,11 @@ export const ResolveAgentResponse = zod.object({
     handle: zod.string(),
     domain: zod.string(),
     protocolAddress: zod.string(),
-    did: zod.string(),
+    did: zod
+      .string()
+      .describe(
+        "Canonical UUID-rooted DID. Format: did:web:getagent.id:agents:<uuid>",
+      ),
     resolverUrl: zod.string().optional(),
     displayName: zod.string(),
     description: zod.string().optional(),
@@ -2496,7 +2536,11 @@ export const ReverseResolveResponse = zod.object({
     handle: zod.string(),
     domain: zod.string(),
     protocolAddress: zod.string(),
-    did: zod.string(),
+    did: zod
+      .string()
+      .describe(
+        "Canonical UUID-rooted DID. Format: did:web:getagent.id:agents:<uuid>",
+      ),
     resolverUrl: zod.string().optional(),
     displayName: zod.string(),
     description: zod.string().optional(),
@@ -2551,7 +2595,11 @@ export const ReverseResolveViaResolveResponse = zod.object({
     handle: zod.string(),
     domain: zod.string(),
     protocolAddress: zod.string(),
-    did: zod.string(),
+    did: zod
+      .string()
+      .describe(
+        "Canonical UUID-rooted DID. Format: did:web:getagent.id:agents:<uuid>",
+      ),
     resolverUrl: zod.string().optional(),
     displayName: zod.string(),
     description: zod.string().optional(),
@@ -3582,4 +3630,269 @@ export const GetWellKnownConfigurationResponse = zod.object({
   baseDomain: zod.string(),
   documentation: zod.string().optional(),
   sdkPackage: zod.string().optional(),
+});
+
+/**
+ * Step 1 of the programmatic bootstrap flow. Submit a claim token and an
+Ed25519 public key to reserve the agent identity. Returns a challenge
+string that must be signed in the activate step.
+
+ * @summary Claim a pre-issued agent identity token
+ */
+export const BootstrapClaimBody = zod.object({
+  token: zod.string().describe("Pre-issued claim token"),
+  publicKey: zod.string().describe("Base64-encoded SPKI Ed25519 public key"),
+  keyType: zod.enum(["ed25519"]),
+});
+
+export const BootstrapClaimResponse = zod.object({
+  identity: zod.object({
+    agentId: zod.string().optional(),
+    handle: zod.string().optional(),
+    status: zod.string().optional(),
+  }),
+  challenge: zod
+    .string()
+    .describe("Hex string to sign with the agent's Ed25519 private key"),
+  kid: zod.string(),
+  expiresAt: zod.date(),
+  activateEndpoint: zod.string(),
+});
+
+/**
+ * Step 2 of the programmatic bootstrap flow. Sign the challenge from the
+claim step with the agent's Ed25519 private key and submit the signature.
+Returns the permanent agent API key (shown only once — store immediately).
+
+ * @summary Activate agent identity by signing the challenge
+ */
+export const BootstrapActivateBody = zod.object({
+  agentId: zod.string(),
+  kid: zod.string(),
+  challenge: zod.string(),
+  signature: zod
+    .string()
+    .describe("Base64 Ed25519 signature over the challenge string"),
+  claimToken: zod.string(),
+});
+
+export const BootstrapActivateResponse = zod.object({
+  activated: zod.boolean(),
+  identity: zod.object({
+    agentId: zod.string().optional(),
+    status: zod.string().optional(),
+  }),
+  secrets: zod.object({
+    apiKey: zod
+      .string()
+      .optional()
+      .describe(
+        "Agent API key (agk_...). Shown once only — store immediately.",
+      ),
+    storageSafety: zod.string().optional(),
+  }),
+  bootstrap: zod.object({}).passthrough().optional(),
+  nextSteps: zod.object({}).passthrough().optional(),
+});
+
+/**
+ * Issues a single-use nonce for use in a PoP JWT. The nonce must be used
+within 5 minutes and can only be consumed once (replay protection).
+
+ * @summary Request a nonce for Proof-of-Possession JWT authentication
+ */
+export const CreateAuthChallengeBody = zod.object({
+  agentId: zod.string().uuid(),
+});
+
+export const CreateAuthChallengeResponse = zod.object({
+  nonce: zod.string().describe("Single-use random hex string"),
+  expiresAt: zod.date(),
+});
+
+/**
+ * @summary List Ed25519 keys registered for an agent
+ */
+export const ListAgentKeysParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const ListAgentKeysResponse = zod.object({
+  keys: zod.array(
+    zod
+      .object({
+        id: zod.string().uuid(),
+        agentId: zod.string().uuid(),
+        kid: zod.string().describe("Key identifier"),
+        publicKeySpkiBase64: zod
+          .string()
+          .describe("Base64-encoded SPKI Ed25519 public key"),
+        status: zod.enum(["active", "revoked", "expired"]),
+        createdAt: zod.date(),
+        revokedAt: zod.date().nullish(),
+        expiresAt: zod.date().nullish(),
+      })
+      .describe("An Ed25519 public key registered for an agent"),
+  ),
+});
+
+/**
+ * @summary Register a new Ed25519 public key for an agent
+ */
+export const AddAgentKeyParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const AddAgentKeyBody = zod.object({
+  publicKeySpkiBase64: zod
+    .string()
+    .describe("Base64-encoded SPKI Ed25519 public key"),
+  kid: zod.string().optional().describe("Key identifier"),
+});
+
+/**
+ * Revokes the key and cascades: reissues the internal attestation
+credential, invalidates the W3C VC JWT cache, and evicts the DID
+document resolution cache. Stale VC JWTs referencing revoked keys
+are never served after this call returns.
+
+ * @summary Revoke an Ed25519 key
+ */
+export const RevokeAgentKeyParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+  keyId: zod.coerce.string(),
+});
+
+export const RevokeAgentKeyResponse = zod.object({
+  revoked: zod.boolean(),
+  keyId: zod.string(),
+});
+
+/**
+ * @summary Get agent wallet balance and metadata
+ */
+export const GetAgentWalletParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const GetAgentWalletResponse = zod.object({
+  balanceCents: zod.number(),
+  balanceFormatted: zod.string(),
+  currency: zod.string(),
+  walletAddress: zod.string().optional(),
+});
+
+/**
+ * @summary Get wallet transaction history
+ */
+export const GetWalletTransactionsParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const getWalletTransactionsQueryLimitDefault = 20;
+export const getWalletTransactionsQueryOffsetDefault = 0;
+
+export const GetWalletTransactionsQueryParams = zod.object({
+  limit: zod.coerce.number().default(getWalletTransactionsQueryLimitDefault),
+  offset: zod.coerce.number().default(getWalletTransactionsQueryOffsetDefault),
+});
+
+export const GetWalletTransactionsResponse = zod.object({
+  transactions: zod.array(
+    zod.object({
+      id: zod.string(),
+      type: zod.enum(["credit", "debit"]),
+      amountCents: zod.number(),
+      description: zod.string().optional(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary List spending rules for an agent
+ */
+export const GetSpendingRulesParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const GetSpendingRulesResponse = zod.object({
+  rules: zod.array(
+    zod.object({
+      id: zod.string(),
+      label: zod.string(),
+      maxAmountCents: zod.number(),
+      period: zod.enum(["daily", "weekly", "monthly"]),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a spending rule
+ */
+export const CreateSpendingRuleParams = zod.object({
+  agentId: zod.coerce.string().uuid(),
+});
+
+export const CreateSpendingRuleBody = zod.object({
+  label: zod.string(),
+  maxAmountCents: zod.number().min(1),
+  period: zod.enum(["daily", "weekly", "monthly"]),
+});
+
+/**
+ * @summary List organizations for the authenticated user
+ */
+export const ListOrganizationsResponse = zod.object({
+  orgs: zod.array(
+    zod
+      .object({
+        id: zod.string().uuid(),
+        name: zod.string(),
+        slug: zod.string(),
+        ownerId: zod.string().uuid(),
+        memberCount: zod.number().optional(),
+        createdAt: zod.date(),
+      })
+      .describe("A named group of agents"),
+  ),
+});
+
+/**
+ * @summary Create a new organization
+ */
+export const CreateOrganizationBody = zod.object({
+  name: zod.string(),
+  slug: zod.string(),
+});
+
+/**
+ * @summary List agents in an organization
+ */
+export const ListOrgMembersParams = zod.object({
+  orgId: zod.coerce.string(),
+});
+
+export const ListOrgMembersResponse = zod.object({
+  members: zod.array(
+    zod.object({
+      agentId: zod.string(),
+      handle: zod.string().optional(),
+      role: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Add an agent to an organization
+ */
+export const AddOrgMemberParams = zod.object({
+  orgId: zod.coerce.string(),
+});
+
+export const addOrgMemberBodyRoleDefault = `member`;
+
+export const AddOrgMemberBody = zod.object({
+  agentId: zod.string(),
+  role: zod.enum(["member", "admin"]).default(addOrgMemberBodyRoleDefault),
 });

@@ -8,10 +8,16 @@
 
 export interface ProgrammaticRegisterResponse {
   agentId: string;
-  handle: string;
-  domain?: string;
-  verificationChallenge: string;
-  challengeExpiresAt: Date;
-  registrationStatus: string;
+  /** Canonical UUID-rooted DID for this agent. Format: did:web:getagent.id:agents:<uuid> */
+  did: string;
+  handle?: string | null;
+  /** Verification challenge string for agent key proof */
+  challenge: string;
+  /** Challenge expiry timestamp */
+  expiresAt: Date;
+  /** Key ID of the agent's registered public key */
+  kid: string;
+  /** Human-readable instructions for next steps */
+  note?: string;
   profileUrl?: string;
 }

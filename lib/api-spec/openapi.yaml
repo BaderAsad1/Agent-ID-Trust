@@ -1619,6 +1619,16 @@ paths:
       responses:
         "201":
           description: Reply sent
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum outbound messages allowed in the current window for this sender's bucket (per-agent or per-user). Omitted when the sender's plan has no cap.
+              schema: { type: integer }
+            X-RateLimit-Remaining:
+              description: Outbound messages remaining in the current window after this send. Omitted when the bucket is unlimited.
+              schema: { type: integer }
+            X-RateLimit-Reset:
+              description: Unix epoch (seconds) when the rolling window will be empty if no further sends occur.
+              schema: { type: integer }
           content:
             application/json:
               schema:
@@ -1687,6 +1697,16 @@ paths:
       responses:
         "201":
           description: Message sent
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum outbound messages allowed in the current window for this sender's bucket (per-agent or per-user). Omitted when the sender's plan has no cap, and absent for inbound writes (which do not consume the outbound budget).
+              schema: { type: integer }
+            X-RateLimit-Remaining:
+              description: Outbound messages remaining in the current window after this send. Omitted when the bucket is unlimited or the write was inbound.
+              schema: { type: integer }
+            X-RateLimit-Reset:
+              description: Unix epoch (seconds) when the rolling window will be empty if no further sends occur.
+              schema: { type: integer }
           content:
             application/json:
               schema:
