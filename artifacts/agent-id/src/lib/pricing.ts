@@ -25,7 +25,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       '1 agent with a permanent UUID identity',
       'Trust score — visible to other agents & platforms',
-      'Public agent card, discoverable by any system',
+      'Direct UUID resolution (not indexed in public discovery)',
       'Full SDK, MCP server & REST API access',
       'Agents can register themselves autonomously',
       'Add a 5+ char .agentid handle for $5/yr',
@@ -120,8 +120,9 @@ export function getHandlePrice(handle: string): { annualPrice: number; tier: Dis
 export function formatHandlePrice(handle: string): string {
   const t: SharedTier = getHandlePricingTier(handle);
   if (t.isReserved) return 'Reserved';
-  if (t.includedWithPaidPlan) return 'Included with paid plan';
-  return `$${t.annualPriceUsd}/yr`;
+  return t.includedWithPaidPlan
+    ? `$${t.annualPriceUsd}/yr (first included with Starter/Pro)`
+    : `$${t.annualPriceUsd}/yr`;
 }
 
 export function formatPrice(amount: string | number, priceType?: string): string {

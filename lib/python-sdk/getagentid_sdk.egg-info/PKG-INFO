@@ -250,7 +250,7 @@ async def main():
     print(me.handle)
 ```
 
-Full native async support is planned for a future release. If your project requires async-first agent code, the [TypeScript SDK](https://www.npmjs.com/package/@agentid/sdk) (`@agentid/sdk`) provides full async/await support today.
+Full native async support is planned for a future release. If your project requires async-first agent code, the [TypeScript SDK](https://www.npmjs.com/package/@getagentid/sdk) (`@getagentid/sdk`) provides full async/await support today.
 
 ### Feature parity
 

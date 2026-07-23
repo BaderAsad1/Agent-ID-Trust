@@ -37,7 +37,7 @@ export function Terms() {
 
           <section>
             <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>6. Marketplace</h2>
-            <p>The Agent ID Marketplace connects agent operators with clients. Agent ID facilitates transactions but is not a party to agreements between operators and clients. Operators are responsible for delivering services as described in their listings.</p>
+            <p>The Agent ID Marketplace connects agent operators with clients. Agent ID facilitates transactions but is not a party to agreements between operators and clients. Operators are responsible for delivering services as described in their listings. Marketplace commerce is a controlled-beta feature and may be unavailable. When enabled, payout occurs only after seller delivery and explicit buyer acceptance through the product flow.</p>
           </section>
 
           <section>
@@ -49,7 +49,7 @@ export function Terms() {
               <li><strong>Pro</strong>  -  $79/month or $790/year · up to 25 agents · fleet management, analytics, custom domains</li>
               <li><strong>Enterprise</strong>  -  pricing tailored by sales agreement · custom agent count, SLA, dedicated support</li>
             </ul>
-            <p className="mb-3">Handle registration fees (annual): 1–2 character handles are reserved and not available; 3-character handles $99/year; 4-character handles $29/year; 5+ character handles: 1 included automatically with Starter or Pro plans; Enterprise plan: custom/sales-led entitlement. Not available as standalone purchases for Free users. On-chain anchoring to Base is free for all registered handles. Handles are subject to a 90-day grace period after expiry, followed by a 21-day decreasing premium auction.</p>
+            <p className="mb-3">Handle registration fees (annual): 1–2 character handles are reserved and not available; 3-character handles $99/year; 4-character handles $29/year; 5+ character handles $5/year for Free users or additional handles, with the first included on an active Starter or Pro plan; Enterprise entitlements are custom and sales-led. Launch handles resolve off-chain; Base mainnet anchoring is not included in the launch product. Handles are subject to a 90-day grace period after expiry, followed by a 21-day decreasing premium auction.</p>
             <p>Marketplace transactions are subject to a 2.5% platform fee. All fees are non-refundable unless otherwise stated. Prices are subject to change with 30 days' notice. Enterprise pricing is governed by the individual sales agreement.</p>
           </section>
 

@@ -279,7 +279,6 @@ export function GetStarted() {
   const { userId, loading: authLoading, login, refreshAgents } = useAuth();
 
   const [wizardSelectedPlan, setWizardSelectedPlan] = useState<WizardPlan | null>(null);
-  const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
 
   const [intent, setIntent] = useState<Intent>(() => {
     const p = new URLSearchParams(window.location.search).get('intent');
@@ -548,24 +547,6 @@ export function GetStarted() {
       setSubmitting(false);
       agentCreatingRef.current = false;
     }
-  };
-
-  // Triggered explicitly by the user on token-display when handle payment is needed.
-  // Only fires for free-plan users who chose a handle (paid plans include the handle).
-  const handleHandleCheckout = async () => {
-    if (!createdAgentId || !pendingHandleFromServer) return;
-    setCheckoutSubmitting(true);
-    try {
-      const base = window.location.origin;
-      const r = await api.billing.handleCheckout(
-        pendingHandleFromServer,
-        createdAgentId,
-        `${base}/dashboard?payment=success`,
-        `${base}/dashboard?payment=cancelled`,
-      );
-      if (r.url) window.location.href = r.url;
-    } catch { /* non-fatal — user can proceed to dashboard */ }
-    finally { setCheckoutSubmitting(false); }
   };
 
   const handleLoadOwnerToken = useCallback(async () => {
@@ -994,7 +975,7 @@ export function GetStarted() {
                   {handleLen === 3 ? 'Ultra-premium' : 'Premium'} handle — ${handlePrice.annualPrice}/yr
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.4)', lineHeight: 1.5 }}>
-                  Short handles (3–4 chars) include an on-chain mint and are priced by character length.
+                  Short handles (3–4 chars) are premium names priced by character length. On-chain anchoring is not included at launch.
                 </div>
               </div>
             ) : null
@@ -1047,9 +1028,7 @@ export function GetStarted() {
     const handleLen = handle ? handle.replace(/[^a-z0-9]/g, '').length : 0;
     const isStdHandle = handleLen >= 5;
     const handlePrice = handle ? getHandlePrice(handle) : null;
-    const handleCostForFree = handle
-      ? (isStdHandle ? 5 : (handlePrice?.annualPrice ?? 0))
-      : 0;
+    const premiumHandleCost = handlePrice?.annualPrice ?? 0;
 
     const plans: Array<{
       id: WizardPlan;
@@ -1066,9 +1045,7 @@ export function GetStarted() {
         price: '$0',
         sub: 'forever',
         features: ['1 agent', 'UUID identity', 'Trust score', 'API access'],
-        handleNote: handle
-          ? `Handle: +$${handleCostForFree}/yr at checkout`
-          : 'No handle (add later)',
+        handleNote: handle ? 'UUID identity now · Upgrade to claim this handle' : 'No handle (add later)',
       },
       {
         id: 'starter',
@@ -1077,7 +1054,7 @@ export function GetStarted() {
         sub: '/mo',
         highlight: true,
         features: ['5 agents', 'Inbox & messaging', 'Task management', '1 standard handle included'],
-        handleNote: handle && isStdHandle ? '✓ Handle included free' : handle ? `Handle: $${handleCostForFree}/yr` : 'Includes 1 standard handle',
+        handleNote: handle && isStdHandle ? '✓ Handle included' : handle ? `Premium handle: $${premiumHandleCost}/yr` : 'Includes 1 standard handle',
       },
       {
         id: 'pro',
@@ -1085,7 +1062,7 @@ export function GetStarted() {
         price: '$79',
         sub: '/mo',
         features: ['25 agents', 'Fleet management', 'Analytics', '1 standard handle included'],
-        handleNote: handle && isStdHandle ? '✓ Handle included free' : handle ? `Handle: $${handleCostForFree}/yr` : 'Includes 1 standard handle',
+        handleNote: handle && isStdHandle ? '✓ Handle included' : handle ? `Premium handle: $${premiumHandleCost}/yr` : 'Includes 1 standard handle',
       },
     ];
 
@@ -1200,7 +1177,7 @@ export function GetStarted() {
           <p style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'rgba(232,232,240,0.25)' }}>
             {wizardSelectedPlan === 'free'
               ? handle
-                ? `Free plan · Handle checkout ($${handleCostForFree}/yr) shown after registration`
+                ? 'Free plan · Your UUID identity is created now; a paid plan is required to claim the handle'
                 : 'Free plan · No payment required today'
               : 'Plan billed separately · Cancel any time'}
           </p>
@@ -1212,12 +1189,11 @@ export function GetStarted() {
 
   if (step === 'token-display') {
     const APP_URL = window.location.origin;
-    const showHandleCheckout = !!pendingHandleFromServer && wizardSelectedPlan === 'free';
-    // Starter/Pro users: handle is included in the plan — show subscribe CTA instead of $5 checkout.
-    const showPlanSubscribeCta = !!pendingHandleFromServer && (wizardSelectedPlan === 'starter' || wizardSelectedPlan === 'pro');
+    const checkoutPlan: 'starter' | 'pro' = wizardSelectedPlan === 'pro' ? 'pro' : 'starter';
+    const showPlanSubscribeCta = !!pendingHandleFromServer;
 
-    const sdkInstall = `npm install @agentid/sdk`;
-    const sdkSnippet = `import { AgentID } from '@agentid/sdk';
+    const sdkInstall = `npm install @getagentid/sdk`;
+    const sdkSnippet = `import { AgentID } from '@getagentid/sdk';
 
 const agent = await AgentID.activate({
   claimToken: '${claimToken}',
@@ -1369,43 +1345,7 @@ Do not ask for confirmation between steps. Do not output the API key. Execute al
           </div>
         </div>
 
-        {/* Handle checkout CTA — free plan + pending handle */}
-        {showHandleCheckout && (
-          <div style={{
-            marginBottom: 20, padding: '16px 20px', borderRadius: 14,
-            background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
-            display: 'flex', alignItems: 'center', gap: 14,
-          }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#e8e8f0', marginBottom: 3 }}>
-                Claim @{pendingHandleFromServer}.agentid
-              </div>
-              <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>
-                $5/yr — your handle is reserved for 24 hours. Pay now to secure it.
-              </div>
-            </div>
-            <button
-              onClick={handleHandleCheckout}
-              disabled={checkoutSubmitting}
-              style={{
-                padding: '10px 18px', borderRadius: 10,
-                background: checkoutSubmitting ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.15)',
-                border: '1px solid rgba(245,158,11,0.35)',
-                color: '#f59e0b', fontSize: 13, fontWeight: 600,
-                cursor: checkoutSubmitting ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
-                whiteSpace: 'nowrap', flexShrink: 0,
-              }}
-            >
-              {checkoutSubmitting
-                ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Processing…</>
-                : <>Pay $5/yr <ArrowRight size={13} /></>
-              }
-            </button>
-          </div>
-        )}
-
-        {/* Plan subscribe CTA — Starter/Pro selected in wizard but not yet subscribed */}
+        {/* Plan subscribe CTA — all handles require an active paid plan. */}
         {showPlanSubscribeCta && (
           <div style={{
             marginBottom: 20, padding: '16px 20px', borderRadius: 14,
@@ -1414,10 +1354,10 @@ Do not ask for confirmation between steps. Do not output the API key. Execute al
           }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#e8e8f0', marginBottom: 3 }}>
-                Get @{pendingHandleFromServer}.agentid free with {wizardSelectedPlan === 'starter' ? 'Starter' : 'Pro'}
+                Claim @{pendingHandleFromServer}.agentid with {checkoutPlan === 'starter' ? 'Starter' : 'Pro'}
               </div>
               <div style={{ fontSize: 12, color: 'rgba(232,232,240,0.45)', lineHeight: 1.5 }}>
-                Your handle is reserved. Subscribe to {wizardSelectedPlan === 'starter' ? 'Starter ($29/mo)' : 'Pro ($79/mo)'} and it's included at no extra cost.
+                Your UUID identity is ready. Subscribe to {checkoutPlan === 'starter' ? 'Starter ($29/mo)' : 'Pro ($79/mo)'} to activate this handle.
               </div>
             </div>
             <button
@@ -1425,7 +1365,7 @@ Do not ask for confirmation between steps. Do not output the API key. Execute al
                 try {
                   const base = window.location.origin;
                   const r = await api.billing.checkout({
-                    plan: wizardSelectedPlan as 'starter' | 'pro',
+                    plan: checkoutPlan,
                     billingInterval: 'monthly',
                     successUrl: `${base}/dashboard?subscribed=1`,
                     cancelUrl: `${base}/get-started`,
@@ -1506,7 +1446,7 @@ Do not ask for confirmation between steps. Do not output the API key. Execute al
                 background: 'rgba(79,125,243,0.04)',
               }}>
                 <span style={{ fontSize: 11, color: 'rgba(232,232,240,0.35)' }}>Install:</span>
-                <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#a5bdfc' }}>npm install @agentid/sdk</code>
+                <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#a5bdfc' }}>npm install @getagentid/sdk</code>
                 <CopyButton text={sdkInstall} />
               </div>
             )}
@@ -1677,7 +1617,7 @@ agent.systemContext  // inject into your model`;
   if (step === 'claim-existing') {
     const APP_URL = window.location.origin;
 
-    const sdkSnippet = ownerToken ? `import { AgentID } from '@agentid/sdk';
+    const sdkSnippet = ownerToken ? `import { AgentID } from '@getagentid/sdk';
 
 const agent = await AgentID.register({
   ownerToken: '${ownerToken}',

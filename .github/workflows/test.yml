@@ -1,0 +1,80 @@
+name: Launch Gate
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launch-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: agentid
+          POSTGRES_PASSWORD: agentid
+          POSTGRES_DB: agentid_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agentid -d agentid_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://agentid:agentid@127.0.0.1:5432/agentid_test
+      REDIS_URL: redis://127.0.0.1:6379
+      JWT_SECRET: ci-only-jwt-secret-at-least-32-characters
+      CLAIM_TOKEN_SECRET: ci-only-claim-secret-at-least-32-characters
+      ACTIVITY_HMAC_SECRET: ci-only-activity-secret-at-least-32-characters
+      WEBHOOK_SECRET_KEY: ci-only-webhook-secret-at-least-32-characters
+      CREDENTIAL_SIGNING_SECRET: ci-only-credential-secret-at-least-32-characters
+      ADMIN_SECRET_KEY: ci-only-admin-secret-at-least-32-characters
+      APP_URL: http://127.0.0.1:8080
+      AUTH_BASE_URL: http://127.0.0.1:8080
+      ALLOWED_ORIGINS: http://127.0.0.1:8080
+      TRUST_PROXY: "false"
+      X402_ENABLED: "false"
+      ONCHAIN_MINTING_ENABLED: "false"
+      MARKETPLACE_COMMERCE_ENABLED: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @workspace/db migrate
+      - run: pnpm run typecheck
+      - run: pnpm run test:unit
+      - run: pnpm run test:integration
+      - run: pnpm run test:security
+      - run: pnpm run test:frontend
+      - run: pnpm --filter @getagentid/sdk test
+      - run: pnpm --filter @agentid/resolver test
+      - run: pnpm run build:release

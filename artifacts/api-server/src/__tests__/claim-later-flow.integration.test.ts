@@ -17,6 +17,7 @@ import request from "supertest";
 import express from "express";
 import { createHash } from "crypto";
 import { errorHandler } from "../middlewares/error-handler";
+import { _resetLimitersForTesting } from "../middlewares/rate-limit";
 
 vi.mock("../services/activity-logger", () => ({
   logActivity: vi.fn().mockResolvedValue(undefined),
@@ -78,6 +79,10 @@ async function buildLinkOwnerApp() {
   app.use(errorHandler);
   return app;
 }
+
+beforeEach(() => {
+  _resetLimitersForTesting();
+});
 
 describe("Claim-Later Flow — link-owner endpoint guards", () => {
   let app: express.Express;
@@ -806,16 +811,14 @@ describe("Claim-Later Flow — programmatic registration with ownerToken (C5 pat
         ownerToken: tokenRecord2.rawToken,
       });
 
-    expect(res.status).toBe(201);
-    const mismatchAgentId = res.body.agentId;
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("OWNER_TOKEN_USER_MISMATCH");
 
     const agentRow = await db.query.agentsTable.findFirst({
-      where: eq(agentsTable.id, mismatchAgentId),
-      columns: { isClaimed: true, ownerUserId: true },
+      where: eq(agentsTable.displayName, "Mismatch User Registration"),
+      columns: { id: true },
     });
-
-    expect(agentRow!.isClaimed).toBe(false);
-    expect(agentRow!.ownerUserId).toBeNull();
+    expect(agentRow).toBeUndefined();
 
     const tokenRow = await db.query.ownerTokensTable.findFirst({
       where: eq(ownerTokensTable.id, tokenRecord2.id),
@@ -823,9 +826,6 @@ describe("Claim-Later Flow — programmatic registration with ownerToken (C5 pat
     });
     expect(tokenRow!.used).toBe(false);
 
-    await db.delete(apiKeysTable).where(eq(apiKeysTable.ownerId, mismatchAgentId)).catch(() => {});
-    await db.delete(agentKeysTable).where(eq(agentKeysTable.agentId, mismatchAgentId)).catch(() => {});
-    await db.delete(agentsTable).where(eq(agentsTable.id, mismatchAgentId)).catch(() => {});
     await db.delete(ownerTokensTable).where(eq(ownerTokensTable.userId, tokenOwnerUser.id)).catch(() => {});
     await db.delete(usersTable).where(eq(usersTable.id, tokenOwnerUser.id)).catch(() => {});
     await db.delete(usersTable).where(eq(usersTable.id, differentUser.id)).catch(() => {});

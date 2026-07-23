@@ -115,12 +115,12 @@ export const subscriptionStatusEnum = pgEnum("subscription_status", [
 
 export const subscriptionPlanEnum = pgEnum("subscription_plan", [
   "none",
-  "starter",
-  "pro",
-  "enterprise",
   "free",
+  "starter",
   "builder",
+  "pro",
   "team",
+  "enterprise",
 ]);
 
 export const billingIntervalEnum = pgEnum("billing_interval", [

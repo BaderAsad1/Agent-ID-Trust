@@ -71,8 +71,7 @@ router.post("/:handle/feedback", requireAgentAuth, async (req, res, next) => {
 
     const feedbackId = feedbackRow[0]?.id;
 
-    const onchainEnabled =
-      env().ONCHAIN_MINTING_ENABLED === "true" || env().ONCHAIN_MINTING_ENABLED === "1";
+    const onchainEnabled = env().ONCHAIN_MINTING_ENABLED === "true";
 
     let txHash: string | undefined;
 

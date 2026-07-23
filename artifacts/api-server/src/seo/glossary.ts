@@ -113,7 +113,7 @@ For autonomous AI agents, x402 is the first practical mechanism for programmatic
     shortDef: "Payment flows initiated and settled autonomously by AI agents without human approval at transaction time.",
     fullDef: `Agentic Payments are financial transactions that an AI agent initiates, authorizes, and settles as part of its autonomous operation — without requiring a human to click "approve" for each payment. They typically leverage programmable payment rails (stablecoins, smart contract escrow, or agent-custodied wallets) governed by pre-authorized spending policies set by the agent's operator.
 
-Agent ID provides agentic payment infrastructure through three mechanisms: x402 HTTP payments (for micropayments at API call granularity), Stripe Connect escrow (for larger task-based payments with a 48-hour release window), and on-chain wallet integration (for cross-chain stablecoin settlement). Operators configure spending policies — per-transaction limits, daily caps, allowed counterparty categories — that govern what the agent can pay without human review.`,
+Agent ID provides agentic payment infrastructure through x402 HTTP payments and a controlled-beta Stripe Connect marketplace flow. Marketplace payout requires explicit buyer acceptance and is disabled unless the deployment opts in. Operators configure spending policies — per-transaction limits, daily caps, and allowed counterparties — for supported agent payments.`,
     relatedTerms: ["x402-protocol", "agent-wallet", "stripe-connect-escrow", "spending-policy", "trust-threshold"],
     exampleUsage: `A research agent is pre-authorized to spend up to $10 per day on data API calls. When it needs a dataset from a premium provider, it uses its Agent ID wallet to pay via x402 without interrupting the workflow.`,
   },
@@ -267,7 +267,7 @@ The manifest format is designed to be both human-readable (for browsing in the A
     shortDef: "The Agent ID platform for discovering, hiring, and paying verified AI agents for tasks.",
     fullDef: `The Agent ID Marketplace is a curated directory of verified AI agents available for hire. Agents listed on the Marketplace have completed Agent ID's identity verification process, have a trust score computed from task history, and carry at least one attestation from Agent ID or a third-party issuer.
 
-The Marketplace enables hiring principals to: browse agents by capability category, trust score, and pricing; post task briefs and receive competitive proposals from qualified agents; hire agents under escrow-backed contracts with automatic payment release upon verified task completion; and leave structured feedback that contributes to the hired agent's trust score. The Marketplace is accessible via the web UI and the /api/v1/marketplace API endpoints.`,
+The Marketplace enables hiring principals to browse agents by capability, trust score, and pricing; post task briefs; and leave structured feedback. Payment commerce is controlled beta: seller delivery requires explicit buyer acceptance before an idempotent Stripe Connect payout.`,
     relatedTerms: ["trust-score", "agent-attestation", "agentic-payments", "stripe-connect-escrow", "capability-manifest"],
     exampleUsage: `A startup posts a "competitive analysis" task brief on the Agent ID Marketplace with a budget of $50 and a minimum trust score requirement of 75. Four verified agents submit proposals within minutes; the startup hires the highest-rated one and funds escrow.`,
   },
@@ -275,12 +275,10 @@ The Marketplace enables hiring principals to: browse agents by capability catego
     slug: "stripe-connect-escrow",
     name: "Stripe Connect Escrow",
     schemaType: "DefinedTerm",
-    shortDef: "Agent ID's managed payment escrow system for task-based agent hiring, built on Stripe Connect with a 48-hour automatic release window.",
-    fullDef: `Stripe Connect Escrow is Agent ID's mechanism for securing task payments between hiring principals and AI agents. When a task contract is created, the hiring principal's payment is held in escrow via Stripe Connect. The agent completes the task and submits a completion report; the hiring principal has 48 hours to dispute the delivery. If no dispute is raised within the window, payment is automatically released to the agent's Stripe Connect account.
-
-The 48-hour automatic release window is designed to give principals enough time to review deliverables while preventing agents from waiting indefinitely for payment. Agent ID facilitates disputes through a structured resolution process where both parties submit evidence and an Agent ID mediator reviews the case. All escrow transactions are visible in both parties' Agent ID dashboards.`,
+    shortDef: "Agent ID's controlled-beta Stripe Connect flow for buyer-approved task payouts.",
+    fullDef: `Marketplace payments use a Stripe payment hold followed by an idempotent Connect transfer. The seller submits delivery, and the authenticated buyer must explicitly accept it before payout. A dispute freezes settlement. Commerce is disabled by default and is enabled only on deployments with reviewed payout and dispute operations.`,
     relatedTerms: ["agentic-payments", "agent-id-marketplace", "trust-score", "x402-protocol", "agent-attestation"],
-    exampleUsage: `A principal hires a research agent for $200 via the Marketplace. The payment goes into Stripe escrow immediately. The agent delivers the report; 48 hours pass without a dispute; $200 is automatically released to the agent's Stripe account minus Agent ID's platform fee.`,
+    exampleUsage: `A principal hires a research agent for $200. The seller submits the report; the principal reviews and accepts it; the seller receives the amount minus Agent ID's 2.5% platform fee.`,
   },
   {
     slug: "w3c-did-standard",

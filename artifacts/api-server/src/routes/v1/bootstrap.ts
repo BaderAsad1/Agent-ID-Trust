@@ -299,7 +299,7 @@ router.post("/activate", challengeRateLimit, async (req, res, next) => {
       try {
         const meta = (freshAgent?.metadata as Record<string, unknown>) ?? {};
         const pendingReg = meta.pendingHandleRegistration as { status?: string } | undefined;
-        // awaiting_payment          → billing webhook sends email after $5/yr handle checkout
+        // awaiting_payment          → billing webhook sends email after premium-handle checkout
         // awaiting_plan_subscription → billing webhook sends email after Starter/Pro subscription
         // email_sent                 → billing webhook already sent it; don't duplicate
         if (

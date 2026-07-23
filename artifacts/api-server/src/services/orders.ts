@@ -286,7 +286,7 @@ export async function confirmOrder(
 
 export async function completeOrder(
   orderId: string,
-  sellerUserId: string,
+  buyerUserId: string,
 ): Promise<{
   success: boolean;
   order?: MarketplaceOrder;
@@ -297,7 +297,7 @@ export async function completeOrder(
   const order = await db.query.marketplaceOrdersTable.findFirst({
     where: and(
       eq(marketplaceOrdersTable.id, orderId),
-      eq(marketplaceOrdersTable.sellerUserId, sellerUserId),
+      eq(marketplaceOrdersTable.buyerUserId, buyerUserId),
     ),
   });
 
@@ -342,6 +342,19 @@ export async function completeOrder(
     columns: { stripeConnectAccountId: true, stripeConnectStatus: true },
   });
 
+  const connectAccountId =
+    sellerAgent?.stripeConnectStatus === "active"
+      ? sellerAgent.stripeConnectAccountId ?? undefined
+      : undefined;
+  const hasActiveConnect = Boolean(connectAccountId);
+  if (!isMilestoneOrder && order.status !== "completed" && (!hasActiveConnect || !paymentRef)) {
+    logger.warn(
+      { orderId, hasPaymentReference: Boolean(paymentRef), stripeConnectStatus: sellerAgent?.stripeConnectStatus },
+      "[completeOrder] Seller payout is not ready; leaving order open for buyer acceptance retry",
+    );
+    return { success: false, error: "SELLER_PAYOUT_NOT_READY" };
+  }
+
   const PLATFORM_ACCOUNT_ID = "00000000-0000-0000-0000-000000000000";
   const captureIdempotencyKey = `order_capture_${orderId}`;
   const transferIdempotencyKey = `order_transfer_${orderId}`;
@@ -375,7 +388,7 @@ export async function completeOrder(
       })
       .where(and(
         eq(marketplaceOrdersTable.id, orderId),
-        eq(marketplaceOrdersTable.sellerUserId, sellerUserId),
+        eq(marketplaceOrdersTable.buyerUserId, buyerUserId),
         inArray(marketplaceOrdersTable.status, ["confirmed", "in_progress"]),
       ))
       .returning();
@@ -509,15 +522,20 @@ export async function completeOrder(
   const updated = claim.updated;
   const payoutLedgerId = claim.payoutLedgerId;
 
+  if (!isMilestoneOrder && (!hasActiveConnect || !paymentRef)) {
+    logger.warn(
+      { orderId, hasPaymentReference: Boolean(paymentRef), stripeConnectStatus: sellerAgent?.stripeConnectStatus },
+      "[completeOrder] Pending payout cannot be recovered until the seller payout account is ready",
+    );
+    return { success: false, error: "SELLER_PAYOUT_NOT_READY" };
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // STEP 2 (Stripe): move money. All Stripe calls use stable idempotency keys
   // so retries cannot double-capture or double-transfer.
   // ──────────────────────────────────────────────────────────────────────────
   let payoutStatus: "pending_manual_payout" | "processing" | "completed" = "pending_manual_payout";
   let stripeTransferId: string | undefined;
-
-  const hasActiveConnect =
-    sellerAgent?.stripeConnectAccountId && sellerAgent.stripeConnectStatus === "active";
 
   if (hasActiveConnect && paymentRef && !isMilestoneOrder) {
     try {
@@ -536,7 +554,7 @@ export async function completeOrder(
           {
             amount: sellerPayoutCents,
             currency: "usd",
-            destination: sellerAgent.stripeConnectAccountId!,
+            destination: connectAccountId!,
             metadata: { orderId, listingId: order.listingId },
           },
           { idempotencyKey: transferIdempotencyKey },
@@ -549,7 +567,7 @@ export async function completeOrder(
           {
             amount: sellerPayoutCents,
             currency: "usd",
-            destination: sellerAgent.stripeConnectAccountId!,
+            destination: connectAccountId!,
             metadata: { orderId, listingId: order.listingId },
           },
           { idempotencyKey: transferIdempotencyKey },
@@ -557,15 +575,19 @@ export async function completeOrder(
         stripeTransferId = transfer.id;
         payoutStatus = "completed";
         logger.info({ orderId, transferId: transfer.id }, "[completeOrder] Stripe Connect transfer executed");
+      } else {
+        logger.error({ orderId, paymentIntentStatus: pi.status }, "[completeOrder] PaymentIntent is not ready for payout");
+        return { success: false, error: `PAYOUT_FAILED_RETRYABLE:PAYMENT_INTENT_${pi.status.toUpperCase()}` };
       }
     } catch (payoutErr) {
       logger.error(
         { orderId, error: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) },
-        "[completeOrder] Stripe Connect payout failed — falling back to manual payout",
+        "[completeOrder] Stripe Connect payout failed — pending payout intent remains retryable",
       );
-      payoutStatus = "pending_manual_payout";
+      return { success: false, error: "PAYOUT_FAILED_RETRYABLE" };
     }
   } else if (isMilestoneOrder) {
+    payoutStatus = "completed";
     logger.info({ orderId }, "[completeOrder] Milestone-based order — no order-level PI capture; milestones manage their own Stripe escrow");
   }
 

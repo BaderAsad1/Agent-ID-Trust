@@ -89,7 +89,6 @@ export function Footer() {
             <FooterLink to="/integrations">Integrations</FooterLink>
             <FooterLink to="/docs/webhooks">Webhooks</FooterLink>
             <FooterLink to="/changelog">Changelog</FooterLink>
-            <FooterExternalLink href="https://status.getagent.id">Status</FooterExternalLink>
           </div>
 
           {/* Protocol */}

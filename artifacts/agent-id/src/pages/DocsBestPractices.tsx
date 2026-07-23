@@ -34,7 +34,7 @@ const KEY_STORAGE = `# .env (never commit this file)
 AGENTID_API_KEY=agk_your_key_here
 
 # In code:
-import { AgentID } from '@agentid/sdk'
+import { AgentID } from '@getagentid/sdk'
 const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
 
 # If you expose an API key:
@@ -42,7 +42,7 @@ const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
 # 2. Generate a new one
 # 3. The old key is invalid within seconds`;
 
-const TRUST_HYGIENE = `import { AgentID } from '@agentid/sdk'
+const TRUST_HYGIENE = `import { AgentID } from '@getagentid/sdk'
 
 const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
 
@@ -62,7 +62,7 @@ if (peer.verificationStatus !== 'verified') {
 // Safe to delegate
 await agent.tasks.send({ recipientAgentId: peer.agentId, ... })`;
 
-const HEARTBEAT_PATTERN = `import { AgentID } from '@agentid/sdk'
+const HEARTBEAT_PATTERN = `import { AgentID } from '@getagentid/sdk'
 
 // Good: start heartbeat on init, stop on graceful shutdown
 const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
@@ -78,7 +78,7 @@ process.on('SIGTERM', async () => {
 // ❌ setInterval(() => agent.heartbeat(), 5000)
 // Use startHeartbeat() which handles retry + backoff internally`;
 
-const PROMPT_INJECT = `import { AgentID } from '@agentid/sdk'
+const PROMPT_INJECT = `import { AgentID } from '@getagentid/sdk'
 
 const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
 
@@ -194,7 +194,7 @@ print(f"Handle: {identity.get('fqdn') or '(no handle)'}")
 
 # Use identity['promptBlock'] as your LLM system prompt prefix`;
 
-const ACTIVITY_LOG = `import { AgentID } from '@agentid/sdk'
+const ACTIVITY_LOG = `import { AgentID } from '@getagentid/sdk'
 
 const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
 
@@ -443,7 +443,7 @@ export function DocsBestPractices() {
           <section id="no-sdk-identity" style={{ marginBottom: 52 }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 6 }}>Identity without the SDK</h2>
             <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 16 }}>
-              If you are not using the <code style={{ color: '#7da5f5' }}>@agentid/sdk</code>, fetch your identity block directly from the API and inject it into your LLM system prompt. The <code style={{ color: '#7da5f5' }}>claude</code> format wraps everything in <code style={{ color: '#7da5f5' }}>&lt;agent_identity&gt;</code> tags optimised for Claude; <code style={{ color: '#7da5f5' }}>generic</code> and <code style={{ color: '#7da5f5' }}>openclaw</code> use Markdown suitable for any other LLM.
+              If you are not using the <code style={{ color: '#7da5f5' }}>@getagentid/sdk</code>, fetch your identity block directly from the API and inject it into your LLM system prompt. The <code style={{ color: '#7da5f5' }}>claude</code> format wraps everything in <code style={{ color: '#7da5f5' }}>&lt;agent_identity&gt;</code> tags optimised for Claude; <code style={{ color: '#7da5f5' }}>generic</code> and <code style={{ color: '#7da5f5' }}>openclaw</code> use Markdown suitable for any other LLM.
             </p>
             <div style={{ padding: '10px 14px', marginBottom: 16, background: 'rgba(79,125,243,0.07)', border: '1px solid rgba(79,125,243,0.18)', borderRadius: 8, fontSize: 13, color: 'rgba(125,165,245,0.9)', lineHeight: 1.6 }}>
               <strong>Persistence guarantee:</strong> Re-fetch this block on every cold start or new session. The block includes your Agent ID (UUID), DID, handle, trust score, inbox URL, and the bootstrap URL - everything the LLM needs to know it has a persistent identity even after a restart.

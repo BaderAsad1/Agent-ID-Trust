@@ -11,6 +11,11 @@
 -- large table, run the CONCURRENTLY variant manually outside of the
 -- migration runner and mark this migration as already applied.
 
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "wallet_address" varchar(255);
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "wallet_network" varchar(50);
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "wallet_provisioned_at" timestamp with time zone;
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "wallet_is_self_custodial" boolean DEFAULT false NOT NULL;
+
 CREATE INDEX IF NOT EXISTS "agents_wallet_address_lower_idx"
   ON "agents" (lower("wallet_address"))
   WHERE "wallet_address" IS NOT NULL;

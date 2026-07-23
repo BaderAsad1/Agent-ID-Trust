@@ -21,8 +21,9 @@ function buildPaymentMethodsList(agent: {
   walletAddress?: string | null;
   paymentAuthorized?: boolean | null;
 }): string[] {
-  const methods = new Set<string>(agent.paymentMethods || []);
-  if (agent.walletAddress) {
+  const x402Enabled = env().X402_ENABLED === "true";
+  const methods = new Set<string>((agent.paymentMethods || []).filter(method => method !== "x402_usdc" || x402Enabled));
+  if (x402Enabled && agent.walletAddress) {
     methods.add("x402_usdc");
   }
   if (agent.paymentAuthorized) {
@@ -411,11 +412,13 @@ export async function buildErc8004(handle: string) {
       serviceEndpoint: `ethereum:${agent.walletAddress}@8453`,
     });
 
-    services.push({
-      id: `${canonicalDid}#x402`,
-      type: "X402PaymentEndpoint",
-      serviceEndpoint: `${baseUrl}/pay/upgrade/x402`,
-    });
+    if (env().X402_ENABLED === "true") {
+      services.push({
+        id: `${canonicalDid}#x402`,
+        type: "X402PaymentEndpoint",
+        serviceEndpoint: `${baseUrl}/pay/upgrade/x402`,
+      });
+    }
   }
 
   if (agent.paymentAuthorized) {
@@ -448,7 +451,7 @@ export async function buildErc8004(handle: string) {
 
   const allOwsWalletAddresses = owsWallets.map(w => buildCaip10Address(w.network, w.address));
 
-  const x402Support = !!(agent.walletAddress || owsEvmWallets.length > 0);
+  const x402Support = env().X402_ENABLED === "true" && !!(agent.walletAddress || owsEvmWallets.length > 0);
 
   const APP_URL = env().APP_URL;
 

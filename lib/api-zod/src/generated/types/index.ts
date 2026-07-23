@@ -46,6 +46,7 @@ export * from "./approveMailMessage200";
 export * from "./assetClassification";
 export * from "./assetClassificationCategory";
 export * from "./authorizePaymentBody";
+export * from "./badRequestResponse";
 export * from "./bootstrapActivate200";
 export * from "./bootstrapActivate200Bootstrap";
 export * from "./bootstrapActivate200Identity";

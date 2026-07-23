@@ -406,7 +406,6 @@ export function renderSsrPage(opts: SsrPageOptions): string {
           <a href="/docs/quickstart">Quickstart</a>
           <a href="/docs/webhooks">Webhooks</a>
           <a href="/changelog">Changelog</a>
-          <a href="https://status.getagent.id" target="_blank" rel="noopener noreferrer">Status</a>
         </div>
         <div class="seo-footer-col">
           <p class="seo-footer-col-title">Learn</p>

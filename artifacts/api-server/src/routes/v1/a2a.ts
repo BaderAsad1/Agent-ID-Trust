@@ -31,8 +31,7 @@ import {
 import { eq, and, gte, sql, inArray } from "drizzle-orm";
 import { logger } from "../../middlewares/request-logger";
 import { env } from "../../lib/env";
-
-const PLATFORM_FEE_RATE = 0.10;
+import { MARKETPLACE_FEE_RATE as CANONICAL_MARKETPLACE_FEE_RATE } from "@workspace/shared-pricing";
 
 interface AgentMetaForShape {
   handle: string | null;
@@ -441,7 +440,7 @@ router.post(
       const timestamp = new Date().toISOString();
 
       const totalUsdc = parseFloat(priceUsdc);
-      const platformFeeUsdc = Math.round(totalUsdc * PLATFORM_FEE_RATE * 1e6) / 1e6;
+      const platformFeeUsdc = Math.round(totalUsdc * CANONICAL_MARKETPLACE_FEE_RATE * 1e6) / 1e6;
       const providerUsdc = Math.round((totalUsdc - platformFeeUsdc) * 1e6) / 1e6;
 
       if (settlementResult.paymentId) {
@@ -838,7 +837,7 @@ router.post(
       await incrementA2AServiceCallCount(serviceId);
 
       const totalUsdc      = parseFloat(priceUsdc);
-      const platformFeeUsd = Math.round(totalUsdc * PLATFORM_FEE_RATE * 1e6) / 1e6;
+      const platformFeeUsd = Math.round(totalUsdc * CANONICAL_MARKETPLACE_FEE_RATE * 1e6) / 1e6;
       const providerUsd    = Math.round((totalUsdc - platformFeeUsd) * 1e6) / 1e6;
       const timestamp      = new Date().toISOString();
 

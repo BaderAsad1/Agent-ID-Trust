@@ -24,7 +24,7 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types src/smoke-test.ts"
+    "test": "tsx src/smoke-test.ts"
   },
   "keywords": [
     "mcp",
@@ -51,6 +51,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsup": "^8.0.0",
+    "tsx": "catalog:",
     "typescript": "^5.5.0"
   }
 }

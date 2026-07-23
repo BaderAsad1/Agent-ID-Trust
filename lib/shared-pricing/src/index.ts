@@ -13,6 +13,22 @@ export interface HandlePricingTier {
   includesOnChainMint: boolean;
 }
 
+/** Canonical marketplace take rate: 2.5% (250 basis points). */
+export const MARKETPLACE_FEE_BPS = 250;
+export const MARKETPLACE_FEE_RATE = MARKETPLACE_FEE_BPS / 10_000;
+export const HANDLE_GRACE_PERIOD_DAYS = 90;
+export const HANDLE_RENEWAL_REMINDER_DAYS = 30;
+export const HANDLE_AUCTION_DURATION_DAYS = 21;
+
+export function calculateMarketplaceFee(amount: number): { platformFee: number; sellerPayout: number } {
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new Error("Marketplace amount must be a non-negative finite number");
+  }
+  const platformFee = Math.round(amount * MARKETPLACE_FEE_RATE * 100) / 100;
+  const sellerPayout = Math.round((amount - platformFee) * 100) / 100;
+  return { platformFee, sellerPayout };
+}
+
 export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
   {
     minLength: 1, maxLength: 2, tier: "reserved_1_2",
@@ -24,16 +40,16 @@ export const HANDLE_PRICING_TIERS: HandlePricingTier[] = [
   {
     minLength: 3, maxLength: 3, tier: "premium_3",
     annualPriceUsd: 99, annualPriceCents: 9900,
-    description: "Ultra-premium 3-character handle — includes on-chain mint",
+    description: "Ultra-premium 3-character handle — on-chain anchoring is not included in the launch release",
     isReserved: false, includedWithPaidPlan: false, isFree: false,
-    onChainMintPrice: 0, onChainMintPriceDollars: 0, includesOnChainMint: true,
+    onChainMintPrice: 0, onChainMintPriceDollars: 0, includesOnChainMint: false,
   },
   {
     minLength: 4, maxLength: 4, tier: "premium_4",
     annualPriceUsd: 29, annualPriceCents: 2900,
-    description: "Premium 4-character handle — includes on-chain mint",
+    description: "Premium 4-character handle — on-chain anchoring is not included in the launch release",
     isReserved: false, includedWithPaidPlan: false, isFree: false,
-    onChainMintPrice: 0, onChainMintPriceDollars: 0, includesOnChainMint: true,
+    onChainMintPrice: 0, onChainMintPriceDollars: 0, includesOnChainMint: false,
   },
   {
     minLength: 5, maxLength: undefined, tier: "standard_5plus",

@@ -121,8 +121,10 @@ describe("Onboarding - handle-less success UI produces valid output", () => {
 
   it("GetStarted.tsx token-display step conditionally renders handle in description", () => {
     const code = readSrc("pages/GetStarted.tsx");
-    // Must use conditional rendering: handle ? `(${handle}.agentid)` : ''
-    expect(code).toMatch(/handle\s*\?\s*`.*\.agentid.*`\s*:/);
+    // The token-display card must have a handle-less branch and must gate the
+    // routing hostname behind a truthy handle check.
+    expect(code).toMatch(/\{handle\s*\?[^:]+:[^}]+\}/s);
+    expect(code).toMatch(/\{handle\s*&&\s*\(/);
   });
 });
 

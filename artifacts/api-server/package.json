@@ -15,7 +15,6 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1025.0",
     "@aws-sdk/s3-request-presigner": "^3.1025.0",
-    "@coinbase/agentkit": "^0.10.4",
     "@coinbase/cdp-sdk": "^1.45.0",
     "@open-wallet-standard/core": "^1.2.0",
     "@replit/connectors-sdk": "^0.3.0",
@@ -34,6 +33,7 @@
     "drizzle-orm": "catalog:",
     "express": "^5",
     "express-rate-limit": "^8.3.1",
+    "fastestsmallesttextencoderdecoder": "^1.0.22",
     "ioredis": "5.9.3",
     "jose": "^6.2.1",
     "js-yaml": "^4.1.1",
@@ -48,7 +48,6 @@
     "tronweb": "^6.0.0",
     "uuid": "^13.0.0",
     "viem": "^2.47.4",
-    "x402": "^1.1.0",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -61,7 +60,6 @@
     "@types/node": "catalog:",
     "@types/supertest": "^7.2.0",
     "@types/swagger-ui-express": "^4.1.8",
-    "@types/uuid": "^11.0.0",
     "esbuild": "^0.27.3",
     "supertest": "^7.2.2",
     "tsx": "catalog:",

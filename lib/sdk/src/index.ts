@@ -23,6 +23,7 @@ export {
   parseUserClaims,
   verifyAgentToken,
   verifyUserToken,
+  createRelyingPartyClient,
   createRelayingPartyClient,
 } from "./modules/auth.js";
 export { OrgModule } from "./modules/org.js";

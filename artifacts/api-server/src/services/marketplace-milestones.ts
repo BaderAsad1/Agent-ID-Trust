@@ -9,6 +9,7 @@ import {
 } from "@workspace/db/schema";
 import { getStripe } from "./stripe-client";
 import { logger } from "../middlewares/request-logger";
+import { MARKETPLACE_FEE_RATE } from "@workspace/shared-pricing";
 
 export interface CreateMilestoneInput {
   title: string;
@@ -179,6 +180,20 @@ export async function releaseMilestoneEscrow(
   if (!order) return { success: false, error: "ORDER_NOT_FOUND" };
   if (order.buyerUserId !== buyerUserId) return { success: false, error: "FORBIDDEN" };
 
+  const sellerAgent = order.agentId
+    ? await db.query.agentsTable.findFirst({
+        where: eq(agentsTable.id, order.agentId),
+        columns: { stripeConnectAccountId: true, stripeConnectStatus: true },
+      })
+    : undefined;
+  if (!sellerAgent?.stripeConnectAccountId || sellerAgent.stripeConnectStatus !== "active") {
+    logger.warn(
+      { milestoneId, orderId: order.id, stripeConnectStatus: sellerAgent?.stripeConnectStatus },
+      "[milestone] Seller payout is not ready; escrow remains unreleased",
+    );
+    return { success: false, error: "SELLER_PAYOUT_NOT_READY" };
+  }
+
   const milestoneAmountCents = Math.round(parseFloat(milestone.amount) * 100);
 
   if (!milestone.stripePaymentIntentId) {
@@ -308,46 +323,36 @@ export async function releaseMilestoneEscrow(
 
   const capturedAmount = (capturedAmountCents / 100).toFixed(2);
 
-  let stripeTransferId: string | null = null;
-  let milestonePayoutStatus: "pending_manual_payout" | "completed" = "pending_manual_payout";
+  let stripeTransferId: string;
+  const milestonePayoutStatus = "completed";
 
-  if (order.agentId) {
-    try {
-      const sellerAgent = await db.query.agentsTable.findFirst({
-        where: eq(agentsTable.id, order.agentId),
-        columns: { stripeConnectAccountId: true, stripeConnectStatus: true },
-      });
-
-      if (sellerAgent?.stripeConnectAccountId && sellerAgent.stripeConnectStatus === "active") {
-        const stripe = getStripe();
-        const platformFeeRate = 0.10;
-        const sellerPayout = Math.round(capturedAmountCents * (1 - platformFeeRate));
-        const transfer = await stripe.transfers.create(
-          {
-            amount: sellerPayout,
-            currency: "usd",
-            destination: sellerAgent.stripeConnectAccountId,
-            metadata: {
-              orderId: order.id,
-              milestoneId,
-              milestoneAmount: capturedAmount,
-            },
-          },
-          { idempotencyKey: transferIdempotencyKey },
-        );
-        stripeTransferId = transfer.id;
-        milestonePayoutStatus = "completed";
-        logger.info(
-          { milestoneId, orderId: order.id, transferId: transfer.id, amount: sellerPayout },
-          "[milestone] Stripe Connect transfer executed for milestone release",
-        );
-      }
-    } catch (payoutErr) {
-      logger.error(
-        { milestoneId, orderId: order.id, error: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) },
-        "[milestone] Stripe Connect transfer failed — payout needs manual processing",
-      );
-    }
+  try {
+    const stripe = getStripe();
+    const sellerPayout = Math.round(capturedAmountCents * (1 - MARKETPLACE_FEE_RATE));
+    const transfer = await stripe.transfers.create(
+      {
+        amount: sellerPayout,
+        currency: "usd",
+        destination: sellerAgent.stripeConnectAccountId,
+        metadata: {
+          orderId: order.id,
+          milestoneId,
+          milestoneAmount: capturedAmount,
+        },
+      },
+      { idempotencyKey: transferIdempotencyKey },
+    );
+    stripeTransferId = transfer.id;
+    logger.info(
+      { milestoneId, orderId: order.id, transferId: transfer.id, amount: sellerPayout },
+      "[milestone] Stripe Connect transfer executed for milestone release",
+    );
+  } catch (payoutErr) {
+    logger.error(
+      { milestoneId, orderId: order.id, error: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) },
+      "[milestone] Stripe Connect transfer failed — pending payout intent remains retryable",
+    );
+    return { success: false, error: "PAYOUT_FAILED_RETRYABLE" };
   }
 
   // ──────────────────────────────────────────────────────────────────────────

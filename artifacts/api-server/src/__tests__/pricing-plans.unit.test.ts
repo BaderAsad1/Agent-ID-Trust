@@ -2,7 +2,16 @@ import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { errorHandler } from '../middlewares/error-handler';
-import { HANDLE_PRICING_TIERS, getHandlePricingTier, isEligibleForIncludedHandle } from '@workspace/shared-pricing';
+import {
+  HANDLE_PRICING_TIERS,
+  HANDLE_AUCTION_DURATION_DAYS,
+  HANDLE_GRACE_PERIOD_DAYS,
+  HANDLE_RENEWAL_REMINDER_DAYS,
+  MARKETPLACE_FEE_BPS,
+  calculateMarketplaceFee,
+  getHandlePricingTier,
+  isEligibleForIncludedHandle,
+} from '@workspace/shared-pricing';
 
 describe('Canonical four-plan pricing model', () => {
   describe('Handle pricing tiers from shared-pricing', () => {
@@ -24,7 +33,7 @@ describe('Canonical four-plan pricing model', () => {
       expect(t.annualPriceCents).toBe(9900);
       expect(t.isFree).toBe(false);
       expect(t.includedWithPaidPlan).toBe(false);
-      expect(t.includesOnChainMint).toBe(true);
+      expect(t.includesOnChainMint).toBe(false);
     });
 
     it('has premium_4 tier at $29/yr, not free, not included with plan', () => {
@@ -34,7 +43,7 @@ describe('Canonical four-plan pricing model', () => {
       expect(t.annualPriceCents).toBe(2900);
       expect(t.isFree).toBe(false);
       expect(t.includedWithPaidPlan).toBe(false);
-      expect(t.includesOnChainMint).toBe(true);
+      expect(t.includesOnChainMint).toBe(false);
     });
 
     it('has standard_5plus tier at $5/yr standalone retail, includedWithPaidPlan=true, isFree=false', () => {
@@ -73,7 +82,7 @@ describe('Canonical four-plan pricing model', () => {
     it('5-char handle → standard_5plus, includedWithPaidPlan=true', () => {
       const t = getHandlePricingTier('abcde');
       expect(t.tier).toBe('standard_5plus');
-      expect(t.annualPriceUsd).toBe(0);
+      expect(t.annualPriceUsd).toBe(5);
       expect(t.includedWithPaidPlan).toBe(true);
       expect(t.isFree).toBe(false);
     });
@@ -118,11 +127,37 @@ describe('Canonical four-plan pricing model', () => {
   });
 });
 
+describe('Canonical marketplace fee', () => {
+  it('uses 250 basis points and preserves the order total', () => {
+    expect(MARKETPLACE_FEE_BPS).toBe(250);
+    expect(calculateMarketplaceFee(100)).toEqual({ platformFee: 2.5, sellerPayout: 97.5 });
+    expect(calculateMarketplaceFee(19.99)).toEqual({ platformFee: 0.5, sellerPayout: 19.49 });
+  });
+
+  it('rejects invalid monetary inputs', () => {
+    expect(() => calculateMarketplaceFee(-1)).toThrow();
+    expect(() => calculateMarketplaceFee(Number.NaN)).toThrow();
+    expect(() => calculateMarketplaceFee(Number.POSITIVE_INFINITY)).toThrow();
+  });
+});
+
+describe('Canonical handle lifecycle timing', () => {
+  it('keeps public policy and workers on the same durations', () => {
+    expect(HANDLE_GRACE_PERIOD_DAYS).toBe(90);
+    expect(HANDLE_RENEWAL_REMINDER_DAYS).toBe(30);
+    expect(HANDLE_AUCTION_DURATION_DAYS).toBe(21);
+  });
+});
+
 describe('Plan limits mapping', () => {
-  it('getPlanLimits: free/none → 0 agents (unsubscribed users have no agent quota)', async () => {
+  it('getPlanLimits: free/none → 1 UUID identity, no public listing', async () => {
     const { getPlanLimits } = await import('../services/billing');
-    expect(getPlanLimits('none').agentLimit).toBe(0);
-    expect(getPlanLimits('free').agentLimit).toBe(0);
+    expect(getPlanLimits('none').agentLimit).toBe(1);
+    expect(getPlanLimits('free').agentLimit).toBe(1);
+    expect(getPlanLimits('free').maxAgents).toBe(1);
+    expect(getPlanLimits('free').maxPublicAgents).toBe(0);
+    expect(getPlanLimits('free').maxPrivateAgents).toBe(1);
+    expect(getPlanLimits('free').canBePublic).toBe(false);
   });
 
   it('getPlanLimits: starter → 5 agents', async () => {
@@ -199,9 +234,9 @@ describe('/billing/plans response contract', () => {
     expect(t.annualPriceUsd).not.toBe(160);
   });
 
-  it('5+ char handle has $0 standalone price (not $10)', () => {
+  it('5+ char handle has the canonical $5 standalone price (not $10)', () => {
     const t = HANDLE_PRICING_TIERS.find(t => t.tier === 'standard_5plus')!;
-    expect(t.annualPriceUsd).toBe(0);
+    expect(t.annualPriceUsd).toBe(5);
     expect(t.annualPriceUsd).not.toBe(10);
   });
 });

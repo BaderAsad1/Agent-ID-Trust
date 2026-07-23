@@ -1,5 +1,9 @@
 # Agent ID — Complete Remediation Super Prompt for Replit
 
+> **Historical remediation input.** This file records older findings and proposed
+> work; it is not a statement of current product behavior. Use
+> `SYSTEM-AUDIT-2026-07-22.md` and the current automated launch gate instead.
+
 > Paste this entire document into Replit AI. It covers every confirmed issue across the repo
 > with file references, root causes, and implementation guidance. Work top-to-bottom: P0
 > first, then P1, then P2. Do not change any issue marked DEFERRED unless you have explicit

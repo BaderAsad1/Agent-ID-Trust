@@ -671,6 +671,18 @@ describe("BR-DUR — Included-handle eligibility gate: explicit error when agent
     expect(block).toMatch(/plans:.*"free"/);
   });
 
+  it("agent creation cannot bypass the paid public-listing entitlement", () => {
+    const fs = require("fs");
+    const path = require("path");
+    const src: string = fs.readFileSync(
+      path.join(__dirname, "../routes/v1/agents.ts"),
+      "utf8",
+    );
+    expect(src).toMatch(/requestedPublicListing[\s\S]{0,500}requirePlanFeature\(req\.userId!,\s*"canBePublic"\)/);
+    expect(src).toMatch(/isPublic:\s*!isSandbox\s*&&\s*requestedPublicListing/);
+    expect(src).toMatch(/isPublic:\s*agent\.isPublic/);
+  });
+
   it("resolve.ts revoked-agent did field does not fall back to did:agentid: as primary value", () => {
     const fs = require("fs");
     const path = require("path");

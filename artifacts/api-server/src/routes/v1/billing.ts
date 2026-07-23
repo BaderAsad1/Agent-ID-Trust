@@ -89,7 +89,7 @@ router.get("/plans", (req, res) => {
   }));
 
   res.json({
-    launchMode: e.LAUNCH_MODE === "true",
+    launchMode: false,
     plans: ["free", "starter", "pro", "enterprise"],
     planDetails: PLAN_DETAILS.map(p => ({
       ...p,
@@ -119,7 +119,7 @@ router.get("/subscription", requireAuth, async (req, res, next) => {
             providerSubscriptionId: activeSub.providerSubscriptionId,
           }
         : null,
-      launchMode: process.env.LAUNCH_MODE === "true",
+      launchMode: false,
     });
   } catch (err) {
     next(err);

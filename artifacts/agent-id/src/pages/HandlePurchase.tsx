@@ -20,7 +20,7 @@ interface HandleTier {
 const HANDLE_TIERS: HandleTier[] = [
   { tier: 'premium_3', label: '3-Character Handles', price: '$99/yr', priceNote: 'Ultra-premium short handle', example: 'kai', color: '#f59e0b', badge: 'Premium', minLen: 3, maxLen: 3, includedWithPaidPlan: false },
   { tier: 'premium_4', label: '4-Character Handles', price: '$29/yr', priceNote: 'Premium short handle', example: 'nova', color: '#8b5cf6', badge: 'Standard', minLen: 4, maxLen: 4, includedWithPaidPlan: false },
-  { tier: 'standard_5plus', label: '5+ Character Handles', price: 'Included', priceNote: 'Included with Starter or Pro; Enterprise is custom', example: 'marvin', color: '#10b981', badge: 'Basic', minLen: 5, maxLen: Infinity, includedWithPaidPlan: true },
+  { tier: 'standard_5plus', label: '5+ Character Handles', price: '$5/yr', priceNote: 'First included with Starter or Pro; $5/yr for Free or additional handles', example: 'marvin', color: '#10b981', badge: 'Basic', minLen: 5, maxLen: Infinity, includedWithPaidPlan: true },
 ];
 
 function getTierByHandle(handle: string): HandleTier | null {
@@ -177,7 +177,7 @@ export function HandlePurchase() {
   const handleLen = handle.replace(/[^a-z0-9-]/g, '').length;
   const isReserved = handleLen > 0 && handleLen <= 2;
   const tierInfo: HandleTier | null = (checkResult?.tier ? getTierByKey(checkResult.tier) : null) ?? getTierByHandle(handle);
-  const isIncludedHandle = tierInfo?.includedWithPaidPlan ?? false;
+  const isStandardHandle = tierInfo?.includedWithPaidPlan ?? false;
 
   const inputBorderColor = handle.length < 3
     ? 'var(--border-color, rgba(255,255,255,0.15))'
@@ -211,7 +211,7 @@ export function HandlePurchase() {
         Claim Your Handle
       </h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 40, fontSize: 16 }}>
-        5+ character handles are included with Starter or Pro plans. Enterprise handle access is provisioned via custom entitlement. Premium short handles (3–4 chars) are priced by scarcity.
+        Standard 5+ character handles cost $5/year for Free users and additional handles; the first is included with Starter or Pro. Enterprise access is provisioned by contract.
       </p>
 
       <div style={{
@@ -294,7 +294,7 @@ export function HandlePurchase() {
                         }}>{tierInfo.badge}</span>
                       )}
                       <span style={{ color: '#10b981', fontWeight: 600 }}>
-                        {isIncludedHandle ? 'Available  -  Included with plan' : 'Available'}
+                        {isStandardHandle ? 'Available  -  $5/yr or included with plan' : 'Available'}
                       </span>
                     </div>
                     <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', marginTop: 8 }}>
@@ -306,15 +306,15 @@ export function HandlePurchase() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 28, fontWeight: 700, color: tierInfo?.color ?? '#10b981' }}>
-                      {isIncludedHandle ? 'Included' : (tierInfo?.price ?? `$${checkResult.annualUsd}/yr`)}
+                      {tierInfo?.price ?? `$${checkResult.annualUsd}/yr`}
                     </div>
-                    {!isIncludedHandle && (
-                      <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>billed annually</div>
-                    )}
+                    <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                      {isStandardHandle ? 'first included with Starter/Pro' : 'billed annually'}
+                    </div>
                   </div>
                 </div>
 
-                {isIncludedHandle ? (
+                {isStandardHandle ? (
                   <div>
                     <input
                       type="text"
@@ -349,7 +349,7 @@ export function HandlePurchase() {
                         fontSize: 16,
                       }}
                     >
-                      {purchasing ? 'Registering…' : `Register @${handle.toLowerCase()}  -  Included with plan`}
+                      {purchasing ? 'Checking entitlement…' : `Claim or buy @${handle.toLowerCase()}  -  $5/yr`}
                     </button>
                   </div>
                 ) : (
@@ -462,10 +462,10 @@ export function HandlePurchase() {
           {[
             'Your agent UUID is permanent and free  -  it never expires',
             'Handles are optional aliases on top of your UUID identity',
-            '5+ character handles are included with Starter or Pro plans; Enterprise is provisioned via custom entitlement',
+            '5+ character handles are $5/year for Free or additional handles; the first is included with Starter or Pro',
             '3–4 character handles are premium short handles priced by scarcity',
             'Paid handles expire annually  -  renew to keep your handle alias',
-            'On-chain anchoring to Base is free - claim your handle on-chain once you connect a wallet',
+            'Mainnet anchoring is not included in the launch release; your handle resolves through Agent ID immediately',
           ].map((item, i) => (
             <li key={i} style={{ display: 'flex', gap: 10, color: 'var(--text-muted)', fontSize: 14 }}>
               <span style={{ color: '#6366f1', fontWeight: 700, flexShrink: 0 }}>→</span>

@@ -276,10 +276,13 @@ describe("Payment Webhooks — Idempotency (real DB: claimWebhookEvent persisten
 });
 
 describe("Payment Webhooks — getPlanLimits plan ordering", () => {
-  it("plan 'none' has zero agent limit", async () => {
+  it("plan 'none' permits one private UUID identity but no public listing", async () => {
     const { getPlanLimits } = await import("../services/billing");
     const limits = getPlanLimits("none");
-    expect(limits.agentLimit).toBeLessThanOrEqual(0);
+    expect(limits.agentLimit).toBe(1);
+    expect(limits.maxPrivateAgents).toBe(1);
+    expect(limits.maxPublicAgents).toBe(0);
+    expect(limits.canBePublic).toBe(false);
   });
 
   it("plan 'starter' has positive agent limit", async () => {
@@ -639,7 +642,7 @@ describe("Payment Webhooks — end-to-end Stripe signature: valid signed events 
   });
 });
 
-describe("Marketplace orders — disabled (501)", () => {
+describe("Marketplace orders — controlled-beta launch gate", () => {
   async function buildMarketplaceApp() {
     const marketplaceMod = await import("../routes/v1/marketplace");
     const { errorHandler } = await import("../middlewares/error-handler");
@@ -655,14 +658,14 @@ describe("Marketplace orders — disabled (501)", () => {
     return app;
   }
 
-  it("POST /marketplace/orders returns 501 marketplace_payments_unavailable", async () => {
+  it("POST /marketplace/orders fails closed while marketplace commerce is disabled", async () => {
     const app = await buildMarketplaceApp();
     const res = await request(app)
       .post("/marketplace/orders")
       .send({ listingId: "00000000-0000-0000-0000-000000000001" });
 
-    expect(res.status).toBe(501);
-    expect(res.body.error).toBe("marketplace_payments_unavailable");
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe("MARKETPLACE_COMMERCE_DISABLED");
   });
 });
 

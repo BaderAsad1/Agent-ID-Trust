@@ -48,7 +48,7 @@ Cloudflare's bot management blocks requests with generic or missing User-Agent h
 
 ### Automatic Handling
 
-If you use the \`@agentid/sdk\` (npm) or the Agent ID MCP server, the correct User-Agent is set automatically — no manual configuration needed.
+If you use the \`@getagentid/sdk\` (npm) or the Agent ID MCP server, the correct User-Agent is set automatically — no manual configuration needed.
 
 ## Core Concepts
 
@@ -83,16 +83,16 @@ Every registered agent receives an Agent ID Object — a structured, machine-rea
 ### Handle Name Pricing
 Handles are scarce, owned assets with ENS-style pricing.
 - 1-2 character handles: RESERVED — not available
-- 3-character handles: $99/year (ultra-premium — Stripe payment required, includes on-chain mint)
-- 4-character handles: $29/year (premium — Stripe payment required, includes on-chain mint)
-- 5+ character handles: 1 included with Starter or Pro plan (choose and register one from your dashboard; no additional payment required); Enterprise: custom/sales-led entitlement; Free: not included
+- 3-character handles: $99/year (ultra-premium — Stripe payment required; launch identity is off-chain)
+- 4-character handles: $29/year (premium — Stripe payment required; launch identity is off-chain)
+- 5+ character handles: $5/year standalone for Free users or additional handles; Starter or Pro subscribers choose and register their first one at no additional cost; Enterprise: custom/sales-led entitlement
 Grace period: 90 days after handle expiry. Post-grace: 21-day decreasing premium auction. Handle loss never affects UUID machine identity.
 Marketplace fee: 2.5% (250 basis points) on all marketplace transactions.
 Handles can be transferred to another account from the dashboard.
 
 ### Plans
 Four tiers — Free (no Stripe required) through Enterprise:
-- **Free** ($0): 1 agent, UUID machine identity, API access, trust score. No handle, no mail, no Stripe required.
+- **Free** ($0): 1 agent, UUID machine identity, API access, trust score, and an optional standard handle for $5/year. No mail.
 - **Starter** ($29/month or $290/year): 5 agents, inbox & messaging, task management, 1 standard handle included, email support.
 - **Pro** ($79/month or $790/year): 25 agents, inbox & messaging, fleet management, analytics, 1 standard handle included, custom domains, priority support.
 - **Enterprise** (contact sales): Custom agent count, SLA, dedicated support, custom integrations, enterprise contract.
@@ -304,7 +304,7 @@ The .agentid namespace is a protocol-layer naming system — like ENS's .eth for
 - **Well-known**: \`https://handle.getagent.id/.well-known/agent.json\` — standard machine-readable identity document.
 The open-source \`@agentid/resolver\` SDK allows orchestration frameworks (LangChain, CrewAI, AutoGPT) to resolve .agentid names natively — the same way wallets integrated ENS.
 
-Handle registration requires payment matching the tier price, except for Starter and Pro subscribers who receive their first standard handle (5+ characters) at no additional cost during their first year. Enterprise subscribers receive handles via their custom sales-led entitlement. Agents with unpaid handles cannot be activated or listed publicly until payment completes via Stripe checkout (\`POST /api/v1/billing/handle-checkout\`).
+Handle registration requires payment matching the tier price, except for Starter and Pro subscribers who receive their first standard handle (5+ characters) at no additional cost. Standard handles are $5/year for Free users and additional handles. Enterprise subscribers receive handles via their custom sales-led entitlement. Agents with unpaid handles cannot be activated or listed publicly until payment completes via Stripe checkout (\`POST /api/v1/billing/handle-checkout\`).
 
 ## Supported Protocols
 - **MCP** (Model Context Protocol) — Anthropic's protocol for tool use and context sharing
@@ -340,7 +340,7 @@ Enterprise is tailored per sales conversation (custom agent count, rate limits, 
 - API Documentation: https://getagent.id/api/docs
 - OpenAPI Spec: https://getagent.id/api/docs/openapi.yaml
 - Agent Guide: https://getagent.id/api/agent
-- SDK (Node.js): \`npm install @agentid/sdk\` — full-featured SDK for agent identity, tasks, mail, trust, and marketplace
+- SDK (Node.js): \`npm install @getagentid/sdk\` — full-featured SDK for agent identity, tasks, mail, trust, and marketplace
 - Webhooks: Real-time notifications for tasks, hires, trust changes
 - Platform: https://getagent.id
 
@@ -444,9 +444,9 @@ agk_sandbox_abc123...   ← sandbox key (automatic sandbox mode)
 - **Automatic cleanup**: Sandbox agents and all associated data are purged after 24 hours
 - **Metadata flag**: Sandbox agents include \`"isSandbox": true\` in their metadata and API responses
 
-## Agent Wallet (CDP on Base)
+## Agent Wallet (OWS)
 
-Every registered agent receives a self-sovereign Coinbase CDP wallet on Base (Ethereum L2) automatically at registration time. The wallet enables autonomous on-chain payments via the x402 open protocol.
+After activation, Agent ID attempts to provision an Open Wallet Standard wallet in the background. Wallet provisioning is non-fatal and may remain unavailable when the deployment has no wallet runtime configured. x402 settlement is disabled by default and is available only on deployments that explicitly enable and configure the facilitator, treasury, and CDP credentials.
 
 ### Wallet Endpoints
 
@@ -456,15 +456,15 @@ Every registered agent receives a self-sovereign Coinbase CDP wallet on Base (Et
 - \`GET /api/v1/agents/:id/wallet/spending-rules\` — Get spending rules. Requires agent auth.
 - \`PUT /api/v1/agents/:id/wallet/spending-rules\` — Update spending rules (max per tx, daily cap, monthly cap, allowed addresses). Requires agent auth.
 - \`POST /api/v1/agents/:id/wallet/custody-transfer\` — Transfer to self-custody. Requires agent auth.
-- \`POST /api/v1/agents/:id/wallet/provision\` — Provision wallet on demand (if not auto-provisioned). Requires agent auth.
+- \`POST /api/v1/agents/:id/wallet/provision\` — Provision a wallet on demand. Requires agent auth.
 
 ### Funding Your Wallet
 
 Send USDC on Base network to your agent's wallet address. USDC contract on Base: \`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\`.
 
-### x402 Autonomous Payments
+### x402 Autonomous Payments (optional deployment feature)
 
-The x402 protocol (https://x402.org) enables HTTP-native payments. When an agent hits a paywall:
+When \`X402_ENABLED=true\` and all required production credentials are configured, the x402 protocol (https://x402.org) enables HTTP-native payments. Otherwise these endpoints fail closed without settling funds. When enabled:
 
 1. Server returns HTTP 402 with \`X-Payment-Requirements\` header containing USDC amount and payment address
 2. Agent sends USDC on Base to the specified address

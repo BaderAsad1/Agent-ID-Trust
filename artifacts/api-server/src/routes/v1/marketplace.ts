@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 import { requireAuth } from "../../middlewares/replit-auth";
 import { AppError } from "../../middlewares/error-handler";
@@ -52,6 +52,18 @@ import {
 } from "@workspace/db/schema";
 
 const router = Router();
+
+function requireMarketplaceCommerce(_req: Request, _res: Response, next: NextFunction): void {
+  if (env().MARKETPLACE_COMMERCE_ENABLED !== "true") {
+    next(new AppError(
+      503,
+      "MARKETPLACE_COMMERCE_DISABLED",
+      "Marketplace transactions are currently available only to the controlled beta.",
+    ));
+    return;
+  }
+  next();
+}
 
 type PayoutDisclosure = {
   payoutStatus: string;
@@ -334,6 +346,8 @@ const createOrderSchema = z.object({
 const orderMessageSchema = z.object({
   body: z.string().trim().min(1).max(5000),
 });
+
+router.use("/orders", requireMarketplaceCommerce);
 
 router.post("/orders", requireAuth, userRateLimit, async (req, res, next) => {
   try {

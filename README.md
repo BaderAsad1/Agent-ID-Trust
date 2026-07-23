@@ -18,6 +18,9 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 | Variable | Description |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string for distributed rate limits and workers |
+| `ALLOWED_ORIGINS` | Comma-separated exact HTTP(S) origins; wildcards are rejected |
+| `TRUST_PROXY` | Explicit proxy topology (`"1"` behind one proxy or `"false"` without one) |
 | `WEBHOOK_SECRET_KEY` | 32-byte hex key for AES-256-GCM encryption of webhook secrets at rest |
 | `ACTIVITY_HMAC_SECRET` | HMAC key for signing activity log entries |
 | `CLAIM_TOKEN_SECRET` | Secret for HMAC-signed programmatic claim tokens |
@@ -27,7 +30,21 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 | `VC_SIGNING_KEY` | Ed25519 private key (JWK JSON) for W3C VC issuance |
 | `VC_PUBLIC_KEY` | Ed25519 public key (JWK JSON) for W3C VC verification |
 | `ADMIN_SECRET_KEY` | High-entropy admin secret (≥32 chars) used by `/api/v1/admin/*` routes |
+| `ADMIN_ALLOWED_IPS` | Comma-separated source IP allowlist for admin routes |
+| `STRIPE_SECRET_KEY` | Stripe live secret key |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe live publishable key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (`whsec_...`); without it, forged webhook events would be accepted |
+| `STRIPE_PRICE_STARTER_MONTHLY` | Stripe Price ID for Starter monthly |
+| `STRIPE_PRICE_STARTER_YEARLY` | Stripe Price ID for Starter yearly |
+| `STRIPE_PRICE_PRO_MONTHLY` | Stripe Price ID for Pro monthly |
+| `STRIPE_PRICE_PRO_YEARLY` | Stripe Price ID for Pro yearly |
+| `STRIPE_PRICE_HANDLE_STANDARD` | Stripe Price ID for 5+ character handles |
+| `STRIPE_PRICE_HANDLE_PREMIUM` | Stripe Price ID for 4-character handles |
+| `STRIPE_PRICE_HANDLE_ELITE` | Stripe Price ID for 3-character handles |
+| `RESEND_API_KEY` | Resend API key for authentication and product email |
+| `RESEND_WEBHOOK_SECRET` | Resend/Svix webhook verification secret |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare token for handle subdomain provisioning |
+| `CLOUDFLARE_ZONE_ID` | Cloudflare zone containing `getagent.id` |
 
 ### Authentication Providers
 
@@ -49,7 +66,7 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 | `STRIPE_PRICE_STARTER_YEARLY` | Stripe Price ID for Starter yearly plan ($290/yr) |
 | `STRIPE_PRICE_PRO_MONTHLY` | Stripe Price ID for Pro monthly plan ($79/mo) |
 | `STRIPE_PRICE_PRO_YEARLY` | Stripe Price ID for Pro yearly plan ($790/yr) |
-| `STRIPE_PRICE_HANDLE_STANDARD` | Stripe Price ID for standard handle purchase/renewal (5+ chars, $0 — included with Starter/Pro; Enterprise is custom) |
+| `STRIPE_PRICE_HANDLE_STANDARD` | Stripe Price ID for standard handle purchase/renewal (5+ chars, $5/yr standalone; first included with Starter/Pro) |
 | `STRIPE_PRICE_HANDLE_PREMIUM` | Stripe Price ID for premium handle purchase/renewal (4 chars, $29/yr) |
 | `STRIPE_PRICE_HANDLE_ELITE` | Stripe Price ID for elite handle purchase/renewal (3 chars, $99/yr) |
 
@@ -59,9 +76,9 @@ Copy `.env.example` (or set the following variables) before starting the API ser
 - **Pro** ($79/mo): 25 agents, 1 standard handle automatically included, all Starter features + advanced routing and analytics
 - **Enterprise** (custom): unlimited agents, all Pro features + SLA support
 
-**Handle pricing:** 1-2 chars reserved · 3 chars $99/yr (elite) · 4 chars $29/yr (premium) · 5+ chars included with Starter/Pro (Enterprise via custom entitlement; no separate purchase needed for eligible plans)
+**Handle pricing:** 1-2 chars reserved · 3 chars $99/yr (elite) · 4 chars $29/yr (premium) · 5+ chars $5/yr standalone, with the first included on Starter/Pro (Enterprise via custom entitlement)
 
-> **Note:** Starter and Pro plan subscribers receive one standard handle (5+ chars) included with their subscription at no extra cost — no separate handle checkout is required for 5+ char handles.
+> **Note:** Starter and Pro subscribers receive their first standard handle (5+ chars) at no extra cost. Free users and additional handles use the $5/year Stripe price.
 
 **Handle registrar:** Base chain (`BASE_AGENTID_REGISTRAR`) is the sole active registrar. Registrar availability checks run on read config (`BASE_RPC_URL` + `BASE_AGENTID_REGISTRAR`) and do not require write keys.
 
@@ -96,7 +113,7 @@ Set `ONCHAIN_MINTING_ENABLED=true` to enable on-chain handle registration.
 
 | Variable | Description |
 |---|---|
-| `REDIS_URL` | Redis connection string (optional; used for rate-limiting and caching) |
+| `REDIS_URL` | Redis connection string (required in production for distributed rate limits and workers) |
 | `DISABLED_BULLMQ_WORKERS` | Comma-separated list of BullMQ workers to disable at startup when the Redis provider's max-clients cap is too low. Each disabled worker frees ~3 sockets. Valid names: `domain-provisioning`, `webhook-delivery`, `email-delivery`, `outbound-mail`, `agent-expiry`, `handle-lifecycle`. Disabled workers' queued jobs will not run. |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare API token for DNS automation |
 | `CLOUDFLARE_ZONE_ID` | Cloudflare zone ID for `getagent.id` |

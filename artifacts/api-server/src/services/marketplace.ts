@@ -8,6 +8,7 @@ import {
 import { logActivity } from "./activity-logger";
 import { requirePlanFeature } from "./billing";
 import { agentOwnerWhere } from "./agents";
+import { calculateMarketplaceFee } from "@workspace/shared-pricing";
 
 export interface ListingPackage {
   name: string;
@@ -59,15 +60,11 @@ export interface ListingFilters {
   listingMode?: string;
 }
 
-const PLATFORM_FEE_RATE = 0.10;
-
 export function calculatePlatformFee(amount: number): {
   platformFee: number;
   sellerPayout: number;
 } {
-  const platformFee = Math.round(amount * PLATFORM_FEE_RATE * 100) / 100;
-  const sellerPayout = Math.round((amount - platformFee) * 100) / 100;
-  return { platformFee, sellerPayout };
+  return calculateMarketplaceFee(amount);
 }
 
 async function checkListingEligibility(
@@ -82,6 +79,9 @@ async function checkListingEligibility(
   if (!agent) return { eligible: false, reason: "AGENT_NOT_FOUND" };
   if (agent.status !== "active") return { eligible: false, reason: "AGENT_NOT_ACTIVE" };
   if (agent.verificationStatus !== "verified") return { eligible: false, reason: "AGENT_NOT_VERIFIED" };
+  if (!agent.stripeConnectAccountId || agent.stripeConnectStatus !== "active") {
+    return { eligible: false, reason: "STRIPE_CONNECT_REQUIRED" };
+  }
 
   const planCheck = await requirePlanFeature(userId, "canListOnMarketplace");
   if (!planCheck.allowed) {

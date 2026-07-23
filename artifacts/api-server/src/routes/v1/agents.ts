@@ -124,21 +124,19 @@ const safeCapabilityItem = z.string().max(100).refine(
 );
 
 const createAgentSchema = z.object({
-  handle: z.string().min(3).max(32),
-  displayName: z.string().min(1).max(255),
-  description: z.string().max(5000).optional(),
-  endpointUrl: z.url().optional(),
-  capabilities: z.array(z.string()).max(50).optional(),
-  scopes: z.array(z.string()).max(50).optional(),
-  protocols: z.array(z.string()).max(20).optional(),
-  authMethods: z.array(z.string()).max(10).optional(),
-  paymentMethods: z.array(z.string()).max(10).optional(),
+  handle: z.string().min(3).max(32).optional(),
+  displayName: safeTextField(255).refine((v) => v.trim().length > 0, { message: "displayName must not be blank" }),
+  description: safeTextField(5000).optional(),
+  endpointUrl: safeEndpointUrl.optional(),
+  capabilities: z.array(safeCapabilityItem).max(50).optional(),
+  scopes: z.array(z.string().max(100)).max(50).optional(),
+  protocols: z.array(z.string().max(100)).max(20).optional(),
+  authMethods: z.array(z.string().max(100)).max(10).optional(),
+  paymentMethods: z.array(z.string().max(100)).max(10).optional(),
   isPublic: z.boolean().optional(),
   metadata: safeMetadata,
-  // Wizard-selected plan before the user has an active subscription. Used to determine
-  // whether a standard handle should be held as "awaiting_plan_subscription" (will be
-  // assigned free once the Starter/Pro subscription is confirmed) vs "awaiting_payment"
-  // (requires a separate $5/yr handle checkout on the free plan).
+  // Wizard-selected plan is advisory UX metadata only. Authorization and entitlement
+  // decisions always use the server-side active subscription.
   intendedPlan: z.enum(["free", "starter", "pro"]).optional(),
 });
 
@@ -167,6 +165,18 @@ router.post("/", requireAuth, async (req, res, next) => {
 
     const { handle } = parsed.data;
     const isSandbox = req.isSandbox === true;
+    const requestedPublicListing = parsed.data.isPublic === true;
+
+    if (!isSandbox && requestedPublicListing) {
+      const eligibility = await requirePlanFeature(req.userId!, "canBePublic");
+      if (!eligibility.allowed) {
+        throw new AppError(
+          403,
+          "PLAN_REQUIRED",
+          `Public listing requires the ${eligibility.requiredPlan} plan or higher. Current plan: ${eligibility.currentPlan}`,
+        );
+      }
+    }
 
     // Declared at outer scope so the compensation catch block can release it if
     // agent creation fails after an atomic benefit claim succeeds.
@@ -311,6 +321,9 @@ router.post("/", requireAuth, async (req, res, next) => {
       agent = await createAgent({
         userId: req.userId!,
         ...parsed.data,
+        // Sandbox identities are never globally visible. Non-sandbox public
+        // visibility is authorized above against the server-side subscription.
+        isPublic: !isSandbox && requestedPublicListing,
         handle: sandboxHandle ?? null,
         _skipHandleValidation: isSandbox,
         metadata: {
@@ -328,15 +341,12 @@ router.post("/", requireAuth, async (req, res, next) => {
           } : {}),
           // When handle assignment is deferred, write a flag so bootstrap /activate knows to
           // hold the registration email until the handle is fully resolved.
-          // "awaiting_plan_subscription" — user chose Starter/Pro in the wizard but hasn't
-          //   subscribed yet; handle will be assigned free once subscription is confirmed.
-          // "awaiting_payment"           — free plan user; requires explicit $5/yr checkout.
+          // Standard handles require a Starter/Pro subscription. Premium handles require
+          // a paid plan plus their separately-priced checkout.
           ...(pendingHandleCheckout ? {
             pendingHandleRegistration: {
               handle: normalizedHandle!,
-              status: (isStandardHandle && (parsed.data.intendedPlan === "starter" || parsed.data.intendedPlan === "pro"))
-                ? "awaiting_plan_subscription"
-                : "awaiting_payment",
+              status: isStandardHandle ? "awaiting_plan_subscription" : "awaiting_payment",
             },
           } : {}),
         },
@@ -450,7 +460,7 @@ router.post("/", requireAuth, async (req, res, next) => {
         agentId: agent.id,
         eventType: "agent.created",
         payload: { handle: agent.handle ?? null },
-        isPublic: true,
+        isPublic: agent.isPublic,
       });
     } catch {}
 
@@ -490,7 +500,7 @@ router.post("/", requireAuth, async (req, res, next) => {
           includedWithPaidPlan: isStandardHandle,
           onChainMintPrice: 0,
           onChainMintPriceDollars: 0,
-          includesOnChainMint: true,
+          includesOnChainMint: false,
         },
       } : {}),
       // pendingHandle signals the frontend to initiate handle checkout via POST /billing/handle-checkout.
@@ -561,10 +571,10 @@ router.put("/:agentId", requireAuth, validateUuidParam("agentId"), async (req, r
     }
 
     if (parsed.data.isPublic === true) {
-      const eligibility = await requirePlanFeature(req.userId!, "canListOnMarketplace");
+      const eligibility = await requirePlanFeature(req.userId!, "canBePublic");
       if (!eligibility.allowed) {
         throw new AppError(403, "PLAN_REQUIRED",
-          `Marketplace listing requires the ${eligibility.requiredPlan} plan or higher. Current plan: ${eligibility.currentPlan}`);
+          `Public listing requires the ${eligibility.requiredPlan} plan or higher. Current plan: ${eligibility.currentPlan}`);
       }
     }
 

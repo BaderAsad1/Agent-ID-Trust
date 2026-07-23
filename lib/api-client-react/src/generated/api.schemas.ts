@@ -1521,6 +1521,7 @@ export interface AgentIDConfiguration {
   resolutionEndpoint?: string;
   erc8004Endpoint?: string;
   wellKnownPath?: string;
+  wellKnownTemplate?: string;
   baseDomain: string;
   documentation?: string;
   sdkPackage?: string;
@@ -1564,6 +1565,11 @@ export interface Organization {
 }
 
 /**
+ * Invalid request
+ */
+export type BadRequestResponse = ApiError;
+
+/**
  * Not authenticated
  */
 export type UnauthorizedResponse = ApiError;
@@ -1572,11 +1578,6 @@ export type UnauthorizedResponse = ApiError;
  * Resource not found
  */
 export type NotFoundResponse = ApiError;
-
-/**
- * Bad request
- */
-export type BadRequestResponse = ApiError;
 
 /**
  * Forbidden

@@ -195,30 +195,31 @@ export class AgentResolver {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-        const response = await fetch(url, {
-          ...init,
-          signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            ...(init?.headers || {}),
-          },
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          throw new AgentResolverError({
-            code: body.code || "UNKNOWN",
-            message: body.error || body.message || `HTTP ${response.status}`,
-            status: response.status,
-            data: body.details,
+        try {
+          const response = await fetch(url, {
+            ...init,
+            signal: controller.signal,
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              ...(init?.headers || {}),
+            },
           });
-        }
 
-        return await response.json() as T;
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new AgentResolverError({
+              code: body.code || body.error || "UNKNOWN",
+              message: body.message || body.error || `HTTP ${response.status}`,
+              status: response.status,
+              data: body.details,
+            });
+          }
+
+          return await response.json() as T;
+        } finally {
+          clearTimeout(timeoutId);
+        }
       } catch (err) {
         if (err instanceof AgentResolverError) {
           if (attempt < this.retries && [429, 502, 503, 504].includes(err.status)) {

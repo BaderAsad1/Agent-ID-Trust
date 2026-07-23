@@ -3934,7 +3934,7 @@ export const useConfirmMarketplaceOrder = <
 };
 
 /**
- * @summary Complete order
+ * @summary Buyer accepts delivered work and releases payout
  */
 export const getCompleteMarketplaceOrderUrl = (orderId: string) => {
   return `/api/v1/marketplace/orders/${orderId}/complete`;
@@ -3948,7 +3948,7 @@ export const completeMarketplaceOrder = async (
     getCompleteMarketplaceOrderUrl(orderId),
     {
       ...options,
-      method: "PATCH",
+      method: "POST",
     },
   );
 };
@@ -3998,7 +3998,7 @@ export type CompleteMarketplaceOrderMutationResult = NonNullable<
 export type CompleteMarketplaceOrderMutationError = ErrorType<unknown>;
 
 /**
- * @summary Complete order
+ * @summary Buyer accepts delivered work and releases payout
  */
 export const useCompleteMarketplaceOrder = <
   TError = ErrorType<unknown>,
@@ -4018,6 +4018,90 @@ export const useCompleteMarketplaceOrder = <
   TContext
 > => {
   return useMutation(getCompleteMarketplaceOrderMutationOptions(options));
+};
+
+/**
+ * @summary Seller submits completed work for buyer acceptance
+ */
+export const getDeliverMarketplaceOrderUrl = (orderId: string) => {
+  return `/api/v1/marketplace/orders/${orderId}/deliver`;
+};
+
+export const deliverMarketplaceOrder = async (
+  orderId: string,
+  options?: RequestInit,
+): Promise<MarketplaceOrder> => {
+  return customFetch<MarketplaceOrder>(getDeliverMarketplaceOrderUrl(orderId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDeliverMarketplaceOrderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deliverMarketplaceOrder>>,
+    TError,
+    { orderId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deliverMarketplaceOrder>>,
+  TError,
+  { orderId: string },
+  TContext
+> => {
+  const mutationKey = ["deliverMarketplaceOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deliverMarketplaceOrder>>,
+    { orderId: string }
+  > = (props) => {
+    const { orderId } = props ?? {};
+
+    return deliverMarketplaceOrder(orderId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeliverMarketplaceOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deliverMarketplaceOrder>>
+>;
+
+export type DeliverMarketplaceOrderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Seller submits completed work for buyer acceptance
+ */
+export const useDeliverMarketplaceOrder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deliverMarketplaceOrder>>,
+    TError,
+    { orderId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deliverMarketplaceOrder>>,
+  TError,
+  { orderId: string },
+  TContext
+> => {
+  return useMutation(getDeliverMarketplaceOrderMutationOptions(options));
 };
 
 /**

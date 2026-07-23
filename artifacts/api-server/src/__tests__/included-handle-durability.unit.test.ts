@@ -43,7 +43,9 @@ function resetDbMock() {
       _selectIdx++;
       return Promise.resolve(val).then(resolve);
     },
+    orderBy: vi.fn(),
   };
+  chain.orderBy.mockReturnValue(chain);
   const whereChain = {
     where: vi.fn().mockReturnValue(chain),
     // No-where queries also need to resolve
@@ -130,6 +132,7 @@ vi.mock("drizzle-orm", () => ({
   desc: vi.fn((a: unknown) => ({ op: "desc", a })),
   ne: vi.fn((a: unknown, b: unknown) => ({ op: "ne", a, b })),
   gte: vi.fn((a: unknown, b: unknown) => ({ op: "gte", a, b })),
+  gt: vi.fn((a: unknown, b: unknown) => ({ op: "gt", a, b })),
   sql: vi.fn(() => ({})),
   lt: vi.fn((a: unknown, b: unknown) => ({ op: "lt", a, b })),
 }));

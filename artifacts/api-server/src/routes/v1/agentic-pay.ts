@@ -47,6 +47,14 @@ router.post("/upgrade", requireAgentAuth, async (req, res, next) => {
     const agentId = req.authenticatedAgent!.id;
     const { plan, paymentMethod, billingInterval, usdcTxHash } = parsed.data;
 
+    if (paymentMethod !== "card") {
+      throw new AppError(
+        501,
+        "PLAN_PAYMENT_METHOD_DISABLED",
+        "One-time card and raw USDC plan upgrades are disabled. Use recurring Stripe Checkout.",
+      );
+    }
+
     const result = await processAgentUpgrade(agentId, plan, paymentMethod, billingInterval, usdcTxHash);
 
     if (result.success) {

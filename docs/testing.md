@@ -13,16 +13,14 @@ The API server uses [Vitest](https://vitest.dev) with three tiered test projects
 ## Running Tests
 
 ```bash
-# From the workspace root
-cd artifacts/api-server
-
-# All suites
+# From the workspace root: every package with tests
 pnpm test
 
-# Individual suites
-pnpm test:unit
-pnpm test:integration
-pnpm test:security
+# Individual launch gates
+pnpm run test:unit
+pnpm run test:integration
+pnpm run test:security
+pnpm run test:frontend
 ```
 
 ## Test Files
@@ -46,13 +44,7 @@ pnpm test:security
 
 ## CI Jobs
 
-The GitHub Actions workflow (`.github/workflows/test.yml`) runs three jobs:
-
-1. **`unit`** — runs on every push/PR, no DB required, fastest feedback
-2. **`integration`** — runs after `unit` passes, requires Postgres service
-3. **`security`** — runs after `unit` passes, requires Postgres service and `STRIPE_WEBHOOK_SECRET` secret
-
-Integration and security jobs both block PR merges when they fail.
+The GitHub Actions workflow (`.github/workflows/test.yml`) runs one fail-fast `verify` job with PostgreSQL and Redis services. It performs a frozen install, applies the committed SQL migrations to an empty database, then runs typecheck, API unit/integration/security suites, frontend and SDK tests, and the production release build. Configure `verify` as a required branch-protection check on `master`.
 
 ## Environment Requirements
 
@@ -62,4 +54,4 @@ For integration and security tests, a PostgreSQL database must be available. Set
 DATABASE_URL=postgres://user:pass@localhost:5432/dbname
 ```
 
-The test database must have all migrations applied. Run `pnpm push` in the `@workspace/db` package to sync the schema before running integration tests.
+The test database must have the current schema. Run `pnpm --filter @workspace/db push-force` only against a disposable local/CI database before integration tests.

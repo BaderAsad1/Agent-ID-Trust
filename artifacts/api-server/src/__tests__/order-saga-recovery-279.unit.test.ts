@@ -359,7 +359,7 @@ describe("Task #279: orders saga crash-recovery", () => {
     // No pending payout_ledger row → fully-finalized prior completion.
 
     const { completeOrder } = await import("../services/orders");
-    const result = await completeOrder(orderId, "user_seller");
+    const result = await completeOrder(orderId, "user_buyer");
 
     // The early status guard previously rejected this with INVALID_STATUS.
     // After the recovery fix, it must return idempotent success.

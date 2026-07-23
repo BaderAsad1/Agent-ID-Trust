@@ -52,6 +52,11 @@ function getRequestorIp(req: Request): string {
   return req.ip ?? req.socket?.remoteAddress ?? "unknown";
 }
 
+function isLoopbackIp(ip: string): boolean {
+  const normalized = ip.toLowerCase().replace(/^::ffff:/, "");
+  return normalized === "::1" || normalized === "localhost" || normalized.startsWith("127.");
+}
+
 function adminAuditMeta(req: Request, extra: Record<string, unknown> = {}): Record<string, unknown> {
   const forwarded = req.headers["x-forwarded-for"];
   return {
@@ -128,8 +133,7 @@ function adminIpAllowlist(req: Request, res: Response, next: NextFunction): void
     // from the internet from having open admin access.
     // To allow remote access in dev, set ADMIN_ALLOWED_IPS explicitly.
     const reqIp = getRequestorIp(req);
-    const isLoopback = reqIp === "127.0.0.1" || reqIp === "::1" || reqIp === "localhost";
-    if (!isLoopback) {
+    if (!isLoopbackIp(reqIp)) {
       logger.warn({ ip: reqIp }, "[admin] ADMIN_ALLOWED_IPS not set — blocking non-localhost admin request. Set ADMIN_ALLOWED_IPS to allow remote access.");
       res.status(503).json({
         error: "ADMIN_NOT_CONFIGURED",

@@ -350,7 +350,7 @@ describe("POST /api/v1/programmatic/agents/register — Owner-Token Linking (C5)
     expect(agent?.isClaimed).not.toBe(true);
   });
 
-  it("does not link ownerToken belonging to a different user", async () => {
+  it("rejects an ownerToken belonging to a different user without creating an orphan agent", async () => {
     const otherUser = await createTestUser();
     const otherToken = await createTestOwnerToken(otherUser.id);
 
@@ -366,12 +366,13 @@ describe("POST /api/v1/programmatic/agents/register — Owner-Token Linking (C5)
         ownerToken: otherToken.rawToken,
       });
 
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("OWNER_TOKEN_USER_MISMATCH");
 
     const agent = await db.query.agentsTable.findFirst({
-      where: eq(agentsTable.id, res.body.agentId),
+      where: eq(agentsTable.displayName, "Cross-User Token Agent"),
     });
-    expect(agent?.ownerUserId).toBeNull();
+    expect(agent).toBeUndefined();
 
     await db.delete(ownerTokensTable).where(eq(ownerTokensTable.userId, otherUser.id)).catch(() => {});
     await db.delete(agentsTable).where(eq(agentsTable.userId, otherUser.id)).catch(() => {});

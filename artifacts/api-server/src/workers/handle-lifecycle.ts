@@ -7,11 +7,14 @@ import { logger } from "../middlewares/request-logger";
 import { getHandlePricing } from "../services/handle-pricing";
 import { processSuspendedHandles } from "../services/handle";
 import { recordWorkerFailure, recordWorkerSuccess } from "./worker-failure";
+import {
+  HANDLE_AUCTION_DURATION_DAYS,
+  HANDLE_GRACE_PERIOD_DAYS,
+  HANDLE_RENEWAL_REMINDER_DAYS,
+} from "@workspace/shared-pricing";
 
 const QUEUE_NAME = "handle-lifecycle";
 const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const GRACE_PERIOD_DAYS = 30;
-const AUCTION_DURATION_DAYS = 14;
 const AUCTION_START_MULTIPLIER = 10;
 
 let queue: Queue | null = null;
@@ -19,7 +22,7 @@ let worker: Worker | null = null;
 let fallbackTimer: ReturnType<typeof setInterval> | null = null;
 
 async function sendRenewalReminders(): Promise<number> {
-  const thirtyDaysFromNow = new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+  const thirtyDaysFromNow = new Date(Date.now() + HANDLE_RENEWAL_REMINDER_DAYS * 24 * 60 * 60 * 1000);
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const agents = await db
@@ -68,7 +71,7 @@ async function sendRenewalReminders(): Promise<number> {
 }
 
 export async function expireHandles(): Promise<number> {
-  const gracePeriodEnd = new Date(Date.now() - GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+  const gracePeriodEnd = new Date(Date.now() - HANDLE_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
   const expired = await db
     .select({
@@ -162,7 +165,7 @@ export async function expireHandles(): Promise<number> {
 
         const pricing = getHandlePricing(oldHandle);
         const startPrice = pricing.annualPriceCents * AUCTION_START_MULTIPLIER;
-        const endsAt = new Date(Date.now() + AUCTION_DURATION_DAYS * 24 * 60 * 60 * 1000);
+        const endsAt = new Date(Date.now() + HANDLE_AUCTION_DURATION_DAYS * 24 * 60 * 60 * 1000);
 
         await tx.insert(handleAuctionsTable).values({
           handle: oldHandle as string,

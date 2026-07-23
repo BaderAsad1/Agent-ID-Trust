@@ -147,10 +147,18 @@ describe("StripeMppProvider", () => {
   it("captures a requires_capture PaymentIntent", async () => {
     const { StripeMppProvider } = await import("../services/mpp-provider");
     const provider = new StripeMppProvider();
+    mockStripe.paymentIntents.retrieve.mockResolvedValueOnce({
+      id: "pi_test_123",
+      status: "requires_capture",
+    });
 
     const result = await provider.capturePayment("pi_test_123");
     expect(result.success).toBe(true);
-    expect(mockStripe.paymentIntents.capture).toHaveBeenCalledWith("pi_test_123");
+    expect(mockStripe.paymentIntents.capture).toHaveBeenCalledWith(
+      "pi_test_123",
+      {},
+      { idempotencyKey: "mpp-payment-intent:pi_test_123:capture" },
+    );
   });
 
   it("issues a partial refund", async () => {
@@ -159,10 +167,13 @@ describe("StripeMppProvider", () => {
 
     const result = await provider.refundPayment("pi_test_123", 50);
     expect(result.success).toBe(true);
-    expect(mockStripe.refunds.create).toHaveBeenCalledWith({
-      payment_intent: "pi_test_123",
-      amount: 50,
-    });
+    expect(mockStripe.refunds.create).toHaveBeenCalledWith(
+      {
+        payment_intent: "pi_test_123",
+        amount: 50,
+      },
+      { idempotencyKey: "mpp-payment-intent:pi_test_123:refund:50" },
+    );
   });
 });
 

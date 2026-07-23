@@ -7,7 +7,7 @@ import {
 } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
 import { getStripe } from "./stripe-client";
-import { activatePlanForAgent, activatePlanForUser, getHandlePriceCents } from "./billing";
+import { getHandlePriceCents } from "./billing";
 import { assignHandleToAgent, getHandleTier, checkHandleAvailability } from "./handle";
 import { HANDLE_PRICING_TIERS } from "@workspace/shared-pricing";
 
@@ -44,13 +44,13 @@ export async function getAgentPaymentOptions(agentId: string): Promise<AgentPaym
     availableMethods: [
       {
         method: "stripe_preauth",
-        description: "Pre-authorized Stripe card (set up by agent owner)",
-        supported: true,
+        description: "Disabled for plan upgrades; use recurring Stripe Checkout",
+        supported: false,
       },
       {
         method: "usdc",
-        description: "USDC on Base (send to platform address; verified via chain)",
-        supported: !!process.env.BASE_RPC_URL,
+        description: "Disabled until checkout-bound, replay-safe verification is deployed",
+        supported: false,
       },
       {
         method: "card",
@@ -160,11 +160,18 @@ export async function processAgentUpgrade(
   plan: "starter" | "pro",
   paymentMethod: AgentPaymentMethod,
   billingInterval: "monthly" | "yearly" = "monthly",
-  usdcTxHash?: string,
+  _usdcTxHash?: string,
 ): Promise<AgentUpgradeResult> {
+  if (paymentMethod !== "card") {
+    return {
+      success: false,
+      error: "This payment method is disabled for plan upgrades. Use recurring Stripe Checkout.",
+    };
+  }
+
   const agent = await db.query.agentsTable.findFirst({
     where: eq(agentsTable.id, agentId),
-    columns: { id: true, userId: true, paymentAuthorized: true, authorizedSpendLimitCents: true },
+    columns: { id: true, userId: true },
   });
 
   if (!agent) {
@@ -177,76 +184,6 @@ export async function processAgentUpgrade(
   };
 
   const price = planPrices[plan]?.[billingInterval] ?? 0;
-
-  if (paymentMethod === "stripe_preauth") {
-    if (!agent.paymentAuthorized || (agent.authorizedSpendLimitCents ?? 0) < price) {
-      return {
-        success: false,
-        error: `Insufficient authorization. Required: $${price / 100}, authorized: $${(agent.authorizedSpendLimitCents ?? 0) / 100}`,
-      };
-    }
-
-    const auth = await getAgentAuthorization(agentId);
-    if (!auth?.stripePaymentMethodId) {
-      return { success: false, error: "No Stripe payment method on file for preauth" };
-    }
-
-    const user = await db.query.usersTable.findFirst({
-      where: eq(usersTable.id, agent.userId),
-      columns: { id: true, stripeCustomerId: true },
-    });
-
-    if (!user?.stripeCustomerId) {
-      return { success: false, error: "No Stripe customer found for agent owner" };
-    }
-
-    try {
-      const stripe = getStripe();
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: price,
-        currency: "usd",
-        customer: user.stripeCustomerId,
-        payment_method: auth.stripePaymentMethodId,
-        confirm: true,
-        metadata: { agentId, plan, billingInterval, type: "agent_plan_upgrade" },
-        off_session: true,
-      });
-
-      if (paymentIntent.status === "succeeded") {
-        await activatePlanForAgent(agentId, plan, billingInterval as "monthly" | "yearly");
-        await activatePlanForUser(agent.userId, plan, undefined, billingInterval as "monthly" | "yearly");
-        return { success: true, plan, transactionId: paymentIntent.id };
-      }
-
-      return { success: false, error: `Payment intent status: ${paymentIntent.status}` };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error({ agentId, plan, error: msg }, "[agentic-payment] Stripe preauth failed");
-      return { success: false, error: `Payment failed: ${msg}` };
-    }
-  }
-
-  if (paymentMethod === "usdc") {
-    if (!process.env.BASE_RPC_URL) {
-      return {
-        success: false,
-        error: "FEATURE_NOT_CONFIGURED",
-      };
-    }
-
-    if (!usdcTxHash) {
-      return { success: false, error: "USDC transaction hash required" };
-    }
-
-    const verified = await verifyUSDCPayment(usdcTxHash, price);
-    if (!verified.valid) {
-      return { success: false, error: `USDC verification failed: ${verified.reason}` };
-    }
-
-    await activatePlanForAgent(agentId, plan, billingInterval as "monthly" | "yearly");
-    await activatePlanForUser(agent.userId, plan, undefined, billingInterval as "monthly" | "yearly");
-    return { success: true, plan, transactionId: usdcTxHash };
-  }
 
   if (paymentMethod === "card") {
     const APP_URL = process.env.APP_URL || "https://getagent.id";
@@ -294,45 +231,4 @@ export async function processAgentUpgrade(
   }
 
   return { success: false, error: `Unknown payment method: ${paymentMethod}` };
-}
-
-export async function verifyUSDCPayment(
-  txHash: string,
-  expectedAmountCents: number,
-): Promise<{ valid: boolean; reason?: string; amount?: number }> {
-  const BASE_RPC_URL = process.env.BASE_RPC_URL;
-
-  if (!BASE_RPC_URL) {
-    logger.warn({ txHash }, "[agentic-payment] BASE_RPC_URL not set; USDC verification stubbed");
-    return { valid: false, reason: "USDC verification not configured (BASE_RPC_URL missing)" };
-  }
-
-  try {
-    const response = await fetch(BASE_RPC_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method: "eth_getTransactionReceipt",
-        params: [txHash],
-        id: 1,
-      }),
-    });
-
-    const data = await response.json() as { result?: { status?: string } };
-    const receipt = data.result;
-
-    if (!receipt) {
-      return { valid: false, reason: "Transaction not found" };
-    }
-
-    if (receipt.status !== "0x1") {
-      return { valid: false, reason: "Transaction failed on-chain" };
-    }
-
-    return { valid: true, amount: expectedAmountCents };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { valid: false, reason: `RPC error: ${msg}` };
-  }
 }

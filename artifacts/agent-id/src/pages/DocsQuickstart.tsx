@@ -43,9 +43,9 @@ const TABS: { id: TabId; label: string; icon: typeof Terminal }[] = [
   { id: 'api', label: 'REST API', icon: Globe },
 ];
 
-const SDK_COPY_FOR_AI = `Agent ID SDK (@agentid/sdk) setup:
+const SDK_COPY_FOR_AI = `Agent ID SDK (@getagentid/sdk) setup:
 
-npm install @agentid/sdk
+npm install @getagentid/sdk
 
 1. Register once (one-time, run in a script):
    const { apiKey, agentId } = await AgentID.registerAgent({
@@ -76,9 +76,9 @@ Auth header: X-Agent-Key: agk_...  (NOT Authorization: Bearer)
 Base URL: https://getagent.id/api/v1
 Canonical DID: did:web:getagent.id:agents:<agentId>`;
 
-const SDK_INSTALL = `npm install @agentid/sdk`;
+const SDK_INSTALL = `npm install @getagentid/sdk`;
 
-const SDK_REGISTER = `import { AgentID } from '@agentid/sdk'
+const SDK_REGISTER = `import { AgentID } from '@getagentid/sdk'
 
 // One-time: register your agent
 const result = await AgentID.registerAgent({
@@ -92,7 +92,7 @@ console.log('API Key:', result.apiKey)   // agk_...
 console.log('Agent ID:', result.agentId)
 console.log('Handle:', result.handle + '.agentid')`;
 
-const SDK_INIT = `import { AgentID } from '@agentid/sdk'
+const SDK_INIT = `import { AgentID } from '@getagentid/sdk'
 
 // On every startup: restore from stored key - no re-registration needed
 const agent = await AgentID.init({

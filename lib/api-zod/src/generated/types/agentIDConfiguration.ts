@@ -17,6 +17,7 @@ export interface AgentIDConfiguration {
   resolutionEndpoint?: string;
   erc8004Endpoint?: string;
   wellKnownPath?: string;
+  wellKnownTemplate?: string;
   baseDomain: string;
   documentation?: string;
   sdkPackage?: string;

@@ -1,5 +1,5 @@
 import { Client } from "pg";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -8,6 +8,10 @@ if (!process.env.DATABASE_URL) {
 }
 
 const DATABASE_URL = process.env.DATABASE_URL;
+
+function hashSessionId(sid: string): string {
+  return createHash("sha256").update(sid, "utf8").digest("hex");
+}
 
 export interface SeededTestUser {
   suffix: string;
@@ -80,7 +84,7 @@ export async function seedPaidUserWithAgent(): Promise<SeededTestUser> {
     sess.user.id = userId;
     await client.query(
       `INSERT INTO sessions (sid, sess, expire) VALUES ($1, $2::jsonb, NOW() + INTERVAL '1 day')`,
-      [sid, JSON.stringify(sess)],
+      [hashSessionId(sid), JSON.stringify(sess)],
     );
 
     return { suffix, userId, agentId, sid, email, handle };
@@ -109,7 +113,7 @@ export async function cleanupSeededUser(user: SeededTestUser): Promise<void> {
       await client.query(`DELETE FROM agent_inboxes WHERE agent_id = $1`, [user.agentId]);
       await client.query(`DELETE FROM agents WHERE id = $1`, [user.agentId]);
       await client.query(`DELETE FROM subscriptions WHERE user_id = $1`, [user.userId]);
-      await client.query(`DELETE FROM sessions WHERE sid = $1`, [user.sid]);
+      await client.query(`DELETE FROM sessions WHERE sid = $1`, [hashSessionId(user.sid)]);
       await client.query(`DELETE FROM users WHERE id = $1`, [user.userId]);
     });
   } catch (err) {

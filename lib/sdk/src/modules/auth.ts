@@ -74,7 +74,7 @@ export interface TokenIntrospectionResult {
 
 export interface RelayingPartyConfig {
   clientId: string;
-  clientSecret: string;
+  clientSecret?: string;
   redirectUri: string;
   baseUrl?: string;
   scopes?: string[];
@@ -439,7 +439,7 @@ export async function verifyUserToken(
 /**
  * Create a Relying Party client that wraps the OAuth client flow.
  */
-export function createRelayingPartyClient(config: RelayingPartyConfig) {
+export function createRelyingPartyClient(config: RelayingPartyConfig) {
   const baseUrl = config.baseUrl || "https://getagent.id";
   const http = new HttpClient({ baseUrl });
 
@@ -478,24 +478,24 @@ export function createRelayingPartyClient(config: RelayingPartyConfig) {
       const body: Record<string, string> = {
         grant_type: "authorization_code",
         client_id: config.clientId,
-        client_secret: config.clientSecret,
         redirect_uri: config.redirectUri,
         code,
       };
+      if (config.clientSecret) body.client_secret = config.clientSecret;
       if (codeVerifier) body.code_verifier = codeVerifier;
 
       const result = await http.post<{
-        accessToken: string;
-        refreshToken: string;
-        expiresIn: number;
-        tokenType: string;
+        access_token: string;
+        refresh_token: string;
+        expires_in: number;
+        token_type: string;
       }>("/oauth/token", body);
 
       return {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-        expiresIn: result.expiresIn,
-        tokenType: result.tokenType,
+        accessToken: result.access_token,
+        refreshToken: result.refresh_token,
+        expiresIn: result.expires_in,
+        tokenType: result.token_type,
       };
     },
 
@@ -509,10 +509,10 @@ export function createRelayingPartyClient(config: RelayingPartyConfig) {
       scopes?: string[],
     ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number; tokenType: string }> {
       const result = await http.post<{
-        accessToken: string;
-        refreshToken: string;
-        expiresIn: number;
-        tokenType: string;
+        access_token: string;
+        refresh_token: string;
+        expires_in: number;
+        token_type: string;
       }>("/oauth/token", {
         grant_type: "urn:agentid:grant-type:signed-assertion",
         client_id: config.clientId,
@@ -522,10 +522,10 @@ export function createRelayingPartyClient(config: RelayingPartyConfig) {
       });
 
       return {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-        expiresIn: result.expiresIn,
-        tokenType: result.tokenType,
+        accessToken: result.access_token,
+        refreshToken: result.refresh_token,
+        expiresIn: result.expires_in,
+        tokenType: result.token_type,
       };
     },
 
@@ -554,3 +554,6 @@ export function createRelayingPartyClient(config: RelayingPartyConfig) {
     },
   };
 }
+
+/** @deprecated Use createRelyingPartyClient. Kept for backwards compatibility. */
+export const createRelayingPartyClient = createRelyingPartyClient;

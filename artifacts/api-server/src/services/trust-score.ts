@@ -557,7 +557,7 @@ export function getTrustImprovementTips(
   const endpoint = breakdown["endpointConfig"] ?? 0;
   if (endpoint < 10) {
     if (!agent.endpointUrl) {
-      tips.push({ priority: 7, tip: "Register a live HTTPS endpoint URL to demonstrate your agent is reachable and earn up to 10 endpoint configuration points." });
+      tips.push({ priority: 7, tip: "Register an HTTPS endpoint URL to complete endpoint configuration and earn up to 10 points. Reachability is not continuously probed." });
     } else {
       const url = (() => { try { return new URL(agent.endpointUrl); } catch { return null; } })();
       if (url && url.protocol !== "https:") {

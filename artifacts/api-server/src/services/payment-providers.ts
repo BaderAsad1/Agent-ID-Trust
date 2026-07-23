@@ -139,10 +139,19 @@ class StripeProvider implements PaymentProvider {
   ): Promise<ProviderCaptureResult> {
     try {
       const stripe = getStripe();
-      const requestOptions = options?.idempotencyKey
-        ? { idempotencyKey: options.idempotencyKey }
-        : undefined;
-      await stripe.paymentIntents.capture(providerReference, undefined, requestOptions);
+      const existing = await stripe.paymentIntents.retrieve(providerReference);
+      if (existing.status === "succeeded") return { success: true };
+      if (existing.status !== "requires_capture") {
+        return { success: false, error: `PAYMENT_NOT_CAPTURABLE:${existing.status}` };
+      }
+      await stripe.paymentIntents.capture(
+        providerReference,
+        {},
+        {
+          idempotencyKey:
+            options?.idempotencyKey ?? `payment-intent:${providerReference}:capture`,
+        },
+      );
       return { success: true };
     } catch (err) {
       logger.error({ err }, "[StripeProvider] capturePayment error");

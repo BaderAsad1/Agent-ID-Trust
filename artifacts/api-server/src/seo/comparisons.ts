@@ -180,7 +180,7 @@ export const COMPARISONS: Comparison[] = [
     criteriaRows: [
       { criterion: "Identity portability", entityA: "Portable via W3C DID standard — any standards-compliant system can verify an Agent ID identity", entityB: "Cloud-provider-specific — an AWS IAM role is not meaningful outside AWS; cross-cloud identity requires federation" },
       { criterion: "Trust signals", entityA: "Trust Score, compliance attestations, capability manifest, and task history included in identity", entityB: "Service accounts carry permissions/roles but no behavioral trust signals — there is no concept of 'how reliable is this service account'" },
-      { criterion: "Payment capability", entityA: "Built-in: x402 wallet, Stripe Connect escrow, and spending policy enforcement", entityB: "None — payment authorization is completely separate from identity" },
+      { criterion: "Payment capability", entityA: "Optional x402 and controlled-beta Stripe Connect integrations; both fail closed unless configured", entityB: "None — payment authorization is completely separate from identity" },
       { criterion: "Marketplace discoverability", entityA: "Optional — agents can be listed in the Agent ID Marketplace for discovery by other agents and humans", entityB: "None — service accounts are internal infrastructure, not discoverable externally" },
       { criterion: "Key rotation automation", entityA: "API-driven rotation with documented 24-hour overlap window and webhook notifications", entityB: "Cloud-provider tooling for rotation (e.g., AWS Secrets Manager) — well-developed but provider-specific" },
       { criterion: "Compliance auditability", entityA: "Agent ID audit trail + cloud provider logs = complete picture", entityB: "Cloud provider audit logs are comprehensive within the provider but require aggregation across providers for multi-cloud" },
@@ -204,15 +204,15 @@ export const COMPARISONS: Comparison[] = [
       { criterion: "Settlement speed", entityA: "Near-instant on-chain settlement (Base network: ~2 seconds)", entityB: "Delayed — standard Stripe payouts to bank accounts take 1–2 business days; instant payouts available at higher cost" },
       { criterion: "Human approval step", entityA: "None — the agent settles autonomously within pre-authorized spending limits", entityB: "Stripe Payment Intents can be fully automated but are designed with human cardholder confirmation flows" },
       { criterion: "Currency", entityA: "USDC (stablecoin) on Base network", entityB: "150+ fiat currencies; supports USDC on some rails via Stripe's stablecoin features" },
-      { criterion: "Integration with Agent ID", entityA: "Native — Agent ID wallet infrastructure provides x402 settlement with spending policy enforcement", entityB: "Available via Stripe Connect for task-based Marketplace payments — Agent ID handles escrow logic" },
+      { criterion: "Integration with Agent ID", entityA: "Optional — requires x402 settlement, treasury, and wallet configuration", entityB: "Subscriptions are live through Stripe; Stripe Connect marketplace commerce is a controlled-beta feature" },
       { criterion: "Fraud protection", entityA: "Spending policies enforced at Agent ID middleware layer; no chargeback mechanism (blockchain transactions are final)", entityB: "Stripe Radar for fraud detection; chargebacks and disputes supported for cardholder protection" },
       { criterion: "Best for", entityA: "Per-API-call micropayments, agent-to-agent payments, and real-time pay-per-use service access", entityB: "Task-based payments above $1, subscription billing, and payments requiring fiat settlement to bank accounts" },
     ],
-    verdict: "x402 and Stripe fill different niches in an agentic payment stack. Use x402 for the high-frequency, low-value micropayment use cases that make per-call service economics practical for agents. Use Stripe (via Agent ID's Marketplace escrow) for larger task-based payments where fiat settlement, structured escrow, and dispute resolution are important. Both are available through Agent ID — the right choice depends on the transaction size and settlement requirements.",
+    verdict: "x402 and Stripe fill different niches in an agentic payment stack. Agent ID launches with Stripe subscriptions. x402 settlement and Stripe Connect marketplace commerce are separately gated features and must not be represented as available until the deployment explicitly enables and verifies them.",
     faq: [
       {
         question: "Can an agent use both x402 and Stripe in the same workflow?",
-        answer: "Yes. An agent can use x402 to pay for the data API calls it needs to complete a task, and receive payment for the completed task via Stripe Connect escrow. The two payment rails are independent and can coexist in the same agent.",
+        answer: "They can coexist only on a deployment where both optional rails are enabled. Agent ID keeps x402 and Stripe Connect marketplace commerce independently gated so an unavailable rail fails closed.",
       },
       {
         question: "What happens if a x402 transaction fails mid-way?",

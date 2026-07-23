@@ -83,70 +83,99 @@ const BASE = 'https://getagent.id';
 
 // ── Quick-start code snippets ─────────────────────────────────────────────────
 
-const INSTALL = `npm install @agentid/sdk`;
+const INSTALL = `npm install @getagentid/sdk`;
 
-const REACT_PROVIDER = `// main.tsx  (or index.tsx)
-import { AgentIDProvider } from '@agentid/sdk/react';
+const REACT_PROVIDER = `// server/auth-agentid.ts — keep the client secret on your server
+import { randomUUID } from 'node:crypto';
+import { createRelyingPartyClient } from '@getagentid/sdk';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <AgentIDProvider clientId="agclient_...">
-    <App />
-  </AgentIDProvider>
-);`;
+export const agentID = createRelyingPartyClient({
+  clientId: process.env.AGENTID_CLIENT_ID!,
+  clientSecret: process.env.AGENTID_CLIENT_SECRET!,
+  redirectUri: 'https://yourapp.com/auth/agentid/callback',
+});
 
-const REACT_BUTTON = `// AnyPage.tsx
-import { SignInWithAgentID } from '@agentid/sdk/react';
+app.get('/auth/agentid/start', (req, res) => {
+  const state = randomUUID();
+  req.session.agentIDState = state;
+  res.redirect(agentID.getAuthorizationUrl({ state }));
+});`;
 
+const REACT_BUTTON = `// LoginPage.tsx
 export function LoginPage() {
   return (
-    <SignInWithAgentID
-      onSuccess={agent => {
-        console.log(agent.handle);     // "clawd"
-        console.log(agent.trustTier);  // "trusted"
-        // save to your session / redirect
-      }}
-    />
+    <a href="/auth/agentid/start">
+      Sign in with Agent ID
+    </a>
   );
 }`;
 
-const WHAT_YOU_GET = `// The agent object passed to onSuccess:
+const WHAT_YOU_GET = `const claims = await agentID.verifyToken(
+  tokens.accessToken,
+  process.env.AGENTID_CLIENT_ID,
+);
+
+// Verified AgentTokenClaims:
 {
-  agentId:    "3f8a2...",          // permanent UUID
-  handle:     "clawd",             // human-readable name (or null)
-  displayName: "Clawd",
-  trustTier:  "trusted",           // unverified | basic | verified | trusted | elite
-  ownerBacked: true,               // has a human or org owner
-  scopes:     ["read", "agents:read"],
-  sessionType: "delegated",        // delegated (browser) or autonomous (M2M)
+  agentId: "3f8a2...",             // permanent UUID
+  trustTier: "trusted",            // unverified | basic | verified | trusted | elite
+  verificationStatus: "verified",
+  ownerType: "user",
+  scopes: ["read", "agents:read"],
+  trustContext: { ... }
 }`;
 
 const NEXTJS_EXAMPLE = `// app/api/auth/callback/route.ts
-import { exchangeAgentIDCode } from '@agentid/sdk/server';
+import { createRelyingPartyClient } from '@getagentid/sdk';
+
+const agentID = createRelyingPartyClient({
+  clientId: process.env.AGENTID_CLIENT_ID!,
+  clientSecret: process.env.AGENTID_CLIENT_SECRET!,
+  redirectUri: process.env.AGENTID_REDIRECT_URI!,
+});
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const agent = await exchangeAgentIDCode({
-    code:        searchParams.get('code')!,
-    clientId:    process.env.AGENTID_CLIENT_ID!,
-    redirectUri: process.env.AGENTID_REDIRECT_URI!,
-  });
+  // Validate searchParams.get('state') against your login-session cookie first.
+  const tokens = await agentID.exchangeCode(searchParams.get('code')!);
+  const claims = await agentID.verifyToken(
+    tokens.accessToken,
+    process.env.AGENTID_CLIENT_ID,
+  );
 
-  // agent.handle, agent.trustTier, etc.
-  // set a cookie / session and redirect
+  // Create your application session from the verified claims.
+  return Response.json({ agentId: claims.agentId, trustTier: claims.trustTier });
 }`;
 
-const HTML_EXAMPLE = `<!-- Plain HTML — no build step needed -->
-<script src="https://cdn.getagent.id/sdk/v1/agentid.min.js"></script>
+const HTML_EXAMPLE = `<!-- Plain HTML + PKCE — no SDK or build step -->
+<button id="agentid-login">Sign in with Agent ID</button>
+<script type="module">
+  const base64url = bytes =>
+    btoa(String.fromCharCode(...bytes))
+      .replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=/g, '');
 
-<div id="agentid-btn"></div>
+  document.querySelector('#agentid-login').onclick = async () => {
+    const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(verifier),
+    );
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('agentid_verifier', verifier);
+    sessionStorage.setItem('agentid_state', state);
 
-<script>
-  AgentID.renderButton('#agentid-btn', {
-    clientId: 'agclient_...',
-    onSuccess: function(agent) {
-      console.log('Signed in as', agent.handle);
-    }
-  });
+    const url = new URL('${BASE}/oauth/authorize');
+    url.search = new URLSearchParams({
+      response_type: 'code',
+      client_id: 'YOUR_CLIENT_ID',
+      redirect_uri: 'https://yourapp.com/callback',
+      scope: 'read agents:read',
+      state,
+      code_challenge: base64url(new Uint8Array(digest)),
+      code_challenge_method: 'S256',
+    });
+    location.assign(url);
+  };
 </script>`;
 
 // ── Advanced / raw OAuth snippets ─────────────────────────────────────────────
@@ -193,17 +222,25 @@ const { access_token, refresh_token } = await resp.json();`;
 
 const RAW_M2M = `// Autonomous (M2M) — no browser, no human
 // Pre-req: your agent has a registered Ed25519 key pair.
+import { importPKCS8, SignJWT } from 'jose';
 
 // 1. Request a challenge nonce
 const { nonce } = await fetch('${BASE}/api/v1/auth/challenge', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ agent_id: 'YOUR_AGENT_ID', client_id: 'YOUR_CLIENT_ID', audience: '${BASE}' }),
+  body: JSON.stringify({ agentId: 'YOUR_AGENT_ID', audience: '${BASE}' }),
 }).then(r => r.json());
 
 // 2. Sign a JWT assertion with your Ed25519 private key
-import { signAssertion } from '@agentid/sdk';
-const assertion = await signAssertion({ agentId: 'YOUR_AGENT_ID', nonce, scope: 'read agents:read' }, privateKey);
+const privateKey = await importPKCS8(process.env.AGENT_PRIVATE_KEY_PEM!, 'EdDSA');
+const assertion = await new SignJWT({})
+  .setProtectedHeader({ alg: 'EdDSA', kid: 'YOUR_KEY_ID' })
+  .setIssuer('YOUR_AGENT_ID')
+  .setAudience('${BASE}')
+  .setJti(nonce)
+  .setIssuedAt()
+  .setExpirationTime('5m')
+  .sign(privateKey);
 
 // 3. Exchange for a token
 const { access_token } = await fetch('${BASE}/oauth/token', {
@@ -249,7 +286,7 @@ type Framework = 'react' | 'nextjs' | 'html';
 export function DocsSignIn() {
   useSEO({
     title: 'Sign in with Agent ID',
-    description: 'Add "Sign in with Agent ID" to your app in minutes — drop-in SDK for React, Next.js, and plain HTML.',
+    description: 'Add standards-based Agent ID OAuth authentication to React, Next.js, or plain HTML applications.',
     noIndex: false,
   });
   const isMobile = useIsMobile();
@@ -275,7 +312,7 @@ export function DocsSignIn() {
           Sign in with Agent ID
         </h1>
         <p style={{ fontSize: 16.5, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, maxWidth: 580, marginBottom: 32 }}>
-          Add verified agent authentication to your app — the same way you'd add "Sign in with Google." Install the SDK, drop in the button, and you're done.
+          Add verified agent authentication to your app with OAuth 2.0. Redirect to Agent ID, exchange the authorization code on your server, and create a session from verified token claims.
         </p>
 
         {/* Mode pills */}
@@ -305,10 +342,10 @@ export function DocsSignIn() {
         </StepCard>
 
         {/* ── Step 2: Install ── */}
-        <StepCard n={2} title="Install the SDK">
+        <StepCard n={2} title="Install the server SDK">
           <CodeBlock language="bash" code={INSTALL} />
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginTop: 10 }}>
-            Works with React, Next.js, Vue, Svelte, or plain HTML. No build step required for the HTML version.
+            The SDK creates authorization URLs, exchanges codes, and verifies tokens. Keep OAuth client secrets in server-only code.
           </p>
         </StepCard>
 
@@ -334,7 +371,7 @@ export function DocsSignIn() {
 
           {framework === 'react' && (
             <>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>Wrap your app once with the provider, then drop the button anywhere.</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>Start OAuth on your server, persist a state value in the login session, then link your React button to that route.</p>
               <CodeBlock code={REACT_PROVIDER} />
               <div style={{ marginTop: 12 }}>
                 <CodeBlock code={REACT_BUTTON} />
@@ -343,13 +380,13 @@ export function DocsSignIn() {
           )}
           {framework === 'nextjs' && (
             <>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>Use the server helper to exchange the auth code in your API route.</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>Validate OAuth state, exchange the code, and verify the access token in a server route.</p>
               <CodeBlock code={NEXTJS_EXAMPLE} />
             </>
           )}
           {framework === 'html' && (
             <>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>No npm, no build step — just a script tag.</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>Public clients use PKCE. Persist the verifier and state until your callback exchanges the code.</p>
               <CodeBlock language="html" code={HTML_EXAMPLE} />
             </>
           )}
@@ -357,9 +394,9 @@ export function DocsSignIn() {
 
         {/* ── What you get back ── */}
         <div style={{ marginBottom: 48, padding: '24px 26px', background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.15)', borderRadius: 14 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>That's it. Here's what you get back.</h2>
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>Use verified claims to create your session.</h2>
           <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', marginBottom: 16, lineHeight: 1.6 }}>
-            The <code style={{ color: '#34d399' }}>agent</code> object in <code style={{ color: '#34d399' }}>onSuccess</code> has everything you need — no JWT parsing, no key verification, no crypto.
+            <code style={{ color: '#34d399' }}>verifyToken</code> validates the JWT signature, issuer, audience, token type, and expiry before returning typed agent claims.
           </p>
           <CodeBlock code={WHAT_YOU_GET} />
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginTop: 14, lineHeight: 1.6 }}>
@@ -419,7 +456,7 @@ export function DocsSignIn() {
 
           <AdvancedSection title="Refreshing an access token">
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 16, lineHeight: 1.6 }}>
-              Access tokens expire in 15 minutes. The SDK handles refresh automatically — use this only if you're managing tokens manually.
+              Access tokens expire in 15 minutes. Rotate the refresh token every time you refresh; the previous token is invalidated immediately.
             </p>
             <CodeBlock code={RAW_REFRESH} />
           </AdvancedSection>

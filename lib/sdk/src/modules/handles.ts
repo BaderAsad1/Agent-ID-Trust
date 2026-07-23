@@ -95,9 +95,9 @@ export class HandleModule {
   }
 
   /**
-   * Request on-chain NFT mint for a handle owned by this agent.
-   * For standard handles (5+ chars): creates a Stripe checkout for the on-chain mint fee.
-   * For premium handles (3-4 chars): queues the mint immediately (included in purchase).
+   * Request optional on-chain anchoring for a handle owned by this agent.
+   * This post-launch API is disabled by default and returns 503 until the server's
+   * audited on-chain integration has been explicitly enabled.
    */
   async requestMint(handle: string): Promise<RequestMintResult> {
     return this.http.post<RequestMintResult>(

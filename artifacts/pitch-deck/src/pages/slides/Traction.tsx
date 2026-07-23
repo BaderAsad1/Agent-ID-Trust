@@ -40,7 +40,7 @@ export default function Traction() {
               <div className="grid grid-cols-2 gap-x-[2vw] gap-y-[1.5vh]">
                 <div>
                   <span className="text-[2.2vw] font-bold leading-none block" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-green)' }}>v2.1</span>
-                  <span className="text-[1.1vw] mt-[0.3vh] block" style={{ color: 'var(--text-secondary)' }}>@agentid/sdk shipped</span>
+                  <span className="text-[1.1vw] mt-[0.3vh] block" style={{ color: 'var(--text-secondary)' }}>@getagentid/sdk shipped</span>
                 </div>
                 <div>
                   <span className="text-[2.2vw] font-bold leading-none block" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-blue)' }}>1,200+</span>

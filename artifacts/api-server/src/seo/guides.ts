@@ -140,7 +140,7 @@ fetch('https://api.example.com/data', {
       },
       {
         question: "Can I register agents with custom handles programmatically?",
-        answer: "Yes. Add a 'handle' field to the registration payload. Standard 5+ character handles are included with Starter or Pro; Enterprise access is provisioned via custom entitlement. Shorter handles require payment at the higher scarcity tier. The API returns a 409 error if the handle is already taken.",
+        answer: "Yes. Add a 'handle' field to the registration payload. Standard 5+ character handles cost $5/year for Free users or additional handles, with the first included on Starter or Pro; Enterprise access is provisioned via custom entitlement. Shorter handles require payment at the higher scarcity tier. The API returns a 409 error if the handle is already taken.",
       },
     ],
     relatedGuides: ["how-to-verify-an-ai-agent", "how-to-integrate-agent-id-with-langchain", "how-to-manage-agent-fleet"],
@@ -155,14 +155,14 @@ fetch('https://api.example.com/data', {
       {
         title: "Register the agent at application startup",
         description: "At the start of your LangChain application, register the agent with Agent ID using programmatic registration if it does not already exist.",
-        code: `import { AgentIDClient } from '@agentid/sdk'; // or use fetch directly
+        code: `import { AgentID } from '@getagentid/sdk';
 
-const client = new AgentIDClient({ apiKey: process.env.AGENT_ID_USER_KEY });
-const agent = await client.register({
+const agent = await AgentID.registerAgent({
+  handle: 'langchain-research',
   displayName: 'LangChain Research Agent',
   capabilities: ['research', 'summarization'],
 });
-process.env.AGENT_SIGNING_KEY = agent.signingKey; // store securely`,
+// Store agent.apiKey and agent.agentId in your secrets manager immediately.`,
       },
       {
         title: "Create a signing callback handler",
@@ -187,10 +187,17 @@ class AgentIDSigningHandler extends BaseCallbackHandler {
       },
       {
         title: "Verify incoming agent requests (optional)",
-        description: "If your LangChain agent also exposes an API that other agents call, use Agent ID's verification middleware to validate inbound X-Agent-Key headers.",
+        description: "If your LangChain agent exposes an API, validate the caller's Agent ID key against the authenticated whoami endpoint before handling the request.",
         code: `// Express middleware
-import { verifyAgentKey } from '@agentid/sdk/middleware';
-app.use('/agent-api', verifyAgentKey({ minTrustScore: 70 }));`,
+async function requireAgentId(req, res, next) {
+  const response = await fetch('https://getagent.id/api/v1/agents/whoami', {
+    headers: { 'X-Agent-Key': String(req.headers['x-agent-key'] || '') },
+  });
+  if (!response.ok) return res.status(401).json({ error: 'Invalid Agent ID key' });
+  req.agentIdentity = await response.json();
+  next();
+}
+app.use('/agent-api', requireAgentId);`,
       },
     ],
     faq: [
@@ -496,7 +503,7 @@ const data = await payingFetch('https://api.data-provider.com/feed');
     faq: [
       {
         question: "Which stablecoins does Agent ID's wallet support?",
-        answer: "Agent ID currently supports USDC on the Base network for x402 payments. Additional stablecoins and networks are on the roadmap.",
+        answer: "Deployments that explicitly enable x402 currently use USDC on Base. x402 is disabled by default, and additional stablecoins and networks are roadmap items.",
       },
       {
         question: "Can I set a per-transaction limit to prevent accidental overspending?",
@@ -623,13 +630,13 @@ location /.well-known/did.json {
       },
       {
         title: "Fund escrow and receive delivery",
-        description: "Once you accept a proposal, fund the escrow via the Stripe checkout link. The agent completes the task and submits a signed delivery. If you do not dispute within 48 hours, payment is automatically released.",
+        description: "In the controlled marketplace beta, the buyer funds the Stripe payment hold, the seller submits delivery, and only the authenticated buyer can accept the work and release payout.",
       },
     ],
     faq: [
       {
         question: "What happens if the agent does not deliver?",
-        answer: "You can raise a dispute within the 48-hour review window. Agent ID's mediation team reviews both parties' evidence and issues a resolution. Funds are returned to the principal if the dispute is upheld.",
+        answer: "A dispute freezes completion and payout. Marketplace commerce remains deployment-gated until the operator resolution workflow is fully automated and audited.",
       },
       {
         question: "Can I hire the same agent again directly without going through the Marketplace?",
@@ -829,8 +836,8 @@ const agent = await res.json();`,
 }`,
       },
       {
-        title: "Use x402 for micropayments or Marketplace escrow for larger tasks",
-        description: "Choose the appropriate payment rail based on transaction size: x402 for sub-$1 micropayments, Marketplace escrow for task-based payments above $1.",
+        title: "Choose an enabled payment rail",
+        description: "Use x402 only on deployments with settlement explicitly enabled. Marketplace payments are controlled beta and require seller delivery plus explicit buyer acceptance before payout.",
       },
       {
         title: "Record transactions in the audit trail",

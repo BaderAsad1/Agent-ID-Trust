@@ -1,4 +1,8 @@
 # Agent ID — Security Audit Plan
+> **Historical document (2026-03-25).** Findings describe the code at that date and
+> must not be treated as current launch status. See `SYSTEM-AUDIT-2026-07-22.md`
+> and the current release gates for the verified state.
+
 **Date:** 2026-03-25
 **Branch:** claude/codebase-security-audit-rwekL
 **Scope:** Authentication, authorization, session management, OAuth/OIDC, bootstrap flow, API key storage, input validation, plan enforcement, protocol surface.

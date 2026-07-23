@@ -110,7 +110,7 @@ This will link the agent to my account automatically.`
     : '';
 
   const sdkSnippet = ownerToken
-    ? `import { AgentID } from "@agentid/sdk";
+    ? `import { AgentID } from "@getagentid/sdk";
 
 const aid = new AgentID({
   ownerToken: "${ownerToken.token}",

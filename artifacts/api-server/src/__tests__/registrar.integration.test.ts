@@ -25,6 +25,7 @@ import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
 import { errorHandler } from "../middlewares/error-handler";
 import { createTestUser, createTestAgent } from "../test-support/factories";
+import { HANDLE_GRACE_PERIOD_DAYS } from "@workspace/shared-pricing";
 
 // ── Shared mocks ────────────────────────────────────────────────────────────
 
@@ -488,7 +489,7 @@ describe("Registrar Integration — Handle lifecycle retires anchored handles (n
     createdUserIds.push(user.id);
 
     // Create an agent with an expired handle that is anchored on-chain
-    const expiredAt = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000); // 35 days ago (past 30-day grace)
+    const expiredAt = new Date(Date.now() - (HANDLE_GRACE_PERIOD_DAYS + 5) * 24 * 60 * 60 * 1000);
 
     const agent = await createTestAgent(user.id, {
       handle: `exp${Date.now().toString(36)}`,
@@ -1239,7 +1240,7 @@ describe("Registrar Integration — Anchored handle cannot be re-registered afte
     const user = await createTestUser();
     createdUserIds.push(user.id);
 
-    const expiredAt = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000);
+    const expiredAt = new Date(Date.now() - (HANDLE_GRACE_PERIOD_DAYS + 5) * 24 * 60 * 60 * 1000);
     const handle = `anch${Date.now().toString(36)}`;
 
     const agent = await createTestAgent(user.id, {

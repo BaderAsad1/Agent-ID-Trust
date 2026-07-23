@@ -36,6 +36,9 @@ function buildValidProdEnv(): Record<string, string> {
   return {
     NODE_ENV: "production",
     DATABASE_URL: "postgres://user:pw@localhost:5432/db",
+    REDIS_URL: "redis://localhost:6379",
+    ALLOWED_ORIGINS: "https://getagent.id",
+    TRUST_PROXY: "1",
     WEBHOOK_SECRET_KEY: "a".repeat(64),
     ACTIVITY_HMAC_SECRET: "b".repeat(64),
     CLAIM_TOKEN_SECRET: "c".repeat(64),
@@ -45,7 +48,21 @@ function buildValidProdEnv(): Record<string, string> {
     VC_SIGNING_KEY: priv,
     VC_PUBLIC_KEY: pub,
     ADMIN_SECRET_KEY: "g".repeat(64),
+    ADMIN_ALLOWED_IPS: "127.0.0.1",
+    STRIPE_SECRET_KEY: "sk_live_test",
+    STRIPE_PUBLISHABLE_KEY: "pk_live_test",
     STRIPE_WEBHOOK_SECRET: "whsec_" + "h".repeat(40),
+    STRIPE_PRICE_STARTER_MONTHLY: "price_starter_monthly",
+    STRIPE_PRICE_STARTER_YEARLY: "price_starter_yearly",
+    STRIPE_PRICE_PRO_MONTHLY: "price_pro_monthly",
+    STRIPE_PRICE_PRO_YEARLY: "price_pro_yearly",
+    STRIPE_PRICE_HANDLE_STANDARD: "price_handle_standard",
+    STRIPE_PRICE_HANDLE_PREMIUM: "price_handle_premium",
+    STRIPE_PRICE_HANDLE_ELITE: "price_handle_elite",
+    RESEND_API_KEY: "re_live_test",
+    RESEND_WEBHOOK_SECRET: "whsec_resend_test",
+    CLOUDFLARE_API_TOKEN: "cloudflare-token",
+    CLOUDFLARE_ZONE_ID: "cloudflare-zone",
   };
 }
 

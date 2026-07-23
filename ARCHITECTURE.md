@@ -36,7 +36,7 @@ Trust Score Computation (trust-score.ts)
   ├─ KeyVerificationProvider     (max 25pts) → agent_keys.status = active
   ├─ PaymentVerificationProvider (max 10pts) → agent_subscriptions.status
   ├─ ActivityVerificationProvider(max 20pts) → signed activity HMAC
-  └─ EndpointVerificationProvider(max 25pts) → live HTTP probe
+  └─ EndpointConfigProvider(max 10pts) → URL/HTTPS configuration only; no live probe
   Total: capped at 100
 
 Trust score → trustTier:
@@ -116,7 +116,7 @@ Stripe Checkout Completed
             └─ enforceAgentLimitsForUser() — deactivates excess agents if plan downgrades
 
 Plan limits (billing.ts PLAN_LIMITS):
-  none/free: 0 public agents | starter: 1 | pro: 5 | enterprise: unlimited
+  none/free: 1 UUID identity, 0 public listings | starter: 5 agents | pro: 25 | enterprise: 500
 
 Subscription state machine:
   active → past_due (invoice.payment_failed) → cancelled (subscription.deleted)

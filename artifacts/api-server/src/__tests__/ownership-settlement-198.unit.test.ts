@@ -94,7 +94,7 @@ vi.mock("../services/stripe-client", () => ({
 }));
 
 vi.mock("../lib/env", () => ({
-  env: { NODE_ENV: "test", PORT: "3000" },
+  env: vi.fn(() => ({ NODE_ENV: "test", PORT: "3000" })),
 }));
 
 // Mock handle service — needed so handle_registration validation/limit checks pass

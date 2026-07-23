@@ -36,7 +36,7 @@ function getAppUrl(req: Request): string {
 function setSessionCookie(res: Response, sid: string) {
   const cookieOpts: import("express").CookieOptions = {
     httpOnly: true,
-    secure: true,
+    secure: env().NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL,
@@ -51,7 +51,7 @@ function setSessionCookie(res: Response, sid: string) {
 function setOauthCookie(res: Response, name: string, value: string) {
   res.cookie(name, value, {
     httpOnly: true,
-    secure: true,
+    secure: env().NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 10 * 60 * 1000,
@@ -420,22 +420,11 @@ router.post("/auth/magic-link/verify", async (req: Request, res: Response) => {
   await redeemMagicLinkToken(token, req, res, true);
 });
 
-/**
- * GET /auth/magic-link/verify — kept for backwards compatibility with existing
- * email links already in users' inboxes. New emails use the fragment-based URL.
- * NOTE: The token appears in the query string on this path; prefer the POST
- * endpoint for new clients.
- */
-router.get("/auth/magic-link/verify", async (req: Request, res: Response) => {
-  const { token } = req.query;
+/** Legacy query-token links are intentionally no longer redeemable. */
+router.get("/auth/magic-link/verify", (req: Request, res: Response) => {
   const baseUrl = getAppUrl(req);
-
-  if (!token || typeof token !== "string") {
-    res.redirect(`${baseUrl}/sign-in?error=invalid_token`);
-    return;
-  }
-
-  await redeemMagicLinkToken(token, req, res, false);
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.redirect(303, `${baseUrl}/sign-in?error=legacy_magic_link_expired`);
 });
 
 router.post("/auth/signout", async (req: Request, res: Response) => {

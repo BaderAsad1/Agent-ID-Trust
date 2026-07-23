@@ -1095,13 +1095,37 @@ export const ConfirmMarketplaceOrderResponse = zod.object({
 });
 
 /**
- * @summary Complete order
+ * @summary Buyer accepts delivered work and releases payout
  */
 export const CompleteMarketplaceOrderParams = zod.object({
   orderId: zod.coerce.string().uuid(),
 });
 
 export const CompleteMarketplaceOrderResponse = zod.object({
+  id: zod.string().uuid(),
+  listingId: zod.string().uuid(),
+  buyerUserId: zod.string().uuid(),
+  sellerUserId: zod.string().uuid(),
+  agentId: zod.string().uuid(),
+  taskDescription: zod.string().optional(),
+  priceAmount: zod.string(),
+  platformFee: zod.string().optional(),
+  sellerPayout: zod.string().optional(),
+  status: zod.string(),
+  paymentProvider: zod.string().optional(),
+  deadlineAt: zod.date().optional(),
+  completedAt: zod.date().optional(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Seller submits completed work for buyer acceptance
+ */
+export const DeliverMarketplaceOrderParams = zod.object({
+  orderId: zod.coerce.string().uuid(),
+});
+
+export const DeliverMarketplaceOrderResponse = zod.object({
   id: zod.string().uuid(),
   listingId: zod.string().uuid(),
   buyerUserId: zod.string().uuid(),
@@ -3627,6 +3651,7 @@ export const GetWellKnownConfigurationResponse = zod.object({
   resolutionEndpoint: zod.string().optional(),
   erc8004Endpoint: zod.string().optional(),
   wellKnownPath: zod.string().optional(),
+  wellKnownTemplate: zod.string().optional(),
   baseDomain: zod.string(),
   documentation: zod.string().optional(),
   sdkPackage: zod.string().optional(),

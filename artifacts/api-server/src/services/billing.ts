@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { eq, and, desc, sql, inArray, isNotNull, isNull } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNotNull, isNull, gt } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core";
 import type { NodePgQueryResultHKT } from "drizzle-orm/node-postgres";
 import { getHandleTier } from "./handle";
@@ -29,8 +29,8 @@ const LAUNCH_MODE = process.env.LAUNCH_MODE === "true";
 export const MARKETPLACE_FEE_BPS = 250;
 
 const PLAN_LIMITS: Record<string, { maxPublicAgents: number; maxPrivateAgents: number; agentLimit: number; maxSubagents: number }> = {
-  none: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
-  free: { maxPublicAgents: 0, maxPrivateAgents: 0, agentLimit: 0, maxSubagents: 0 },
+  none: { maxPublicAgents: 0, maxPrivateAgents: 1, agentLimit: 1, maxSubagents: 0 },
+  free: { maxPublicAgents: 0, maxPrivateAgents: 1, agentLimit: 1, maxSubagents: 0 },
   starter: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
   builder: { maxPublicAgents: 5, maxPrivateAgents: 5, agentLimit: 5, maxSubagents: 25 },
   pro: { maxPublicAgents: 25, maxPrivateAgents: 25, agentLimit: 25, maxSubagents: 100 },
@@ -62,7 +62,7 @@ export function getPlanLimits(plan: string) {
   return {
     plan,
     agentLimit: LAUNCH_MODE ? 999 : limits.agentLimit,
-    maxAgents: LAUNCH_MODE ? 999 : limits.maxPublicAgents,
+    maxAgents: LAUNCH_MODE ? 999 : limits.agentLimit,
     maxPublicAgents: LAUNCH_MODE ? 999 : limits.maxPublicAgents,
     maxPrivateAgents: LAUNCH_MODE ? 999 : limits.maxPrivateAgents,
     maxSubagents: LAUNCH_MODE ? 999 : limits.maxSubagents,
@@ -322,8 +322,10 @@ export async function getActiveUserSubscription(userId: string): Promise<Subscri
       and(
         eq(subscriptionsTable.userId, userId),
         eq(subscriptionsTable.status, "active"),
+        gt(subscriptionsTable.currentPeriodEnd, new Date()),
       ),
     )
+    .orderBy(desc(subscriptionsTable.currentPeriodEnd))
     .limit(1);
   return sub[0] ?? null;
 }
@@ -1199,7 +1201,7 @@ export async function createHandleCheckoutSession(
   }
 
   const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
-  const tierLabel = handleLen <= 3 ? "3-char ENS Handle" : handleLen === 4 ? "4-char ENS Handle" : "5+ char ENS Handle";
+  const tierLabel = handleLen <= 3 ? "3-char .agentid Handle" : handleLen === 4 ? "4-char .agentid Handle" : "5+ char .agentid Handle";
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId,

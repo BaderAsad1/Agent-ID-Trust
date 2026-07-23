@@ -107,10 +107,19 @@ export class StripeMppProvider implements PaymentProvider {
   ): Promise<ProviderCaptureResult> {
     try {
       const stripe = getStripe();
-      const requestOptions = options?.idempotencyKey
-        ? { idempotencyKey: options.idempotencyKey }
-        : undefined;
-      await stripe.paymentIntents.capture(providerReference, undefined, requestOptions);
+      const existing = await stripe.paymentIntents.retrieve(providerReference);
+      if (existing.status === "succeeded") return { success: true };
+      if (existing.status !== "requires_capture") {
+        return { success: false, error: `PAYMENT_NOT_CAPTURABLE:${existing.status}` };
+      }
+      await stripe.paymentIntents.capture(
+        providerReference,
+        {},
+        {
+          idempotencyKey:
+            options?.idempotencyKey ?? `mpp-payment-intent:${providerReference}:capture`,
+        },
+      );
       return { success: true };
     } catch (err) {
       logger.error({ error: err instanceof Error ? err.message : String(err) }, "[StripeMppProvider] capturePayment error");
@@ -134,10 +143,11 @@ export class StripeMppProvider implements PaymentProvider {
       if (amountInCents !== undefined) {
         params.amount = amountInCents;
       }
-      const requestOptions = options?.idempotencyKey
-        ? { idempotencyKey: options.idempotencyKey }
-        : undefined;
-      const refund = await stripe.refunds.create(params, requestOptions);
+      const refund = await stripe.refunds.create(params, {
+        idempotencyKey:
+          options?.idempotencyKey ??
+          `mpp-payment-intent:${providerReference}:refund:${amountInCents ?? "full"}`,
+      });
       return { success: true, refundId: refund.id };
     } catch (err) {
       logger.error({ error: err instanceof Error ? err.message : String(err) }, "[StripeMppProvider] refundPayment error");

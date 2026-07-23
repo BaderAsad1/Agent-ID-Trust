@@ -11,7 +11,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 const FAQ_ITEMS = [
   {
     q: 'What does the Free plan actually give me?',
-    a: "One agent with a permanent UUID identity that never expires — even if you stop paying or downgrade. You also get a public agent card (ERC-8004 compliant) that any system can look up, a trust score visible to other agents and platforms, and full access to the SDK, MCP server, and REST API. You can add a standard 5+ character .agentid handle for $5/yr as a standalone add-on — or get it included free with Starter or Pro.",
+    a: "One agent with a permanent UUID identity that never expires — even if you stop paying or downgrade. Systems with its UUID can resolve it directly and inspect its trust record, but it is not indexed in public discovery. Free also includes SDK, MCP server, and REST API access. You can add a standard 5+ character .agentid handle for $5/yr, while Starter and Pro include the first standard handle.",
   },
   {
     q: "What's the difference between a UUID and a handle?",
@@ -27,7 +27,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Can I upgrade, downgrade, or cancel anytime?',
-    a: 'Yes. Plan changes take effect immediately and are prorated. Your agents keep their UUID identities and any registered handles regardless of plan changes.',
+    a: 'Yes. Your UUID identities remain. When a paid subscription ends, paid capabilities and public listing are disabled; handle renewal and grace-period rules still apply.',
   },
   {
     q: 'Can my agent register itself without any human involvement?',
@@ -35,7 +35,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Is Agent ID on-chain?',
-    a: 'Agent ID follows the ERC-8004 standard - a published spec for on-chain agent identity cards, similar to how ERC-20 defined fungible tokens. Every agent gets an ERC-8004-compliant identity card automatically. Handles can optionally be minted as on-chain NFTs (available now for 3-4 character premium handles), but the identity itself is valid on or off chain.',
+    a: 'Agent ID follows the ERC-8004 data model, but launch identities and handle resolution are off-chain. Mainnet anchoring is not part of the launch product and will only be enabled after the contracts, deployment manifest, and external audit are published.',
   },
 ];
 
@@ -60,7 +60,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 const HANDLE_TABLE_ROWS = [
-  { label: '5+ chars', price: 'Included', example: 'openclaw.agentid', note: '1 included with Starter & Pro; Enterprise: custom/sales-led' },
+  { label: '5+ chars', price: '$5/yr', example: 'openclaw.agentid', note: '1 included with Starter & Pro; Enterprise: custom/sales-led' },
   { label: '4 chars', price: '$29/year', example: 'flux.agentid', note: 'Max 2 per account' },
   { label: '3 chars', price: '$99/year', example: 'kai.agentid', note: 'Max 1 per account' },
 ];
@@ -294,7 +294,7 @@ export function Pricing() {
             </h2>
             <p style={{ textAlign: 'center', fontSize: 14, color: '#8690a8', margin: '0 0 8px' }}>A handle maps to your agent's permanent UUID — like a domain name to an IP address.</p>
             <p style={{ textAlign: 'center', fontSize: 12, color: '#606880', maxWidth: 500, margin: '0 auto 28px' }}>
-              Standard handles (5+ chars) are included with Starter and Pro. Short premium handles (3–4 chars) are available as add-ons. All handles renew annually and survive plan changes.
+              Standard handles (5+ chars) are $5/year for Free users or additional handles, with the first included on Starter and Pro. Short premium handles (3–4 chars) are available as add-ons. All handles renew annually and survive plan changes.
             </p>
             <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1a1f30', maxWidth: 720, margin: '0 auto' }}>
               {isMobile ? (
@@ -327,7 +327,7 @@ export function Pricing() {
               )}
             </div>
             <p style={{ textAlign: 'center', fontSize: 11, color: '#606880', marginTop: 12 }}>
-              On-chain NFT minting available for premium handles (3-4 char). Standard handles minting rolling out now.
+              Launch identities and handles are off-chain. Mainnet anchoring will ship only after public contract and deployment verification.
             </p>
           </div>
 

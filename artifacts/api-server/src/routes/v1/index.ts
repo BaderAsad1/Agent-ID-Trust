@@ -75,7 +75,7 @@ router.use("/users/me/identities", identitiesRouter);
 router.post("/agents", (req, res, next) => {
   const handle: string = (req.body?.handle ?? "").toLowerCase();
   const handleLen = handle.replace(/[^a-z0-9]/g, "").length;
-  if (handleLen >= 5) {
+  if (handleLen === 0 || handleLen >= 5) {
     return checkAgentLimit()(req, res, next);
   }
   return requirePlan("starter")(req, res, () => checkAgentLimit()(req, res, next));

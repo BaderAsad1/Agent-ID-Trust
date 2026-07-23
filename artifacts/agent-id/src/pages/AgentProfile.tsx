@@ -660,7 +660,7 @@ export function AgentProfile() {
                 </div>
               </div>
               <TrustBreakdownBar label="Identity Verification" value={trustBreakdown.verification || 0} max={20} />
-              <TrustBreakdownBar label="Endpoint Health" value={trustBreakdown.endpointHealth || 0} max={10} />
+              <TrustBreakdownBar label="Endpoint Configuration" value={trustBreakdown.endpointConfig || 0} max={10} />
               <TrustBreakdownBar label="Profile Completeness" value={trustBreakdown.profileCompleteness || 0} max={15} />
               <TrustBreakdownBar label="Task Activity" value={trustBreakdown.activity || 0} max={15} />
               <TrustBreakdownBar label="Account Longevity" value={trustBreakdown.longevity || 0} max={15} />

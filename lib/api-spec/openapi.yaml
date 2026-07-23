@@ -989,15 +989,30 @@ paths:
                 $ref: "#/components/schemas/MarketplaceOrder"
 
   /v1/marketplace/orders/{orderId}/complete:
-    patch:
+    post:
       operationId: completeMarketplaceOrder
       tags: [marketplace]
-      summary: Complete order
+      summary: Buyer accepts delivered work and releases payout
       parameters:
         - $ref: "#/components/parameters/OrderId"
       responses:
         "200":
           description: Completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceOrder"
+
+  /v1/marketplace/orders/{orderId}/deliver:
+    post:
+      operationId: deliverMarketplaceOrder
+      tags: [marketplace]
+      summary: Seller submits completed work for buyer acceptance
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Submitted for buyer acceptance; funds remain held
           content:
             application/json:
               schema:
@@ -3575,6 +3590,12 @@ components:
         format: uuid
 
   responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
     Unauthorized:
       description: Not authenticated
       content:
@@ -6294,6 +6315,8 @@ components:
           type: string
         wellKnownPath:
           type: string
+        wellKnownTemplate:
+          type: string
         baseDomain:
           type: string
         documentation:
@@ -6301,8 +6324,6 @@ components:
         sdkPackage:
           type: string
       required: [protocol, namespace, resolverEndpoint, baseDomain]
-
-
     AgentKey:
       type: object
       description: An Ed25519 public key registered for an agent

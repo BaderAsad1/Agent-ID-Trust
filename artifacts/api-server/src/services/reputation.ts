@@ -13,7 +13,7 @@ export interface ReputationSummary {
 }
 
 function isOnchainEnabled(): boolean {
-  return env().ONCHAIN_MINTING_ENABLED === "true" || env().ONCHAIN_MINTING_ENABLED === "1";
+  return env().ONCHAIN_MINTING_ENABLED === "true";
 }
 
 function parseChainRegistrations(chainMints: Record<string, unknown> | null | undefined): Array<{ chain: string; contractAddress?: string; tokenId?: string; agentId?: string }> {

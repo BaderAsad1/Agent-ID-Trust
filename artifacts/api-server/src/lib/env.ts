@@ -35,6 +35,7 @@ const envSchema = z.object({
 
   LAUNCH_MODE: z.string().optional(),
   SANDBOX_MODE: z.enum(["enabled", "disabled"]).optional(),
+  MARKETPLACE_COMMERCE_ENABLED: z.enum(["true", "false"]).default("false"),
 
   RESEND_API_KEY: z.string().optional(),
   FROM_EMAIL: z.string().default("notifications@getagent.id"),
@@ -99,11 +100,11 @@ const envSchema = z.object({
 
   ADMIN_ALLOWED_IPS: z.string().optional(),
 
-  X402_ENABLED: z.string().optional(),
+  X402_ENABLED: z.enum(["true", "false"]).default("false"),
 
   MULTI_CHAIN_ENABLED: z.string().optional(),
 
-  ONCHAIN_MINTING_ENABLED: z.string().optional(),
+  ONCHAIN_MINTING_ENABLED: z.enum(["true", "false"]).default("false"),
 
   BASE_RPC_URL: z.string().optional(),
   BASE_MINTER_PRIVATE_KEY: z.string().optional(),
@@ -196,6 +197,39 @@ export function validateEnv(): Env {
 
   const isProd = env.NODE_ENV === "production";
 
+  if (isProd && !env.DATABASE_URL) {
+    envLogger.fatal("[env] DATABASE_URL is required in production.");
+    process.exit(1);
+  }
+  if (isProd && !env.REDIS_URL) {
+    envLogger.fatal("[env] REDIS_URL is required in production for distributed rate limiting and workers.");
+    process.exit(1);
+  }
+  if (isProd && !env.ALLOWED_ORIGINS) {
+    envLogger.fatal("[env] ALLOWED_ORIGINS is required in production.");
+    process.exit(1);
+  }
+  if (isProd && env.ALLOWED_ORIGINS) {
+    const origins = env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean);
+    const invalidOrigin = origins.find((origin) => {
+      if (origin === "*") return true;
+      try {
+        const parsed = new URL(origin);
+        return !["http:", "https:"].includes(parsed.protocol) || parsed.origin !== origin.replace(/\/$/, "");
+      } catch {
+        return true;
+      }
+    });
+    if (origins.length === 0 || invalidOrigin) {
+      envLogger.fatal({ invalidOrigin }, "[env] ALLOWED_ORIGINS must contain exact HTTP(S) origins and cannot contain wildcards.");
+      process.exit(1);
+    }
+  }
+  if (isProd && !process.env.TRUST_PROXY) {
+    envLogger.fatal("[env] TRUST_PROXY must be explicitly set in production, including explicit 'false' for direct deployments.");
+    process.exit(1);
+  }
+
   // Normalize VC keys: if stored as PEM, convert to JWK JSON so all downstream code works uniformly
   if (env.VC_SIGNING_KEY?.trimStart().startsWith("-----BEGIN")) {
     try {
@@ -226,12 +260,12 @@ export function validateEnv(): Env {
     }
   }
 
-  if (isProd && !env.ACTIVITY_HMAC_SECRET) {
-    envLogger.fatal("[env] ACTIVITY_HMAC_SECRET is required in production.");
+  if (isProd && (!env.ACTIVITY_HMAC_SECRET || env.ACTIVITY_HMAC_SECRET.length < 32)) {
+    envLogger.fatal("[env] ACTIVITY_HMAC_SECRET is required in production and must be at least 32 characters.");
     process.exit(1);
   }
-  if (isProd && !env.WEBHOOK_SECRET_KEY) {
-    envLogger.fatal("[env] WEBHOOK_SECRET_KEY is required in production.");
+  if (isProd && (!env.WEBHOOK_SECRET_KEY || env.WEBHOOK_SECRET_KEY.length < 32)) {
+    envLogger.fatal("[env] WEBHOOK_SECRET_KEY is required in production and must be at least 32 characters.");
     process.exit(1);
   }
   if (isProd && !env.VC_SIGNING_KEY) {
@@ -279,25 +313,78 @@ export function validateEnv(): Env {
     envLogger.fatal("[env] JWT_SECRET is required in production and must be at least 32 characters.");
     process.exit(1);
   }
-  if (isProd && !env.CLAIM_TOKEN_SECRET) {
-    envLogger.fatal("[env] CLAIM_TOKEN_SECRET is required in production for HMAC-signed programmatic claim tokens.");
+  if (isProd && (!env.CLAIM_TOKEN_SECRET || env.CLAIM_TOKEN_SECRET.length < 32)) {
+    envLogger.fatal("[env] CLAIM_TOKEN_SECRET is required in production and must be at least 32 characters.");
     process.exit(1);
   }
-  if (isProd && !env.DATABASE_URL) {
-    envLogger.fatal("[env] DATABASE_URL is required in production.");
+  if (isProd && (!env.ADMIN_SECRET_KEY || env.ADMIN_SECRET_KEY.length < 32)) {
+    envLogger.fatal("[env] ADMIN_SECRET_KEY is required in production and must be at least 32 characters.");
     process.exit(1);
   }
-  if (isProd && !env.ADMIN_SECRET_KEY) {
-    envLogger.fatal("[env] ADMIN_SECRET_KEY is required in production. All admin routes will deny all requests without it.");
+  if (isProd && !env.ADMIN_ALLOWED_IPS) {
+    envLogger.fatal("[env] ADMIN_ALLOWED_IPS is required in production for admin-route allowlisting.");
     process.exit(1);
   }
-  if (isProd && !env.CREDENTIAL_SIGNING_SECRET) {
-    envLogger.fatal("[env] CREDENTIAL_SIGNING_SECRET is required in production. Without it, an ephemeral secret is used and every previously-issued attestation is silently invalidated on each restart.");
+  if (isProd && (!env.CREDENTIAL_SIGNING_SECRET || env.CREDENTIAL_SIGNING_SECRET.length < 32)) {
+    envLogger.fatal("[env] CREDENTIAL_SIGNING_SECRET is required in production and must be at least 32 characters.");
     process.exit(1);
   }
-  if (isProd && !env.OAUTH_INTROSPECTION_SECRET) {
-    envLogger.fatal("[env] OAUTH_INTROSPECTION_SECRET is required in production for server-to-server token introspection.");
+  if (isProd && (!env.OAUTH_INTROSPECTION_SECRET || env.OAUTH_INTROSPECTION_SECRET.length < 32)) {
+    envLogger.fatal("[env] OAUTH_INTROSPECTION_SECRET is required in production and must be at least 32 characters.");
     process.exit(1);
+  }
+  if (isProd && !env.STRIPE_SECRET_KEY) {
+    envLogger.fatal("[env] STRIPE_SECRET_KEY is required in production; paid plans cannot launch without billing.");
+    process.exit(1);
+  }
+  if (isProd && !env.STRIPE_PUBLISHABLE_KEY) {
+    envLogger.fatal("[env] STRIPE_PUBLISHABLE_KEY is required in production; browser checkout cannot launch without it.");
+    process.exit(1);
+  }
+  if (isProd && !env.STRIPE_WEBHOOK_SECRET) {
+    envLogger.fatal("[env] STRIPE_WEBHOOK_SECRET is required in production; subscription state depends on verified webhooks.");
+    process.exit(1);
+  }
+  if (isProd && !env.RESEND_API_KEY) {
+    envLogger.fatal("[env] RESEND_API_KEY is required in production for sign-in and product email delivery.");
+    process.exit(1);
+  }
+  if (isProd && !env.RESEND_WEBHOOK_SECRET) {
+    envLogger.fatal("[env] RESEND_WEBHOOK_SECRET is required in production for verified inbound-email and bounce webhooks.");
+    process.exit(1);
+  }
+  if (isProd && (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ZONE_ID)) {
+    envLogger.fatal("[env] Cloudflare API token and zone ID are required in production for handle/domain provisioning.");
+    process.exit(1);
+  }
+  if (isProd) {
+    const requiredStripeConfig = [
+      ["STRIPE_PRICE_STARTER_MONTHLY", env.STRIPE_PRICE_STARTER_MONTHLY],
+      ["STRIPE_PRICE_STARTER_YEARLY", env.STRIPE_PRICE_STARTER_YEARLY],
+      ["STRIPE_PRICE_PRO_MONTHLY", env.STRIPE_PRICE_PRO_MONTHLY],
+      ["STRIPE_PRICE_PRO_YEARLY", env.STRIPE_PRICE_PRO_YEARLY],
+      ["STRIPE_PRICE_HANDLE_STANDARD", env.STRIPE_PRICE_HANDLE_STANDARD],
+      ["STRIPE_PRICE_HANDLE_PREMIUM", env.STRIPE_PRICE_HANDLE_PREMIUM],
+      ["STRIPE_PRICE_HANDLE_ELITE", env.STRIPE_PRICE_HANDLE_ELITE],
+    ] as const;
+    for (const [name, value] of requiredStripeConfig) {
+      if (!value) {
+        envLogger.fatal(`[env] ${name} is required in production when Stripe is enabled.`);
+        process.exit(1);
+      }
+    }
+  }
+  if (isProd && env.X402_ENABLED === "true") {
+    if (!env.PLATFORM_TREASURY_ADDRESS || !env.CDP_API_KEY_ID || !env.CDP_API_KEY_SECRET) {
+      envLogger.fatal("[env] X402_ENABLED requires PLATFORM_TREASURY_ADDRESS and CDP credentials.");
+      process.exit(1);
+    }
+  }
+  if (isProd && env.ONCHAIN_MINTING_ENABLED === "true") {
+    if (!env.BASE_RPC_URL || !env.BASE_MINTER_PRIVATE_KEY || !env.BASE_PLATFORM_WALLET || !env.BASE_AGENTID_REGISTRAR || !env.BASE_ERC8004_REGISTRY || !env.HANDLE_CLAIM_SIGNING_PRIVATE_KEY) {
+      envLogger.fatal("[env] ONCHAIN_MINTING_ENABLED requires Base RPC, minter key, platform wallet, registrar, registry, and claim-ticket signing configuration.");
+      process.exit(1);
+    }
   }
 
   if (!env.REDIS_URL) {
@@ -305,14 +392,6 @@ export function validateEnv(): Env {
   }
   if (!env.STRIPE_SECRET_KEY) {
     envLogger.warn("[env] STRIPE_SECRET_KEY not set — payment processing disabled.");
-  }
-  // STRIPE_WEBHOOK_SECRET is required independently of STRIPE_SECRET_KEY.
-  // A deployment that sets STRIPE_SECRET_KEY but omits STRIPE_WEBHOOK_SECRET
-  // would silently accept forged Stripe webhook events — an attacker could
-  // fraudulently activate plans by posting fabricated checkout-completed events.
-  if (isProd && !env.STRIPE_WEBHOOK_SECRET) {
-    envLogger.fatal("[env] STRIPE_WEBHOOK_SECRET is required in production. Without it, Stripe webhook signature verification is disabled and forged webhook events would be accepted. Set STRIPE_WEBHOOK_SECRET to your Stripe endpoint secret.");
-    process.exit(1);
   }
   if (!env.STRIPE_WEBHOOK_SECRET && !isProd) {
     envLogger.warn("[env] STRIPE_WEBHOOK_SECRET not set — Stripe webhook signature verification disabled. This must be set in production.");

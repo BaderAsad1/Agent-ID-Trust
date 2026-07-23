@@ -15,7 +15,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     if (!req.cookies?.[CSRF_COOKIE]) {
       res.cookie(CSRF_COOKIE, generateToken(), {
         httpOnly: false,
-        secure: true,
+        secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
         path: "/",
         maxAge: 7 * 24 * 60 * 60 * 1000,

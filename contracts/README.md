@@ -1,10 +1,10 @@
 # Agent ID Contracts
 
-This directory contains the smart contract definitions and related tooling for the Agent ID protocol's on-chain components (handle minting, registry, etc.).
+This directory contains deployment metadata for a deferred Agent ID on-chain anchoring integration. It does not contain deployable contract source code.
 
 ## Overview
 
-Agent ID uses on-chain contracts on Base (Ethereum L2) to provide verifiable, tamper-evident handle ownership records. Every 3-character and 4-character handle purchase includes an on-chain mint. Standard handles (5+ characters) receive an on-chain record when included with a Starter or Pro plan.
+The launch product resolves identities off-chain. No launch plan or handle purchase includes an on-chain mint. The application keeps a disabled-by-default integration path for a future Base deployment; it must not be enabled until audited contract source, deployment automation, verified addresses, and an operational runbook exist.
 
 ## Contract Architecture
 
@@ -31,7 +31,7 @@ contracts/
 
 Contract deployment and upgrades are managed manually by the Agent ID core team. There is no automated deploy script in this repository.
 
-> **Production requirement:** `contracts/deployment.json` must contain valid proxy and registry addresses for all target networks before deploying to production. The `base-mainnet` section must be filled in by the infrastructure team before going live.
+> **On-chain feature requirement:** `contracts/deployment.json` must contain verified proxy and registry addresses before `ONCHAIN_MINTING_ENABLED` can be enabled. Empty mainnet addresses do not block the off-chain launch.
 
 ### Upgrade Process
 

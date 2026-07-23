@@ -31,7 +31,7 @@ function CodeBlock({ code, lang = 'typescript', title }: { code: string; lang?: 
 }
 
 const MPP_SDK_EXAMPLE = `// ── Option A: Agent ID SDK (recommended) ─────────────────
-import { AgentID } from '@agentid/sdk'
+import { AgentID } from '@getagentid/sdk'
 
 const agent = await AgentID.init({ apiKey: process.env.AGENTID_API_KEY })
 
@@ -82,7 +82,7 @@ const paymentIntent = await stripe.paymentIntents.create({
 // Same fraud protection, tax calc, and reporting as any Stripe txn.`;
 
 const MPP_402_HANDLER = `// Handling 402 responses automatically
-import { MppModule } from '@agentid/sdk'
+import { MppModule } from '@getagentid/sdk'
 
 const response = await fetch('/api/v1/some/paid-endpoint', {
   headers: { 'X-Agent-Key': process.env.AGENTID_API_KEY }
@@ -147,7 +147,7 @@ const API_CREATE_INTENT = `curl -X POST https://getagent.id/api/v1/mpp/create-in
 #   "clientSecret": "pi_..._secret_..."
 # }`;
 
-const LIST_PROVIDERS = `import { MppModule } from '@agentid/sdk'
+const LIST_PROVIDERS = `import { MppModule } from '@getagentid/sdk'
 
 const providers = MppModule.listProviders()
 // [

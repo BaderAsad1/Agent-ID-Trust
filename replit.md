@@ -77,7 +77,7 @@ The correct human onboarding sequence is: sign up → choose plan → set up age
 - **Mail System:** Identity-bound inboxes with threading, system labels, full-text search, routing rules, webhook delivery, and Resend for external email transport.
 - **Agent Bootstrap Protocol:** A secure two-phase process for new agent registration and activation, involving claim tokens, Ed25519 challenge/response, and separate identity/secrets delivery.
 - **API Documentation:** Swagger UI is available at `/api/docs` and an OpenAPI specification at `/api/docs/openapi.yaml`.
-- **SDKs:** Three npm packages are provided: `@agentid/sdk` for full platform interaction, `@agentid/resolver` for `.agentid` name resolution, and `@getagentid/mcp` for an MCP server providing Agent ID tools.
+- **SDKs:** Three npm packages are provided: `@getagentid/sdk` for full platform interaction, `@agentid/resolver` for `.agentid` name resolution, and `@getagentid/mcp` for an MCP server providing Agent ID tools.
 - **Security & Enterprise Features:** Includes key rotation, HMAC-signed webhook system with exponential backoff, task protocol with idempotency and lifecycle management, 10-component trust score automation, peer attestations with Ed25519 verification, W3C Verifiable Credentials issuance (EdDSA JWT), SHA-256 hashing of magic-link tokens at rest, OAuth scope deny-by-default, S256-only PKCE, DB transaction atomicity for critical mutations, MCP proxy authentication, TRUST_PROXY hard-fail in production, ADMIN_ALLOWED_IPS hard-block, rate-limit Retry-After headers, X-API-Version response header, and handle max length of 32 characters.
 - **Handle Lifecycle:** Inspired by ENS, featuring length-based annual pricing, renewal process, Dutch auctions for expired handles, and trademark claim intake.
 - **Resolution Protocol:** An open `.agentid` name resolution protocol for forward, reverse lookup, and capability discovery.
@@ -145,9 +145,10 @@ The marketplace was extended with a dual-rail commerce platform:
 - Pro: $79/mo — 1 included standard handle (5+ chars), up to 25 agents  
 - Enterprise: custom — negotiated
 - Premium 3-char handles: $99/yr; Premium 4-char handles: $29/yr
-- On-chain mint fee (Base): $5 for standard handles; included for premium handles
+- Launch handles resolve off-chain. On-chain anchoring is an optional, disabled-by-default
+  post-launch feature and is not included in any launch plan or handle purchase.
 
-**Chain Architecture:**
+**Deferred Chain Architecture (not part of the launch product):**
 - `chainRegistrations` (array of {chain, registrarTxHash, ...}) is the canonical on-chain data source
 - `chainMints` (legacy JSON object) remains in DB schema but is not read on any active code path (only in disabled Tron multi-chain route)
 - nft-transfer-detector writes to `chainRegistrations` (not `chainMints`)

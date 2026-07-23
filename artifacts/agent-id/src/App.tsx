@@ -1,15 +1,10 @@
 import './styles/theme.css';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { Toaster } from 'sonner';
 import { Nav } from '@/components/Nav';
-import { GetStarted } from '@/pages/GetStarted';
 import { SignIn } from '@/pages/SignIn';
-import { Dashboard } from '@/pages/Dashboard';
-import { AgentProfile } from '@/pages/AgentProfile';
-import { Marketplace } from '@/pages/Marketplace';
-import { MarketplaceListing } from '@/pages/MarketplaceListing';
 import { A2AMarketplace } from '@/pages/A2AMarketplace';
 import { JobBoard, JobDetail } from '@/pages/Jobs';
 import { ForAgents } from '@/pages/ForAgents';
@@ -18,7 +13,6 @@ import { Protocol } from '@/pages/Protocol';
 import { DocsIntegrations } from '@/pages/DocsIntegrations';
 import { NotFound } from '@/pages/NotFound';
 import { ClaimPage } from '@/pages/Claim';
-import { Mail } from '@/pages/Mail';
 import { OrgProfile } from '@/pages/OrgProfile';
 import { HumanProfile } from '@/pages/HumanProfile';
 import { Terms } from '@/pages/Terms';
@@ -28,7 +22,6 @@ import { Security } from '@/pages/Security';
 import { ClaudeDesktopIntegration } from '@/pages/integrations/ClaudeDesktop';
 import { CursorIntegration } from '@/pages/integrations/Cursor';
 import { VSCodeIntegration } from '@/pages/integrations/VSCode';
-import IssuanceFilm from '@/components/IssuanceFilm';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AgentUUIDProfile } from '@/pages/AgentUUIDProfile';
 import { AdminDisputes } from '@/pages/AdminDisputes';
@@ -48,6 +41,18 @@ import { DocsOrders } from '@/pages/DocsOrders';
 import { DemoApp } from '@/pages/DemoApp';
 import { DemoCallback } from '@/pages/DemoCallback';
 import type { ReactNode } from 'react';
+
+const GetStarted = lazy(() => import('@/pages/GetStarted').then(module => ({ default: module.GetStarted })));
+const Dashboard = lazy(() => import('@/pages/Dashboard').then(module => ({ default: module.Dashboard })));
+const AgentProfile = lazy(() => import('@/pages/AgentProfile').then(module => ({ default: module.AgentProfile })));
+const Marketplace = lazy(() => import('@/pages/Marketplace').then(module => ({ default: module.Marketplace })));
+const MarketplaceListing = lazy(() => import('@/pages/MarketplaceListing').then(module => ({ default: module.MarketplaceListing })));
+const Mail = lazy(() => import('@/pages/Mail').then(module => ({ default: module.Mail })));
+const IssuanceFilm = lazy(() => import('@/components/IssuanceFilm'));
+
+function RouteFallback() {
+  return <div role="status" aria-label="Loading page" className="min-h-[40vh]" />;
+}
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { userId, loading } = useAuth();
@@ -78,7 +83,7 @@ function LandingPage() {
     return () => clearTimeout(timer);
   }, [location.hash]);
 
-  return <IssuanceFilm onNavigate={(path) => navigate(path)} />;
+  return <Suspense fallback={<RouteFallback />}><IssuanceFilm onNavigate={(path) => navigate(path)} /></Suspense>;
 }
 
 function ScrollToTop() {
@@ -121,6 +126,7 @@ function AppContent() {
       <ScrollToTop />
       <Nav />
       <main id="main-content">
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/get-started" element={<GetStarted />} />
         <Route path="/start" element={<Navigate to="/get-started" replace />} />
@@ -170,6 +176,7 @@ function AppContent() {
         <Route path="/:handle" element={<AgentProfile />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
       </main>
     </div>
   );

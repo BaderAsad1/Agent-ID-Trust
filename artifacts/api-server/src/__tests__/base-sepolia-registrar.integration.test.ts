@@ -28,6 +28,7 @@ import { db } from "@workspace/db";
 import { agentsTable } from "@workspace/db/schema";
 import { errorHandler } from "../middlewares/error-handler";
 import { createTestUser, createTestAgent } from "../test-support/factories";
+import { HANDLE_GRACE_PERIOD_DAYS } from "@workspace/shared-pricing";
 
 // ── Shared mocks ─────────────────────────────────────────────────────────────
 
@@ -500,7 +501,7 @@ describe("Task #152 — Anchored handle non-reuse guardrail: retired, not re-auc
     const user = await createTestUser();
     createdUserIds.push(user.id);
 
-    const expiredAt = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000); // 35 days past grace period
+    const expiredAt = new Date(Date.now() - (HANDLE_GRACE_PERIOD_DAYS + 5) * 24 * 60 * 60 * 1000);
 
     const agent = await createTestAgent(user.id, {
       handle: `exp${Date.now().toString(36)}`,

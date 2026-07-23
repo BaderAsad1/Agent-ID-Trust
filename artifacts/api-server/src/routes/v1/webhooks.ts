@@ -18,7 +18,6 @@ import {
   handleSubscriptionCreatedOrUpdated,
   claimWebhookEvent,
   finalizeWebhookEvent,
-  activatePlanForUser,
   deactivatePlanForUser,
   recoverHandleRaceConflict,
 } from "../../services/billing";
@@ -227,8 +226,6 @@ router.post(
             const subscription = event.data.object as Stripe.Subscription;
             const subType = subscription.metadata?.type;
             const subUserId = subscription.metadata?.userId;
-            const subPlan = subscription.metadata?.plan;
-            const subInterval = (subscription.metadata?.billingInterval ?? "monthly") as "monthly" | "yearly";
 
             if (subType === "handle_registration" && subscription.metadata?.handle && subUserId) {
               const handle = subscription.metadata.handle;
@@ -285,9 +282,6 @@ router.post(
               }
             } else {
               await handleSubscriptionCreatedOrUpdated(subscription);
-              if (subUserId && subPlan && (subPlan === "starter" || subPlan === "pro")) {
-                await activatePlanForUser(subUserId, subPlan, subscription.id, subInterval);
-              }
               // After plan activation, check if this subscription was created with a pending handle
               // from the onboarding wizard (user picked plan + handle simultaneously).
               const pendingHandle = subscription.metadata?.pendingHandle;

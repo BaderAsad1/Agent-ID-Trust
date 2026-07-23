@@ -10,11 +10,9 @@ export function isStripeAvailable(): boolean {
 export function getStripe(): Stripe {
   if (stripeInstance) return stripeInstance;
 
-  const isProd = process.env.NODE_ENV === "production";
-  const key = isProd && process.env.STRIPE_LIVE_SECRET_KEY
-    ? process.env.STRIPE_LIVE_SECRET_KEY
-    : process.env.STRIPE_SECRET_KEY;
+  const key = process.env.STRIPE_SECRET_KEY;
   if (key) {
+    const isProd = process.env.NODE_ENV === "production";
     // Guard: prevent test keys in production and live keys in non-production.
     // A mismatch here means billing operations will silently target the wrong environment.
     const isLiveKey = key.startsWith("sk_live_") || key.startsWith("rk_live_");

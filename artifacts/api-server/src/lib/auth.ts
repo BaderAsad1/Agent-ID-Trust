@@ -24,10 +24,14 @@ export interface SessionData {
   expires_at?: number;
 }
 
+function hashSessionId(sid: string): string {
+  return crypto.createHash("sha256").update(sid, "utf8").digest("hex");
+}
+
 export async function createSession(data: SessionData): Promise<string> {
   const sid = crypto.randomBytes(32).toString("hex");
   await db.insert(sessionsTable).values({
-    sid,
+    sid: hashSessionId(sid),
     sess: data as unknown as Record<string, unknown>,
     expire: new Date(Date.now() + SESSION_TTL),
   });
@@ -35,10 +39,11 @@ export async function createSession(data: SessionData): Promise<string> {
 }
 
 export async function getSession(sid: string): Promise<SessionData | null> {
+  const storedSid = hashSessionId(sid);
   const [row] = await db
     .select()
     .from(sessionsTable)
-    .where(eq(sessionsTable.sid, sid));
+    .where(eq(sessionsTable.sid, storedSid));
 
   if (!row || row.expire < new Date()) {
     if (row) await deleteSession(sid);
@@ -49,7 +54,7 @@ export async function getSession(sid: string): Promise<SessionData | null> {
 }
 
 export async function deleteSession(sid: string): Promise<void> {
-  await db.delete(sessionsTable).where(eq(sessionsTable.sid, sid));
+  await db.delete(sessionsTable).where(eq(sessionsTable.sid, hashSessionId(sid)));
 }
 
 export async function clearSession(

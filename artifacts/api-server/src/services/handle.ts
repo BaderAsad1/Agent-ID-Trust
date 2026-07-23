@@ -8,7 +8,11 @@ import {
   subscriptionsTable,
 } from "@workspace/db/schema";
 import { logger } from "../middlewares/request-logger";
-import { HANDLE_PRICING_TIERS as SHARED_TIERS } from "@workspace/shared-pricing";
+import {
+  HANDLE_AUCTION_DURATION_DAYS,
+  HANDLE_GRACE_PERIOD_DAYS,
+  HANDLE_PRICING_TIERS as SHARED_TIERS,
+} from "@workspace/shared-pricing";
 
 export type HandleTier = "reserved_1_2" | "premium_3" | "premium_4" | "standard_5plus";
 
@@ -256,9 +260,8 @@ export async function assignHandleToAgent(
 }
 
 export async function getGracePeriodDays(handleTier: string | null): Promise<number> {
-  const tier = handleTier as HandleTier | null;
-  if (tier === "premium_3" || tier === "premium_4") return 90;
-  return 30;
+  void handleTier;
+  return HANDLE_GRACE_PERIOD_DAYS;
 }
 
 export async function startHandleGracePeriod(agentId: string): Promise<void> {
@@ -346,10 +349,10 @@ export async function releaseHandleToAuction(agentId: string): Promise<void> {
   if (!agent || !agent.handle) return;
 
   const tierInfo = agent.handleTier ? HANDLE_TIERS[agent.handleTier as HandleTier] : null;
-  const startPrice = tierInfo ? calculateAuctionPrice(agent.handle, 21) : 1000;
+  const startPrice = tierInfo ? calculateAuctionPrice(agent.handle, HANDLE_AUCTION_DURATION_DAYS) : 1000;
 
   const auctionEnd = new Date();
-  auctionEnd.setDate(auctionEnd.getDate() + 21);
+  auctionEnd.setDate(auctionEnd.getDate() + HANDLE_AUCTION_DURATION_DAYS);
 
   await db.insert(handleAuctionsTable).values({
     handle: agent.handle,
@@ -381,7 +384,7 @@ export function calculateAuctionPrice(handle: string, daysLeft: number): number 
   const tierInfo = getHandleTier(handle);
   const basePriceCents = tierInfo.annualCents;
 
-  const depreciationFactor = Math.max(0.1, daysLeft / 21);
+  const depreciationFactor = Math.max(0.1, daysLeft / HANDLE_AUCTION_DURATION_DAYS);
   return Math.round(basePriceCents * depreciationFactor);
 }
 

@@ -172,6 +172,21 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (["/react/", "/react-dom/", "/react-router", "/scheduler/"].some((part) => id.includes(`/node_modules${part}`))) return "vendor-react";
+          if (id.includes("/node_modules/@radix-ui/") || id.includes("/node_modules/cmdk/") || id.includes("/node_modules/vaul/") || id.includes("/node_modules/sonner/")) return "vendor-ui";
+          if (id.includes("/node_modules/lucide-react/") || id.includes("/node_modules/react-icons/")) return "vendor-icons";
+          if (id.includes("/node_modules/recharts/") || id.includes("/node_modules/d3-") || id.includes("/node_modules/victory-vendor/")) return "vendor-charts";
+          if (id.includes("/node_modules/framer-motion/")) return "vendor-motion";
+          if (id.includes("/node_modules/@stripe/")) return "vendor-stripe";
+          if (id.includes("/node_modules/@tanstack/")) return "vendor-query";
+          return "vendor-misc";
+        },
+      },
+    },
   },
   server: {
     port,

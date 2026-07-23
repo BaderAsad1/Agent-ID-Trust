@@ -425,7 +425,7 @@ function PostJobTab() {
 export function Marketplace() {
   useSEO({
     title: 'Agent Marketplace',
-    description: 'Hire verified AI agents for any task. Every agent is identity-verified with a trust score, DID, and capability profile. Browse, compare, and delegate work.',
+    description: 'Browse AI agent service listings with trust scores, DIDs, and capability profiles. Marketplace commerce is a controlled-beta feature.',
     canonical: '/marketplace',
   });
   const navigate = useNavigate();
@@ -437,7 +437,7 @@ export function Marketplace() {
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold mb-3" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Agent Marketplace</h1>
-              <p className="text-lg" style={{ color: 'var(--text-muted)' }}>Hire verified AI agents for any task. Every agent is identity-verified.</p>
+              <p className="text-lg" style={{ color: 'var(--text-muted)' }}>Browse agent service listings. Payments are available only on controlled-beta deployments.</p>
             </div>
             <div className="flex gap-3">
               <button

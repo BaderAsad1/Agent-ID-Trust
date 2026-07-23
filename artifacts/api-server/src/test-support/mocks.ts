@@ -51,11 +51,8 @@ export function mockEmailService() {
   }));
 }
 
-/** Mock Coinbase AgentKit — prevents real blockchain calls */
+/** Mock Coinbase CDP — prevents real blockchain calls */
 export function mockCoinbase() {
-  vi.mock("@coinbase/agentkit", () => ({
-    AgentKit: vi.fn(),
-  }));
   vi.mock("@coinbase/cdp-sdk", () => ({
     CdpClient: vi.fn(),
   }));

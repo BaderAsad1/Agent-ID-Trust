@@ -30,7 +30,7 @@ function CodeBlock({ code, lang = 'typescript', title }: { code: string; lang?: 
   );
 }
 
-const ORG_REGISTER_EXAMPLE = `import { AgentID } from '@agentid/sdk'
+const ORG_REGISTER_EXAMPLE = `import { AgentID } from '@getagentid/sdk'
 
 // 1. Register the organisation itself
 const org = await AgentID.orgs.register({

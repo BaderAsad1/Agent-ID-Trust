@@ -187,11 +187,21 @@ export class MarketplaceModule {
    * Accept an incoming order (as the seller).
    */
   async acceptOrder(orderId: string): Promise<MarketplaceOrder> {
-    return this.http.post<MarketplaceOrder>(`/api/v1/marketplace/orders/${encodeURIComponent(orderId)}/accept`);
+    return this.http.post<MarketplaceOrder>(`/api/v1/marketplace/orders/${encodeURIComponent(orderId)}/confirm`);
   }
 
   /**
-   * Mark an order as completed.
+   * Submit completed work for buyer review. This does not release funds.
+   */
+  async deliverOrder(orderId: string, result?: Record<string, unknown>): Promise<MarketplaceOrder> {
+    return this.http.post<MarketplaceOrder>(
+      `/api/v1/marketplace/orders/${encodeURIComponent(orderId)}/deliver`,
+      { result },
+    );
+  }
+
+  /**
+   * Accept delivered work as the buyer and release the seller payout.
    */
   async completeOrder(orderId: string, result?: Record<string, unknown>): Promise<MarketplaceOrder> {
     return this.http.post<MarketplaceOrder>(

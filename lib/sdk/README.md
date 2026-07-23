@@ -287,7 +287,7 @@ Verifies a credential presented by another agent.
 ```typescript
 const result = await agent.handles.check('my-new-agent')
 console.log(result.available)   // true / false
-console.log(result.isFree)      // true for 5+ char handles
+console.log(result.isFree)      // false for purchasable tiers, including 5+ char handles
 console.log(result.tier)        // "basic" | "standard" | "premium" | "reserved"
 console.log(result.priceDollars) // 0 for free handles
 

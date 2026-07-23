@@ -14,7 +14,7 @@ console.log(`\nAgent ID — Stripe Product Setup`);
 console.log(`Mode: ${isLive ? "LIVE" : "TEST"}`);
 console.log(`App URL: ${APP_URL}\n`);
 console.log(`Plans: Free ($0), Starter ($29/mo), Pro ($79/mo), Enterprise (contact sales)`);
-console.log(`Handles: 3-char=$99/yr, 4-char=$29/yr, 5+=included with Starter/Pro (Enterprise is custom)\n`);
+console.log(`Handles: 3-char=$99/yr, 4-char=$29/yr, 5+=$5/yr standalone (first included with Starter/Pro)\n`);
 
 async function setupProducts() {
   const starterProduct = await stripe.products.create({
@@ -74,7 +74,7 @@ async function setupProducts() {
   const handle3CharProduct = await stripe.products.create({
     name: "Agent ID Handle — 3-Character",
     description: "Premium 3-character handle registration (.agentid namespace), annual renewal",
-    metadata: { type: "handle", tier: "three_char", chars: "3" },
+    metadata: { type: "handle", tier: "premium_3", chars: "3" },
   });
 
   const handle3CharYearly = await stripe.prices.create({
@@ -90,7 +90,7 @@ async function setupProducts() {
 
   const handle4CharProduct = await stripe.products.create({
     name: "Agent ID Handle — 4-Character",
-    description: "Premium 4-character handle registration (.agentid namespace), annual renewal — includes on-chain mint",
+    description: "Premium 4-character handle registration (.agentid namespace), annual renewal — launch resolution is off-chain",
     metadata: { type: "handle", tier: "premium_4", chars: "4" },
   });
 
@@ -105,19 +105,35 @@ async function setupProducts() {
   console.log(`Handle 4-char product: ${handle4CharProduct.id}`);
   console.log(`  Annual ($29/yr): ${handle4CharYearly.id}`);
 
-  console.log(`\nHandle 5+ char: NO Stripe product — included with Starter or Pro. Enterprise access is provisioned separately.`);
+  const handleStandardProduct = await stripe.products.create({
+    name: "Agent ID Handle — Standard",
+    description: "Standard 5+ character .agentid handle registration, annual renewal",
+    metadata: { type: "handle", tier: "standard_5plus", chars: "5+" },
+  });
+
+  const handleStandardYearly = await stripe.prices.create({
+    product: handleStandardProduct.id,
+    unit_amount: 500,
+    currency: "usd",
+    recurring: { interval: "year" },
+    metadata: { handleTier: "standard_5plus", chars: "5+", annualUsd: "5" },
+  });
+
+  console.log(`Handle 5+ char product: ${handleStandardProduct.id}`);
+  console.log(`  Annual ($5/yr): ${handleStandardYearly.id}`);
 
   console.log("\n=== ADD THESE TO REPLIT SECRETS ===");
   console.log(`STRIPE_PRICE_STARTER_MONTHLY=${starterMonthly.id}`);
   console.log(`STRIPE_PRICE_STARTER_YEARLY=${starterYearly.id}`);
   console.log(`STRIPE_PRICE_PRO_MONTHLY=${proMonthly.id}`);
   console.log(`STRIPE_PRICE_PRO_YEARLY=${proYearly.id}`);
-  console.log(`STRIPE_PRICE_HANDLE_3CHAR_YEARLY=${handle3CharYearly.id}`);
-  console.log(`STRIPE_PRICE_HANDLE_4CHAR_YEARLY=${handle4CharYearly.id}`);
+  console.log(`STRIPE_PRICE_HANDLE_ELITE=${handle3CharYearly.id}`);
+  console.log(`STRIPE_PRICE_HANDLE_PREMIUM=${handle4CharYearly.id}`);
+  console.log(`STRIPE_PRICE_HANDLE_STANDARD=${handleStandardYearly.id}`);
   console.log("\nDone! Copy all STRIPE_PRICE_* values into Replit Secrets.");
   console.log("\nNote: Free plan requires no Stripe product — UUID identity only.");
   console.log("Note: Enterprise plan is tailored — no Stripe product required.");
-  console.log("Note: 5+ char handles are included with Starter or Pro — no Stripe product needed. Enterprise access is custom.");
+  console.log("Note: The first 5+ char handle is included with Starter or Pro; Free and additional handles use the $5/year price.");
   console.log("Note: 1-2 char handles are RESERVED — no Stripe product needed.");
 }
 

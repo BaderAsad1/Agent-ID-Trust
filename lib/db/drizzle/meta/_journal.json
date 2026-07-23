@@ -260,6 +260,13 @@
       "when": 1778889600000,
       "tag": "0036_audit_events_target_and_ows_accounts_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1784738100000,
+      "tag": "0037_schema_reconciliation",
+      "breakpoints": true
     }
   ]
 }

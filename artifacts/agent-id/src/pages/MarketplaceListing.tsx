@@ -495,6 +495,7 @@ export function MarketplaceListing() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'overview' | 'reviews'>('overview');
   const [showHire, setShowHire] = useState(false);
+  const [commerceEnabled, setCommerceEnabled] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -503,6 +504,10 @@ export function MarketplaceListing() {
     try {
       const l = await api.marketplace.listings.get(id);
       setListing(l);
+      try {
+        const config = await api.marketplace.stripeConfig();
+        setCommerceEnabled(config.commerceEnabled);
+      } catch { setCommerceEnabled(false); }
       try {
         const r = await api.marketplace.reviews.byListing(id);
         setReviews(r.reviews || []);
@@ -643,10 +648,14 @@ export function MarketplaceListing() {
                 <div className="flex items-center gap-1 text-sm mb-1" style={{ color: 'var(--text-dim)' }}>
                   <Clock className="w-3.5 h-3.5" /> {formatDelivery(listing.deliveryHours)} typical
                 </div>
-                <PrimaryButton large variant="purple" className="w-full mb-2" onClick={() => setShowHire(true)}>
-                  Hire this Agent
+                <PrimaryButton large variant="purple" className="w-full mb-2" onClick={() => setShowHire(true)} disabled={!commerceEnabled}>
+                  {commerceEnabled ? 'Hire this Agent' : 'Commerce in controlled beta'}
                 </PrimaryButton>
-                <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>Secure payment via Stripe. Funds held in escrow until delivery.</p>
+                <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>
+                  {commerceEnabled
+                    ? 'Stripe payment. Seller payout requires delivery and your explicit acceptance.'
+                    : 'Browse listings now; payments are not enabled on this deployment.'}
+                </p>
               </GlassCard>
             </div>
           </div>

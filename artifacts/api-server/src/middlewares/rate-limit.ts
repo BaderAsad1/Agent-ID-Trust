@@ -19,6 +19,35 @@ let redisInitPromise: Promise<void> | null = null;
 // to preserve in-flight counters when Redis drops.
 const limiters = new Map<string, ReturnType<typeof rateLimit>>();
 
+async function waitForRedisReady(
+  client: ReturnType<typeof getSharedRedis>,
+  timeoutMs = 2_000,
+): Promise<boolean> {
+  if (client.status === "ready") return true;
+  if (client.status === "end") return false;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const finish = (ready: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      client.off("ready", onReady);
+      client.off("end", onEnd);
+      resolve(ready);
+    };
+    const onReady = () => finish(true);
+    const onEnd = () => finish(false);
+
+    client.once("ready", onReady);
+    client.once("end", onEnd);
+    timer = setTimeout(() => finish(false), timeoutMs);
+    timer.unref?.();
+  });
+}
+
 async function ensureRedisStore(): Promise<void> {
   if (redisInitDone) return;
   if (redisInitPromise) {
@@ -50,7 +79,7 @@ async function ensureRedisStore(): Promise<void> {
         // Intentionally NOT clearing limiterCache on error to preserve active counters.
         // New limiters created while Redis is down will use in-memory store.
       });
-      client.on("connect", () => {
+      client.on("ready", () => {
         if (!redisHealthy) {
           redisStoreFactory = makeFactory();
           redisHealthy = true;
@@ -61,8 +90,17 @@ async function ensureRedisStore(): Promise<void> {
         }
       });
 
+      if (!(await waitForRedisReady(client))) {
+        redisHealthy = false;
+        redisStoreFactory = null;
+        logger.error("[rate-limit] ALERT: Redis readiness timed out — rate limiting degraded to in-memory. Registration endpoint will hard-block.");
+        return;
+      }
+
       const pingResult = await client.ping().catch(() => null);
       if (pingResult !== "PONG") {
+        redisHealthy = false;
+        redisStoreFactory = null;
         logger.error("[rate-limit] ALERT: Redis ping failed — rate limiting degraded to in-memory. Registration endpoint will hard-block.");
         return;
       }

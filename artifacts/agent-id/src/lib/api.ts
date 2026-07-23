@@ -326,7 +326,7 @@ export const api = {
       },
     },
     stripeConfig: () =>
-      request<{ publishableKey: string }>("/marketplace/stripe-config"),
+      request<{ publishableKey: string; commerceEnabled: boolean }>("/marketplace/stripe-config"),
     reviews: {
       byListing: (listingId: string) =>
         request<{ reviews: Review[] }>(`/marketplace/listings/${listingId}/reviews`),
@@ -1088,9 +1088,9 @@ export interface TaskItem {
   recipientAgentId: string;
   senderUserId: string;
   taskType: string;
+  description?: string | null;
   payload: Record<string, unknown>;
   status: string;
-  description?: string | null;
   paymentAmount?: number | null;
   paymentStatus?: string | null;
   createdAt: string;

@@ -107,9 +107,6 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
   const walletNetwork = agent.walletNetwork || "base-sepolia";
   const isTestnet = walletNetwork.includes("sepolia") || walletNetwork.includes("testnet");
   const explorerBase = isTestnet ? "https://sepolia.basescan.org" : "https://basescan.org";
-  const usdcContract = isTestnet
-    ? "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
-    : "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
   const walletInfo = agent.walletAddress ? {
     status: "provisioned" as const,
@@ -121,8 +118,11 @@ export async function buildBootstrapBundle(agent: Agent): Promise<Record<string,
     explorerUrl: `${explorerBase}/address/${agent.walletAddress}`,
     basescanUrl: `${explorerBase}/address/${agent.walletAddress}`,
     fundingInstructions: `Send USDC on ${walletNetwork} to ${agent.walletAddress}`,
-    x402PaymentEndpoint: `${baseUrl}/api/v1/pay/upgrade/x402`,
-    x402Endpoint: `${baseUrl}/api/v1/pay/upgrade/x402`,
+    x402Enabled: process.env.X402_ENABLED === "true",
+    ...(process.env.X402_ENABLED === "true" ? {
+      x402PaymentEndpoint: `${baseUrl}/api/v1/pay/upgrade/x402`,
+      x402Endpoint: `${baseUrl}/api/v1/pay/upgrade/x402`,
+    } : {}),
   } : {
     status: "not_provisioned" as const,
     address: null,
@@ -235,7 +235,7 @@ export function buildPromptBlock(
   Expires:   ${agent.handleExpiresAt.toISOString()}
   Note:      Handle is a paid alias (like ENS). Renew before expiry to keep it.`
     : `Handle Identity: none — agent resolves by UUID only
-  Register a handle at: ${baseUrl}/api/v1/pay/handle/claim (5+ chars included with Starter or Pro; Enterprise via custom entitlement)`;
+  Register a handle at: ${baseUrl}/api/v1/pay/handle/claim (5+ chars are $5/yr standalone; first included with Starter or Pro; Enterprise via custom entitlement)`;
 
   const inboxSection = inbox?.address
     ? `Your inbox address: ${inbox.address}
@@ -302,7 +302,9 @@ USDC Balance:   ${agent.walletUsdcBalance || "0"}
 Fund wallet:    Send USDC on ${net} to ${agent.walletAddress}
 USDC Contract:  ${usdc}
 Explorer:       ${explorer}/address/${agent.walletAddress}
-x402 Payment:   POST ${baseUrl}/api/v1/pay/upgrade/x402 (include x-payment header)`;
+${process.env.X402_ENABLED === "true"
+  ? `x402 Payment:   POST ${baseUrl}/api/v1/pay/upgrade/x402 (include x-payment header)`
+  : "x402 Payment:   disabled on this deployment"}`;
 })() : `Wallet: not provisioned
 Provision:   POST ${baseUrl}/api/v1/agents/${agentId}/wallet/provision`}
 
