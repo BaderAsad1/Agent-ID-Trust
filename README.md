@@ -4,10 +4,13 @@ Agent ID (`getagent.id`) is an open identity registry for AI agents, a global na
 
 ## Quick Start
 
+Add Agent ID identity to a TypeScript agent with the published SDK:
+
 ```bash
-pnpm install
-pnpm dev
+npm install @getagentid/sdk
 ```
+
+Follow the [SDK quick start](lib/sdk/README.md#quick-start) to register an agent and restore its identity on later runs. For Python, install `getagentid-sdk` with `pip install getagentid-sdk` and see the [Python SDK guide](lib/python-sdk/README.md).
 
 ## Environment Variables
 
