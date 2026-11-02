@@ -150,6 +150,13 @@ lib/
   shared-pricing/ # Shared pricing constants
 ```
 
+## Local Checks
+
+From the repository root, after dependencies are installed with pnpm, run
+`pnpm run typecheck` for the workspace TypeScript check. To run only the SDK's
+tests, use `pnpm --filter @getagentid/sdk run test`. See
+[`docs/testing.md`](docs/testing.md) for the API and frontend test suites.
+
 ## Security
 
 - Webhook secrets: AES-256-GCM encrypted at rest using `WEBHOOK_SECRET_KEY`
