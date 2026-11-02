@@ -160,4 +160,8 @@ lib/
 
 ## License
 
-Proprietary — All rights reserved.
+Original first-party software and documentation in this repository are
+available under the MIT License in [LICENSE](LICENSE). This grant does not
+cover Agent ID names, logos, trademarks, product artwork, or other visual
+brand assets. Third-party components remain under their respective licenses;
+see their included notices and package metadata.

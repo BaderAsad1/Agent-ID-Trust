@@ -43,6 +43,9 @@ Documentation = "https://getagent.id/docs"
 Repository = "https://github.com/getagentid/agentid-python"
 Issues = "https://github.com/getagentid/agentid-python/issues"
 
+[tool.setuptools]
+license-files = ["LICENSE"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["agentid*"]

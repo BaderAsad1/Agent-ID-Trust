@@ -448,4 +448,6 @@ const { payload } = await jwtVerify(vcJwt, JWKS, { algorithms: ['EdDSA'] })
 
 ## License
 
-MIT
+This package's original source and documentation are available under the MIT
+License in [LICENSE](LICENSE). Agent ID names, logos, trademarks, and product
+artwork are excluded. Third-party dependencies retain their own licenses.
