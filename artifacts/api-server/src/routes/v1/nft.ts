@@ -11,6 +11,7 @@ import type { Address } from "viem";
 import { agentOwnerFilter } from "../../services/agents";
 import { generateHandleCardSvg, generateHandleCardSvgDataUri } from "../../lib/handle-card-svg";
 import { validateHandle } from "../../services/agents";
+import { env } from "../../lib/env";
 
 const router = Router();
 
@@ -74,7 +75,7 @@ async function findHandleMetadataRecord(handle: string): Promise<HandleMetadataA
 }
 
 function buildHandleNftMetadata(handle: string, agent: HandleMetadataAgentRecord) {
-  const APP_URL = process.env.APP_URL || "https://getagent.id";
+  const APP_URL = env().APP_URL;
   const handleLen = handle.replace(/[^a-z0-9]/gi, "").length;
   const chainRegs = Array.isArray(agent?.chainRegistrations)
     ? (agent.chainRegistrations as Array<Record<string, unknown>>)
@@ -166,7 +167,7 @@ router.get("/nft/metadata/:handle", sendHandleNftMetadata);
 
 router.get("/metadata/:handle", (req, res) => {
   const handle = encodeURIComponent((req.params.handle as string).toLowerCase().trim());
-  res.redirect(308, `${process.env.APP_URL || "https://getagent.id"}/api/v1/nft/metadata/${handle}`);
+  res.redirect(308, `${env().APP_URL}/api/v1/nft/metadata/${handle}`);
 });
 
 router.get("/handles/:handle/image.svg", async (req, res, next) => {
