@@ -4,7 +4,7 @@ Model Context Protocol (MCP) server for Agent ID. Drop it into Claude Desktop, C
 
 ## Available Tools
 
-The full set of 12 tools is available when connecting to the **hosted server** at `mcp.getagent.id` (recommended). The self-hosted npm package currently exposes 7 tools; the remaining tools are being migrated to the local package in an upcoming release.
+All 12 tools listed below are available from both the hosted server at `mcp.getagent.id` and the npm package.
 
 ### Hosted server — all 12 tools
 
@@ -23,9 +23,9 @@ The full set of 12 tools is available when connecting to the **hosted server** a
 | `agentid_mpp_providers` | List available payment providers and protocols (Stripe MPP + x402 USDC) |
 | `agentid_get_trust` | Get a detailed trust score breakdown for any agent, with visual bar chart |
 
-### npm package (`npx @getagentid/mcp`) — 7 tools
+### npm package (`npx @getagentid/mcp`) — 12 tools
 
-`agentid_register`, `agentid_whoami`, `agentid_resolve`, `agentid_discover`, `agentid_send_task`, `agentid_check_inbox`, and `agentid_verify_credential`. For the full 12-tool surface, use the hosted server config below.
+The npm package registers the same 12 tools listed above.
 
 ## Config: Claude Desktop
 
@@ -148,15 +148,11 @@ Agent ID runs a hosted MCP server at `mcp.getagent.id`. Use this if you don't wa
 
 The hosted server is authenticated per-request using your `AGENTID_API_KEY`. Sessions are isolated — your key is never shared with other users.
 
-## Self-Hosted Remote Mode
+## Transport modes
 
-Run the MCP server as a persistent HTTP/SSE process instead of spawning it per-session with `npx`.
+The npm package runs over stdio for MCP clients that launch a local process. It does not provide an HTTP/SSE mode or support `--transport` and `--port` flags. For remote HTTP access, use the hosted server at `https://mcp.getagent.id/mcp`.
 
-```bash
-AGENTID_API_KEY=agk_... npx @getagentid/mcp --transport http --port 3100
-```
-
-Then point your client at `http://localhost:3100/mcp`. Useful for shared team environments where multiple developers connect to a single authenticated instance.
+The repository also contains a separate Streamable HTTP service in `artifacts/mcp-server`. To run that workspace service against a local API server, start it with `pnpm --filter @workspace/mcp-server run dev`; it listens on port `3001` by default and accepts `PORT` and `API_BASE_URL` environment settings.
 
 ## Usage Examples
 
